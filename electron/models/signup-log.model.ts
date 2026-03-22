@@ -1,0 +1,36 @@
+export interface SignupLog {
+  SignupLogID: string;
+  SignupID: string;
+  Year: number;
+  CeremonyCategoryTitle: string;
+  SignupType: number;
+  HallName: string | null;
+  Name: string;
+  Phone: string | null;
+  NumberTitle: string | null;
+  Number: number | null;
+  Fee: number | null;
+  LivingNameOne: string | null;
+  LivingNameTwo: string | null;
+  LivingNameThree: string | null;
+  LivingNameFour: string | null;
+  LivingNameFive: string | null;
+  LivingNameSix: string | null;
+  DeadNameOne: string | null;
+  DeadNameTwo: string | null;
+  DeadNameThree: string | null;
+  DeadNameFour: string | null;
+  DeadNameFive: string | null;
+  DeadNameSix: string | null;
+  MailCity: string | null;
+  MailZone: string | null;
+  MailAddress: string | null;
+  TextCity: string | null;
+  TextZone: string | null;
+  TextAddress: string | null;
+  Remark: string | null;
+  PrepayYear: number | null;
+  PrepayCeremonyCategoryTitle: string | null;
+  Admin: string;
+  Createdate: Date;
+}

@@ -1,0 +1,38 @@
+appId: com.ceremony.signup
+productName: 法會報名系統
+copyright: Copyright © 2026
+
+directories:
+  output: release
+
+files:
+  - dist-electron/**/*
+  - dist/Ceremony/browser/**/*
+  - .env
+  - "!node_modules/**/*"
+
+extraResources:
+  - from: resources/
+    to: resources/
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  installerIcon: resources/icon.ico
+  uninstallerIcon: resources/icon.ico
+  installerHeaderIcon: resources/icon.ico
+  shortcutName: 法會報名系統
+  artifactName: "Ceremony-Setup-${version}.${ext}"
+
+asar: true
+
+extraMetadata:
+  main: dist-electron/main.js
