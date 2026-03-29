@@ -118,11 +118,13 @@ export class SignupEditComponent implements OnInit {
 
   form: any = null;
   private signupId = '';
+  private originalSnapshot: any = null;
 
   async ngOnInit(): Promise<void> {
     this.signupId = this.route.snapshot.paramMap.get('id') ?? '';
     const r = await this.svc.get(this.signupId);
     if (r.success && r.data) {
+      this.originalSnapshot = { ...r.data };
       this.form = { ...r.data };
       const d = r.data;
       this.deadNames.set([d.DeadNameOne, d.DeadNameTwo, d.DeadNameThree, d.DeadNameFour, d.DeadNameFive, d.DeadNameSix].map((n: any) => n ?? ''));
@@ -155,29 +157,30 @@ export class SignupEditComponent implements OnInit {
     this.saving.set(true);
     this.formError.set('');
 
-    // Create audit log before saving
+    // Create audit log with ORIGINAL values (before user edits)
     const session = this.auth.session();
+    const snap = this.originalSnapshot;
     await this.ipc.invoke('signup-logs:create', {
       SignupLogID: crypto.randomUUID(),
       SignupID: this.signupId,
-      Year: this.form.Year,
-      CeremonyCategoryTitle: this.form.CeremonyTitle || '',
-      SignupType: this.form.SignupType,
-      HallName: this.form.HallName,
-      Name: this.form.Name,
-      Phone: this.form.Phone,
-      NumberTitle: this.form.NumberTitle,
-      Number: this.form.Number,
-      Fee: this.form.Fee,
-      LivingNameOne: this.form.LivingNameOne, LivingNameTwo: this.form.LivingNameTwo,
-      LivingNameThree: this.form.LivingNameThree, LivingNameFour: this.form.LivingNameFour,
-      LivingNameFive: this.form.LivingNameFive, LivingNameSix: this.form.LivingNameSix,
-      DeadNameOne: this.form.DeadNameOne, DeadNameTwo: this.form.DeadNameTwo,
-      DeadNameThree: this.form.DeadNameThree, DeadNameFour: this.form.DeadNameFour,
-      DeadNameFive: this.form.DeadNameFive, DeadNameSix: this.form.DeadNameSix,
-      MailCity: '', MailZone: '', MailAddress: this.form.MailAddress,
-      TextCity: '', TextZone: '', TextAddress: this.form.TextAddress,
-      Remark: this.form.Remark,
+      Year: snap.Year,
+      CeremonyCategoryTitle: snap.CeremonyTitle || '',
+      SignupType: snap.SignupType,
+      HallName: snap.HallName,
+      Name: snap.Name,
+      Phone: snap.Phone,
+      NumberTitle: snap.NumberTitle,
+      Number: snap.Number,
+      Fee: snap.Fee,
+      LivingNameOne: snap.LivingNameOne, LivingNameTwo: snap.LivingNameTwo,
+      LivingNameThree: snap.LivingNameThree, LivingNameFour: snap.LivingNameFour,
+      LivingNameFive: snap.LivingNameFive, LivingNameSix: snap.LivingNameSix,
+      DeadNameOne: snap.DeadNameOne, DeadNameTwo: snap.DeadNameTwo,
+      DeadNameThree: snap.DeadNameThree, DeadNameFour: snap.DeadNameFour,
+      DeadNameFive: snap.DeadNameFive, DeadNameSix: snap.DeadNameSix,
+      MailCity: '', MailZone: '', MailAddress: snap.MailAddress,
+      TextCity: '', TextZone: '', TextAddress: snap.TextAddress,
+      Remark: snap.Remark,
       Admin: session?.Name || 'unknown',
       Createdate: new Date().toISOString(),
     });

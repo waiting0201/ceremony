@@ -26,7 +26,8 @@ BEGIN
         [Username]   NVARCHAR(50)   NOT NULL,
         [Password]   NVARCHAR(20)   NOT NULL,
         [IsEnabled]  BIT            NOT NULL,
-        CONSTRAINT [PK_Admins] PRIMARY KEY CLUSTERED ([AdminID] ASC)
+        CONSTRAINT [PK_Admins] PRIMARY KEY CLUSTERED ([AdminID] ASC),
+        CONSTRAINT [UQ_Admins_Username] UNIQUE ([Username])
     );
 END
 GO
