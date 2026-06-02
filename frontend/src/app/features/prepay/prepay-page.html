@@ -1,0 +1,99 @@
+<div class="page">
+  <header class="header">
+    <h1>載入預繳</h1>
+  </header>
+
+  @if (errorMessage(); as msg) {
+    <div class="alert alert-error">{{ msg }}</div>
+  }
+
+  <section class="form-card">
+    <p class="intro">
+      從來源法會的報名資料中，將「該年度仍有預繳」或「預繳年份尚未到」的信眾，
+      依分組策略批次寫入到目標法會（含自動編號與審計紀錄）。
+    </p>
+
+    <form [formGroup]="form" (ngSubmit)="load()" class="grid">
+      <label class="field">
+        <span>來源民國年 *</span>
+        <input type="number" formControlName="sourceYear" min="1" max="999" />
+      </label>
+      <label class="field">
+        <span>來源法會分類 *</span>
+        <select formControlName="sourceCeremonyId">
+          <option value="">請選擇</option>
+          @for (cat of flatCategories(); track cat.id) {
+            <option [value]="cat.id">{{ cat.title }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="field">
+        <span>目標民國年 *</span>
+        <input type="number" formControlName="targetYear" min="1" max="999" />
+      </label>
+      <label class="field">
+        <span>目標法會分類 *</span>
+        <select formControlName="targetCeremonyId">
+          <option value="">請選擇</option>
+          @for (cat of flatCategories(); track cat.id) {
+            <option [value]="cat.id">{{ cat.title }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="field span-row">
+        <span>信眾分組 *</span>
+        <select formControlName="believerGroup">
+          @for (g of prepayGroups; track g.code) {
+            <option [value]="g.code">{{ g.code }}. {{ g.label }}</option>
+          }
+        </select>
+      </label>
+
+      <div class="form-actions span-row">
+        <button type="submit" class="btn btn-primary" [disabled]="form.invalid || loading()">
+          {{ loading() ? '載入中…' : '執行載入' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  @if (result(); as r) {
+    <section class="result-card">
+      <h2>載入結果</h2>
+      <div class="kpi-grid">
+        <div class="kpi">
+          <span class="label">已載入</span>
+          <span class="value">{{ r.loaded }}</span>
+        </div>
+        <div class="kpi">
+          <span class="label">已跳過</span>
+          <span class="value">{{ r.skipped }}</span>
+        </div>
+        <div class="kpi">
+          <span class="label">固定編號</span>
+          <span class="value">{{ r.details.fixedLoaded }}</span>
+        </div>
+        <div class="kpi">
+          <span class="label">非固定</span>
+          <span class="value">{{ r.details.nonFixedLoaded }}</span>
+        </div>
+        <div class="kpi">
+          <span class="label">延展預繳</span>
+          <span class="value">{{ r.details.carriedForwardPrepay }}</span>
+        </div>
+      </div>
+      @if (r.details.filledGaps.length > 0) {
+        <div class="gaps">
+          <span class="label">已補空缺編號</span>
+          <div class="tags">
+            @for (n of r.details.filledGaps; track n) {
+              <span class="tag">{{ n }}</span>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+</div>

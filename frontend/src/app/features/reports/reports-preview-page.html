@@ -1,0 +1,139 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>列印預覽</h1>
+      <p class="subtitle">產生 PDF 後可預覽、下載或於新視窗開啟列印</p>
+    </div>
+    <a class="btn" routerLink="/signups">← 返回報名維護</a>
+  </header>
+
+  @if (errorMessage(); as msg) {
+    <div class="alert alert-error">{{ msg }}</div>
+  }
+
+  <section class="form-bar">
+    <div class="mode-tabs" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        class="mode-tab"
+        [class.is-active]="mode() === 'single'"
+        (click)="setMode('single')"
+      >
+        單筆列印
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="mode-tab"
+        [class.is-active]="mode() === 'batch'"
+        (click)="setMode('batch')"
+      >
+        批次列印
+      </button>
+    </div>
+
+    @if (mode() === 'single') {
+      <form [formGroup]="singleForm" (ngSubmit)="generateSingle()" class="form-row">
+        <label class="field flex-1 min-160">
+          <span>報表類型</span>
+          <select formControlName="type">
+            @for (t of reportTypes; track t.value) {
+              <option [value]="t.value">{{ t.label }}</option>
+            }
+          </select>
+        </label>
+        <label class="field flex-3 min-260">
+          <span>Signup ID</span>
+          <input
+            type="text"
+            formControlName="signupId"
+            spellcheck="false"
+            placeholder="e.g. 4219f98d-…"
+          />
+        </label>
+        <button
+          type="submit"
+          class="btn btn-primary submit"
+          [disabled]="singleForm.invalid || loading()"
+        >
+          {{ loading() ? '產生中…' : '產生 PDF' }}
+        </button>
+      </form>
+    } @else {
+      <form [formGroup]="batchForm" (ngSubmit)="generateBatch()" class="form-row wrap">
+        <label class="field min-160">
+          <span>報表類型</span>
+          <select formControlName="reportType">
+            @for (t of reportTypes; track t.value) {
+              <option [value]="t.value">{{ t.label }}</option>
+            }
+          </select>
+        </label>
+        <label class="field w-100">
+          <span>民國年</span>
+          <input type="number" formControlName="year" min="1" max="999" />
+        </label>
+        <label class="field-check inline">
+          <input type="checkbox" formControlName="yearGte" />
+          <span>含後續年份</span>
+        </label>
+        <label class="field min-180">
+          <span>法會分類</span>
+          <select formControlName="ceremonyCategoryId">
+            <option value="">全部</option>
+            @for (cat of flatCategories(); track cat.id) {
+              <option [value]="cat.id">{{ cat.title }}</option>
+            }
+          </select>
+        </label>
+        <label class="field min-140">
+          <span>報名類型</span>
+          <select formControlName="signupType">
+            <option [ngValue]="null">全部</option>
+            @for (t of signupTypes; track t.value) {
+              <option [ngValue]="t.value">{{ t.label }}</option>
+            }
+          </select>
+        </label>
+        <label class="field w-100">
+          <span>編號起 *</span>
+          <input type="number" formControlName="numberStart" min="0" />
+        </label>
+        <label class="field w-100">
+          <span>編號迄 *</span>
+          <input type="number" formControlName="numberEnd" min="0" />
+        </label>
+        <button
+          type="submit"
+          class="btn btn-primary submit"
+          [disabled]="batchForm.invalid || loading()"
+        >
+          {{ loading() ? '產生中…' : '產生批次 PDF' }}
+        </button>
+      </form>
+    }
+  </section>
+
+  <section class="preview" [class.is-empty]="!previewUrl()">
+    @if (previewUrl(); as url) {
+      <div class="preview-toolbar">
+        <span class="file-name" [title]="fileName() ?? ''">{{ fileName() }}</span>
+        @if (signupCount() !== null) {
+          <span class="badge">共 {{ signupCount() }} 筆</span>
+        }
+        <span class="spacer"></span>
+        <button type="button" class="btn btn-sm" (click)="openExternal()">新分頁開啟</button>
+        <button type="button" class="btn btn-sm" (click)="download()">下載</button>
+        <button type="button" class="btn btn-sm" (click)="closePreview()">關閉</button>
+      </div>
+      <iframe class="pdf-frame" [src]="url" title="PDF Preview"></iframe>
+    } @else {
+      <div class="empty-state">
+        <div class="empty-illustration">📄</div>
+        <div class="empty-title">尚未產生 PDF</div>
+        <div class="empty-hint">請從上方選擇報表類型並送出，PDF 會顯示在此區域</div>
+      </div>
+    }
+  </section>
+</div>

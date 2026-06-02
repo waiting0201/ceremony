@@ -1,0 +1,51 @@
+@if (errorMessage(); as msg) {
+  <div class="alert alert-error">{{ msg }}</div>
+}
+
+<form [formGroup]="form" (ngSubmit)="onSubmitFromForm()" class="admin-form">
+  <div class="grid">
+    @if (mode() === 'edit') {
+      <div class="field readonly">
+        <span>帳號</span>
+        <div class="readonly-value">{{ admin()?.username }}</div>
+      </div>
+    } @else {
+      <label class="field">
+        <span>帳號 *</span>
+        <input
+          type="text"
+          formControlName="username"
+          autocomplete="off"
+          spellcheck="false"
+          maxlength="50"
+        />
+      </label>
+    }
+    <label class="field">
+      <span>姓名</span>
+      <input type="text" formControlName="name" autocomplete="off" maxlength="50" />
+    </label>
+    <label class="field">
+      <span>{{ mode() === 'edit' ? '新密碼' : '密碼 *' }}</span>
+      <input
+        type="password"
+        formControlName="password"
+        autocomplete="new-password"
+        [placeholder]="mode() === 'edit' ? '留空表示不變更' : ''"
+      />
+    </label>
+    <label class="field">
+      <span>{{ mode() === 'edit' ? '確認新密碼' : '確認密碼 *' }}</span>
+      <input
+        type="password"
+        formControlName="confirmPassword"
+        autocomplete="new-password"
+      />
+    </label>
+  </div>
+
+  @if (form.hasError('passwordMismatch') && form.controls.confirmPassword.dirty) {
+    <div class="hint error">確認密碼輸入錯誤</div>
+  }
+  <button type="submit" hidden></button>
+</form>

@@ -1,0 +1,124 @@
+<div class="page">
+  <header class="page-header">
+    <div class="title-block">
+      <h1>信眾維護</h1>
+      <p class="subtitle">搜尋、新增與維護信眾資料；至少需輸入 1 個搜尋條件。</p>
+    </div>
+    <button type="button" class="btn btn-primary new-btn" (click)="startCreate()">
+      + 新增信眾
+    </button>
+  </header>
+
+  @if (errorMessage(); as msg) {
+    <div class="alert alert-error">{{ msg }}</div>
+  }
+
+  <section class="search-card">
+    <form [formGroup]="searchForm" (ngSubmit)="search()" class="search-row">
+      <label class="field"><span>姓名</span><input type="text" formControlName="name" autocomplete="off" /></label>
+      <label class="field"><span>電話</span><input type="text" formControlName="phone" autocomplete="off" /></label>
+      <label class="field"><span>堂號</span><input type="text" formControlName="hallName" autocomplete="off" /></label>
+      <label class="field"><span>陽上名單</span><input type="text" formControlName="livingName" autocomplete="off" /></label>
+      <label class="field"><span>往生名單</span><input type="text" formControlName="deadName" autocomplete="off" /></label>
+      <div class="search-actions">
+        <button type="button" class="btn" (click)="resetSearch()">清除</button>
+        <button type="submit" class="btn btn-primary" [disabled]="searching()">
+          {{ searching() ? '搜尋中…' : '搜尋' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <section class="results-card">
+    <div class="results-header">
+      <span class="count">共 {{ total() }} 筆</span>
+    </div>
+    @if (searching()) {
+      <div class="hint">搜尋中…</div>
+    } @else if (!hasSearched()) {
+      <div class="hint">請輸入搜尋條件後點「搜尋」</div>
+    } @else if (results().length === 0) {
+      <div class="empty-state">
+        <div class="empty-illustration">👤</div>
+        <div class="empty-title">尚無搜尋結果</div>
+        <div class="empty-hint">無資料，請重新搜尋！</div>
+      </div>
+    } @else {
+      <div class="vgrid-zone">
+        <div class="vgrid-header-clip">
+          <div
+            #headerInner
+            class="vgrid-header"
+            role="row"
+            [style.width.px]="totalGridWidth()"
+            [style.grid-template-columns]="gridTemplateColumns()"
+          >
+            @for (col of columns; track col.id) {
+              <div class="vgrid-th" role="columnheader" [attr.data-col]="col.id">
+                <span class="vgrid-th-label">{{ col.label }}</span>
+              </div>
+            }
+          </div>
+        </div>
+        <cdk-virtual-scroll-viewport
+          #vp
+          [itemSize]="rowHeight"
+          class="vgrid-viewport"
+          (scroll)="onViewportScroll()"
+        >
+          <div
+            *cdkVirtualFor="let item of results(); trackBy: trackRow"
+            class="vgrid-row"
+            role="row"
+            [class.is-selected]="editTarget()?.id === item.id"
+            [style.width.px]="totalGridWidth()"
+            [style.grid-template-columns]="gridTemplateColumns()"
+            [style.height.px]="rowHeight"
+            (contextmenu)="openRowMenu($event, item)"
+          >
+            @for (col of columns; track col.id) {
+              <div
+                class="vgrid-td"
+                role="cell"
+                [attr.data-col]="col.id"
+                [class.dead]="col.cellClass === 'dead'"
+              >
+                @if (col.ops) {
+                  <button
+                    type="button"
+                    class="kebab-btn"
+                    #kebab
+                    (click)="openRowMenuFromButton(kebab, item)"
+                    aria-label="操作"
+                  >
+                    <app-icon name="more" [size]="16" />
+                  </button>
+                } @else {
+                  {{ col.accessor ? col.accessor(item) : '' }}
+                }
+              </div>
+            }
+          </div>
+        </cdk-virtual-scroll-viewport>
+      </div>
+    }
+  </section>
+
+  @if (overlayOpen()) {
+    <app-form-overlay
+      [title]="editTitle()"
+      [dirty]="editDirty()"
+      (close)="onOverlayClose()"
+    >
+      <app-believer-edit-form
+        [believer]="editTarget()"
+        (saved)="onOverlaySaved()"
+        (dirtyChange)="onEditDirtyChange($event)"
+      />
+      <ng-container overlay-actions>
+        <button type="button" class="btn" (click)="onOverlayClose()">取消</button>
+        <button type="button" class="btn btn-primary" (click)="onOverlaySubmit()">確認</button>
+      </ng-container>
+    </app-form-overlay>
+  }
+</div>

@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>bebbd094-8dec-4be2-9d11-78713ccbebdf</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
+    <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ceremony.Application\Ceremony.Application.csproj" />
+    <ProjectReference Include="..\Ceremony.Infrastructure\Ceremony.Infrastructure.csproj" />
+    <ProjectReference Include="..\Ceremony.Domain\Ceremony.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,22 @@
+<div class="page">
+  <header class="header">
+    <div>
+      <h1>{{ title() }}</h1>
+      @if (signupId(); as id) {
+        <div class="breadcrumb">Signup ID: <code>{{ id }}</code></div>
+      }
+    </div>
+  </header>
+
+  <app-signup-edit-form
+    [signupId]="signupId()"
+    [fromSignupId]="fromSignupId()"
+    (saved)="onSaved()"
+    (cancelled)="onCancel()"
+  />
+
+  <div class="form-actions">
+    <a class="btn" routerLink="/signups">取消</a>
+    <button type="button" class="btn btn-primary" (click)="onSubmit()">確認</button>
+  </div>
+</div>

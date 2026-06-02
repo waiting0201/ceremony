@@ -1,0 +1,4 @@
+# backend 專屬忽略（跨專案共通項由 root .gitignore 涵蓋：bin/ obj/ secrets/）
+
+# Sidecar publish 輸出（由 backend/publish.sh|ps1 產出，供 electron-builder 引用）
+/publish/

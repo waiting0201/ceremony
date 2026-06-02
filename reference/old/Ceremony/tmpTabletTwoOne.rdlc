@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Report xmlns="http://schemas.microsoft.com/sqlserver/reporting/2008/01/reportdefinition" xmlns:rd="http://schemas.microsoft.com/SQLServer/reporting/reportdesigner">
+  <AutoRefresh>0</AutoRefresh>
+  <DataSources>
+    <DataSource Name="DataCardDataSet">
+      <ConnectionProperties>
+        <DataProvider>System.Data.DataSet</DataProvider>
+        <ConnectString>/* Local Connection */</ConnectString>
+      </ConnectionProperties>
+      <rd:DataSourceID>4e595d4d-f1b1-4d0c-b6cb-d1356fad5117</rd:DataSourceID>
+    </DataSource>
+  </DataSources>
+  <DataSets>
+    <DataSet Name="TabletDataSet">
+      <Query>
+        <DataSourceName>DataCardDataSet</DataSourceName>
+        <CommandText>/* Local Query */</CommandText>
+      </Query>
+      <Fields>
+        <Field Name="SignupID">
+          <DataField>SignupID</DataField>
+          <rd:TypeName>System.Guid</rd:TypeName>
+        </Field>
+        <Field Name="HallNameFirst">
+          <DataField>HallNameFirst</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="HallNameSecond">
+          <DataField>HallNameSecond</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="LivingNameOne">
+          <DataField>LivingNameOne</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="LivingNameTwo">
+          <DataField>LivingNameTwo</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="LivingNameThree">
+          <DataField>LivingNameThree</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="LivingNameFour">
+          <DataField>LivingNameFour</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="LivingNameFive">
+          <DataField>LivingNameFive</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="LivingNameSix">
+          <DataField>LivingNameSix</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="DeadNameOne">
+          <DataField>DeadNameOne</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="DeadNameTwo">
+          <DataField>DeadNameTwo</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="DeadNameThree">
+          <DataField>DeadNameThree</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="DeadNameFour">
+          <DataField>DeadNameFour</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="DeadNameFive">
+          <DataField>DeadNameFive</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="DeadNameSix">
+          <DataField>DeadNameSix</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+        <Field Name="Number">
+          <DataField>Number</DataField>
+          <rd:TypeName>System.String</rd:TypeName>
+        </Field>
+      </Fields>
+      <rd:DataSetInfo>
+        <rd:DataSetName>DataCardDataSet</rd:DataSetName>
+        <rd:SchemaPath>D:\appsystems\Ceremony\Ceremony\DataCardDataSet.xsd</rd:SchemaPath>
+        <rd:TableName>Tablet</rd:TableName>
+        <rd:TableAdapterFillMethod />
+        <rd:TableAdapterGetDataMethod />
+        <rd:TableAdapterName />
+      </rd:DataSetInfo>
+    </DataSet>
+  </DataSets>
+      <Body>
+        <ReportItems>
+          <Rectangle Name="Rectangle1">
+            <ReportItems>
+              <Textbox Name="HallNameSecond">
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=Fields!HallNameSecond.Value</Value>
+                        <Style>
+                          <FontFamily>標楷體</FontFamily>
+                          <FontSize>0.6cm</FontSize>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style />
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>HallNameSecond</rd:DefaultName>
+                <Top>6.1cm</Top>
+                <Left>3.9cm</Left>
+                <Height>1.3825cm</Height>
+                <Width>0.7cm</Width>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <VerticalAlign>Middle</VerticalAlign>
+                </Style>
+              </Textbox>
+              <Textbox Name="HallNameFirst">
+                <CanGrow>true</CanGrow>
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=Fields!HallNameFirst.Value</Value>
+                        <Style>
+                          <FontFamily>標楷體</FontFamily>
+                          <FontSize>0.6cm</FontSize>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style />
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>HallNameFirst</rd:DefaultName>
+                <Top>6.1cm</Top>
+                <Left>5.9cm</Left>
+                <Height>1.3825cm</Height>
+                <Width>0.7cm</Width>
+                <ZIndex>1</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <VerticalAlign>Middle</VerticalAlign>
+                </Style>
+              </Textbox>
+              <Textbox Name="Number">
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=Fields!Number.Value</Value>
+                        <Style>
+                          <FontFamily>標楷體</FontFamily>
+                          <FontSize>0.8cm</FontSize>
+                          <FontWeight>Bold</FontWeight>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style>
+                      <TextAlign>Left</TextAlign>
+                    </Style>
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Number</rd:DefaultName>
+                <Height>1.13229cm</Height>
+                <Width>4.29646cm</Width>
+                <ZIndex>2</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                  <VerticalAlign>Middle</VerticalAlign>
+                </Style>
+              </Textbox>
+              <Textbox Name="Textbox27">
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=Fields!DeadNameOne.Value</Value>
+                        <Style>
+                          <FontFamily>標楷體</FontFamily>
+                          <FontSize>=Parameters!ParaFontSize.Value</FontSize>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style />
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox26</rd:DefaultName>
+                <Top>7.5825cm</Top>
+                <Left>5.3cm</Left>
+                <Height>6.31cm</Height>
+                <Width>0.8cm</Width>
+                <ZIndex>3</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Textbox>
+              <Textbox Name="Textbox28">
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=Fields!DeadNameTwo.Value</Value>
+                        <Style>
+                          <FontFamily>標楷體</FontFamily>
+                          <FontSize>=Parameters!ParaFontSize.Value</FontSize>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style />
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>Textbox26</rd:DefaultName>
+                <Top>7.5825cm</Top>
+                <Left>4.2cm</Left>
+                <Height>6.31cm</Height>
+                <Width>0.8cm</Width>
+                <ZIndex>4</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Textbox>
+              <Textbox Name="LivingNameOne">
+                <KeepTogether>true</KeepTogether>
+                <Paragraphs>
+                  <Paragraph>
+                    <TextRuns>
+                      <TextRun>
+                        <Value>=Fields!LivingNameOne.Value</Value>
+                        <Style>
+                          <FontFamily>標楷體</FontFamily>
+                          <FontSize>0.8cm</FontSize>
+                        </Style>
+                      </TextRun>
+                    </TextRuns>
+                    <Style />
+                  </Paragraph>
+                </Paragraphs>
+                <rd:DefaultName>LivingNameOne</rd:DefaultName>
+                <Top>14.00389cm</Top>
+                <Left>0.83528cm</Left>
+                <Height>5.5cm</Height>
+                <Width>0.8cm</Width>
+                <ZIndex>5</ZIndex>
+                <Style>
+                  <Border>
+                    <Style>None</Style>
+                  </Border>
+                </Style>
+              </Textbox>
+            </ReportItems>
+            <KeepTogether>true</KeepTogether>
+            <Height>25.4cm</Height>
+            <Width>11.5cm</Width>
+            <Style>
+              <Border>
+                <Style>None</Style>
+              </Border>
+            </Style>
+          </Rectangle>
+        </ReportItems>
+        <Height>25.4cm</Height>
+        <Style />
+      </Body>
+      <Width>11.5cm</Width>
+      <Page>
+        <PageHeight>25.4cm</PageHeight>
+        <PageWidth>11.5cm</PageWidth>
+        <InteractiveHeight>25.4cm</InteractiveHeight>
+        <InteractiveWidth>11.5cm</InteractiveWidth>
+        <LeftMargin>0cm</LeftMargin>
+        <RightMargin>0cm</RightMargin>
+        <TopMargin>0cm</TopMargin>
+        <BottomMargin>0cm</BottomMargin>
+        <ColumnSpacing>0.13cm</ColumnSpacing>
+        <Style />
+      </Page>
+  <ReportParameters>
+    <ReportParameter Name="ParaFontSize">
+      <DataType>String</DataType>
+      <DefaultValue>
+        <Values>
+          <Value>0.8cm</Value>
+        </Values>
+      </DefaultValue>
+      <Prompt>ReportParameter1</Prompt>
+    </ReportParameter>
+  </ReportParameters>
+  <ConsumeContainerWhitespace>true</ConsumeContainerWhitespace>
+  <rd:ReportUnitType>Cm</rd:ReportUnitType>
+  <rd:ReportID>d79ce410-8ab2-4c91-8253-b59e667c4c60</rd:ReportID>
+</Report>

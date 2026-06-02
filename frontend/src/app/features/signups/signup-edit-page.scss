@@ -1,0 +1,20 @@
+:host { display: block; }
+
+.page { display: grid; gap: var(--space-md); max-width: 1100px; }
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  h1 { margin: 0; font-size: var(--font-size-xl); }
+  .breadcrumb { font-size: var(--font-size-sm); color: var(--c-text-secondary); margin-top: var(--space-xs); }
+  .breadcrumb code { font-family: ui-monospace, monospace; background: var(--c-bg-darker); padding: 0 4px; border-radius: 2px; }
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+}

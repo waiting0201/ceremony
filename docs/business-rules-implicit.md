@@ -1,0 +1,267 @@
+---
+title: 隱含業務規則（舊系統未文件化）
+purpose: 從舊原始碼反推但未在分析文件記錄的業務規則 — 重構時必須沿用
+applicable_when: 寫新系統的業務邏輯、處理邊界 case、設計 API validation、寫驗收測試
+related_agents:
+  - backend-engineer
+  - system-analyst
+  - qa-test-engineer
+related_docs:
+  - blueprints/signup-management.md
+  - blueprints/believer-management.md
+  - blueprints/prepay-loading.md
+  - blueprints/printing-reports.md
+  - design/database-design.md
+keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號]
+last_updated: 2026-06-02
+---
+
+> 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
+
+## 1. 編號生成與唯一性
+
+### 1.1 編號生成純序列，不跳號
+- `Library.GetSignupNumber(Year, CeremonyCategoryID, SignupType)` 取 MAX(Number)+1
+- **不跳過 4**（避 4 只在顯示層）
+- 無記錄則回 1
+
+### 1.2 唯一性檢查的 key
+- key 是 `(Year, CeremonyCategoryID, SignupType, Number)` — **不含 BelieverID**
+- 編輯時排除自身 `a.SignupID != ParamSignupID`
+- 重複訊息：`"{Year} {Ceremony} {Type} 編號重複，請重新確認！"`
+
+### 1.3 Number 實質 NOT NULL
+- DB schema 允許 nullable
+- 應用層永遠寫入值（GetSignupNumber 或 cbKeepNumber 手動）
+- 顯示時直接 `(int)cell.Value` 無 null check
+
+### 1.4 同信眾同 (Year, Ceremony, SignupType) 可有多筆 Signup
+- code **不檢查** BelieverID 重複；只檢查 Number 重複
+- 允許情境：同信眾在中元同時報「一般」+「觀音會」（不同 SignupType，編號不衝突）
+
+### 1.5 BelieverID 可為 null（寺方場景）
+- LoadPrepay case 3（寺方）允許 null BelieverID
+- 新增時若選「寺方」類型可不綁信眾
+- 列印時若 Signup.Name 為 null 則從 Believer 取
+
+---
+
+## 2. 避 4 規則邊界（**完整定義**）
+
+完整定義見 [printing-reports.md](blueprints/printing-reports.md) 或 [glossary.md](glossary.md) §「避 4」。重點：
+
+- **只避個位 4**，十位/百位/千位的 4 **不避**
+- DB 存實值，僅顯示轉換
+- 矩陣：
+
+| Number | 顯示 |
+|---|---|
+| 4 | `3-1` |
+| 14 | `13-1` |
+| 40 | `40`（不避） |
+| 44 | `43-1` |
+| 140 | `140`（不避） |
+| 144 | `143-1` |
+| 400 | `400`（不避） |
+| 404 | `403-1` |
+
+---
+
+## 3. Believer 與 Signup 兩級欄位設計
+
+### 3.1 編輯 Signup 時的 Believer 同步策略
+
+`EditSignupForm.btnConfirm`：
+
+**會同步至 Believers**：
+- HallName
+- EmployeeType
+- IsFixedNumber
+
+**故意不同步**（line 228-229 註解掉）：
+- Name
+- Phone
+
+設計動機：
+- Believer 是**人員主檔**（搬家少、改電話少）
+- Signup 是**該次報名快照**（每年要寄哪、寫什麼名可能不同）
+
+### 3.2 信眾資料帶入（NewSignup 選既有信眾時）優先順序
+
+```
+Name/Phone：
+  1. Signup record（若有 SignupID）
+  2. DataGridView 列的 ColName/ColPhone
+  3. Believer.Name/Phone（fallback）
+
+Address (Mail/Text)：
+  1. Signup.Zipcodes
+  2. Believer.Zipcodes
+```
+
+### 3.3 編輯 Signup 時 SignupLog 寫入的 Name 來源
+
+⚠️ **不一致行為**（舊系統 quirk）：
+- **新增**：寫 SignupLog 用 `txtName.Text`（編輯區當下值）
+- **編輯**：寫 SignupLog 用 `believer.Name`（DB 內 Believer 主檔，**不是** Signup 級的 Name）
+
+新系統應該統一（建議都用 Signup 級 Name 寫 log，避免資訊遺失）。
+
+---
+
+## 4. 年份限制
+
+| 場景 | 規則 | 訊息 |
+|---|---|---|
+| 新增報名 Year | < 當年民國年 → 拒 | `請勿輸入今年以前的年份` |
+| 預繳 PrepayYear | < 當年 → 拒；通常 ≥ 當年+1 | `預繳年份需大於{currentYear}，請重新確認！` |
+| 編輯舊年（Year < 當年） | 預繳區塊整個 disabled | – |
+
+---
+
+## 5. 法會分類刪除限制（**雙重檢查**）
+
+```csharp
+if (!ceremonycategory.Signups.Any() && !ceremonycategory.CeremonyCategorys1.Any()) {
+    // 可刪
+} else {
+    // "已有報名或還有下層法會，無法刪除"
+}
+```
+
+- 檢查 1：該分類無 Signups
+- 檢查 2：該分類無子分類（即使子分類本身也無 Signups）
+
+---
+
+## 6. 信眾刪除（**整批中止**）
+
+`BelieverForm.tsmiDelete_Click`：
+
+```csharp
+foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
+    Believers believer = believersService.GetByID(...);
+    if (believer.Signups.Any()) {
+        MessageBox.Show(believer.Name + " 已有報名資料，不能刪除！");
+        return;  // **整批中止**
+    }
+    deletes.Add(BelieverID);
+}
+```
+
+- 多選刪除時，**任一信眾有報名**即**整批中止**
+- **不會**跳過該筆繼續刪其他
+
+新系統可考慮改為「跳過該筆 + 顯示哪些被跳過」的 UX，但目前保留舊行為避免使用者驚訝。
+
+---
+
+## 7. 載入預繳（**無 idempotency**）
+
+詳見 [prepay-loading.md](blueprints/prepay-loading.md)。重點：
+
+- **無 idempotency 檢查** — 連按確認或重啟後再跑會產生**重複資料**
+- 唯一防護：`btnConfirm.Enabled = false`（line 63）
+- **無顯式 transaction**，EF SaveChanges 自帶
+- 6 case 連續 Create 至 DbContext，最後 SaveChanges 一次
+
+新系統必須加 idempotency 檢查（已在 prepay-loading blueprint 標註）。
+
+---
+
+## 8. 列印模板選擇（**3 系列 17 個變體的觸發條件**）
+
+詳見 [printing-reports.md](blueprints/printing-reports.md)。重點：
+
+- **薦牌 9 變體**：依 DeadName 深度（1 / 2 / 3+）× LivingName 深度（1 only / 2 only / 3+）3×3 矩陣
+- **文牒 2 變體**：DeadNameTwo 有值 AND DeadName3..6 空 → `tmpTextTwo`，否則 `tmpText`
+- **普桌 6 變體**：依 LivingName 最高有值位置 → tmpWorshipOne / Two / Three / Four / Five / tmpWorship
+- **資料卡 / 收據**：固定，無變體
+
+### 薦牌字級邏輯（ParaFontSize）
+
+| DeadName 深度 | DeadName 字長 | ParaFontSize |
+|---|---|---|
+| 僅 DeadName1 | > 7 字 | 0.6cm |
+| 僅 DeadName1 | ≤ 7 字 | 0.8cm |
+| DeadName1+2 | 任一 > 7 字 | 0.6cm |
+| DeadName1+2 | 都 ≤ 7 字 | 0.8cm |
+| DeadName 3+ | 任意 | **固定 0.6cm** |
+
+> **字長以「真實字數」計（排除半形/全形空格）。** 使用者會在姓名中間刻意輸入空格作排版間隙（直書渲染時保留為空白列），此間隙**不計入** > 7 字門檻。
+> 實作：`PrintTemplateSelector.RealCharCount`（`char.IsWhiteSpace`，涵蓋 U+0020 與全形 U+3000）。
+> **刻意偏離 legacy**：舊 `SignupForm.cs:1179/1203` 用 `Trim().Length`，會把中間空格計入而誤縮字級。詳見 [gotchas.md](gotchas.md)「姓名中間空格」條與 [legacy-coverage/signup-form.md](blueprints/legacy-coverage/signup-form.md)。
+
+---
+
+## 9. 寺方編號顯示特例
+
+- SignupType=2（寺方）：顯示時**只顯示 NumberTitle「寺」，不附 Number**
+- SignupForm line 302 的格式邏輯：`row["Display"] = (signupType == 2) ? numberTitle : numberTitle + GetNumberText(number)`
+
+---
+
+## 10. Phone 全/半形轉換
+
+- 存入前用 `Microsoft.VisualBasic.Strings.StrConv(VbStrConv.Narrow)` 全形 → 半形
+- 規則：信眾與報名儲存時都做
+- Regex：`^0[0-9]*$`（必 0 開頭）
+
+新系統用自製工具實現（不依賴 VB runtime）。
+
+---
+
+## 11. 表單驗證 regex 一覽
+
+| 欄位 | Regex | 允許空 |
+|---|---|---|
+| 民國年 | `^1[0-9]{2}$` | 否 |
+| 電話 | `^0[0-9]*$` | 是 |
+| 編號 | `^[1-9][0-9]*$` | 視情境 |
+| 費用 | `^[0-9]*$` | **是**（空字串視為 0 或不填） |
+
+---
+
+## 12. 「同寄件地址」勾選邏輯
+
+- 勾選：複製 Mail 至 Text；mail 為空時阻止勾選並彈 `"請先輸入寄件地址"`
+- 取消：清空 Text 區（City/Zone/Address 全還原為 placeholder）
+
+實作細節：用 `SelectedIndex` 複製（兩個 City list 順序相同因 query 一樣，但脆弱）。
+
+---
+
+## 13. 編輯舊年報名的限制
+
+- 若 `signup.Year < currentTaiwanYear`，UI 上：
+  - `txtPrepayYear.Enabled = false`
+  - `dlPrepayCeremony.Enabled = false`
+- 業務意義：舊年資料不允許再加/改預繳（已成定局）
+
+---
+
+## 14. PredicateBuilder 搜尋默認
+
+- 全空條件 → AND predicate = true、OR predicate 不套用 → **回傳全部資料**
+- 結果為空 → 顯示「無資料，請重新搜尋！」
+- 主搜尋面板 OR 條件依**任一姓名/陽上/往生/電話**checkbox 啟用
+
+---
+
+## 15. 新增 vs 編輯的 Number 行為
+
+| 場景 | Number 處理 |
+|---|---|
+| 新增、`cbKeepNumber` 未勾 | `Library.GetSignupNumber()` 自動產 |
+| 新增、`cbKeepNumber` 勾 + 空 | 拒：`請輸入編號` |
+| 新增、`cbKeepNumber` 勾 + 重複 | 拒：`{Year} {Ceremony} {Type} 編號重複，請重新確認！` |
+| 編輯、修改 Number | 檢查重複（排除自身 SignupID），訊息：`編號重複，請重新確認！` |
+
+---
+
+## 16. 「列印普桌」啟用條件
+
+- SignupForm 右鍵 menu「列印普桌」：**僅當 `dlSearchSignupType.SelectedValue == 4` 才 enabled**
+- 其他四種列印選項恆可用
+
+> 即使搜尋類型不是普桌，使用者仍可手動點批次列印面板的「普桌」類型。menu 啟用是 UX 提示而非強制。

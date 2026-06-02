@@ -1,0 +1,23 @@
+:host { display: block; }
+
+.admin-form {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 360px;
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+    @media (max-width: 600px) { grid-template-columns: 1fr; }
+  }
+
+  .field.readonly .readonly-value {
+    display: flex;
+    align-items: center;
+    height: var(--control-height);
+    padding: 0 var(--space-sm);
+    color: var(--c-text-primary);
+    font-weight: 500;
+  }
+}

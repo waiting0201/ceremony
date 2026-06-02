@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<edmx:Edmx Version="3.0" xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+ <!-- EF Designer content (DO NOT EDIT MANUALLY BELOW HERE) -->
+  <edmx:Designer xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+    <!-- Diagram content (shape and connector positions) -->
+    <edmx:Diagrams>
+      <Diagram DiagramId="d99df9a8fe524dce93e6ebd83ccf7c47" Name="Diagram1">
+        <EntityTypeShape EntityType="CeremonyModel.Admins" Width="1.5" PointX="7.75" PointY="2.625" IsExpanded="true" />
+        <EntityTypeShape EntityType="CeremonyModel.Believers" Width="1.5" PointX="3" PointY="4" IsExpanded="true" />
+        <EntityTypeShape EntityType="CeremonyModel.CeremonyCategorys" Width="1.5" PointX="3" PointY="0.75" IsExpanded="true" />
+        <EntityTypeShape EntityType="CeremonyModel.Zipcodes" Width="1.5" PointX="0.75" PointY="5.625" IsExpanded="true" />
+        <AssociationConnector Association="CeremonyModel.FK_Believers_Zipcodes" ManuallyRouted="false" />
+        <AssociationConnector Association="CeremonyModel.FK_Believers_Zipcodes1" ManuallyRouted="false" />
+        <AssociationConnector Association="CeremonyModel.FK_CeremonyCategorys_CeremonyCategorys1" ManuallyRouted="false" />
+        <EntityTypeShape EntityType="CeremonyModel.SignupLogs" Width="1.5" PointX="7.375" PointY="10.75" />
+        <EntityTypeShape EntityType="CeremonyModel.Signups" Width="1.5" PointX="5.25" PointY="1.25" />
+        <AssociationConnector Association="CeremonyModel.FK_Signups_Believers" />
+        <AssociationConnector Association="CeremonyModel.FK_Signups_CeremonyCategorys" />
+        <AssociationConnector Association="CeremonyModel.FK_Signups_CeremonyCategorys2" />
+        <AssociationConnector Association="CeremonyModel.FK_Signups_Zipcodes" />
+        <AssociationConnector Association="CeremonyModel.FK_Signups_Zipcodes1" />
+        <EntityTypeShape EntityType="CeremonyModel.BelieverView" Width="1.5" PointX="9.75" PointY="5.75" />
+        <EntityTypeShape EntityType="CeremonyModel.SignupView" Width="1.5" PointX="0.75" PointY="10.75" />
+      </Diagram>
+    </edmx:Diagrams>
+  </edmx:Designer>
+</edmx:Edmx>

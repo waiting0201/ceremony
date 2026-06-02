@@ -1,0 +1,70 @@
+<div class="page">
+  <header class="header">
+    <div>
+      <h1>報名變更紀錄</h1>
+      <div class="breadcrumb">Signup ID: <code>{{ signupId() }}</code></div>
+    </div>
+    <div class="actions">
+      <a class="btn" routerLink="/signups">← 返回搜尋</a>
+      <button type="button" class="btn" (click)="load()" [disabled]="loading()">重新整理</button>
+    </div>
+  </header>
+
+  @if (errorMessage(); as msg) {
+    <div class="alert alert-error">{{ msg }}</div>
+  }
+
+  @if (loading()) {
+    <div class="hint">載入中…</div>
+  } @else if (logs().length === 0) {
+    <div class="hint">尚無變更紀錄</div>
+  } @else {
+    <div class="log-list">
+      @for (log of logs(); track log.id) {
+        <article class="log-card">
+          <div class="log-head">
+            <div class="left">
+              <span class="badge">{{ signupTypeLabel(log.signupType) }}</span>
+              <strong>{{ log.year }} {{ log.ceremonyCategoryTitle ?? '—' }}</strong>
+              <span class="num">{{ log.numberTitle ?? '' }}-{{ log.number | avoidFour }}</span>
+            </div>
+            <div class="right">
+              <span class="meta">{{ log.admin ?? '—' }}</span>
+              <span class="meta sub">{{ log.createDate ?? '' }}</span>
+            </div>
+          </div>
+          <dl class="log-body">
+            <dt>姓名/堂號</dt>
+            <dd>{{ log.name ?? '—' }}{{ log.hallName ? ' / ' + log.hallName : '' }}</dd>
+            <dt>電話 / 費用</dt>
+            <dd>{{ log.phone ?? '—' }} / {{ log.fee ?? '—' }}</dd>
+            <dt>陽上名單</dt>
+            <dd>
+              @for (n of log.livingNames; track $index) {
+                @if (n) { <span class="tag">{{ n }}</span> }
+              }
+            </dd>
+            <dt>往生名單</dt>
+            <dd>
+              @for (n of log.deadNames; track $index) {
+                @if (n) { <span class="tag dead">{{ n }}</span> }
+              }
+            </dd>
+            <dt>寄件地址</dt>
+            <dd>{{ log.mailCity ?? '' }}{{ log.mailZone ?? '' }}{{ log.mailAddress ?? '' }}</dd>
+            <dt>文牒地址</dt>
+            <dd>{{ log.textCity ?? '' }}{{ log.textZone ?? '' }}{{ log.textAddress ?? '—' }}</dd>
+            @if (log.prepayYear) {
+              <dt>預繳</dt>
+              <dd>{{ log.prepayYear }} {{ log.prepayCeremonyCategoryTitle ?? '' }}</dd>
+            }
+            @if (log.remark) {
+              <dt>備註</dt>
+              <dd>{{ log.remark }}</dd>
+            }
+          </dl>
+        </article>
+      }
+    </div>
+  }
+</div>

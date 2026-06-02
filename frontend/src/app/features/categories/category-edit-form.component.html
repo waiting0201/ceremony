@@ -1,0 +1,18 @@
+@if (errorMessage(); as msg) {
+  <div class="alert alert-error">{{ msg }}</div>
+}
+@if (hint()) {
+  <div class="hint small">{{ hint() }}</div>
+}
+
+<form [formGroup]="form" (ngSubmit)="onSubmitFromForm()" class="category-form">
+  <label class="field">
+    <span>名稱 *</span>
+    <input type="text" formControlName="title" maxlength="50" autocomplete="off" />
+  </label>
+  <label class="field">
+    <span>排序</span>
+    <input type="number" formControlName="sort" min="0" />
+  </label>
+  <button type="submit" hidden></button>
+</form>

@@ -1,0 +1,71 @@
+<div class="page">
+  <header class="header">
+    <h1>法會類型維護</h1>
+    <div class="actions">
+      <button type="button" class="btn" (click)="reload()" [disabled]="loading()">重新整理</button>
+      <button type="button" class="btn btn-primary" (click)="startCreateRoot()">新增根分類</button>
+    </div>
+  </header>
+
+  @if (errorMessage(); as msg) {
+    <div class="alert alert-error">{{ msg }}</div>
+  }
+
+  <div class="tree-pane">
+    @if (loading()) {
+      <div class="hint">載入中…</div>
+    } @else if (tree().length === 0) {
+      <div class="hint">尚無資料</div>
+    } @else {
+      <ul class="tree">
+        @for (root of tree(); track root.id) {
+          <li class="node">
+            <div class="row">
+              <span class="title">{{ root.title }}</span>
+              <span class="sort">排序 {{ root.sort }}</span>
+              <span class="ops">
+                <button type="button" class="btn btn-sm" (click)="startCreateChild(root)">新增子項</button>
+                <button type="button" class="btn btn-sm" (click)="startEdit(root)">編輯</button>
+                <button type="button" class="btn btn-sm btn-danger" (click)="remove(root)">刪除</button>
+              </span>
+            </div>
+            @if (root.children.length > 0) {
+              <ul class="tree children">
+                @for (child of root.children; track child.id) {
+                  <li class="node">
+                    <div class="row">
+                      <span class="title">{{ child.title }}</span>
+                      <span class="sort">排序 {{ child.sort }}</span>
+                      <span class="ops">
+                        <button type="button" class="btn btn-sm" (click)="startEdit(child)">編輯</button>
+                        <button type="button" class="btn btn-sm btn-danger" (click)="remove(child)">刪除</button>
+                      </span>
+                    </div>
+                  </li>
+                }
+              </ul>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </div>
+
+  @if (editTarget(); as t) {
+    <app-form-overlay
+      [title]="editTitle()"
+      [dirty]="editDirty()"
+      (close)="onOverlayClose()"
+    >
+      <app-category-edit-form
+        [target]="t"
+        (saved)="onOverlaySaved()"
+        (dirtyChange)="onEditDirtyChange($event)"
+      />
+      <ng-container overlay-actions>
+        <button type="button" class="btn" (click)="onOverlayClose()">取消</button>
+        <button type="button" class="btn btn-primary" (click)="onOverlaySubmit()">確認</button>
+      </ng-container>
+    </app-form-overlay>
+  }
+</div>

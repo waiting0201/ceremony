@@ -1,0 +1,156 @@
+:host { display: block; }
+
+.form-card {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.block {
+  margin: 0;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 2px;
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+
+  legend { padding: 0 var(--space-xs); font-size: var(--font-size-sm); color: var(--c-text-secondary); }
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-md);
+
+  // 防溢出：grid 子項預設 min-width:auto 會被 input 的固有寬度撐爆，導致郵遞區號等欄位超出 overlay
+  > * { min-width: 0; }
+
+  // minmax(0, 1fr)：1fr 預設下限是內容寬，改 0 才能真正收縮
+  &.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  &.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  &.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  // 地址：城市 / 區域 / 郵遞區號（窄）三欄一列；地址另起整列
+  &.addr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px; }
+  .span-row { grid-column: 1 / -1; }
+
+  @media (max-width: 760px) {
+    &.three, &.four, &.addr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 480px) {
+    &.two, &.three, &.four, &.addr { grid-template-columns: minmax(0, 1fr); }
+  }
+}
+
+// 表單內所有控件填滿欄寬且含 border 不溢出（全域 .field 未設 box-sizing/width）
+.form-card input,
+.form-card select,
+.form-card textarea {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+// 唯讀欄位（如員工類型、郵遞區號）：淡背景表示不可編輯
+.field input[readonly] {
+  background: var(--c-bg-darker);
+  color: var(--c-text-secondary);
+}
+
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  user-select: none;
+  cursor: pointer;
+  input { width: 16px; height: 16px; }
+}
+
+.believer-card {
+  background: var(--c-row-alt);
+  padding: var(--space-md);
+  border-radius: 2px;
+  border: 1px solid var(--c-border-soft);
+
+  .row1 { display: flex; align-items: center; gap: var(--space-sm); }
+  .row1 strong { font-size: var(--font-size-md); }
+  .hall { font-size: var(--font-size-xs); background: var(--c-primary-soft); padding: 1px var(--space-xs); border-radius: 2px; }
+  .meta { color: var(--c-text-secondary); font-size: var(--font-size-sm); margin-left: auto; }
+  .row2 { color: var(--c-text-secondary); font-size: var(--font-size-sm); margin-top: var(--space-xs); }
+  .btn { margin-top: var(--space-sm); }
+}
+
+.names {
+  .name-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-xs);
+    @media (max-width: 700px) { grid-template-columns: repeat(2, 1fr); }
+
+    input {
+      height: var(--control-height);
+      padding: 0 var(--space-sm);
+      border: 1px solid var(--c-border);
+      border-radius: 2px;
+      font-family: inherit;
+    }
+  }
+  &.dead .name-grid input { background: var(--c-dead-name-bg); }
+}
+
+.picker-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.picker-modal {
+  background: var(--c-surface);
+  border-radius: 4px;
+  width: 560px;
+  max-width: calc(100vw - var(--space-xl));
+  max-height: calc(100vh - var(--space-xl));
+  display: flex;
+  flex-direction: column;
+}
+.picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--c-border-soft);
+  h2 { margin: 0; font-size: var(--font-size-lg); }
+}
+.picker-body {
+  padding: var(--space-md);
+  display: grid;
+  gap: var(--space-sm);
+  overflow: auto;
+}
+.search-input {
+  height: var(--control-height);
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--c-border);
+  border-radius: 2px;
+  font-family: inherit;
+}
+.picker-results { display: grid; gap: var(--space-xs); max-height: 400px; overflow: auto; }
+.picker-row {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  background: var(--c-row-alt);
+  border: 1px solid var(--c-border-soft);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 2px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  color: var(--c-text-primary);
+
+  &:hover { background: var(--c-primary-soft); border-color: var(--c-primary); }
+
+  .r1 { display: flex; align-items: center; gap: var(--space-sm); }
+  .hall { background: var(--c-primary-soft); padding: 0 var(--space-xs); border-radius: 2px; font-size: var(--font-size-xs); }
+  .meta { color: var(--c-text-secondary); margin-left: auto; font-size: var(--font-size-xs); }
+  .r2 { color: var(--c-text-secondary); font-size: var(--font-size-xs); }
+}

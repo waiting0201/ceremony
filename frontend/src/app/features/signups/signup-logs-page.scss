@@ -1,0 +1,68 @@
+:host { display: block; }
+
+.page { display: grid; gap: var(--space-md); }
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+
+  h1 { margin: 0; font-size: var(--font-size-xl); }
+  .breadcrumb { font-size: var(--font-size-sm); color: var(--c-text-secondary); margin-top: var(--space-xs); }
+  .breadcrumb code { font-family: ui-monospace, monospace; background: var(--c-bg-darker); padding: 0 4px; border-radius: 2px; }
+  .actions { display: flex; gap: var(--space-sm); align-items: center; }
+  a.btn { display: inline-flex; align-items: center; text-decoration: none; }
+}
+
+.log-list { display: grid; gap: var(--space-md); }
+
+.log-card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  padding: var(--space-md);
+}
+
+.log-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--c-border-soft);
+
+  .left { display: flex; align-items: center; gap: var(--space-sm); }
+  .right { display: flex; flex-direction: column; align-items: flex-end; }
+  .meta { font-size: var(--font-size-xs); }
+  .meta.sub { color: var(--c-text-secondary); }
+  .badge {
+    background: var(--c-primary-soft);
+    color: var(--c-primary-hover);
+    padding: 2px var(--space-sm);
+    border-radius: 2px;
+    font-size: var(--font-size-xs);
+  }
+  .num { color: var(--c-text-secondary); font-family: ui-monospace, monospace; }
+}
+
+.log-body {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: var(--space-xs) var(--space-md);
+  margin: var(--space-sm) 0 0;
+  font-size: var(--font-size-sm);
+
+  dt { color: var(--c-text-secondary); }
+  dd { margin: 0; color: var(--c-text-primary); }
+
+  .tag {
+    display: inline-block;
+    background: var(--c-primary-soft);
+    padding: 1px var(--space-xs);
+    margin-right: var(--space-xs);
+    border-radius: 2px;
+    font-size: var(--font-size-xs);
+    &.dead { background: var(--c-dead-name-bg); }
+  }
+}

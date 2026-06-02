@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Ceremony.Api/Ceremony.Api.csproj" />
+    <Project Path="src/Ceremony.Application/Ceremony.Application.csproj" />
+    <Project Path="src/Ceremony.Domain/Ceremony.Domain.csproj" />
+    <Project Path="src/Ceremony.Infrastructure/Ceremony.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Ceremony.Api.IntegrationTests/Ceremony.Api.IntegrationTests.csproj" />
+    <Project Path="tests/Ceremony.Application.Tests/Ceremony.Application.Tests.csproj" />
+    <Project Path="tests/Ceremony.Infrastructure.Tests/Ceremony.Infrastructure.Tests.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,73 @@
+:host { display: block; height: 100%; }
+
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.page-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+
+  .title-block { min-width: 0; flex: 1 1 240px; }
+  h1 { margin: 0; font-size: var(--font-size-xl); }
+  .subtitle { margin: var(--space-xs) 0 0; color: var(--c-text-secondary); font-size: var(--font-size-sm); }
+  .new-btn { flex: 0 0 auto; white-space: nowrap; }
+}
+
+.search-card {
+  flex: 0 0 auto;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  padding: var(--space-md) var(--space-lg);
+}
+
+.search-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-md);
+
+  .field { flex: 1 1 140px; min-width: 0; }
+  .search-actions { display: flex; gap: var(--space-sm); flex: 0 0 auto; align-self: flex-end; }
+}
+
+.results-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.results-header {
+  flex: 0 0 auto;
+  padding: var(--space-sm) var(--space-md);
+  border-bottom: 1px solid var(--c-border-soft);
+  background: var(--c-bg-darker);
+  font-size: var(--font-size-sm);
+  color: var(--c-text-secondary);
+}
+
+.hint { flex: 0 0 auto; padding: var(--space-md); color: var(--c-text-secondary); }
+
+.empty-state { flex: 1 1 auto; }
+
+/* 操作欄 kebab cell：移除 .vgrid-td 預設 padding 讓按鈕置中 */
+.vgrid-td[data-col='ops'] {
+  justify-content: center;
+  padding: 0;
+}

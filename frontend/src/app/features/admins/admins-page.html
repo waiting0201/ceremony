@@ -1,0 +1,73 @@
+<div class="page">
+  <header class="header">
+    <h1>管理者維護</h1>
+    <div class="actions">
+      <button type="button" class="btn" (click)="reload()" [disabled]="loading()">重新整理</button>
+      <button type="button" class="btn btn-primary" (click)="startCreate()">新增管理者</button>
+    </div>
+  </header>
+
+  @if (errorMessage(); as msg) {
+    <div class="alert alert-error">{{ msg }}</div>
+  }
+  @if (successMessage(); as msg) {
+    <div class="alert alert-success">{{ msg }}</div>
+  }
+
+  <div class="table-card">
+    @if (loading()) {
+      <div class="hint">載入中…</div>
+    } @else if (admins().length === 0) {
+      <div class="hint">尚無資料</div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>帳號</th>
+            <th>姓名</th>
+            <th class="ops-col"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (admin of admins(); track admin.id) {
+            <tr (contextmenu)="openRowMenu($event, admin)">
+              <td>{{ admin.id }}</td>
+              <td>{{ admin.username }}</td>
+              <td>{{ admin.name ?? '—' }}</td>
+              <td class="ops-col">
+                <button
+                  type="button"
+                  class="kebab-btn"
+                  #kebab
+                  aria-label="開啟列操作選單"
+                  (click)="openRowMenuFromButton(kebab, admin); $event.stopPropagation()"
+                >
+                  <app-icon name="more" [size]="18" />
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  @if (overlayOpen()) {
+    <app-form-overlay
+      [title]="editTitle()"
+      [dirty]="editDirty()"
+      (close)="onOverlayClose()"
+    >
+      <app-admin-edit-form
+        [admin]="editTarget()"
+        (saved)="onOverlaySaved()"
+        (dirtyChange)="onEditDirtyChange($event)"
+      />
+      <ng-container overlay-actions>
+        <button type="button" class="btn" (click)="onOverlayClose()">取消</button>
+        <button type="button" class="btn btn-primary" (click)="onOverlaySubmit()">確認</button>
+      </ng-container>
+    </app-form-overlay>
+  }
+</div>

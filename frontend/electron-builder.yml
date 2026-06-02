@@ -1,0 +1,42 @@
+# electron-builder：僅 Windows（NSIS installer）。寺方所有 client 皆 Windows。
+# 桌面 icon 來源 reference/icons/logo.png → build/icon.png（electron-builder 自動產 .ico）。
+appId: tw.ceremony.bao-jue-temple
+productName: 寶覺寺法會報名系統
+copyright: © 寶覺寺
+
+directories:
+  buildResources: build
+  output: release
+
+# 打包進 asar 的應用檔（renderer + 編譯後的 electron main/preload）
+files:
+  - electron/dist/**/*
+  - dist/frontend/browser/**/*
+  - package.json
+
+# Sidecar：.NET API（framework-dependent 單一 exe）放到 resources/api/
+# 由 backend/publish.sh|ps1 先產出 backend/publish/win-x64/Ceremony.Api.exe。
+# （可選）prereq installers 放 prereqs/ 供離線安裝；缺檔時 app 改開官方下載頁。
+extraResources:
+  - from: ../backend/publish/win-x64
+    to: api
+    filter: ['**/*', '!**/*.pdb']
+  - from: build/prereqs
+    to: prereqs
+    filter: ['**/*']
+    # build/prereqs 不存在時 electron-builder 會略過（無 bundled installer → 走 openExternal）
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.png
+  artifactName: ${productName}-${version}-setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: true
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: 寶覺寺法會報名系統

@@ -1,0 +1,96 @@
+:host { display: block; }
+
+.believer-form {
+  display: grid;
+  gap: var(--space-lg);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-md);
+
+  > * { min-width: 0; }
+
+  @media (max-width: 600px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// 地址區塊（城市/區域連動）
+.addr-block {
+  margin: 0;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 2px;
+  padding: var(--space-md) var(--space-lg) var(--space-lg);
+
+  legend { padding: 0 var(--space-xs); font-size: var(--font-size-sm); color: var(--c-text-secondary); }
+}
+
+.addr-grid {
+  display: grid;
+  // 城市 / 區域 / 郵遞區號（窄）三欄一列；地址另起整列
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px;
+  gap: var(--space-md);
+
+  > * { min-width: 0; }
+  .span-row { grid-column: 1 / -1; }
+
+  @media (max-width: 760px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (max-width: 480px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// 所有地址控件填滿欄寬
+.addr-block input,
+.addr-block select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+// 唯讀欄位（郵遞區號）：淡背景表示不可編輯
+.field input[readonly] {
+  background: var(--c-bg-darker);
+  color: var(--c-text-secondary);
+}
+
+.field-check {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-sm);
+  user-select: none;
+  cursor: pointer;
+  input { width: 16px; height: 16px; }
+}
+
+.names-block {
+  margin: 0;
+  border: 1px solid var(--c-border-soft);
+  border-radius: 2px;
+  padding: var(--space-sm) var(--space-md);
+
+  legend { padding: 0 var(--space-xs); font-size: var(--font-size-sm); color: var(--c-text-secondary); }
+}
+
+.names-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-xs);
+
+  input {
+    height: var(--control-height);
+    padding: 0 var(--space-sm);
+    border: 1px solid var(--c-border);
+    border-radius: 2px;
+    font-family: inherit;
+  }
+
+  @media (max-width: 600px) { grid-template-columns: repeat(2, 1fr); }
+}
+
+.names-block.dead .names-grid input { background: var(--c-dead-name-bg); }

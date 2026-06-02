@@ -1,0 +1,1743 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>寶覺寺法會報名系統 — UI Mockup</title>
+<style>
+  :root {
+    /* 色彩 — Claude 配色（暖米/珊瑚橘）— 對齊 docs/design/visual-design.md */
+    --c-bg: #FAF9F5;
+    --c-bg-darker: #F0EBE0;
+    --c-surface: #FFFFFF;
+    --c-border: #D9D2C2;
+    --c-border-soft: #E8E2D3;
+    --c-text-primary: #2C2A26;
+    --c-text-secondary: #7A7466;
+    --c-text-disabled: #B3AC9C;
+    --c-primary: #CC785C;
+    --c-primary-hover: #B86847;
+    --c-primary-soft: #F5E5DC;
+    --c-danger: #C84A3A;
+    --c-warning: #E5A53D;
+    --c-success: #6B8E5A;
+    --c-dead-name-bg: #EFDCC4;
+    --c-row-selected: #F5E5DC;
+    --c-row-alt: #FAF8F2;
+
+    /* 字級 */
+    --font-size-xs: 11px;
+    --font-size-sm: 12px;
+    --font-size-base: 13px;
+    --font-size-md: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 20px;
+
+    /* 間距 */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 12px;
+    --space-lg: 16px;
+    --space-xl: 24px;
+
+    /* 控件 */
+    --control-height: 28px;
+    --button-height: 32px;
+    --button-large-height: 64px;
+
+    /* 共用尺寸 */
+    --sidebar-width: 220px;
+    --believer-edit-width: 360px;
+    --grid-max-height: 360px;
+    --grid-max-height-lg: 480px;
+
+    /* Modal 尺寸 */
+    --modal-width-sm: 380px;
+    --modal-width-md: 560px;
+    --modal-width-lg: 720px;
+
+    --font-ui: 'Microsoft JhengHei', '微軟正黑體', 'PingFang TC', 'Noto Sans TC', sans-serif;
+    --font-print: 'BiauKai', '標楷體', 'DFKai-SB', serif;
+
+    /* 列印（RDLC 對齊）— 全部 RDLC 文字皆為標楷體 / 黑色 / 無框線（除 DataCard 兩條 Line） */
+    --print-color: #000000;
+    --print-bg: #FFFFFF;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--font-ui);
+    font-size: var(--font-size-base);
+    color: var(--c-text-primary);
+    background: var(--c-bg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Electron 視窗框 ---- */
+  .window {
+    display: grid;
+    grid-template-rows: 32px 1fr 22px;
+    height: 100vh;
+    min-width: 1100px;
+  }
+  .title-bar {
+    background: linear-gradient(#F5F0E5, #E8E0CE);
+    border-bottom: 1px solid var(--c-border);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--c-text-secondary);
+    user-select: none;
+  }
+  .title-bar .traffic {
+    display: flex;
+    gap: 6px;
+    margin-right: var(--space-md);
+  }
+  .traffic span {
+    width: 12px; height: 12px; border-radius: 50%; display: block;
+  }
+  .traffic .c { background: #FF5F57; }
+  .traffic .m { background: #FEBC2E; }
+  .traffic .x { background: #28C840; }
+  .title-bar .title { font-weight: 600; color: var(--c-text-primary); }
+  .title-bar .spacer { flex: 1; }
+  .title-bar .who { color: var(--c-text-secondary); }
+
+  .body-grid {
+    display: grid;
+    grid-template-columns: var(--sidebar-width) 1fr;
+    overflow: hidden;
+  }
+
+  /* ---- Sidebar ---- */
+  .sidebar {
+    background: var(--c-bg-darker);
+    border-right: 1px solid var(--c-border);
+    padding: var(--space-md) 0;
+    overflow-y: auto;
+  }
+  .sidebar h4 {
+    margin: var(--space-md) var(--space-md) var(--space-xs);
+    font-size: var(--font-size-xs);
+    color: var(--c-text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .sidebar nav button {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    padding: var(--space-sm) var(--space-md);
+    font-family: inherit;
+    font-size: var(--font-size-md);
+    color: var(--c-text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    border-left: 3px solid transparent;
+  }
+  .sidebar nav button:hover { background: rgba(204, 120, 92, 0.12); }
+  .sidebar nav button.active {
+    background: var(--c-primary-soft);
+    border-left-color: var(--c-primary);
+    font-weight: 600;
+  }
+  .sidebar nav button .ico {
+    width: 18px; text-align: center; opacity: 0.7;
+  }
+
+  /* ---- Status bar ---- */
+  .status-bar {
+    background: var(--c-bg-darker);
+    border-top: 1px solid var(--c-border);
+    display: flex;
+    align-items: center;
+    padding: 0 var(--space-md);
+    font-size: var(--font-size-xs);
+    color: var(--c-text-secondary);
+    gap: var(--space-md);
+  }
+  .status-bar .pill {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border-soft);
+    padding: 0 6px;
+    border-radius: 2px;
+  }
+
+  /* ---- Page area ---- */
+  .page-area {
+    overflow: auto;
+    padding: var(--space-md);
+  }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    margin: 0 0 var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--c-border-soft);
+  }
+
+  /* ---- Panels ---- */
+  .panel {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+  }
+  .panel-title {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--c-text-secondary);
+    margin: 0 0 var(--space-sm);
+    padding-bottom: var(--space-xs);
+    border-bottom: 1px dashed var(--c-border-soft);
+  }
+  .group {
+    border: 1px solid var(--c-border-soft);
+    padding: var(--space-md);
+    margin-bottom: var(--space-md);
+    position: relative;
+  }
+  .group > legend {
+    padding: 0 var(--space-xs);
+    font-size: var(--font-size-sm);
+    color: var(--c-text-secondary);
+    font-weight: 600;
+  }
+
+  /* ---- Form controls ---- */
+  label.field {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-right: var(--space-md);
+    margin-bottom: var(--space-sm);
+    font-size: var(--font-size-sm);
+    color: var(--c-text-secondary);
+  }
+  label.field .lbl { font-size: var(--font-size-sm); }
+  label.field.inline {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  input[type="text"], input[type="password"], input[type="number"], select, textarea {
+    height: var(--control-height);
+    padding: 0 var(--space-sm);
+    border: 1px solid var(--c-border);
+    background: var(--c-surface);
+    font-family: inherit;
+    font-size: var(--font-size-sm);
+    color: var(--c-text-primary);
+    border-radius: 0;
+    outline: none;
+  }
+  textarea { padding: var(--space-xs) var(--space-sm); height: auto; resize: vertical; }
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--c-primary);
+    box-shadow: 0 0 0 1px var(--c-primary);
+  }
+  input[readonly], input[disabled] {
+    background: var(--c-bg);
+    color: var(--c-text-disabled);
+  }
+  select { appearance: none; padding-right: 24px;
+    background-image: linear-gradient(45deg, transparent 50%, var(--c-text-secondary) 50%),
+                      linear-gradient(135deg, var(--c-text-secondary) 50%, transparent 50%);
+    background-position: calc(100% - 12px) 12px, calc(100% - 7px) 12px;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+  }
+  input[type="checkbox"] {
+    width: 14px; height: 14px; accent-color: var(--c-primary);
+    margin: 0;
+  }
+  input[type="radio"] { accent-color: var(--c-primary); }
+
+  /* ---- Buttons ---- */
+  .btn {
+    height: var(--button-height);
+    padding: 0 var(--space-lg);
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    font-family: inherit;
+    font-size: var(--font-size-md);
+    color: var(--c-text-primary);
+    cursor: pointer;
+    border-radius: 0;
+    min-width: 80px;
+  }
+  .btn:hover { background: var(--c-bg-darker); }
+  .btn-primary {
+    background: var(--c-primary);
+    border-color: var(--c-primary);
+    color: #fff;
+  }
+  .btn-primary:hover { background: var(--c-primary-hover); }
+  .btn-primary-soft {
+    background: var(--c-primary-soft);
+    border-color: var(--c-primary);
+    color: var(--c-text-primary);
+    font-weight: 600;
+  }
+  .btn-danger {
+    color: var(--c-danger);
+    border-color: var(--c-danger);
+  }
+  .btn-danger:hover { background: var(--c-danger); color: #fff; }
+  .btn-large {
+    height: var(--button-large-height);
+    min-width: 110px;
+    line-height: 1.4;
+    white-space: pre-line;
+  }
+  .btn-sm {
+    height: var(--control-height);
+    padding: 0 var(--space-md);
+    font-size: var(--font-size-sm);
+    min-width: 60px;
+  }
+  .btn-row { display: flex; gap: var(--space-sm); flex-wrap: wrap; }
+
+  /* ---- Data grid ---- */
+  .grid-wrap {
+    border: 1px solid var(--c-border);
+    background: var(--c-surface);
+    overflow: auto;
+    max-height: 420px;
+  }
+  table.grid {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: var(--font-size-sm);
+  }
+  table.grid thead th {
+    background: var(--c-bg);
+    border-bottom: 1px solid var(--c-border);
+    border-right: 1px solid var(--c-border-soft);
+    padding: 6px var(--space-sm);
+    font-weight: 600;
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  table.grid tbody td {
+    border-bottom: 1px solid var(--c-border-soft);
+    border-right: 1px solid var(--c-border-soft);
+    padding: 4px var(--space-sm);
+    height: 24px;
+    white-space: nowrap;
+    color: var(--c-text-primary);
+  }
+  table.grid tbody tr:nth-child(even) td { background: var(--c-row-alt); }
+  table.grid tbody tr.selected td { background: var(--c-row-selected) !important; }
+  table.grid td.dead-col { background: var(--c-dead-name-bg) !important; }
+  table.grid tbody tr:hover td { background: #FBEFE6; }
+
+  /* ---- Helper ---- */
+  .row { display: flex; align-items: flex-end; flex-wrap: wrap; gap: var(--space-sm); }
+  .row > * { margin-bottom: 0 !important; }
+  .stack { display: flex; flex-direction: column; gap: var(--space-sm); }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-sm); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-sm); }
+  .grid-6 { display: grid; grid-template-columns: repeat(6, 1fr); gap: var(--space-sm); }
+  .right { display: flex; justify-content: flex-end; gap: var(--space-sm); }
+  .muted { color: var(--c-text-secondary); }
+  .small { font-size: var(--font-size-xs); }
+  .badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border: 1px solid var(--c-border-soft);
+    background: var(--c-bg);
+    font-size: var(--font-size-xs);
+    color: var(--c-text-secondary);
+    border-radius: 2px;
+  }
+  hr.sep { border: 0; border-top: 1px dashed var(--c-border-soft); margin: var(--space-sm) 0; }
+
+  /* ---- MainForm (主選單) ---- */
+  .main-menu {
+    display: grid;
+    grid-template-columns: repeat(2, 200px);
+    gap: var(--space-md);
+    max-width: 440px;
+    margin: 24px auto 0;
+  }
+  .main-menu .menu-btn {
+    height: 80px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    font-family: inherit;
+    color: var(--c-text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+  }
+  .main-menu .menu-btn:hover { background: var(--c-bg-darker); }
+  .main-menu .menu-btn.featured {
+    background: var(--c-primary-soft);
+    border-color: var(--c-primary);
+    font-weight: 600;
+  }
+  .main-menu .menu-btn .ico { font-size: 22px; opacity: 0.7; }
+
+  /* ---- Login overlay ---- */
+  .login-host {
+    background: var(--c-bg-darker);
+    min-height: calc(100vh - 32px - 22px - 32px);
+    display: grid;
+    place-items: center;
+  }
+  .login-card {
+    width: 360px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  }
+  .login-card .hd {
+    background: linear-gradient(#F5F0E5, #E8E0CE);
+    border-bottom: 1px solid var(--c-border);
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--font-size-sm);
+    color: var(--c-text-secondary);
+  }
+  .login-card .bd {
+    padding: var(--space-xl) var(--space-xl) var(--space-lg);
+  }
+  .login-card h2 {
+    margin: 0 0 var(--space-lg);
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--c-text-primary);
+  }
+  .login-card .field-block {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+    align-items: center;
+  }
+  .login-card .field-block label { font-size: var(--font-size-md); }
+  .login-card .ft { padding: 0 var(--space-xl) var(--space-xl); text-align: center; }
+
+  /* ---- Believer two-pane ---- */
+  .believer-grid {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: var(--space-md);
+    align-items: flex-start;
+  }
+  .name-grid {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: var(--space-xs);
+    align-items: center;
+    font-size: var(--font-size-sm);
+  }
+  .name-grid label { color: var(--c-text-secondary); }
+
+  /* ---- Signup form layout ---- */
+  .signup-top {
+    display: grid;
+    grid-template-columns: 1fr 320px 220px;
+    gap: var(--space-md);
+    align-items: flex-start;
+  }
+
+  /* ---- Wizard ---- */
+  .wizard {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: var(--space-md);
+  }
+  .step-pill {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--c-primary);
+    color: #fff;
+    font-size: var(--font-size-sm);
+    border-radius: 12px;
+    margin-bottom: var(--space-sm);
+  }
+  .step-pill.muted { background: var(--c-bg-darker); color: var(--c-text-secondary); }
+
+  /* ---- Tree ---- */
+  .tree {
+    border: 1px solid var(--c-border);
+    background: var(--c-surface);
+    padding: var(--space-sm);
+    min-height: 380px;
+    font-size: var(--font-size-sm);
+  }
+  .tree ul { list-style: none; padding-left: var(--space-md); margin: 0; }
+  .tree > ul { padding-left: 0; }
+  .tree li {
+    padding: 3px 4px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tree li.root { font-weight: 600; }
+  .tree li.expanded > .chev::before { content: '▼ '; color: var(--c-text-secondary); }
+  .tree li.collapsed > .chev::before { content: '▶ '; color: var(--c-text-secondary); }
+  .tree li.leaf > .chev::before { content: '　 '; }
+  .tree li.selected { background: var(--c-row-selected); }
+
+  /* ---- Modal ---- */
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.25);
+    display: none; align-items: center; justify-content: center;
+    z-index: 50;
+  }
+  .modal-mask.open { display: flex; }
+  .modal {
+    width: 380px;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+  }
+  .modal .hd {
+    background: var(--c-bg);
+    border-bottom: 1px solid var(--c-border);
+    padding: var(--space-sm) var(--space-md);
+    font-weight: 600;
+  }
+  .modal .bd { padding: var(--space-lg); }
+  .modal .ft {
+    padding: var(--space-sm) var(--space-md);
+    border-top: 1px solid var(--c-border-soft);
+    display: flex; justify-content: flex-end; gap: var(--space-sm);
+  }
+
+  /* ---- Print preview (RDLC 對齊：以 cm 為單位絕對定位) ---- */
+  /* 設計原則：每個 .rdlc-paper 等同一張紙；其 width/height 以 cm 直接給定，內部所有
+     .rdlc-field 用 position: absolute + top/left/width/height (cm) 對應 RDLC 座標。
+     字體一律標楷體、字色 #000、無 padding/border（除特別指定）。 */
+  .print-toolbar {
+    background: var(--c-bg-darker);
+    border: 1px solid var(--c-border);
+    border-bottom: 0;
+    padding: var(--space-sm) var(--space-md);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+  }
+  .print-toolbar .group-sep { width: 1px; height: 24px; background: var(--c-border-soft); margin: 0 var(--space-xs); }
+  .print-toolbar .zoom-display {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border-soft);
+    padding: 0 var(--space-sm);
+    height: var(--control-height);
+    line-height: var(--control-height);
+    font-size: var(--font-size-sm);
+    min-width: 56px;
+    text-align: center;
+  }
+  .print-canvas {
+    background: #524F48;
+    border: 1px solid var(--c-border);
+    padding: var(--space-xl);
+    min-height: 560px;
+    display: flex;
+    justify-content: center;
+    overflow: auto;
+  }
+  /* 一張 RDLC 紙 — 以 cm 為單位，內部用 absolute 定位 */
+  .rdlc-paper {
+    background: var(--print-bg);
+    color: var(--print-color);
+    font-family: var(--font-print);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+    transform-origin: top center;
+  }
+  /* 5 種紙張尺寸（依 RDLC ReportSize） */
+  .rdlc-paper.size-datacard { width: 21cm; height: 14.8cm; }       /* A5 橫 */
+  .rdlc-paper.size-receipt  { width: 21cm; height: 59.4cm; }       /* Tablix 全長（雙聯 + 郵寄標籤區）；單張 ReportSize=29.7cm 但 Tablix 跨兩頁 */
+  .rdlc-paper.size-tablet   { width: 11.5cm; height: 25.4cm; }     /* 牌位窄長 */
+  .rdlc-paper.size-text     { width: 36.5cm; height: 26.2cm; }     /* 文牒橫向超寬 */
+  .rdlc-paper.size-worship  { width: 21cm; height: 29.6cm; }       /* A4 直含背景圖 */
+
+  /* RDLC 內每一個 TextBox / Line / Image 都是絕對定位 */
+  .rdlc-field {
+    position: absolute;
+    font-family: var(--font-print);
+    color: var(--print-color);
+    overflow: hidden;
+    white-space: nowrap;
+    line-height: 1.1;
+  }
+  /* 字級：對應 RDLC FontSize（cm/pt） */
+  .rdlc-fs-6  { font-size: 0.6cm; }
+  .rdlc-fs-7  { font-size: 0.7cm; }
+  .rdlc-fs-8  { font-size: 0.8cm; }
+  .rdlc-fs-10 { font-size: 1.0cm; }
+  .rdlc-fs-20 { font-size: 2.0cm; }
+  .rdlc-fs-30 { font-size: 3.0cm; }
+  .rdlc-fs-14pt { font-size: 14pt; }
+  .rdlc-fs-16pt { font-size: 16pt; }
+  /* 對齊 */
+  .rdlc-bold     { font-weight: 700; }
+  .rdlc-center   { text-align: center; }
+  .rdlc-right    { text-align: right; }
+  .rdlc-vmid     { display: flex; align-items: center; }
+  .rdlc-vbottom  { display: flex; align-items: flex-end; }
+  /* 直書（普桌 LivingName 為大字直印） */
+  .rdlc-vertical { writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 0.1em; white-space: normal; line-height: 1; }
+  /* DataCard 內的兩條 Line */
+  .rdlc-line-dashed { position: absolute; border: 0; border-top: 0.04cm dashed #000; }
+  .rdlc-line-solid  { position: absolute; border: 0; border-top: 0.04cm solid #000; }
+  /* 普桌背景圖 */
+  .rdlc-bg-image {
+    position: absolute;
+    object-fit: contain;
+    pointer-events: none;
+  }
+  .print-page-info {
+    background: var(--c-bg-darker);
+    border: 1px solid var(--c-border);
+    border-top: 0;
+    padding: var(--space-xs) var(--space-md);
+    display: flex;
+    justify-content: space-between;
+    font-size: var(--font-size-xs);
+    color: var(--c-text-secondary);
+  }
+
+  /* ---- Utility classes（取代常見 inline styles） ---- */
+  .w-full        { width: 100%; }
+  .flex-1        { flex: 1; }
+  .mt-sm         { margin-top: var(--space-sm); }
+  .mt-md         { margin-top: var(--space-md); }
+  .mb-0          { margin-bottom: 0; }
+  .panel-header  {
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--c-border-soft);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .panel-footer  {
+    padding: var(--space-xs) var(--space-md);
+    border-top: 1px solid var(--c-border-soft);
+    font-size: var(--font-size-xs);
+    color: var(--c-text-secondary);
+  }
+  .panel-flush   { padding: 0; }
+  .field-w-sm    { width: 80px; }
+  .field-w-md    { width: 120px; }
+  /* Modal 尺寸變體 */
+  .modal.modal-md { width: var(--modal-width-md); }
+  .modal.modal-lg { width: var(--modal-width-lg); }
+  /* 搜尋列：把搜尋按鈕對齊 input 高度 */
+  .search-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-sm) var(--space-md);
+    align-items: end;
+  }
+  .search-form .btn { height: var(--control-height); align-self: end; }
+
+  /* 常見 inline 取代 */
+  .req                  { color: var(--c-danger); }              /* 必填星號 */
+  .cb-end               { align-self: end; padding-bottom: 6px; }/* 與 input 對齊底線的勾選框 */
+  .stat-num             { font-size: 22px; font-weight: 600; }
+  .dialog-title         { font-family: var(--font-print); font-size: 20px; margin: var(--space-md) 0; }
+  .min-h-md             { min-height: 320px; }
+  .text-center          { text-align: center; }
+  /* LoadPrepay 內紅色「至」中介標籤 */
+  .prepay-arrow         { text-align: center; color: var(--c-danger); font-weight: 700; font-size: var(--font-size-lg); margin: var(--space-xs) 0; }
+
+  /* ---- Snackbar ---- */
+  .snackbar {
+    position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%);
+    background: #323130; color: #fff;
+    padding: 10px 20px;
+    font-size: var(--font-size-sm);
+    border-radius: 2px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    display: none;
+    z-index: 60;
+  }
+  .snackbar.show { display: block; }
+
+  /* ---- Context menu (僅靜態示意) ---- */
+  .ctx-demo {
+    position: absolute;
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 4px 0;
+    font-size: var(--font-size-sm);
+    min-width: 140px;
+    z-index: 5;
+  }
+  .ctx-demo div {
+    padding: 6px var(--space-md);
+    cursor: pointer;
+  }
+  .ctx-demo div:hover { background: var(--c-primary-soft); }
+  .ctx-demo .sep { padding: 0; border-top: 1px solid var(--c-border-soft); margin: 4px 0; cursor: default; }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: var(--space-md);
+    margin-top: var(--space-sm);
+    font-size: var(--font-size-xs); color: var(--c-text-secondary);
+  }
+  .legend span.swatch {
+    display: inline-block; width: 12px; height: 12px; border: 1px solid var(--c-border-soft);
+    vertical-align: middle; margin-right: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="window">
+
+  <!-- Title Bar (Electron 風) -->
+  <div class="title-bar">
+    <div class="traffic"><span class="c"></span><span class="m"></span><span class="x"></span></div>
+    <div class="title" id="title-text">主選單 | 寶覺寺</div>
+    <div class="spacer"></div>
+    <div class="who">管理員：陳小姐　|　民國 115 年 5 月 26 日</div>
+  </div>
+
+  <!-- Body -->
+  <div class="body-grid">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h4>主功能</h4>
+      <nav>
+        <button data-page="main" class="active"><span class="ico">⌂</span>主選單</button>
+        <button data-page="believer"><span class="ico">⛀</span>信眾維護</button>
+        <button data-page="signup"><span class="ico">▤</span>報名維護</button>
+        <button data-page="new-signup"><span class="ico">＋</span>新增報名</button>
+        <button data-page="category"><span class="ico">≡</span>法會維護</button>
+        <button data-page="admins"><span class="ico">⚙</span>管理者維護</button>
+      </nav>
+      <h4>子流程</h4>
+      <nav>
+        <button data-page="login"><span class="ico">🔒</span>登入畫面</button>
+        <button data-page="edit-signup"><span class="ico">✎</span>編輯報名</button>
+        <button data-page="signup-log"><span class="ico">⟲</span>瀏覽歷程</button>
+        <button data-page="print-dialog"><span class="ico">？</span>列印格式選擇</button>
+        <button data-page="message-dialog"><span class="ico">💬</span>通用訊息框</button>
+        <button data-page="print-preview"><span class="ico">🖨</span>列印預覽</button>
+        <button onclick="openModal('prepay-modal')"><span class="ico">↓</span>載入預繳 (Modal)</button>
+      </nav>
+      <h4>樣式說明</h4>
+      <div style="padding: 0 var(--space-md);" class="legend">
+        <div><span class="swatch" style="background: var(--c-dead-name-bg)"></span>往生欄位</div>
+        <div><span class="swatch" style="background: var(--c-row-selected)"></span>選取列</div>
+        <div><span class="swatch" style="background: var(--c-primary-soft); border-color: var(--c-primary)"></span>強調按鈕</div>
+      </div>
+    </aside>
+
+    <!-- Page area -->
+    <main class="page-area">
+
+      <!-- ============ Login ============ -->
+      <section class="page" data-page="login">
+        <div class="login-host">
+          <div class="login-card">
+            <div class="hd">登入 | 寶覺寺</div>
+            <div class="bd">
+              <h2>寶覺寺法會報名系統</h2>
+              <div class="field-block">
+                <label>帳號</label>
+                <input type="text" value="admin" />
+              </div>
+              <div class="field-block">
+                <label>密碼</label>
+                <input type="password" value="••••••" />
+              </div>
+              <div class="field-block">
+                <label></label>
+                <label class="field inline"><input type="checkbox" /> 記住帳號</label>
+              </div>
+            </div>
+            <div class="ft">
+              <button class="btn btn-primary" style="width: 100%">登入</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ MainForm ============ -->
+      <!-- 按鈕順序對齊舊版 MainForm.Designer.cs（Y=12,63,114,165,216,267）：
+           信眾維護 → 新增報名(藍底) → 報名維護 → 載入預繳 → 資料備份 → 管理者維護 -->
+      <section class="page active" data-page="main">
+        <h1 class="page-title">主選單</h1>
+        <p class="muted">按鈕順序對齊舊系統 MainForm（Y=12/63/114/165/216/267）。「新增報名」沿用舊版藍底強調。</p>
+
+        <div class="main-menu">
+          <button class="menu-btn" onclick="go('believer')"><span class="ico">⛀</span>信眾維護</button>
+          <button class="menu-btn featured" onclick="go('new-signup')"><span class="ico">＋</span>新增報名</button>
+          <button class="menu-btn" onclick="go('signup')"><span class="ico">▤</span>報名維護</button>
+          <button class="menu-btn" onclick="openModal('prepay-modal')"><span class="ico">↓</span>載入預繳</button>
+          <button class="menu-btn" onclick="snack('資料備份成功！備份檔已存於 D:/Ceremony/Backup/')"><span class="ico">💾</span>資料備份</button>
+          <button class="menu-btn" onclick="go('admins')"><span class="ico">⚙</span>管理者維護</button>
+        </div>
+
+        <div style="margin-top: var(--space-xl); max-width: 720px; margin-left: auto; margin-right: auto;">
+          <div class="panel">
+            <div class="panel-title">今日摘要</div>
+            <div class="grid-3">
+              <div><div class="muted small">今日報名筆數</div><div style="font-size: 22px; font-weight: 600;">42</div></div>
+              <div><div class="muted small">本年度法會</div><div style="font-size: 22px; font-weight: 600;">7</div></div>
+              <div><div class="muted small">資料庫狀態</div><div style="font-size: 14px; color: var(--c-success); font-weight: 600; margin-top: 6px;">● 連線正常</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ BelieverForm ============ -->
+      <!-- 編輯由右鍵或「新增」按鈕觸發，於 #believer-edit-modal 開啟 -->
+      <section class="page" data-page="believer">
+        <h1 class="page-title">信眾維護</h1>
+
+        <!-- 搜尋面板：search-form 用 auto-fit 對齊欄位、搜尋鈕同 input 高 -->
+        <div class="panel">
+          <div class="panel-title">搜尋條件（至少填一）</div>
+          <div class="search-form">
+            <label class="field"><span class="lbl">姓名</span><input type="text" /></label>
+            <label class="field"><span class="lbl">陽上</span><input type="text" /></label>
+            <label class="field"><span class="lbl">電話</span><input type="text" placeholder="0987654321" /></label>
+            <label class="field"><span class="lbl">往生</span><input type="text" /></label>
+            <label class="field"><span class="lbl">堂號</span><input type="text" /></label>
+            <button class="btn btn-primary btn-sm">搜尋</button>
+          </div>
+        </div>
+
+        <!-- DataGrid -->
+        <div class="panel panel-flush">
+          <div class="panel-header">
+            <div class="panel-title mb-0" style="border: 0;">搜尋結果（共 8 筆）</div>
+            <div class="row">
+              <label class="field inline mb-0"><input type="checkbox" /> <span class="lbl">顯示完整表格（26 欄）</span></label>
+              <button class="btn btn-primary btn-sm" onclick="openModal('believer-edit-modal')">＋ 新增</button>
+            </div>
+          </div>
+          <div class="grid-wrap" style="border: 0;">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th>員工</th><th>堂號</th><th>姓名</th><th>聯絡電話</th>
+                  <th>寄件城市</th><th>寄件區域</th><th>寄件地址</th>
+                  <th>往生1</th><th>往生2</th><th>往生3</th><th>陽上1</th><th>陽上2</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="selected" ondblclick="openModal('believer-edit-modal')"><td>非員工</td><td>—</td><td>陳大明</td><td>0912345678</td><td>台中市</td><td>北屯區</td><td>松竹路二段 100 號</td><td class="dead-col">陳父</td><td class="dead-col">陳母</td><td class="dead-col"></td><td>陳小華</td><td>陳小美</td></tr>
+                <tr><td>大殿</td><td>—</td><td>林淑芬</td><td>0922334455</td><td>台中市</td><td>西屯區</td><td>福星路 88 號</td><td class="dead-col">林祖父</td><td class="dead-col">林祖母</td><td class="dead-col"></td><td>林小強</td><td></td></tr>
+                <tr><td>非員工</td><td>觀音會</td><td>王雅雯</td><td>0933445566</td><td>彰化縣</td><td>員林市</td><td>中山路一段 200 號</td><td class="dead-col">王老先生</td><td class="dead-col"></td><td class="dead-col"></td><td>王小英</td><td>王大同</td></tr>
+                <tr><td>地藏殿</td><td>—</td><td>黃志成</td><td>0955667788</td><td>南投縣</td><td>埔里鎮</td><td>中正路 56 號</td><td class="dead-col">黃太太</td><td class="dead-col">黃父</td><td class="dead-col">黃母</td><td>黃志成</td><td></td></tr>
+                <tr><td>非員工</td><td>—</td><td>蔡美玲</td><td>0966778899</td><td>新北市</td><td>板橋區</td><td>文化路二段 333 號</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>蔡美玲</td><td>蔡先生</td></tr>
+                <tr><td>非員工</td><td>—</td><td>張俊雄</td><td>0977889900</td><td>桃園市</td><td>中壢區</td><td>環中東路 21 號</td><td class="dead-col">張母</td><td class="dead-col"></td><td class="dead-col"></td><td>張俊雄</td><td></td></tr>
+                <tr><td>大殿</td><td>—</td><td>李秀英</td><td>0988990011</td><td>台北市</td><td>大安區</td><td>復興南路一段 100 號</td><td class="dead-col">李公</td><td class="dead-col">李婆</td><td class="dead-col">李三叔</td><td>李秀英</td><td>李小弟</td></tr>
+                <tr><td>非員工</td><td>—</td><td>許明珠</td><td>0901112233</td><td>高雄市</td><td>左營區</td><td>博愛二路 200 號</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>許明珠</td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel-footer">右鍵列 →「修改」/「刪除」（含報名資料的信眾無法刪除）；雙擊列開啟編輯</div>
+        </div>
+      </section>
+
+      <!-- ============ SignupForm ============ -->
+      <section class="page" data-page="signup">
+        <h1 class="page-title">報名維護</h1>
+
+        <div class="signup-top">
+          <!-- Filter -->
+          <div class="panel">
+            <div class="panel-title">篩選條件</div>
+            <div class="row">
+              <label class="field"><span class="lbl">年份</span><input type="text" value="115" style="width: 72px;" /></label>
+              <label class="field"><span class="lbl">法會</span>
+                <select style="min-width: 180px;"><option>請選擇法會</option><option selected>梁皇寶懺法會</option><option>中元普度</option><option>水陸法會</option></select>
+              </label>
+              <label class="field"><span class="lbl">類型</span>
+                <select><option>全部</option><option>1 = 一般</option><option>2 = 寺方</option><option>3 = 觀音會</option><option>4 = 普桌</option><option>5 = 郵撥</option></select>
+              </label>
+              <label class="field"><span class="lbl">編號</span><input type="text" style="width: 80px;" /></label>
+              <label class="field inline cb-end"><input type="checkbox" /> 範圍</label>
+              <label class="field inline cb-end"><input type="checkbox" /> 固定編號</label>
+            </div>
+
+            <hr class="sep" />
+
+            <div class="row">
+              <label class="field" style="flex: 1; min-width: 220px;"><span class="lbl">關鍵字（須勾選任一搜尋欄位）</span><input type="text" /></label>
+              <label class="field inline"><input type="checkbox" checked /> 姓名</label>
+              <label class="field inline"><input type="checkbox" /> 陽上</label>
+              <label class="field inline"><input type="checkbox" /> 往生</label>
+              <label class="field inline"><input type="checkbox" /> 電話</label>
+            </div>
+
+            <div class="right" style="margin-top: var(--space-sm);">
+              <button class="btn">匯出Excel</button>
+              <button class="btn btn-primary" style="min-width: 110px;">搜尋</button>
+            </div>
+          </div>
+
+          <!-- Batch print -->
+          <div class="panel">
+            <div class="panel-title">批次列印</div>
+            <div class="row">
+              <label class="field"><span class="lbl">起</span><input type="text" style="width: 80px;" value="1" /></label>
+              <label class="field cb-end">~</label>
+              <label class="field"><span class="lbl">迄</span><input type="text" style="width: 80px;" value="50" /></label>
+            </div>
+            <label class="field" style="display: block;"><span class="lbl">列印內容</span>
+              <select style="width: 100%;">
+                <option>資料卡</option><option>收據</option><option>薦牌</option><option>文牒</option><option disabled>普桌（須類型=4）</option>
+              </select>
+            </label>
+            <div class="right" style="margin-top: var(--space-sm);">
+              <button class="btn btn-primary" style="min-width: 100px;" onclick="go('print-preview')">列印</button>
+            </div>
+          </div>
+
+          <!-- Action -->
+          <div class="panel">
+            <div class="panel-title">操作</div>
+            <div class="stack">
+              <button class="btn btn-primary-soft btn-large" onclick="go('new-signup')">＋ 新增</button>
+              <button class="btn btn-sm">修改</button>
+              <button class="btn btn-sm" onclick="go('print-preview')">列印預覽</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- DataGrid -->
+        <div class="panel panel-flush" style="position: relative;">
+          <div class="panel-header">
+            <div>
+              <span class="badge">共 124 筆</span>
+              <span class="badge">顯示 32 / 40 欄</span>
+              <label class="field inline" style="margin: 0 0 0 var(--space-md);"><input type="checkbox" /> <span class="lbl">顯示完整表格</span></label>
+            </div>
+            <div class="small muted">右鍵：代入新增 / 修改資料 / 列印（資料卡/收據/薦牌/文牒/普桌）/ 瀏覽歷程 / 刪除</div>
+          </div>
+          <div class="grid-wrap" style="max-height: 320px; border: 0;">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th>年份</th><th>法會</th><th>類型</th><th>編號</th>
+                  <th>費用</th><th>員工</th><th>姓名</th><th>聯絡電話</th>
+                  <th>堂號</th>
+                  <th>往生1</th><th>往生2</th><th>往生3</th><th>往生3-1</th><th>往生5</th><th>往生6</th>
+                  <th>陽上1</th><th>陽上2</th><th>陽上3</th>
+                  <th>預繳年份</th><th>預繳法會</th>
+                  <th>寄件城市</th><th>寄件區域</th><th>備註</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="selected"><td>115</td><td>梁皇寶懺</td><td>—</td><td>103-1</td><td>1,200</td><td>非員工</td><td>陳大明</td><td>0912345678</td><td>—</td><td class="dead-col">陳父</td><td class="dead-col">陳母</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>陳小華</td><td>陳小美</td><td></td><td>114</td><td>中元普度</td><td>台中市</td><td>北屯區</td><td>—</td></tr>
+                <tr><td>115</td><td>梁皇寶懺</td><td>寺</td><td>—</td><td>0</td><td>大殿</td><td>林淑芬</td><td>0922334455</td><td>—</td><td class="dead-col">林祖父</td><td class="dead-col">林祖母</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>林小強</td><td></td><td></td><td>—</td><td>—</td><td>台中市</td><td>西屯區</td><td>—</td></tr>
+                <tr><td>115</td><td>梁皇寶懺</td><td>觀</td><td>10</td><td>500</td><td>非員工</td><td>王雅雯</td><td>0933445566</td><td>觀音會</td><td class="dead-col">王老先生</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>王小英</td><td>王大同</td><td></td><td>114</td><td>梁皇寶懺</td><td>彰化縣</td><td>員林市</td><td>—</td></tr>
+                <tr><td>115</td><td>梁皇寶懺</td><td>普</td><td>3-1</td><td>3,000</td><td>地藏殿</td><td>黃志成</td><td>0955667788</td><td>—</td><td class="dead-col">黃太太</td><td class="dead-col">黃父</td><td class="dead-col">黃母</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>黃志成</td><td></td><td></td><td>—</td><td>—</td><td>南投縣</td><td>埔里鎮</td><td>—</td></tr>
+                <tr><td>115</td><td>梁皇寶懺</td><td>郵</td><td>5</td><td>1,200</td><td>非員工</td><td>蔡美玲</td><td>0966778899</td><td>—</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>蔡美玲</td><td>蔡先生</td><td></td><td>114</td><td>梁皇寶懺</td><td>新北市</td><td>板橋區</td><td>—</td></tr>
+                <tr><td>115</td><td>梁皇寶懺</td><td>—</td><td>13-1</td><td>1,200</td><td>非員工</td><td>張俊雄</td><td>0977889900</td><td>—</td><td class="dead-col">張母</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>張俊雄</td><td></td><td></td><td>114</td><td>中元普度</td><td>桃園市</td><td>中壢區</td><td>—</td></tr>
+                <tr><td>115</td><td>中元普度</td><td>—</td><td>1</td><td>2,400</td><td>大殿</td><td>李秀英</td><td>0988990011</td><td>—</td><td class="dead-col">李公</td><td class="dead-col">李婆</td><td class="dead-col">李三叔</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>李秀英</td><td>李小弟</td><td></td><td>—</td><td>—</td><td>台北市</td><td>大安區</td><td>家屬交代</td></tr>
+                <tr><td>115</td><td>中元普度</td><td>—</td><td>2</td><td>1,200</td><td>非員工</td><td>許明珠</td><td>0901112233</td><td>—</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>許明珠</td><td></td><td></td><td>—</td><td>—</td><td>高雄市</td><td>左營區</td><td>—</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- 右鍵示意（靜態） -->
+          <div class="ctx-demo" style="top: 92px; right: 180px;">
+            <div>代入新增</div>
+            <div>修改資料</div>
+            <div class="sep"></div>
+            <div>列印資料卡</div>
+            <div>列印收據</div>
+            <div>列印薦牌</div>
+            <div>列印文牒</div>
+            <div style="color: var(--c-text-disabled)">列印普桌（須類型=4）</div>
+            <div class="sep"></div>
+            <div>瀏覽歷程</div>
+            <div style="color: var(--c-danger)">刪除資料</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ NewSignupForm（單一表單） ============ -->
+      <section class="page" data-page="new-signup">
+        <h1 class="page-title">新增報名</h1>
+
+        <div class="panel">
+          <!-- 法會/年份/類型 + 信眾搜尋 + 預繳：放第一列 -->
+          <div class="search-form">
+            <label class="field"><span class="lbl">年份（民國）</span><input type="text" value="115" /></label>
+            <label class="field"><span class="lbl">法會 <span class="req">*</span></span>
+              <select><option>請選擇法會</option><option selected>梁皇寶懺法會</option><option>中元普度</option></select>
+            </label>
+            <label class="field"><span class="lbl">類型 <span class="req">*</span></span>
+              <select><option>請選擇類型</option><option selected>一般</option><option>寺方</option><option>觀音會</option><option>普桌</option><option>郵撥</option></select>
+            </label>
+            <label class="field"><span class="lbl">搜尋既有信眾</span><input type="text" placeholder="姓名 / 電話" /></label>
+            <label class="field"><span class="lbl">預繳年份</span><input type="text" value="114" /></label>
+            <label class="field"><span class="lbl">預繳法會</span>
+              <select><option>請選擇預繳法會</option><option>中元普度</option></select>
+            </label>
+          </div>
+
+          <hr class="sep" />
+
+          <!-- 信眾基本資料 -->
+          <div class="grid-2">
+            <label class="field"><span class="lbl">堂號</span><input type="text" /></label>
+            <label class="field"><span class="lbl">姓名 <span class="req">*</span></span><input type="text" /></label>
+            <label class="field"><span class="lbl">員工</span>
+              <select><option>請選擇員工</option><option>非員工</option><option>大殿</option><option>地藏殿</option></select>
+            </label>
+            <label class="field inline cb-end"><input type="checkbox" /> 預繳固定編號</label>
+            <label class="field" style="grid-column: span 2;"><span class="lbl">聯絡電話　<span class="small muted">(不須填符號，例：0987654321)</span></span><input type="text" /></label>
+            <label class="field"><span class="lbl">編號</span><input type="text" placeholder="留空自動編號" /></label>
+            <label class="field inline cb-end"><input type="checkbox" /> 保留編號</label>
+            <label class="field"><span class="lbl">費用</span><input type="text" value="1200" /></label>
+          </div>
+
+          <!-- 寄件 / 文牒地址（左右） -->
+          <div class="grid-2">
+            <fieldset class="group">
+              <legend>寄件地址 <span class="req">*</span></legend>
+              <div class="row">
+                <select><option>縣市</option></select>
+                <select><option>區域</option></select>
+                <input type="text" placeholder="郵編" class="field-w-sm" />
+              </div>
+              <input type="text" placeholder="詳細地址" class="w-full mt-sm" />
+            </fieldset>
+            <fieldset class="group">
+              <legend>文牒地址</legend>
+              <label class="field inline"><input type="checkbox" /> 同寄件地址</label>
+              <div class="row mt-sm">
+                <select><option>縣市</option></select>
+                <select><option>區域</option></select>
+                <input type="text" placeholder="郵編" class="field-w-sm" />
+              </div>
+              <input type="text" placeholder="詳細地址" class="w-full mt-sm" />
+            </fieldset>
+          </div>
+
+          <!-- 往生 / 陽上 -->
+          <div class="grid-2">
+            <fieldset class="group">
+              <legend>往生 × 6（避 4 → 顯示 3-1）</legend>
+              <div class="name-grid">
+                <label>往生1</label><input type="text" />
+                <label>往生2</label><input type="text" />
+                <label>往生3</label><input type="text" />
+                <label>往生3-1</label><input type="text" />
+                <label>往生5</label><input type="text" />
+                <label>往生6</label><input type="text" />
+              </div>
+            </fieldset>
+            <fieldset class="group">
+              <legend>陽上 × 6</legend>
+              <div class="name-grid">
+                <label>陽上1</label><input type="text" />
+                <label>陽上2</label><input type="text" />
+                <label>陽上3</label><input type="text" />
+                <label>陽上3-1</label><input type="text" />
+                <label>陽上5</label><input type="text" />
+                <label>陽上6</label><input type="text" />
+              </div>
+            </fieldset>
+          </div>
+
+          <label class="field w-full"><span class="lbl">備註</span><textarea rows="2" class="w-full"></textarea></label>
+
+          <div class="right mt-md">
+            <button class="btn" onclick="go('main')">取消</button>
+            <button class="btn">列印資料卡</button>
+            <button class="btn btn-primary" onclick="snack('編號 103-1，新增報名成功')">確認</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CeremonyCategoryForm ============ -->
+      <section class="page" data-page="category">
+        <h1 class="page-title">法會維護</h1>
+
+        <div class="believer-grid">
+          <div class="panel">
+            <div class="panel-title">法會分類（兩層）</div>
+            <div class="tree">
+              <ul>
+                <li class="root expanded"><span class="chev"></span>法會維護
+                  <ul>
+                    <li class="expanded"><span class="chev"></span>梁皇寶懺
+                      <ul>
+                        <li class="leaf selected"><span class="chev"></span>消災</li>
+                        <li class="leaf"><span class="chev"></span>超薦</li>
+                        <li class="leaf"><span class="chev"></span>合家</li>
+                      </ul>
+                    </li>
+                    <li class="expanded"><span class="chev"></span>中元普度
+                      <ul>
+                        <li class="leaf"><span class="chev"></span>消災</li>
+                        <li class="leaf"><span class="chev"></span>超薦</li>
+                        <li class="leaf"><span class="chev"></span>普桌</li>
+                      </ul>
+                    </li>
+                    <li class="collapsed"><span class="chev"></span>水陸法會</li>
+                    <li class="collapsed"><span class="chev"></span>觀音法會</li>
+                    <li class="collapsed"><span class="chev"></span>地藏法會</li>
+                  </ul>
+                </li>
+              </ul>
+            </div>
+            <div class="small muted" style="margin-top: var(--space-xs);">
+              右鍵：新增 / 刪除（依層級顯示不同項目）
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-title">編輯區</div>
+            <label class="field" style="display: block;"><span class="lbl">標題</span><input type="text" value="消災" style="width: 100%;" /></label>
+            <label class="field" style="display: block;"><span class="lbl">排序</span><input type="number" value="1" style="width: 100%;" /></label>
+            <label class="field" style="display: block;"><span class="lbl">父分類</span><input type="text" value="梁皇寶懺" disabled style="width: 100%;" /></label>
+
+            <div class="right" style="margin-top: var(--space-md);">
+              <button class="btn">取消</button>
+              <button class="btn btn-primary">確認</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ Print Preview ============ -->
+      <section class="page" data-page="print-preview">
+        <h1 class="page-title">列印預覽</h1>
+        <p class="muted">由後端 QuestPDF 產生 PDF，前端用 PDF.js 嵌入預覽。支援資料卡 / 收據 / 薦牌 / 文牒 / 普桌 5 種報表。對應舊系統 19 個 RDLC 模板。</p>
+
+        <!-- Toolbar -->
+        <div class="print-toolbar">
+          <label class="field inline" style="margin: 0;">
+            <span class="lbl">報表類型</span>
+            <select id="print-type" onchange="switchReport(this.value)" style="min-width: 140px;">
+              <option value="data-card" selected>資料卡 (A5 橫)</option>
+              <option value="receipt">收據 (A4 直)</option>
+              <option value="tablet">薦牌 (11.5×25.4cm)</option>
+              <option value="text-doc">文牒 (36.5×26.2cm 橫)</option>
+              <option value="worship">普桌 (A4 直)</option>
+            </select>
+          </label>
+
+          <div class="group-sep"></div>
+
+          <button class="btn btn-sm" onclick="zoomReport(-10)">縮小</button>
+          <div class="zoom-display" id="zoom-display">50%</div>
+          <button class="btn btn-sm" onclick="zoomReport(10)">放大</button>
+          <button class="btn btn-sm" onclick="resetZoom()">100%</button>
+
+          <div class="group-sep"></div>
+
+          <button class="btn btn-sm">⟨ 上一頁</button>
+          <div class="zoom-display">1 / 1</div>
+          <button class="btn btn-sm">下一頁 ⟩</button>
+
+          <div class="group-sep"></div>
+
+          <label class="field inline" style="margin: 0;">
+            <span class="lbl">份數</span>
+            <input type="number" value="1" min="1" max="99" style="width: 60px;" />
+          </label>
+
+          <div style="margin-left: auto; display: flex; gap: var(--space-sm);">
+            <button class="btn" onclick="snack('已下載 yyyyMMddHHmmss.pdf')">另存 PDF</button>
+            <button class="btn btn-primary" onclick="snack('已送出列印任務（HP LaserJet M404dn）')">🖨 列印</button>
+            <button class="btn" onclick="go('signup')">關閉</button>
+          </div>
+        </div>
+
+        <!-- Preview canvas — 5 種 RDLC 各用 cm 座標 1:1 重現
+             所有 top/left/width/height 對齊 docs/blueprints/printing-reports-positions.md -->
+        <div class="print-canvas">
+
+          <!-- 1. tmpDataCard.rdlc — 21 × 14.8cm A5 橫 -->
+          <div class="rdlc-paper size-datacard" id="preview-data-card">
+            <div class="rdlc-field rdlc-fs-10 rdlc-bold" style="top:0.538cm; left:1.361cm; width:6.204cm; height:1.129cm;">103-1</div>
+            <div class="rdlc-field rdlc-fs-6 rdlc-vmid"  style="top:0.776cm; left:7.961cm; width:3.241cm; height:0.891cm;">堂號：—</div>
+            <div class="rdlc-field rdlc-fs-7 rdlc-center"style="top:0.776cm; left:12.133cm; width:7.629cm; height:0.891cm;">預繳：114 中元普度</div>
+
+            <div class="rdlc-field rdlc-fs-8" style="top:1.897cm; left:1.714cm; width:2.438cm; height:0.918cm;">亡者：</div>
+            <div class="rdlc-field rdlc-fs-8" style="top:1.897cm; left:4.328cm; width:7.236cm; height:0.918cm;">陳父</div>
+            <div class="rdlc-field rdlc-fs-8" style="top:1.897cm; left:11.763cm; width:7.259cm; height:0.918cm;">陳母</div>
+            <div class="rdlc-field rdlc-fs-8" style="top:2.814cm; left:4.328cm; width:7.236cm; height:0.918cm;"></div>
+            <div class="rdlc-field rdlc-fs-8" style="top:2.814cm; left:11.763cm; width:3.596cm; height:0.918cm;"></div>
+            <div class="rdlc-field rdlc-fs-8" style="top:2.814cm; left:15.535cm; width:3.638cm; height:0.918cm;"></div>
+
+            <hr class="rdlc-line-dashed" style="top:4.190cm; left:4.328cm; width:15.434cm;" />
+
+            <div class="rdlc-field rdlc-fs-8" style="top:4.707cm; left:1.714cm; width:2.438cm; height:0.918cm;">陽上：</div>
+            <div class="rdlc-field rdlc-fs-8" style="top:4.707cm; left:4.328cm; width:7.236cm; height:0.918cm;">陳小華</div>
+            <div class="rdlc-field rdlc-fs-8" style="top:4.707cm; left:11.763cm; width:7.259cm; height:0.918cm;">陳小美</div>
+            <div class="rdlc-field rdlc-fs-8" style="top:5.660cm; left:4.328cm; width:7.236cm; height:0.918cm;"></div>
+            <div class="rdlc-field rdlc-fs-8" style="top:5.730cm; left:11.763cm; width:3.596cm; height:0.918cm;"></div>
+            <div class="rdlc-field rdlc-fs-8" style="top:5.730cm; left:15.535cm; width:3.638cm; height:0.918cm;"></div>
+
+            <div class="rdlc-field rdlc-fs-8" style="top:6.753cm; left:1.714cm; width:2.438cm; height:0.918cm;">地址：</div>
+            <div class="rdlc-field rdlc-fs-8" style="top:6.753cm; left:4.328cm; width:15.434cm; height:1.870cm; white-space: normal;">台中市北屯區松竹路二段 100 號</div>
+
+            <div class="rdlc-field rdlc-fs-6" style="top:8.799cm; left:1.714cm; width:2.438cm; height:0.626cm;">電話：</div>
+            <div class="rdlc-field rdlc-fs-6" style="top:8.799cm; left:4.328cm; width:15.434cm; height:0.626cm;">0912345678</div>
+
+            <div class="rdlc-field rdlc-fs-6" style="top:9.602cm; left:1.714cm; width:2.438cm; height:0.918cm;">備註：</div>
+            <div class="rdlc-field rdlc-fs-6" style="top:9.602cm; left:4.328cm; width:15.434cm; height:3.421cm; white-space: normal;"></div>
+
+            <div class="rdlc-field rdlc-fs-8 rdlc-right rdlc-vbottom" style="top:13.182cm; left:9.590cm; width:6.548cm; height:0.749cm; justify-content: flex-end;">確認無誤請簽名：</div>
+            <hr class="rdlc-line-solid" style="top:13.931cm; left:16.125cm; width:3.638cm;" />
+          </div>
+
+          <!-- 2. tmpReceipt.rdlc — 21 × 59.4cm（Tablix 全長：上聯 + 下聯 + 標籤區） -->
+          <div class="rdlc-paper size-receipt" id="preview-receipt" style="display: none;">
+            <!-- 上聯（顧客聯） -->
+            <div class="rdlc-field rdlc-fs-6"          style="top:2.30cm; left:6.73cm; width:8.257cm; height:0.726cm;">陳大明</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:3.50cm; left:5.00cm; width:2.50cm; height:0.653cm;">1200</div>
+            <div class="rdlc-field rdlc-fs-14pt rdlc-bold" style="top:3.50cm; left:15.00cm; width:2.50cm; height:0.653cm;">103-1</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:4.70cm; left:11.50cm; width:6.00cm; height:0.653cm;">114 中元普度</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:7.60cm; left:8.00cm; width:2.50cm; height:0.653cm;">115</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:7.60cm; left:11.50cm; width:2.50cm; height:0.653cm;">5</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:7.60cm; left:15.00cm; width:2.50cm; height:0.653cm;">26</div>
+
+            <!-- 下聯（存根聯） -->
+            <div class="rdlc-field rdlc-fs-6"          style="top:12.10cm; left:6.73cm; width:8.257cm; height:0.753cm;">陳大明</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:13.60cm; left:5.00cm; width:2.50cm; height:0.653cm;">1200</div>
+            <div class="rdlc-field rdlc-fs-14pt rdlc-bold" style="top:13.60cm; left:15.00cm; width:2.50cm; height:0.653cm;">103-1</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:14.50cm; left:11.50cm; width:6.00cm; height:0.653cm;">114 中元普度</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:17.50cm; left:8.00cm; width:2.50cm; height:0.653cm;">115</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:17.50cm; left:11.50cm; width:2.50cm; height:0.653cm;">5</div>
+            <div class="rdlc-field rdlc-fs-14pt"       style="top:17.50cm; left:15.00cm; width:2.50cm; height:0.653cm;">26</div>
+
+            <!-- 郵寄標籤區（續頁） -->
+            <div class="rdlc-field rdlc-fs-16pt" style="top:33.60cm; left:4.756cm; width:2.50cm; height:0.70cm;">408</div>
+            <div class="rdlc-field rdlc-fs-16pt" style="top:34.371cm; left:4.756cm; width:10.676cm; height:0.70cm;">台中市北屯區松竹路二段 100 號</div>
+            <div class="rdlc-field rdlc-fs-16pt" style="top:35.141cm; left:4.756cm; width:9.244cm; height:0.70cm;">陳大明　君</div>
+          </div>
+
+          <!-- 3. tmpTablet.rdlc — 11.5 × 25.4cm 牌位（窄長，直書字框） -->
+          <div class="rdlc-paper size-tablet" id="preview-tablet" style="display: none;">
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:6.10cm; left:3.90cm; width:0.70cm; height:1.383cm;">．</div>
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:6.10cm; left:5.90cm; width:0.70cm; height:1.383cm;">．</div>
+            <!-- Number 置中於頁面寬（11.5cm），width 4.296、Bold 0.8cm -->
+            <div class="rdlc-field rdlc-fs-8 rdlc-bold rdlc-center" style="top:6.85cm; left:3.602cm; width:4.296cm; height:1.132cm;">103-1</div>
+            <!-- DeadNameOne 直書（width 0.8cm × height 6.466cm） -->
+            <div class="rdlc-field rdlc-fs-8 rdlc-vertical" style="top:7.583cm; left:4.80cm; width:0.80cm; height:6.466cm;">陳父</div>
+            <!-- LivingNameOne~Five 五欄直書 -->
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:14.004cm; left:1.562cm; width:0.70cm; height:5.50cm;">陳小華</div>
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:14.004cm; left:0.835cm; width:0.70cm; height:1.261cm;">陳小美</div>
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:14.00cm; left:0.10cm; width:0.70cm; height:1.261cm;"></div>
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:15.442cm; left:0.835cm; width:0.70cm; height:1.261cm;"></div>
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:15.442cm; left:0.10cm; width:0.70cm; height:1.261cm;"></div>
+          </div>
+
+          <!-- 4. tmpText.rdlc — 36.5 × 26.2cm 文牒（橫向超寬） -->
+          <div class="rdlc-paper size-text" id="preview-text-doc" style="display: none;">
+            <div class="rdlc-field rdlc-fs-10 rdlc-bold" style="top:3.80cm; left:31.497cm; width:4.749cm; height:1.103cm;">103-1</div>
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:2.10cm; left:11.50cm; width:0.70cm; height:1.383cm;">．</div>
+            <div class="rdlc-field rdlc-fs-6 rdlc-vertical" style="top:2.10cm; left:13.538cm; width:0.70cm; height:1.383cm;">．</div>
+
+            <!-- Rectangle2（亡者群組）：top 3.624 / left 11.5 / w 2.738 / h 11.045
+                 內含 DeadNameOne + DeadNameTwo（直書，width 0.913cm） -->
+            <div class="rdlc-field rdlc-fs-8 rdlc-vertical" style="top:3.659cm; left:13.013cm; width:0.913cm; height:10.504cm;">陳父</div>
+            <div class="rdlc-field rdlc-fs-8 rdlc-vertical" style="top:3.624cm; left:11.85cm; width:0.913cm; height:10.504cm;">陳母</div>
+
+            <!-- LivingName 五位直書 -->
+            <div class="rdlc-field rdlc-fs-8 rdlc-vertical" style="top:15.275cm; left:21.874cm; width:0.913cm; height:6.728cm;">陳小華</div>
+            <div class="rdlc-field rdlc-fs-8 rdlc-vertical" style="top:15.275cm; left:20.961cm; width:0.913cm; height:1.583cm;">陳小美</div>
+            <div class="rdlc-field rdlc-fs-8 rdlc-vertical" style="top:15.275cm; left:20.049cm; width:0.913cm; height:1.583cm;"></div>
+            <div class="rdlc-field rdlc-fs-8 rdlc-vertical" style="top:17.259cm; left:20.961cm; width:0.913cm; height:1.583cm;"></div>
+            <div class="rdlc-field rdlc-fs-8 rdlc-vertical" style="top:17.259cm; left:20.049cm; width:0.913cm; height:1.583cm;"></div>
+
+            <!-- PhotoAddress (Image) — 25×605 px 垂直地址圖；於 mockup 用 placeholder 框示意 -->
+            <div class="rdlc-field" style="top:4.10cm; left:25.40cm; width:0.66cm; height:16.80cm; border: 1px dashed #999; writing-mode: vertical-rl; font-size: 0.4cm; padding: 2px; line-height: 1; box-sizing: border-box;">台中市北屯區松竹路二段 100 號</div>
+          </div>
+
+          <!-- 5. tmpWorship.rdlc — 21 × 29.6cm 普桌（含 worship2 背景） -->
+          <div class="rdlc-paper size-worship" id="preview-worship" style="display: none;">
+            <img class="rdlc-bg-image" src="../reference/extracted-images/worship2.png" alt="worship2"
+                 style="top:0.261cm; left:0.42cm; width:20.047cm; height:28.884cm;" />
+            <!-- Number 2cm Bold 置中 -->
+            <div class="rdlc-field rdlc-fs-20 rdlc-bold rdlc-center" style="top:4.474cm; left:5.588cm; width:8.903cm; height:2.206cm;">103-1</div>
+            <!-- LivingName 直書 2cm 字級（陽上信士姓名） -->
+            <div class="rdlc-field rdlc-fs-20 rdlc-vertical" style="top:7.312cm; left:11.093cm; width:2.20cm; height:10.211cm;">陳小華</div>
+            <div class="rdlc-field rdlc-fs-20 rdlc-vertical" style="top:7.312cm; left:8.828cm;  width:2.20cm; height:10.211cm;">陳小美</div>
+            <div class="rdlc-field rdlc-fs-20 rdlc-vertical" style="top:17.699cm; left:8.864cm; width:2.20cm; height:10.211cm;"></div>
+          </div>
+        </div>
+
+        <div class="print-page-info">
+          <div>檔案：signup-103-1.pdf　|　大小：48 KB　|　頁數：1</div>
+          <div>對位驗收：欄位誤差 ≤ 0.2cm（依 <a href="#" style="color: var(--c-primary);">printing-reports-positions.md</a>）</div>
+        </div>
+
+        <div class="panel" style="margin-top: var(--space-md);">
+          <div class="panel-title">列印備註</div>
+          <ul style="margin: 0; padding-left: 20px; font-size: var(--font-size-sm); color: var(--c-text-secondary); line-height: 1.8;">
+            <li>所有報表字型：標楷體 (BiauKai)；字級 0.6cm–3cm 依報表類型</li>
+            <li>薦牌 / 文牒 / 普桌印在預印格式紙上，欄位偏差需 ≤ 0.2cm 否則套印錯位</li>
+            <li>批次列印：在 <button class="btn btn-sm" onclick="go('signup')">報名維護</button> 設定起迄編號 + 類型，後端合併 PDF 一次回傳</li>
+            <li>避 4 規則：編號顯示「103-1」而非「104」</li>
+            <li>普桌（worship）依最高 LivingName 位置自動選擇 6 個 RDLC 變體之一</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- ============ AdminsForm ============ -->
+      <!-- 對齊舊版 AdminsForm.Designer.cs：DataGridView + 「新增」按鈕；
+           編輯改用 modal（取代舊版右側 Panel 415,12 w=237） -->
+      <section class="page" data-page="admins">
+        <h1 class="page-title">管理者維護</h1>
+
+        <div class="panel panel-flush">
+          <div class="panel-header">
+            <div class="panel-title mb-0" style="border: 0;">管理者列表（共 4 筆）</div>
+            <button class="btn btn-primary btn-sm" onclick="openModal('admin-edit-modal')">＋ 新增</button>
+          </div>
+          <div class="grid-wrap" style="border: 0;">
+            <table class="grid">
+              <thead><tr><th>帳號</th><th>姓名</th><th>建立日期</th></tr></thead>
+              <tbody>
+                <tr class="selected" ondblclick="openModal('admin-edit-modal')"><td>admin</td><td>系統管理員</td><td>110/01/01</td></tr>
+                <tr ondblclick="openModal('admin-edit-modal')"><td>chen</td><td>陳小姐</td><td>112/03/15</td></tr>
+                <tr ondblclick="openModal('admin-edit-modal')"><td>lin</td><td>林師兄</td><td>113/07/22</td></tr>
+                <tr ondblclick="openModal('admin-edit-modal')"><td>wang</td><td>王居士</td><td>114/02/10</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="panel-footer">右鍵列 →「修改」/「軟刪除」（IsEnabled=false，不真刪資料列）；雙擊列開啟編輯</div>
+        </div>
+      </section>
+
+      <!-- ============ EditSignupForm ============ -->
+      <!-- 對齊舊版 EditSignupForm.Designer.cs（ClientSize 673×493，plForm 13,3）：
+           Row1 Y=28: 編號/年份/法會/類型/費用
+           Row2 Y=99: 信眾/堂號/員工/姓名/電話
+           Row3 Y=164: 寄件地址(左半) | 文牒地址(右半) + 同寄件地址勾選
+           Row4 Y≈259: 備註(右側) + 預繳/陽上/往生
+           Y=410-433: 陽上/往生 6 欄
+           Y=422: 確認按鈕(右下) -->
+      <section class="page" data-page="edit-signup">
+        <h1 class="page-title">編輯報名</h1>
+        <p class="muted">由報名維護右鍵「修改資料」進入；對齊舊版 EditSignupForm 五列式版面。</p>
+
+        <div class="panel">
+          <!-- Row 1: 編號 / 年份 / 法會 / 類型 / 費用 -->
+          <div class="row" style="border-bottom: 1px dashed var(--c-border-soft); padding-bottom: var(--space-sm);">
+            <label class="field"><span class="lbl">編號</span><input type="text" value="103-1" style="width: 90px;" /></label>
+            <label class="field"><span class="lbl">年份</span><input type="text" value="115" style="width: 70px;" /></label>
+            <label class="field"><span class="lbl">法會 <span class="req">*</span></span>
+              <select style="min-width: 160px;"><option selected>梁皇寶懺法會</option><option>中元普度</option></select>
+            </label>
+            <label class="field"><span class="lbl">類型 <span class="req">*</span></span>
+              <select><option selected>一般</option><option>寺方</option><option>觀音會</option><option>普桌</option><option>郵撥</option></select>
+            </label>
+            <label class="field"><span class="lbl">費用</span><input type="text" value="1200" style="width: 100px;" /></label>
+            <label class="field inline cb-end"><input type="checkbox" /> 保留編號</label>
+          </div>
+
+          <!-- Row 2: 信眾 / 堂號 / 員工 / 姓名 / 電話 -->
+          <div class="row" style="margin-top: var(--space-sm);">
+            <label class="field" style="flex: 1; min-width: 200px;"><span class="lbl">信眾（自動完成搜尋）</span>
+              <input type="text" value="陳大明 / 0912345678" />
+            </label>
+            <label class="field"><span class="lbl">堂號</span><input type="text" style="width: 100px;" /></label>
+            <label class="field"><span class="lbl">員工</span>
+              <select><option selected>非員工</option><option>大殿</option><option>地藏殿</option></select>
+            </label>
+            <label class="field"><span class="lbl">姓名 <span class="req">*</span></span><input type="text" value="陳大明" /></label>
+            <label class="field"><span class="lbl">電話</span><input type="text" value="0912345678" /></label>
+          </div>
+
+          <!-- Row 3: 寄件地址 (左) | 文牒地址 (右) -->
+          <div class="grid-2" style="margin-top: var(--space-sm);">
+            <fieldset class="group">
+              <legend>寄件地址 <span class="req">*</span></legend>
+              <div class="row">
+                <select><option>縣市</option><option selected>台中市</option></select>
+                <select><option>區域</option><option selected>北屯區</option></select>
+                <input type="text" value="408" style="width: 60px;" placeholder="郵編" />
+              </div>
+              <input type="text" value="松竹路二段 100 號" style="width: 100%; margin-top: var(--space-xs);" />
+            </fieldset>
+
+            <fieldset class="group">
+              <legend>文牒地址</legend>
+              <label class="field inline"><input type="checkbox" /> 同寄件地址</label>
+              <div class="row" style="margin-top: var(--space-xs);">
+                <select><option>縣市</option></select>
+                <select><option>區域</option></select>
+                <input type="text" style="width: 60px;" placeholder="郵編" />
+              </div>
+              <input type="text" placeholder="詳細地址" style="width: 100%; margin-top: var(--space-xs);" />
+            </fieldset>
+          </div>
+
+          <!-- Row 4: 往生 / 陽上 並列 -->
+          <div class="grid-2">
+            <fieldset class="group">
+              <legend>往生（避 4 → 顯示 3-1）</legend>
+              <div class="name-grid">
+                <label>往生1</label><input type="text" value="陳父" />
+                <label>往生2</label><input type="text" value="陳母" />
+                <label>往生3</label><input type="text" />
+                <label>往生3-1</label><input type="text" />
+                <label>往生5</label><input type="text" />
+                <label>往生6</label><input type="text" />
+              </div>
+            </fieldset>
+            <fieldset class="group">
+              <legend>陽上</legend>
+              <div class="name-grid">
+                <label>陽上1</label><input type="text" value="陳小華" />
+                <label>陽上2</label><input type="text" value="陳小美" />
+                <label>陽上3</label><input type="text" />
+                <label>陽上3-1</label><input type="text" />
+                <label>陽上5</label><input type="text" />
+                <label>陽上6</label><input type="text" />
+              </div>
+            </fieldset>
+          </div>
+
+          <!-- Row 5: 預繳 + 備註 + 固定編號 -->
+          <div class="row">
+            <label class="field"><span class="lbl">預繳年份</span><input type="text" value="114" style="width: 80px;" /></label>
+            <label class="field"><span class="lbl">預繳法會</span>
+              <select style="min-width: 160px;"><option>請選擇預繳法會</option><option selected>中元普度</option></select>
+            </label>
+            <label class="field inline cb-end"><input type="checkbox" /> 預繳固定編號</label>
+            <label class="field" style="flex: 1; min-width: 220px;"><span class="lbl">備註</span><input type="text" /></label>
+          </div>
+
+          <!-- 按鈕列：對齊舊版 btnConfirm 位於右下 (502,422) -->
+          <div class="right" style="margin-top: var(--space-md); border-top: 1px dashed var(--c-border-soft); padding-top: var(--space-sm);">
+            <button class="btn" onclick="go('signup')">取消</button>
+            <button class="btn" onclick="go('signup-log')">瀏覽歷程</button>
+            <button class="btn">列印資料卡</button>
+            <button class="btn btn-primary" onclick="snack('修改報名成功！已產生 SignupLog 快照')">確認</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ SignupLogForm ============ -->
+      <!-- 對齊舊版 SignupLogForm.Designer.cs（ClientSize 800×450，僅一個 DataGridView 撐滿 12,12 776×426）：
+           整頁就是「依 Createdate 倒序」的反正規化快照清單，唯讀。 -->
+      <section class="page" data-page="signup-log">
+        <h1 class="page-title">瀏覽歷程</h1>
+        <p class="muted">每次編輯報名都會產生完整快照（反正規化），依 Createdate 倒序顯示。對齊舊版 SignupLogForm — 全頁僅一個 DataGridView。</p>
+
+        <div class="panel panel-flush">
+          <div class="panel-header">
+            <div>
+              <span class="badge">共 3 筆快照</span>
+              <span class="small muted" style="margin-left: var(--space-md);">編號 103-1 / 陳大明 / 梁皇寶懺 / 115 年</span>
+            </div>
+            <button class="btn btn-sm" onclick="go('edit-signup')">關閉</button>
+          </div>
+          <div class="grid-wrap" style="border: 0; max-height: 480px;">
+            <table class="grid">
+              <thead>
+                <tr>
+                  <th>異動時間</th><th>異動者</th>
+                  <th>年份</th><th>法會</th><th>類型</th><th>編號</th><th>費用</th>
+                  <th>員工</th><th>姓名</th><th>聯絡電話</th><th>堂號</th>
+                  <th>往生1</th><th>往生2</th><th>往生3</th><th>往生3-1</th><th>往生5</th><th>往生6</th>
+                  <th>陽上1</th><th>陽上2</th>
+                  <th>寄件城市</th><th>寄件區</th><th>寄件地址</th>
+                  <th>備註</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>115/05/26 16:48</td><td>admin</td><td>115</td><td>梁皇寶懺</td><td>一般</td><td>103-1</td><td>1,200</td><td>非員工</td><td>陳大明</td><td>0912345678</td><td>—</td><td class="dead-col">陳父</td><td class="dead-col">陳母</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>陳小華</td><td>陳小美</td><td>台中市</td><td>北屯區</td><td>松竹路二段 100 號</td><td>—</td></tr>
+                <tr><td>115/05/20 10:12</td><td>chen</td><td>115</td><td>梁皇寶懺</td><td>一般</td><td>103-1</td><td>1,200</td><td>非員工</td><td>陳大明</td><td>0912345678</td><td>—</td><td class="dead-col">陳父</td><td class="dead-col">陳母</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>陳小華</td><td></td><td>台中市</td><td>北屯區</td><td>松竹路二段 100 號</td><td>陽上2 新增前</td></tr>
+                <tr><td>115/05/15 09:01</td><td>admin</td><td>115</td><td>梁皇寶懺</td><td>一般</td><td>103-1</td><td>1,200</td><td>非員工</td><td>陳大明</td><td>0912345678</td><td>—</td><td class="dead-col">陳父</td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td class="dead-col"></td><td>陳小華</td><td></td><td>台中市</td><td>北屯區</td><td>松竹路二段 100 號</td><td>初始建立</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CustomDialogForm（列印格式選擇） ============ -->
+      <!-- 對齊舊版 CustomDialogForm.Designer.cs（ClientSize 346×171）：
+           訊息標籤(Y=51 居中) → PDF/預覽列印 兩按鈕並排(Y=96)。 -->
+      <section class="page" data-page="print-dialog">
+        <h1 class="page-title">列印格式選擇（CustomDialogForm）</h1>
+        <p class="muted">列印前彈出，讓使用者選擇輸出格式。對齊舊版 CustomDialogForm（346×171，兩按鈕並排）。</p>
+
+        <div class="login-host" style="min-height: 320px;">
+          <div class="login-card" style="width: 360px;">
+            <div class="hd">列印格式 | 寶覺寺</div>
+            <div class="bd" style="text-align: center;">
+              <h2 style="font-family: var(--font-print); font-size: 20px; margin: var(--space-md) 0;">請選擇列印格式</h2>
+              <p class="small muted">將套用至：資料卡 / 收據 / 薦牌 / 文牒 / 普桌</p>
+            </div>
+            <div class="ft" style="display: flex; justify-content: center; gap: var(--space-md);">
+              <button class="btn btn-primary" style="min-width: 112px;" onclick="snack('已輸出為 PDF 檔')">PDF</button>
+              <button class="btn" style="min-width: 112px;" onclick="go('print-preview')">預覽列印</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ CustomMessageForm（通用訊息框） ============ -->
+      <!-- 對齊舊版 CustomMessageForm.Designer.cs（ClientSize 346×171）：
+           訊息標籤(Y=51 居中) → 關閉按鈕(Y=105 居中)。 -->
+      <section class="page" data-page="message-dialog">
+        <h1 class="page-title">通用訊息框（CustomMessageForm）</h1>
+        <p class="muted">舊版用於各種提示（儲存成功、驗證錯誤等）。對齊舊版 CustomMessageForm — 訊息置中 + 單一「關閉」按鈕。新版功能流程多改用 snackbar 顯示。</p>
+
+        <div class="login-host" style="min-height: 320px;">
+          <div class="login-card" style="width: 360px;">
+            <div class="hd">系統訊息 | 寶覺寺</div>
+            <div class="bd" style="text-align: center;">
+              <h2 style="font-family: var(--font-print); font-size: 20px; margin: var(--space-md) 0;">儲存成功！</h2>
+              <p class="small muted">編號 103-1，資料卡可於右鍵選單列印。</p>
+            </div>
+            <div class="ft" style="display: flex; justify-content: center;">
+              <button class="btn btn-primary" style="min-width: 112px;" onclick="go('signup')">關閉</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <span>待命</span>
+    <span class="pill">資料庫：Ceremony</span>
+    <span class="pill">伺服器：localhost\SQLEXPRESS</span>
+    <span style="margin-left: auto;">版本 v2.0.0-mockup</span>
+  </div>
+</div>
+
+<!-- ============ LoadPrepay Modal ============ -->
+<!-- 對齊舊版 LoadPrepayForm.Designer.cs：來源組(Y≈41–76) → 紅色「至」分隔(Y=106) → 目標組(Y=141) → 確認(Y=182) -->
+<div class="modal-mask" id="prepay-modal" onclick="if(event.target===this) closeModal('prepay-modal')">
+  <div class="modal">
+    <div class="hd">載入預繳 | 寶覺寺</div>
+    <div class="bd">
+      <p class="small muted" style="margin: 0 0 var(--space-sm); text-align: center;">即將載入以下法會預繳報名</p>
+
+      <fieldset class="group">
+        <legend>來源</legend>
+        <div class="grid-2">
+          <label class="field"><span class="lbl">年份（民國）</span><input type="text" value="114" /></label>
+          <label class="field"><span class="lbl">法會</span>
+            <select><option>請選擇法會</option><option selected>中元普度</option></select>
+          </label>
+        </div>
+      </fieldset>
+
+      <div style="text-align: center; color: var(--c-danger); font-weight: 700; font-size: var(--font-size-lg); margin: var(--space-xs) 0;">至</div>
+
+      <fieldset class="group">
+        <legend>目標</legend>
+        <div class="grid-2">
+          <label class="field"><span class="lbl">年份（民國）</span><input type="text" value="115" /></label>
+          <label class="field"><span class="lbl">法會</span>
+            <select><option selected>中元普度</option></select>
+          </label>
+        </div>
+      </fieldset>
+
+      <p class="small muted" style="margin-top: var(--space-sm);">
+        ※ 將「今年以前最新報名」依預繳設定，整批帶入目標法會。<br/>
+        ※ 舊系統無 idempotency；新版以 transaction + 去重鍵保護。
+      </p>
+    </div>
+    <div class="ft">
+      <button class="btn" onclick="closeModal('prepay-modal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('prepay-modal'); snack('已載入 86 筆預繳資料！')">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Believer Edit Modal ============ -->
+<div class="modal-mask" id="believer-edit-modal" onclick="if(event.target===this) closeModal('believer-edit-modal')">
+  <div class="modal modal-lg">
+    <div class="hd">信眾資料 | 寶覺寺</div>
+    <div class="bd">
+      <div class="grid-2">
+        <label class="field"><span class="lbl">堂號</span><input type="text" /></label>
+        <label class="field"><span class="lbl">姓名 <span class="req">*</span></span><input type="text" value="陳大明" /></label>
+        <label class="field"><span class="lbl">員工</span>
+          <select><option>請選擇員工</option><option selected>非員工</option><option>大殿</option><option>地藏殿</option></select>
+        </label>
+        <label class="field inline cb-end"><input type="checkbox" /> 預繳固定編號</label>
+      </div>
+
+      <label class="field w-full">
+        <span class="lbl">聯絡電話　<span class="small muted">(不須填符號，例：0987654321)</span></span>
+        <input type="text" value="0912345678" class="w-full" />
+      </label>
+
+      <div class="grid-2">
+        <fieldset class="group">
+          <legend>寄件地址 <span class="req">*</span></legend>
+          <div class="row">
+            <select><option>縣市</option><option selected>台中市</option></select>
+            <select><option>區域</option><option selected>北屯區</option></select>
+            <input type="text" placeholder="郵編" class="field-w-sm" />
+          </div>
+          <input type="text" value="松竹路二段 100 號" class="w-full mt-sm" />
+        </fieldset>
+        <fieldset class="group">
+          <legend>文牒地址</legend>
+          <label class="field inline"><input type="checkbox" /> 同寄件地址</label>
+          <div class="row mt-sm">
+            <select><option>縣市</option></select>
+            <select><option>區域</option></select>
+            <input type="text" placeholder="郵編" class="field-w-sm" />
+          </div>
+          <input type="text" placeholder="詳細地址" class="w-full mt-sm" />
+        </fieldset>
+      </div>
+
+      <div class="grid-2">
+        <fieldset class="group">
+          <legend>往生（避 4 → 顯示 3-1）</legend>
+          <div class="name-grid">
+            <label>往生1</label><input type="text" value="陳父" />
+            <label>往生2</label><input type="text" value="陳母" />
+            <label>往生3</label><input type="text" />
+            <label>往生3-1</label><input type="text" />
+            <label>往生5</label><input type="text" />
+            <label>往生6</label><input type="text" />
+          </div>
+        </fieldset>
+        <fieldset class="group">
+          <legend>陽上</legend>
+          <div class="name-grid">
+            <label>陽上1</label><input type="text" value="陳小華" />
+            <label>陽上2</label><input type="text" value="陳小美" />
+            <label>陽上3</label><input type="text" />
+            <label>陽上3-1</label><input type="text" />
+            <label>陽上5</label><input type="text" />
+            <label>陽上6</label><input type="text" />
+          </div>
+        </fieldset>
+      </div>
+    </div>
+    <div class="ft">
+      <button class="btn" onclick="closeModal('believer-edit-modal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('believer-edit-modal'); snack('修改信眾成功！')">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ Admin Edit Modal ============ -->
+<div class="modal-mask" id="admin-edit-modal" onclick="if(event.target===this) closeModal('admin-edit-modal')">
+  <div class="modal">
+    <div class="hd">管理者資料 | 寶覺寺</div>
+    <div class="bd">
+      <label class="field w-full"><span class="lbl">帳號</span><input type="text" value="admin" class="w-full" /></label>
+      <label class="field w-full"><span class="lbl">姓名</span><input type="text" value="系統管理員" class="w-full" /></label>
+      <label class="field w-full"><span class="lbl">密碼</span><input type="password" value="••••••" class="w-full" /></label>
+      <label class="field w-full"><span class="lbl">確認密碼</span><input type="password" value="••••••" class="w-full" /></label>
+    </div>
+    <div class="ft">
+      <button class="btn" onclick="closeModal('admin-edit-modal')">取消</button>
+      <button class="btn btn-primary" onclick="closeModal('admin-edit-modal'); snack('已儲存管理者資料')">確認</button>
+    </div>
+  </div>
+</div>
+
+<!-- Snackbar -->
+<div class="snackbar" id="snackbar"></div>
+
+<script>
+  function go(page) {
+    document.querySelectorAll('.page').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+    document.querySelectorAll('.sidebar nav button[data-page]').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+    const titles = {
+      'login': '登入 | 寶覺寺',
+      'main': '主選單 | 寶覺寺',
+      'believer': '信眾維護 | 寶覺寺',
+      'signup': '報名維護 | 寶覺寺',
+      'new-signup': '新增報名 | 寶覺寺',
+      'edit-signup': '編輯報名 | 寶覺寺',
+      'signup-log': '瀏覽歷程 | 寶覺寺',
+      'category': '法會維護 | 寶覺寺',
+      'admins': '管理者維護 | 寶覺寺',
+      'print-preview': '列印預覽 | 寶覺寺',
+      'print-dialog': '列印格式選擇 | 寶覺寺',
+      'message-dialog': '系統訊息 | 寶覺寺',
+    };
+    document.getElementById('title-text').textContent = titles[page] || '';
+    document.querySelector('.page-area').scrollTop = 0;
+    location.hash = page;
+  }
+  document.querySelectorAll('.sidebar nav button[data-page]').forEach(b => {
+    b.addEventListener('click', () => go(b.dataset.page));
+  });
+
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  let snackTimer = null;
+  function snack(msg) {
+    const el = document.getElementById('snackbar');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(snackTimer);
+    snackTimer = setTimeout(() => el.classList.remove('show'), 3000);
+  }
+
+  // 列印預覽切換
+  function switchReport(type) {
+    ['data-card', 'receipt', 'tablet', 'text-doc', 'worship'].forEach(t => {
+      const el = document.getElementById('preview-' + t);
+      if (el) el.style.display = t === type ? 'block' : 'none';
+    });
+  }
+  let zoom = 50; // RDLC 用 cm 實尺寸；預設 50% 較易在螢幕完整檢視
+  function zoomReport(delta) {
+    zoom = Math.max(25, Math.min(200, zoom + delta));
+    applyZoom();
+  }
+  function resetZoom() { zoom = 100; applyZoom(); }
+  function applyZoom() {
+    // 用 CSS `zoom` 屬性（會改變 layout box 大小、避免 transform: scale 的留白問題）
+    document.querySelectorAll('.rdlc-paper').forEach(el => {
+      el.style.zoom = zoom / 100;
+    });
+    const disp = document.getElementById('zoom-display');
+    if (disp) disp.textContent = zoom + '%';
+  }
+  document.addEventListener('DOMContentLoaded', applyZoom);
+
+  // 初始路由（hash）
+  const initial = (location.hash || '#main').slice(1);
+  if (['login','main','believer','signup','new-signup','edit-signup','signup-log','category','admins','print-preview','print-dialog','message-dialog'].includes(initial)) {
+    go(initial);
+  }
+</script>
+
+</body>
+</html>

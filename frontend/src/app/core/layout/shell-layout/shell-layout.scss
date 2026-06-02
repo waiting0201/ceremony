@@ -1,0 +1,120 @@
+:host {
+  display: block;
+  height: 100vh;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr;
+  height: 100%;
+  background: var(--c-bg);
+}
+
+.sidebar {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  background: var(--c-bg-darker);
+  border-right: 1px solid var(--c-border);
+  min-height: 0;
+}
+
+.brand {
+  padding: var(--space-lg) var(--space-md);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.brand-title {
+  font-size: var(--font-size-xl);
+  font-weight: 600;
+  color: var(--c-text-primary);
+}
+
+.brand-subtitle {
+  font-size: var(--font-size-sm);
+  color: var(--c-text-secondary);
+  margin-top: var(--space-xs);
+}
+
+.nav {
+  padding: var(--space-sm) 0;
+  overflow-y: auto;
+}
+
+.nav-item {
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  color: var(--c-text-primary);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(204, 120, 92, 0.08);
+    text-decoration: none;
+  }
+
+  &.is-active {
+    background: var(--c-primary-soft);
+    border-left-color: var(--c-primary);
+
+    .nav-icon { color: var(--c-primary); }
+  }
+}
+
+.nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--font-size-lg);
+  color: var(--c-text-secondary);
+  line-height: 1;
+}
+
+.nav-label {
+  font-size: var(--font-size-md);
+  font-weight: 500;
+}
+
+.sidebar-footer {
+  padding: var(--space-md);
+  border-top: 1px solid var(--c-border);
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.user {
+  font-size: var(--font-size-sm);
+  color: var(--c-text-secondary);
+}
+
+.version {
+  font-size: var(--font-size-xs, 11px);
+  color: var(--c-text-tertiary, var(--c-text-secondary));
+  text-align: center;
+  letter-spacing: 0.04em;
+}
+
+.logout {
+  height: var(--button-height);
+  border: 1px solid var(--c-border);
+  background: var(--c-surface);
+  color: var(--c-text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+
+  &:hover {
+    background: var(--c-primary-soft);
+    border-color: var(--c-primary);
+  }
+}
+
+.content {
+  overflow: auto;
+  padding: var(--space-lg);
+  padding-bottom: 12px;
+  min-height: 0;
+}

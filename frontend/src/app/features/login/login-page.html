@@ -1,0 +1,31 @@
+<div class="login">
+  <form class="card" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="title">寶覺寺法會報名系統</div>
+    <div class="subtitle">請輸入管理者帳號登入</div>
+
+    <label class="field">
+      <span class="label">帳號</span>
+      <input
+        type="text"
+        formControlName="username"
+        autocomplete="username"
+        spellcheck="false"
+      />
+    </label>
+
+    <label class="field">
+      <span class="label">密碼</span>
+      <input type="password" formControlName="password" autocomplete="current-password" />
+    </label>
+
+    @if (errorMessage(); as msg) {
+      <div class="error">{{ msg }}</div>
+    }
+
+    <button type="submit" class="submit" [disabled]="form.invalid || submitting()">
+      {{ submitting() ? '登入中...' : '登入' }}
+    </button>
+
+    <div class="version">{{ appVersion }}</div>
+  </form>
+</div>

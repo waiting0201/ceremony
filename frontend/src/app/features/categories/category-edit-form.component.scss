@@ -1,0 +1,7 @@
+:host { display: block; }
+
+.category-form {
+  display: grid;
+  gap: var(--space-md);
+  min-width: 320px;
+}

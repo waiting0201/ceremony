@@ -1,0 +1,210 @@
+<div class="page">
+  <header class="header">
+    <h1>報名維護</h1>
+  </header>
+
+  @if (errorMessage(); as msg) {
+    <div class="alert alert-error">{{ msg }}</div>
+  }
+  @if (successMessage(); as msg) {
+    <div class="alert alert-success">{{ msg }}</div>
+  }
+
+  <section class="toolbar">
+    <fieldset class="pane search-pane">
+      <legend>搜尋</legend>
+      <form class="search-grid dense-controls" [formGroup]="form" (ngSubmit)="search()">
+        <label class="chk r1c1"><input type="checkbox" formControlName="isScope" /><span>範圍</span></label>
+        <label class="lbl r1c2">年份</label>
+        <input type="number" class="r1c3" formControlName="year" min="1" max="999" />
+        <div class="scope-row r1c4">
+          <label class="chk"><input type="checkbox" formControlName="scopeName" /><span>姓名</span></label>
+          <label class="chk"><input type="checkbox" formControlName="scopeLivingName" /><span>陽上</span></label>
+          <label class="chk"><input type="checkbox" formControlName="scopeDeadName" /><span>往生</span></label>
+          <label class="chk"><input type="checkbox" formControlName="scopePhone" /><span>電話</span></label>
+        </div>
+
+        <label class="chk r2c1"><input type="checkbox" [checked]="showAll()" (change)="toggleShowAll()" /><span>顯示完整表格</span></label>
+        <label class="lbl r2c2">法會</label>
+        <select class="r2c3" formControlName="ceremonyCategoryId">
+          <option value="">全部</option>
+          @for (cat of flatCategories(); track cat.id) {
+            <option [value]="cat.id">{{ cat.title }}</option>
+          }
+        </select>
+        <input type="text" class="r2c4 search-key" formControlName="searchKey" placeholder="關鍵字" />
+        <label class="chk r2c5"><input type="checkbox" formControlName="isFixedNumber" /><span>固定編號</span></label>
+
+        <label class="lbl r3c2">類型</label>
+        <select class="r3c3" formControlName="signupType">
+          <option [value]="-1">全部</option>
+          @for (t of signupTypes; track t.value) {
+            <option [value]="t.value">{{ t.label }}</option>
+          }
+        </select>
+        <label class="lbl r3c4-l">編號</label>
+        <input type="number" class="r3c4-i" formControlName="number" min="0" />
+        <button type="button" class="btn r3c5" (click)="exportExcel()" [disabled]="exporting() || loading()">
+          {{ exporting() ? '匯出中…' : '匯出 Excel' }}
+        </button>
+        <button type="submit" class="btn btn-primary search-btn" [disabled]="loading()">
+          {{ loading() ? '搜尋中…' : '搜尋' }}
+        </button>
+      </form>
+    </fieldset>
+
+    <fieldset class="pane print-pane">
+      <legend>批次列印</legend>
+      <form class="print-grid dense-controls" [formGroup]="batchForm" (ngSubmit)="submitBatchPrint()">
+        <input type="number" class="num" formControlName="numberStart" min="1" placeholder="起" />
+        <span class="tilde">～</span>
+        <input type="number" class="num" formControlName="numberEnd" min="1" placeholder="迄" />
+        <select class="r2c1-3" formControlName="reportType">
+          @for (r of reportTypes; track r.value) {
+            <option [value]="r.value">{{ r.label }}</option>
+          }
+        </select>
+        <button type="submit" class="btn btn-primary print-btn" [disabled]="printing() || batchForm.invalid">
+          {{ printing() ? '列印中…' : '列印' }}
+        </button>
+      </form>
+    </fieldset>
+
+    <fieldset class="pane action-pane">
+      <legend>動作</legend>
+      <div class="action-stack">
+        <button type="button" class="btn btn-primary" (click)="openCreateOverlay()">
+          <app-icon name="plus" [size]="14" />
+          <span>新增報名</span>
+        </button>
+        <button type="button" class="btn" [disabled]="selectedCount() !== 1" (click)="goEditSelected()">
+          <app-icon name="pencil" [size]="14" />
+          <span>修改報名</span>
+        </button>
+      </div>
+    </fieldset>
+  </section>
+
+  <section class="results-card">
+    <div class="results-header">
+      <span>結果 {{ total() }} 筆</span>
+      <button type="button" class="btn btn-sm" (click)="resetColumnWidths()" title="重設欄寬">重設欄寬</button>
+      @if (anySelected()) {
+        <span class="selection-summary">已選 {{ selectedCount() }} 筆</span>
+        <button type="button" class="btn btn-sm" (click)="clearSelection()">取消選取</button>
+        <button
+          type="button"
+          class="btn btn-sm"
+          #bulkBtn
+          (click)="openBulkMenu(bulkBtn)"
+          [disabled]="printing()"
+        >
+          對選取項目
+          <app-icon name="more" [size]="14" />
+        </button>
+      }
+    </div>
+    @if (loading()) {
+      <div class="hint">載入中…</div>
+    } @else if (!hasSearched()) {
+      <div class="hint">請設定搜尋條件後點「搜尋」</div>
+    } @else if (results().length === 0) {
+      <div class="hint">無資料，請重新搜尋！</div>
+    } @else {
+      <div class="vgrid-zone">
+        <div class="vgrid-header-clip">
+          <div
+            #headerInner
+            class="vgrid-header"
+            role="row"
+            [style.width.px]="totalGridWidth()"
+            [style.grid-template-columns]="gridTemplateColumns()"
+          >
+            @for (col of visibleColumns(); track col.id) {
+              <div class="vgrid-th" role="columnheader" [attr.data-col]="col.id">
+                @if (col.id === 'check') {
+                  <input
+                    type="checkbox"
+                    #headerCheckbox
+                    [checked]="allSelected()"
+                    (change)="toggleAll(); onHeaderCheckboxChange(headerCheckbox)"
+                    (click)="$event.stopPropagation()"
+                  />
+                } @else {
+                  <span class="vgrid-th-label">{{ col.label }}</span>
+                }
+                @if (col.resizable) {
+                  <span
+                    class="vgrid-resize"
+                    (pointerdown)="startColumnResize($event, col)"
+                  ></span>
+                }
+              </div>
+            }
+          </div>
+        </div>
+        <cdk-virtual-scroll-viewport
+          #vp
+          [itemSize]="rowHeight"
+          class="vgrid-viewport"
+          (scroll)="onViewportScroll()"
+        >
+          <div
+            *cdkVirtualFor="let item of results(); let i = index; trackBy: trackRow"
+            class="vgrid-row"
+            role="row"
+            [class.is-selected]="isSelected(item.id)"
+            [style.width.px]="totalGridWidth()"
+            [style.grid-template-columns]="gridTemplateColumns()"
+            [style.height.px]="rowHeight"
+            (contextmenu)="openRowMenu($event, item, i)"
+          >
+            @for (col of visibleColumns(); track col.id) {
+              <div
+                class="vgrid-td"
+                role="cell"
+                [attr.data-col]="col.id"
+                [class.dead]="col.cellClass === 'dead'"
+                [class.remark]="col.cellClass === 'remark'"
+                [class.meta-date]="col.cellClass === 'meta-date'"
+              >
+                @switch (col.id) {
+                  @case ('check') {
+                    <input
+                      type="checkbox"
+                      [checked]="isSelected(item.id)"
+                      (change)="toggleRow(item, null, i)"
+                      (click)="$event.stopPropagation()"
+                    />
+                  }
+                  @default {
+                    {{ col.accessor ? col.accessor(item) : '' }}
+                  }
+                }
+              </div>
+            }
+          </div>
+        </cdk-virtual-scroll-viewport>
+      </div>
+    }
+  </section>
+
+  @if (editOverlay(); as o) {
+    <app-form-overlay
+      [title]="o.signupId ? '編輯報名' : '新增報名'"
+      [dirty]="editFormDirty()"
+      (close)="onOverlayClose()"
+    >
+      <app-signup-edit-form
+        [signupId]="o.signupId"
+        [fromSignupId]="o.fromSignupId"
+        (saved)="onOverlaySaved()"
+        (dirtyChange)="onEditFormDirtyChange($event)"
+      />
+      <ng-container overlay-actions>
+        <button type="button" class="btn" (click)="onOverlayClose()">取消</button>
+        <button type="button" class="btn btn-primary" (click)="onOverlaySubmit()">確認</button>
+      </ng-container>
+    </app-form-overlay>
+  }
+</div>

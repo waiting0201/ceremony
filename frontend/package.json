@@ -1,0 +1,59 @@
+{
+  "name": "frontend",
+  "version": "2.0.0",
+  "description": "寶覺寺法會報名系統",
+  "author": "寶覺寺",
+  "main": "electron/dist/main.js",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve",
+    "build": "ng build",
+    "watch": "ng build --watch --configuration development",
+    "test": "ng test",
+    "electron:compile": "tsc -p tsconfig.electron.json",
+    "electron:dev": "npm run electron:compile && CEREMONY_RENDERER_URL=http://localhost:4200 electron electron/dist/main.js",
+    "build:renderer": "ng build --base-href ./",
+    "electron:build": "npm run build:renderer && npm run electron:compile",
+    "api:publish": "bash ../backend/publish.sh",
+    "dist": "npm run api:publish && npm run electron:build && electron-builder"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "overrides": [
+      {
+        "files": "*.html",
+        "options": {
+          "parser": "angular"
+        }
+      }
+    ]
+  },
+  "private": true,
+  "packageManager": "npm@11.8.0",
+  "dependencies": {
+    "@angular/animations": "^21.2.14",
+    "@angular/cdk": "^21.2.12",
+    "@angular/common": "^21.1.0",
+    "@angular/compiler": "^21.1.0",
+    "@angular/core": "^21.1.0",
+    "@angular/forms": "^21.1.0",
+    "@angular/material": "^21.2.12",
+    "@angular/platform-browser": "^21.1.0",
+    "@angular/router": "^21.1.0",
+    "@ngrx/signals": "^21.1.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^21.1.4",
+    "@angular/cli": "^21.1.4",
+    "@angular/compiler-cli": "^21.1.0",
+    "@types/node": "^22.10.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "jsdom": "^27.1.0",
+    "typescript": "~5.9.2",
+    "vitest": "^4.0.8"
+  }
+}
