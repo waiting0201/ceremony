@@ -25,6 +25,28 @@ export function configPath(): string {
   return path.join(configDir(), 'config.json');
 }
 
+/** 出廠預寫連線種子檔路徑：packaged 在 resources/，dev 在 build/。 */
+function defaultConfigPath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'default-config.json')
+    : path.join(app.getAppPath(), 'build', 'default-config.json');
+}
+
+/**
+ * 讀打包進安裝檔的出廠連線種子（build/default-config.json）。
+ * 首次啟動無 %APPDATA% config.json 時，main 用它寫出 config 並跳過 /setup。
+ * 缺檔 / 壞檔 / 無 dbHost → 回 null（main 退回 /setup 首次設定流程）。
+ */
+export async function readDefaultConfig(): Promise<Partial<CeremonyConfig> | null> {
+  try {
+    const raw = await fs.readFile(defaultConfigPath(), 'utf-8');
+    const cfg = JSON.parse(raw) as Partial<CeremonyConfig>;
+    return cfg.dbHost ? cfg : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function readConfig(): Promise<CeremonyConfig | null> {
   try {
     const raw = await fs.readFile(configPath(), 'utf-8');

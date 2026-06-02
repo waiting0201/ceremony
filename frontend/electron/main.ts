@@ -1,11 +1,11 @@
 // Electron main：生命週期 + prereq 偵測 + sidecar 啟動 + 首次設定導流 + IPC handlers。
 // 啟動流程：偵測 prereq → 讀 config → (prereq ok && 有 config) 則自動連線載入主程式，
 // 否則載入殼讓 renderer 走 /prereq 或 /setup。詳見 docs/design/infrastructure.md。
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
-import { readConfig, writeConfig, CeremonyConfig } from './config';
+import { readConfig, writeConfig, readDefaultConfig, CeremonyConfig } from './config';
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
@@ -16,11 +16,14 @@ let config: CeremonyConfig | null = null;
 let apiBase: string | null = null;
 
 function createWindow(): void {
+  // 移除預設 application menu（File/Edit/View…）；保留視窗標題列與最小化/關閉鈕。
+  Menu.setApplicationMenu(null);
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
     show: false,
     title: '寶覺寺法會報名系統',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -56,6 +59,13 @@ async function loadAppWithApi(base: string): Promise<void> {
 async function bootstrap(): Promise<void> {
   prereqs = await detectPrereqs();
   config = await readConfig();
+  // default-config.json 為「連線權威」：每次啟動以出廠種子覆寫 config 的連線（保留既有 jwtKey），
+  // 確保改種子後 config.json 立即跟進、也避免殘留舊測試連線（如先前的 (local)）。
+  // 無種子才沿用既有 config（缺種子 + 無 config → 退回 /setup）。writeConfig 會自動補每機隨機 jwtKey。
+  const seed = await readDefaultConfig();
+  if (seed?.dbHost) {
+    config = await writeConfig({ ...(seed as CeremonyConfig), jwtKey: config?.jwtKey });
+  }
   createWindow();
 
   if (prereqs.ok && config) {

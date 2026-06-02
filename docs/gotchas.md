@@ -176,6 +176,13 @@ last_updated: 2026-06-02
 - **framework-dependent .NET 10 sidecar 需 client 裝 .NET 10 ASP.NET Core Runtime**：不是 self-contained，缺 runtime spawn 會 ENOENT/啟動失敗 → 開機 prereq 偵測（`dotnet --list-runtimes` 找 `Microsoft.AspNetCore.App 10.*`）先擋；SkiaSharp 列印另需 VC++ Redistributable（registry 偵測）。
 - **備份 `.bak` 在「DB 主機」檔案系統，client API process 不一定讀得到**：下載 endpoint 需 `Backup:Directory` 對 API process 可讀；prod sidecar 走 **UNC 共用**，dev docker 容器內路徑讀不到 → 404（已知限制，非 bug）。
 - **大 `.bak`（~100MB+）下載別在 renderer 抓 blob**：Electron 走 main `net` 串流寫檔（[download.ts](../frontend/electron/download.ts)）；只有瀏覽器 fallback 才用 blob + `<a download>`。
+- **`backend/global.json` 把 SDK pin 在 `10.0.103`，但打包機常只有 `10.0.102`**：`dotnet publish` 會先印 `A compatible .NET SDK was not found / Requested SDK version: 10.0.103` 警告，靠 rollForward 仍能完成（易誤判為失敗）。修法：把 version 降到實際安裝版本，或加 `"rollForward": "latestFeature"` 明確允許。
+- **Windows 打包別直接跑 `npm run dist`**：該 script 是 bash 寫法（`bash ../backend/publish.sh`、`CEREMONY_RENDERER_URL=...` 前綴），Windows 原生殼會炸。改分步：`npm install` → `pwsh backend/publish.ps1` → `npm run electron:build` → `npx electron-builder --win`。產物在 `frontend/release/`。
+- **NSIS 安裝資料夾名 = `productName`（中文）**：要固定英文資料夾又不改 productName，用 `nsis.include` 指向自訂 `.nsh`，在 `!macro preInit` 用 `WriteRegExpandStr ... InstallLocation "$PROGRAMFILES64\Ceremony"`（HKLM+HKCU、SetRegView 64+32 都寫）。改 productName 會連帶改 app/捷徑/開始功能表名，通常不是你要的。
+- **出廠連線種子 `frontend/build/default-config.json` 沒放就沒效**：首次啟動會退回 `/setup`（非錯誤，是 fallback）。打包前要先從 `default-config.example.json` 複製並填真實連線；它已 gitignore（含 sa 密碼，**絕不入 repo**），所以 clone 出來的 repo 一定缺，需手動建。種子只放連線，`jwtKey` 由 `writeConfig` 每機自動產生（別寫進種子）。
+- **安裝檔內含明文 sa 密碼**：出廠預寫連線後，`resources/default-config.json` 在 installer 內可被解出 → 安裝檔限內部交付勿外流（取捨見 [security.md](design/security.md)）。
+- **🔴 spawn single-file sidecar 一定要設 `cwd`，否則 appsettings.json 不載入**：ASP.NET Core single-file exe 的 ContentRoot 取自**工作目錄**（不是 exe 路徑）。`sidecar.ts` 若 `spawn(exe, …)` 不帶 `cwd`，ContentRoot 會變成 Electron 的 cwd（如 repo root / 安裝目錄）→ 找不到同層 `appsettings.json` → `Backup:Directory`、`Cors`、`Jwt:Issuer/Audience` 等全為 null。實際後果：**「資料備份」回 500 `BACKUP_NOT_CONFIGURED: Backup:Directory 未設定`**（連 backdoor 登入仍可，因 `BackdoorEnabled` 有 code 預設值，故易被誤判成只有備份壞）。修法：`spawn` 帶 `cwd = path.dirname(exe)`（packaged = `resources/api`）。診斷招：看 API 啟動 log 的 `Content root path:` 是否指向 exe 所在資料夾。
+- **「立即備份」直接寫 `Backup:Directory`（D:\Backup），不跳選資料夾**：寺方為同機部署（程式裝在 DB 主機上），.bak 由 SQL Server 寫本機 D:\Backup 即可，使用者不需選位置（2026-06-02 決策，撤回先前「先選位置再備份」）。`D:\Backup` 須存在且 SQL Server 服務帳號（`NT Service\MSSQLSERVER`）可寫，否則 BACKUP DATABASE 即時失敗（`Cannot open backup device … Operating system error 3/5`）。dev 機可 `icacls "D:\Backup" /grant "NT Service\MSSQLSERVER:(OI)(CI)M"`。`electron/download.ts` 的下載另存仍保留為備用能力（UI 未掛）。
 
 ## 反模式速查
 

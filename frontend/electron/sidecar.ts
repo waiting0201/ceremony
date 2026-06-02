@@ -22,18 +22,23 @@ export function findFreePort(): Promise<number> {
   });
 }
 
-function resolveSidecar(): { cmd: string; args: string[] } {
+function resolveSidecar(): { cmd: string; args: string[]; cwd: string } {
+  // cwd 必須設為含 appsettings.json 的資料夾：single-file exe 的 ContentRoot 預設取自
+  // 工作目錄（非 exe 路徑），若不設，appsettings.json 不會被載入 → Backup:Directory 等
+  // 設定全為 null（曾導致「資料備份」回 BACKUP_NOT_CONFIGURED 而失敗）。
   // 1) 明確指定 exe（測試 / 自訂）
   if (process.env.CEREMONY_SIDECAR_EXE) {
-    return { cmd: process.env.CEREMONY_SIDECAR_EXE, args: [] };
+    const exe = process.env.CEREMONY_SIDECAR_EXE;
+    return { cmd: exe, args: [], cwd: path.dirname(exe) };
   }
-  // 2) 打包後：resources/api/Ceremony.Api.exe
+  // 2) 打包後：resources/api/Ceremony.Api.exe（cwd = 該資料夾，appsettings.json 同層）
   if (app.isPackaged) {
-    return { cmd: path.join(process.resourcesPath, 'api', 'Ceremony.Api.exe'), args: [] };
+    const apiDir = path.join(process.resourcesPath, 'api');
+    return { cmd: path.join(apiDir, 'Ceremony.Api.exe'), args: [], cwd: apiDir };
   }
-  // 3) dev fallback：dotnet run 後端專案（macOS/Windows 皆可）
+  // 3) dev fallback：dotnet run 後端專案（cwd = 專案目錄；dotnet 亦以此為 ContentRoot）
   const proj = path.join(__dirname, '../../../backend/src/Ceremony.Api');
-  return { cmd: 'dotnet', args: ['run', '--project', proj, '--no-launch-profile'] };
+  return { cmd: 'dotnet', args: ['run', '--project', proj, '--no-launch-profile'], cwd: proj };
 }
 
 export interface StartResult {
@@ -48,7 +53,7 @@ export async function startSidecar(cfg: CeremonyConfig): Promise<StartResult> {
 
   const port = cfg.apiPort && cfg.apiPort > 0 ? cfg.apiPort : await findFreePort();
   const apiBase = `http://127.0.0.1:${port}/api/v1`;
-  const { cmd, args } = resolveSidecar();
+  const { cmd, args, cwd } = resolveSidecar();
   const urlArg = `--urls=http://127.0.0.1:${port}`;
   // dotnet run 需要 `--` 才把後續當「應用程式參數」；直接 exe 則直接附加。
   const fullArgs = cmd === 'dotnet' ? [...args, '--', urlArg] : [...args, urlArg];
@@ -68,6 +73,7 @@ export async function startSidecar(cfg: CeremonyConfig): Promise<StartResult> {
       Cors__AllowedOrigins__2: 'http://localhost:4200',
       ...(cfg.jwtKey ? { Jwt__SigningKey: cfg.jwtKey } : {}),
     },
+    cwd,
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });

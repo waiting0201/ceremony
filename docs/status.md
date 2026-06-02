@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-02 (Electron 包裝啟動)
+last_updated: 2026-06-02 (修備份必失敗真因 sidecar cwd + 連線權威種子 + 安裝目錄 Ceremony + 無選單列)
 
 
 ---
@@ -32,8 +32,18 @@ last_updated: 2026-06-02 (Electron 包裝啟動)
     - 前端：`src/main.ts` apiBase 覆寫、`core/platform/electron.ts`+guard、`features/prereq`、`features/setup`、備份頁下載 UI、`BackupApi` download
     - 打包：[electron-builder.yml](../frontend/electron-builder.yml)、package.json scripts/deps、icon from logo.png
     - **dev 驗證（macOS）**：dotnet build + 168+63 單元測試綠；`ng build` 0 warning；`electron:compile` 0 err；`publish.sh` 產 `Ceremony.Api.exe`(64M，無 runtime)；**`electron-builder --win --dir` 成功**（sidecar 入 resources/api、icon.ico 產出、無 pdb 洩漏）；prereq 偵測模組 mac→skip 正常
-  - **⚠ 待 Windows 機驗證（macOS 無法驗）**：`npm run dist` 產 NSIS `setup.exe`、registry-based VC++ 偵測、`dotnet --list-runtimes` .NET 10 偵測、實機安裝→prereq→setup→連線→備份下載全流程、實機列印
-  - **後續（不阻當前）**：download endpoint 整合測試（需 MSSQL）、auto-update（需內網 update server）、可選 bundle prereq installers 到 `frontend/build/prereqs/`
+  - **✅ Windows 機打包成功（2026-06-02，本機 win32 10.0.26200）**：實機環境 node v24.13 / npm 11.6 / dotnet SDK 10.0.102；步驟（因 `dist` script 含 bash 語法，改 Windows 原生分步）：`npm install` → `pwsh backend/publish.ps1`（產 `Ceremony.Api.exe` 65MB、無 pdb）→ `npm run electron:build`（ng build 0 warning + tsc 0 err）→ `npx electron-builder --win`。產出 **`frontend/release/寶覺寺法會報名系統-2.0.0-setup.exe`（145MB，NSIS perMachine）**；sidecar 正確嵌入 `resources/api/Ceremony.Api.exe`、icon 由 logo.png 產出。code signing 跳過（無憑證，預期）。
+    - **踩雷**：`backend/global.json` 指定 SDK `10.0.103`，本機只有 `10.0.102` → `dotnet publish` 起初印 SDK-not-found 警告但靠 rollForward 仍完成；建議把 global.json 降到 10.0.102 或設 `rollForward` 避免誤判
+  - **✅ 寺方四項調整（2026-06-02，已重新打包）**：
+    1. **安裝資料夾固定英文 `Ceremony`**：新增 [frontend/build/installer.nsh](../frontend/build/installer.nsh)（NSIS `preInit` macro 覆寫 InstallLocation 為 `$PROGRAMFILES64\Ceremony`）+ electron-builder.yml `nsis.include`；保留中文 productName/捷徑名
+    2. **出廠預寫 DB 連線、跳過 /setup（連線權威 = default-config.json）**：bootstrap **每次啟動**讀打包種子 [frontend/build/default-config.json](../frontend/build/default-config.example.json) 以其連線覆寫 config.json（保留每機隨機 jwtKey）→ 改種子後立即生效、也清掉殘留舊測試連線。種子 dbHost = `192.168.1.151`（**同機部署**，程式裝在 DB 主機上 → 連自身 IP；安裝檔已帶此值）。種子含 sa 密碼 → **gitignore 不入 repo**（範例 `default-config.example.json`）；缺種子才退回 /setup。`config.ts` `readDefaultConfig`、electron-builder.yml extraResources 加 `default-config.json`
+    3. **視窗移除選單列**：`main.ts` `Menu.setApplicationMenu(null)` + `autoHideMenuBar: true`（保留標題列）
+    4. **立即備份直接寫 D:\Backup（不選資料夾）**：同機部署，.bak 由 SQL Server 寫本機 `Backup:Directory`（D:\Backup）即可；`backup-page.onBackup` 為單純「備份→顯示結果」（先前「先選位置再備份」已**撤回**，相關 download 另存改回備用、UI 移除）
+  - **🔴 修掉「資料備份必失敗」真因**：`sidecar.ts` spawn 未設 `cwd` → single-file exe 的 ContentRoot 跑掉（變 repo root/安裝目錄）→ **appsettings.json 沒載入** → `Backup:Directory` null → 備份回 500 `BACKUP_NOT_CONFIGURED`。修：spawn 帶 `cwd = resources/api`。另 `D:\Backup` 須存在且 SQL 服務帳號可寫（dev 機已 `icacls` 授權 `NT Service\MSSQLSERVER`）
+  - **✅ 實測（打包後 win-unpacked bundle，連本機 SQL；192.168.1.151 從 dev 機連不到故以 localhost 驗後端路徑）**：cwd 修好後 ContentRoot = `resources/api`、appsettings 載入、`POST /backup` **200** 寫出 ~108MB `.bak`；**`clearLog:true` 亦 200**（FULL recovery → 產 `.trn` log backup + SHRINKFILE、`logCleared=true`、`logClearError=null`）；`electron:build` 0 warning/0 err；`electron-builder --win` 成功、bundled 種子 = `192.168.1.151`
+  - **⚠ 仍待實機驗證（需安裝執行）**：安裝精靈預設路徑 = `Program Files\Ceremony`、首次啟動不出現 setup 直接連線（config.json = 種子連線）、視窗無選單列、立即備份成功寫 D:\Backup、registry VC++ / .NET 10 偵測、實機列印
+  - **⚠ 寺方 DB 主機需求**：`D:\Backup` 存在且 `NT Service\MSSQLSERVER`（或實際 SQL 服務帳號）可寫（舊系統已用此路徑，多半已具備）
+  - **後續（不阻當前）**：auto-update（需內網 update server）、可選 bundle prereq installers 到 `frontend/build/prereqs/`
 
 ## 📋 Backlog
 

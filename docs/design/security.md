@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - infrastructure.md
 keywords: [security, 安全, 密碼, 加密, JWT, OWASP, PII]
-last_updated: 2026-06-02 (備份下載 traversal 防護 + 每機 JWT key)
+last_updated: 2026-06-02 (出廠預寫連線種子取捨)
 ---
 
 ## 安全策略總覽
@@ -140,8 +140,13 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 |---|---|
 | 本機 admin 權限者可讀到 DB 密碼 | DB 帳號**最小權限**：只能 DML + EXEC `backup proc`，無 DDL（schema 凍結；不開放 `sysadmin` / `db_owner`） |
 | 密碼以純文字存 user profile | LAN-only 部署，無公網暴露；SQL Server 開 Windows Firewall 限制來源網段 |
-| 多 client = 多份 config.json | 各 client 都是 user-profile 路徑（隨使用者 Windows 帳號），管理員交付 .exe 時提供密碼，使用者首次啟動填入 |
+| 多 client = 多份 config.json | 各 client 都是 user-profile 路徑（隨使用者 Windows 帳號）；**2026-06-02 起改出廠預寫**（見下），不再逐台手填 |
 | 升級安全等級 | 架構保留方案 A（Windows Authentication）/ 方案 B（DPAPI 加密）的升級路徑，現有 Electron `config.ts` 模組可換實作不動其他層 |
+
+**出廠預寫連線（2026-06-02，取代「首次啟動手填」）**：寺方為**同機部署**（程式裝在 DB 主機上），連線固定，改為把連線烘進安裝檔。打包機放 `frontend/build/default-config.json`（`dbHost=192.168.1.151` + sa 密碼）→ electron-builder `extraResources` 打進 `resources/default-config.json`；`main.ts` **每次啟動**以種子連線覆寫 `config.json`（種子為連線權威，jwtKey 仍每機隨機保留）。**安全等級與方案 C 相同**（密碼仍明文存 client `%APPDATA%`，且現在也明文存於安裝檔內），只是輸入時機從「使用者首次填」改為「出廠預寫」。
+
+- **Secret 不入 repo（CLAUDE.md 規則 11）**：`default-config.json` 已 gitignore，只 commit `default-config.example.json`（密碼 `<from-secrets>` 占位）；真實值僅打包機本地持有。
+- **新風險**：安裝檔（.exe / resources）內含明文 sa 密碼，任何拿到安裝檔者可解出 → 安裝檔須限內部交付，勿外流；緩解仍靠「DB 帳號最小權限 + LAN-only + 防火牆網段限制」。升級路徑：未來可改 DPAPI 加密種子或安裝時才注入。
 
 **評估三方案對照**：
 

@@ -12,9 +12,22 @@ related_docs:
   - ../design/security.md
   - ../design/api-design.md
   - api-endpoints/get-backup-download.md
-keywords: [electron, sidecar, nsis, prereq, vc-redist, dotnet-10, config.json, 備份下載, framework-dependent]
-last_updated: 2026-06-02
+keywords: [electron, sidecar, nsis, prereq, vc-redist, dotnet-10, config.json, 備份下載, framework-dependent, default-config, installer.nsh, autoHideMenuBar]
+last_updated: 2026-06-02 (寺方四項調整)
 ---
+
+## 寺方部署調整（2026-06-02，已重新打包）
+
+實機部署前依寺方要求做四項調整，皆 frontend/electron/打包層級（後端不動）：
+
+1. **安裝資料夾固定英文 `Ceremony`**：保留中文 `productName`（app/捷徑名仍中文），用自訂 NSIS include [build/installer.nsh](../../frontend/build/installer.nsh) 的 `preInit` macro 把 InstallLocation 覆寫為 `$PROGRAMFILES64\Ceremony`；electron-builder.yml `nsis.include: build/installer.nsh`。使用者仍可在精靈手動改路徑。
+2. **出廠預寫 DB 連線、跳過 `/setup`（default-config.json = 連線權威）**：寺方為**同機部署**（程式裝在 DB 主機 192.168.1.151 上），連線固定。bootstrap **每次啟動**讀打包種子 `default-config.json`（[config.ts](../../frontend/electron/config.ts) `readDefaultConfig`）以其連線覆寫 `%APPDATA%/Ceremony/config.json`（保留每機隨機 jwtKey）→ 直接 spawn sidecar；改種子後立即生效、也清掉殘留舊測試連線。種子 `dbHost = 192.168.1.151`（同機部署 → 連自身 IP）。種子缺檔則退回 `/setup`（保險）。種子含 sa 密碼 → **gitignore 不入 repo**，只 commit `default-config.example.json`；打包機本地填真實值並烘進 installer（`extraResources` → `resources/default-config.json`）。取捨見 [security.md](../design/security.md)。
+3. **視窗移除選單列**：[main.ts](../../frontend/electron/main.ts) `Menu.setApplicationMenu(null)` + BrowserWindow `autoHideMenuBar: true`；保留標題列與最小化/關閉鈕。
+4. **立即備份直接寫 `Backup:Directory`（D:\Backup，不選資料夾）**：同機部署，.bak 由 SQL Server 寫本機 D:\Backup 即可（[backup-page.ts](../../frontend/src/app/features/backup/backup-page.ts) `onBackup` = 確認→POST 備份→顯示結果）。**先前「先選位置再備份」已撤回**；[download.ts](../../frontend/electron/download.ts) 下載另存保留為備用能力（UI 未掛）。
+
+### 🔴 備份必失敗的真因（2026-06-02 修正）
+
+「資料備份」回 500 `BACKUP_NOT_CONFIGURED` 的根因**不是** D:\Backup 不存在，而是 [sidecar.ts](../../frontend/electron/sidecar.ts) `spawn` 未設 `cwd` → single-file exe 的 **ContentRoot 取自工作目錄**（變成 Electron cwd）→ **appsettings.json 未載入** → `Backup:Directory` 為 null。修法：`spawn` 帶 `cwd = resources/api`（exe 同層含 appsettings.json）。詳見 [gotchas.md](../gotchas.md)。另需 `D:\Backup` 存在且 SQL 服務帳號（`NT Service\MSSQLSERVER`）可寫。已用打包 bundle 實測 `POST /backup` 200、寫出 ~103MB .bak。
 
 ## 背景與動機
 
