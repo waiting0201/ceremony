@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-06-18 (出廠連線種子 + NSIS 安裝目錄 Ceremony + release.yml windows CI + sidecar cwd)
+last_updated: 2026-06-18 (釐清連線表單只設一次、第二次以後不再出現;出廠連線種子 + NSIS 安裝目錄 Ceremony + release.yml windows CI + sidecar cwd)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -76,10 +76,15 @@ last_updated: 2026-06-18 (出廠連線種子 + NSIS 安裝目錄 Ceremony + rele
 
 ### Sidecar 模式設定流程（prod）
 
-1. 使用者灌完 installer 第一次啟動 → Electron 偵測 `%APPDATA%/Ceremony/config.json` 不存在 → 跳「初次設定」頁
+1. 使用者灌完 installer 第一次啟動 → Electron 偵測 `%APPDATA%/Ceremony/config.json` 不存在 **且無出廠種子** → 跳「初次設定」(`/setup`) 頁
 2. 使用者填：DB 主機（IP / hostname）、port（預設 1433）、DB 名稱（預設 Ceremony）、user、password
 3. 按「測試連線」→ Electron 暫存到記憶體 → spawn API（傳 ENV var）→ 打 `/health` → 成功則寫 `config.json`
-4. 後續啟動：Electron 讀 `config.json` → spawn API → API 用 ENV var 取代 `appsettings` 預留欄位
+4. 後續啟動：Electron 讀 `config.json`（或出廠種子覆寫）→ spawn API → API 用 ENV var 取代 `appsettings` 預留欄位
+
+> **連線表單只設定一次，第二次以後不再出現（2026-06-18 釐清）**：連線設定**持久化於磁碟**，`bootstrap()`（[main.ts](../../frontend/electron/main.ts)）每次啟動 `readConfig()` → `readDefaultConfig()`（種子覆寫）→ `startSidecar()`，只要連得上 `connected=true`，`electronReadyGuard` 就跳過 `/setup` 直接進主程式（→ 因未登入再導向 `/login`）。
+> - **正式打包版（含出廠種子 `default-config.json`，dbHost=192.168.1.151）**：每次啟動以種子覆寫 config 連線 → 永遠有設定 → **完全不出現 `/setup`**（種子為連線權威）。
+> - **無種子環境（dev / 種子缺檔）**：第一次在 `/setup` 存的 `config.json` 留在 `%APPDATA%/Ceremony/` → 第二次 `readConfig` 讀回 → 不再跳 `/setup`。
+> - **唯一會再出現 `/setup` 的情況**：連線**失敗**（DB 帳密錯 / 主機關機連不到 / SQL 服務未起 → sidecar 起不來 → `connected=false`），`electronReadyGuard` 導向 `/setup` 並顯示錯誤讓使用者重設；或 config 與種子皆不存在。
 
 `config.json` 結構（純文字 JSON，**不加密**，方案 C）：
 ```jsonc
