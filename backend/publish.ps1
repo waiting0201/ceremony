@@ -16,7 +16,6 @@ dotnet publish $proj `
   --self-contained false `
   -p:PublishSingleFile=true `
   -p:IncludeNativeLibrariesForSelfExtract=true `
-  -p:EnableCompressionInSingleFile=true `
   -p:DebugType=none `
   -p:DebugSymbols=false `
   -o $out
