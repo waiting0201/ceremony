@@ -7,14 +7,14 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-18 (修「DB 連線後直接進首頁」→ session 改記憶體 only 強制登入;上私有 GitHub + windows 打包 CI)
+last_updated: 2026-06-18 (UI 版號改從 package.json 自動連動，Current Version → v2.0.1;修「DB 連線後直接進首頁」→ session 改記憶體 only 強制登入;上私有 GitHub + windows 打包 CI)
 
 
 ---
 
 > 本檔由 Claude **自動維護**。任務開始/完成/卡住都必須更新。新增項目也要寫入。詳細規則見 [../CLAUDE.md](../CLAUDE.md) 「狀態追蹤規則」。
 
-**Current Version**: `v2.0.0`（SemVer，新版起始；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
+**Current Version**: `v2.0.2`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
 
 ## 🔄 In Progress
 
@@ -150,6 +150,13 @@ last_updated: 2026-06-18 (修「DB 連線後直接進首頁」→ session 改記
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
 
+- [x] **開始功能表加「解除安裝」捷徑 + 升級政策定為手動覆蓋安裝** — Done 2026-06-18
+  - 升級：手動覆蓋安裝（NSIS 同 appId 認舊版→先靜默移除再裝新版，沿用 `$PROGRAMFILES64\Ceremony`，config 保留）；electron-updater 自動更新未實作（標未來項）。文件改 [infrastructure.md](design/infrastructure.md)
+  - 解除安裝：原本只能從控制台移除 → [installer.nsh](../frontend/build/installer.nsh) `customInstall`/`customUnInstall` macro 在開始功能表建/刪 `解除安裝 ${PRODUCT_NAME}.lnk`（指向 electron-builder uninstaller）。已對照 app-builder-lib NSIS 模板確認 hook 與 `UNINSTALL_FILENAME`/`PRODUCT_NAME` 變數；最終 NSIS 編譯待 Windows 打包驗證。見 [electron-packaging.md](blueprints/electron-packaging.md) 第 5 項
+- [x] **UI 版號改從 package.json 自動連動** — Done 2026-06-18
+  - 症狀：bump `frontend/package.json` 到 2.0.1 後，介面仍顯示 v2.0.0（不連動）
+  - 真因：`environment.ts` / `environment.prod.ts` 的 `version` 為寫死字串 `v2.0.0`，發版時只改了 package.json
+  - 修：兩個 environment 檔改 `import { version } from '../../package.json'` → `version: \`v${version}\``；`npm run build` 通過，產物含 `2.0.1`。發版規範同步縮為「只 bump package.json + status.md」（見 [conventions.md](conventions.md) / [frontend-design.md](design/frontend-design.md)）
 - [x] **修正「DB 連線後直接進首頁」→ 強制登入** — Done 2026-06-18
   - 症狀：DB 連線成功 / App 啟動後 renderer 重載，直接進首頁、跳過登入
   - 真因：`AuthStore` 把 `{user, token}` 寫 `localStorage`，重載時 `loadFromStorage` 還原舊 token → `authGuard.isLoggedIn()` 為 true → 放行（殘留 token 可能來自不同 DB / 已失效）

@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-06-18 (釐清連線表單只設一次、第二次以後不再出現;出廠連線種子 + NSIS 安裝目錄 Ceremony + release.yml windows CI + sidecar cwd)
+last_updated: 2026-06-18 (升級改為手動覆蓋安裝、electron-updater 標未實作;釐清連線表單只設一次、第二次以後不再出現;出廠連線種子 + NSIS 安裝目錄 Ceremony + release.yml windows CI + sidecar cwd)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -43,7 +43,8 @@ last_updated: 2026-06-18 (釐清連線表單只設一次、第二次以後不再
 **為何不用 server-side API**（原方案放棄理由）：
 - 多一台 Windows Server 需要 IT 維護（systemd / Windows Service / Seq 監控）
 - 寺方 IT 資源有限，sidecar 把 API 跟 client 同生命週期管理更簡單
-- 升級走 electron-updater 自動推，client 一次更新含 API
+- 升級採**手動覆蓋安裝**：發新版 `setup.exe` 給 client，直接執行即就地升級（NSIS 靠固定 appId `tw.ceremony.bao-jue-temple` 認得舊安裝，先靜默移除舊版再裝新版，沿用 `$PROGRAMFILES64\Ceremony`，一次更新含 sidecar API）。`%APPDATA%/Ceremony/config.json` 在升級時保留（`deleteAppDataOnUninstall` 對 update 不生效），DB 連線設定不掉。**注意 NSIS 預設不比對版號，裝同版/舊版也會覆蓋（無降版保護）**。
+  - electron-updater 自動更新**尚未實作**（無 `electron-updater` 依賴、`electron-builder.yml` 無 `publish` 區塊、main process 無 `autoUpdater`）；列為未來項。CI 的 `latest.yml` 為日後自動更新預留。
 
 **為何不嵌入 DB**（保留集中 MSSQL）：
 - MSSQL Server 無法 embed 進 .exe；換 SQLite 要重寫 Dapper SQL（T-SQL 方言不通用）

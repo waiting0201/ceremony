@@ -8,7 +8,7 @@ related_docs:
   - architecture.md
   - workflows/code-review.md
 keywords: [conventions, 命名, commit, 分支, lint, 風格, versioning, 版本, semver]
-last_updated: 2026-06-02
+last_updated: 2026-06-18
 ---
 
 ## Commit Message
@@ -113,12 +113,11 @@ public async Task<IActionResult> Create(...) { ... }
 ### 規則
 
 - tag 一律加 `v` 前綴：`v2.0.0`、`v2.1.0`、`v2.0.1`
-- 版本號的單一真實來源：[status.md](status.md) 標頭的「Current Version」；前端執行期由 `environment.version` 提供（顯示於 UI，見 [frontend-design.md](design/frontend-design.md)「軟體版本顯示」）
-- 每次發版同步以下 4 處版本號 + 1 筆紀錄：
-  - (a) `frontend/src/environments/environment.ts`、`environment.prod.ts` 的 `version`
-  - (b) `frontend/package.json` 的 `version`（不含 `v` 前綴）
-  - (c) [status.md](status.md) 標頭 Current Version
-  - (d) 在 status.md「✅ Recently Done」記一筆對應 commit/PR
+- **版本號單一真實來源 = `frontend/package.json` 的 `version`**（不含 `v` 前綴）。`environment.ts` / `environment.prod.ts` 透過 `import { version } from '../../package.json'` 自動帶入，UI 顯示 `v${version}`（見 [frontend-design.md](design/frontend-design.md)「軟體版本顯示」）。**不可在 environment 內寫死版號**，否則會與 package.json 失聯（2026-06 曾因寫死 `v2.0.0` 導致 UI 不連動）。
+- 每次發版只需同步以下 2 處 + 1 筆紀錄：
+  - (a) `frontend/package.json` 的 `version`（**唯一要手改的版號**；前端 UI 自動連動，毋需再改 environment）
+  - (b) [status.md](status.md) 標頭 Current Version
+  - (c) 在 status.md「✅ Recently Done」記一筆對應 commit/PR
 - `v0.x` / `v1.x` 不使用（避免與舊系統混淆）
 
 ## Lint / Format

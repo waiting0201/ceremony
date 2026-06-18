@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本]
-last_updated: 2026-06-02
+last_updated: 2026-06-18
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -428,12 +428,12 @@ list page 透過 `@ViewChild` 抓 form ref，overlay 的「確認」按鈕呼叫
 
 介面需顯示軟體版本，方便客戶回報問題時對版。
 
-- **單一來源**：`environment.version`（`src/environments/environment.ts` / `environment.prod.ts`），與 `package.json` 的 `version`、[status.md](../status.md) Current Version 同步；版本規範見 [conventions.md](../conventions.md) 「軟體版本規範」（SemVer，起始 `v2.0.0`）
+- **單一來源**：`frontend/package.json` 的 `version`。`environment.ts` / `environment.prod.ts` 以 `import { version } from '../../package.json'` 自動帶入，UI 顯示 `v${version}`，因此版號永遠與 package.json 連動，**不可在 environment 內寫死字串**（2026-06-18 修正：原本寫死 `v2.0.0` 導致 bump package.json 後 UI 不更新）。版本規範見 [conventions.md](../conventions.md)「軟體版本規範」（SemVer，起始 `v2.0.0`）
 - **顯示位置**：
   - `ShellLayout` sidebar 頁尾（登出鈕下方，`.version`）— 登入後全系統可見
   - `LoginPage` 卡片底部（`.version`）— 登入前可見
 - **樣式**：次要文字、置中、`font-size-xs`，不搶視覺重點
-- **發版時**：bump 三處版本號（environment ×2、package.json、status.md）一起改
+- **發版時**：只 bump `frontend/package.json` 的 `version`,UI 自動連動；另同步 [status.md](../status.md) Current Version
 ## DataGrid 規格
 
 舊 DataGridView 重點功能在新版 `<app-data-grid>` 元件：
