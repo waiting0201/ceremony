@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-02 (Electron 包裝啟動)
+last_updated: 2026-06-18 (打包預設連線指向 192.168.1.151)
 
 
 ---
@@ -139,6 +139,11 @@ last_updated: 2026-06-02 (Electron 包裝啟動)
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **打包預設連線：單機版預設指向寺方區網 DB `192.168.1.151`** — Done 2026-06-18
+  - 新增 `DEFAULT_CONFIG`（[config.ts](../frontend/electron/config.ts)）；`main.ts` `getStatus` 在無 `config.json` 時以 `defaults` 欄位（含密碼）回給 `/setup`；[setup-page.ts](../frontend/src/app/features/setup/setup-page.ts) `prefill()` 首次啟動連密碼一起預填，使用者直接按「測試連線」
+  - **安全例外**：使用者選擇**硬編明文 prod 密碼進 config.ts**（非 gitignored 種子檔）→ CLAUDE.md 規則 11 的「已接受例外」，記於 [security.md](design/security.md)「打包預設連線」段 + [infrastructure.md](design/infrastructure.md) 設定流程段。一旦 commit 即進 git 歷史（目前**僅改 working tree、未 commit**）
+  - 驗證：`npm run electron:compile` + `tsc -p tsconfig.app.json` 0 error
 
 - [x] **補 2 項便利功能 B1+B2：選信眾自動帶入預繳歷史 + 固定編號顯示（含修信眾編輯洗掉 IsFixedNumber 既有 bug）** — Done 2026-06-02
   - **B1 預繳歷史自動帶入**（對齊舊 `NewSignupForm.BelieverSelected:1102-1115`）：新 endpoint `GET /api/v1/prepay?believerId&year` → 撈該信眾「Year ≤ year 最新一筆報名」的預繳（`ORDER BY Year DESC, CeremonySort DESC`，查 `dbo.SignupView`），`prepayYear` 非 null 才回值；新檔 `GetBelieverLatestPrepayHandler` + `ISignupRepository.GetLatestPrepayByBelieverAsync` + `BelieverLatestPrepayResult` 契約。前端 `signup-edit-form.pickBeliever` 選信眾後呼叫並 patch 預繳年/法會（失敗 try/catch 不阻斷）

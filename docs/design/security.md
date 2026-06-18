@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - infrastructure.md
 keywords: [security, 安全, 密碼, 加密, JWT, OWASP, PII]
-last_updated: 2026-06-02 (備份下載 traversal 防護 + 每機 JWT key)
+last_updated: 2026-06-18 (打包預設連線：明文 prod 密碼硬編 config.ts，規則 11 已接受例外)
 ---
 
 ## 安全策略總覽
@@ -150,6 +150,16 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 | A. Windows Authentication（Integrated Security） | 不需在 client 存任何密碼 | 寺方要設 AD 或本機帳號授權，IT 門檻高 | ❌ |
 | B. DPAPI 加密 config | 即使檔案被複製到他機也不能解 | 換機要重填；首次啟動引導體驗 +1 步 | ❌（保留升級路徑） |
 | **C. 純文字 JSON config** | 部署最簡單 | 本機讀檔即拿到 | ✅ |
+
+### 打包預設連線：明文 prod 密碼硬編於 `config.ts`（**2026-06-18 決策，規則 11 的已接受例外**）
+
+單機版固定連寺方區網 DB（`192.168.1.151`）。使用者要求**打包預設**即帶這組連線，首次啟動 `/setup` 連密碼一起預填，按「測試連線」即可。
+
+- **實作**：`frontend/electron/config.ts` 的 `DEFAULT_CONFIG` 常數（含明文 prod 密碼）；`main.ts` `getStatus` 在無 `config.json` 時透過 `defaults` 欄位（含密碼）回給 `/setup` 預填。寫入後仍存於 `%APPDATA%/Ceremony/config.json`（方案 C）。
+- **與 CLAUDE.md 規則 11 的衝突**：規則 11 要求 secret 絕不入 repo。本決策為**使用者明確選擇的例外**（在「gitignored 本機檔」與「硬編 config.ts」間選後者）。
+- **不可逆性警告**：`config.ts` 受 git 追蹤，一旦 **commit**，prod 密碼即永久進入 git 歷史，事後 `.gitignore` / 刪行無法移除（須 rewrite history）。`DEFAULT_CONFIG` 註解已標記此風險。
+- **緩解**：仍受方案 C 既有緩解保護（DB 帳號最小權限、LAN-only、防火牆限來源網段）。若日後要回到合規狀態，將 `DEFAULT_CONFIG` 改回 placeholder + 改走 gitignored 種子檔，並 rewrite history 清除舊密碼。
+- **實際密碼值**：另記於 user auto-memory `db-credentials.md`，本文件**不寫**真實密碼。
 
 ## PII 保護
 

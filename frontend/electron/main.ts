@@ -5,7 +5,7 @@ import { app, BrowserWindow, ipcMain, shell } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
-import { readConfig, writeConfig, CeremonyConfig } from './config';
+import { readConfig, writeConfig, CeremonyConfig, DEFAULT_CONFIG } from './config';
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
@@ -99,6 +99,15 @@ ipcMain.handle('ceremony:getStatus', () => ({
         apiPort: config.apiPort ?? 0,
       }
     : null,
+  // 首次啟動（無 config）時，/setup 以此打包預設預填（含密碼，方便直接按「測試連線」）
+  defaults: {
+    dbHost: DEFAULT_CONFIG.dbHost,
+    dbPort: DEFAULT_CONFIG.dbPort,
+    dbName: DEFAULT_CONFIG.dbName,
+    dbUser: DEFAULT_CONFIG.dbUser,
+    dbPassword: DEFAULT_CONFIG.dbPassword,
+    apiPort: DEFAULT_CONFIG.apiPort ?? 0,
+  },
 }));
 
 ipcMain.handle('ceremony:recheckPrereqs', async () => {

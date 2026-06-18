@@ -17,6 +17,22 @@ export interface CeremonyConfig {
   jwtKey?: string;
 }
 
+/**
+ * 打包預設連線（單機版指向寺方區網 DB）。首次啟動 /setup 以此預填（含密碼），使用者按「測試連線」即可。
+ *
+ * ⚠️ 安全例外：此處含**明文 production 密碼**，是 CLAUDE.md 規則 11（secret 絕不入 repo）的
+ *    「已接受例外」——經使用者明確決定（2026-06-18）。詳見 docs/design/security.md「已接受風險」。
+ *    一旦本檔 commit，密碼即永久進入 git 歷史（事後 .gitignore / 刪行皆無法移除，須 rewrite history）。
+ */
+export const DEFAULT_CONFIG: CeremonyConfig = {
+  dbHost: '192.168.1.151',
+  dbPort: 1433,
+  dbName: 'Ceremony',
+  dbUser: 'sa',
+  dbPassword: '<prod-sa-pwd>',
+  apiPort: 0,
+};
+
 export function configDir(): string {
   return path.join(app.getPath('appData'), 'Ceremony');
 }

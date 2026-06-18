@@ -2,7 +2,7 @@
 
 舊系統（WinForms + RDLC + MSSQL）的現代化重寫：**ASP.NET Core 10 (Dapper) + Angular 21 SPA + 既有 MSSQL（schema 凍結）**。
 
-> 文件入口走 [CLAUDE.md](CLAUDE.md) → [docs/](docs/)。本檔僅負責「怎麼把本機跑起來」。
+> 文件入口走 [CLAUDE.md](CLAUDE.md) → [docs/](docs/)。本檔負責「怎麼把本機跑起來」與「怎麼打包成 Windows 安裝檔」。
 
 ## 專案結構
 
@@ -121,6 +121,48 @@ npm start          # ng serve（dev server + HMR）
 npm run build      # 產生 dist/
 npm test           # vitest
 ```
+
+## 打包 / 發佈（Windows 安裝檔）
+
+部署型態為 **Electron + .NET sidecar 同一個 .exe**（單機版，連寺方區網 MSSQL）。完整架構見 [docs/design/infrastructure.md](docs/design/infrastructure.md)「部署型態 / 部署單元」。
+
+### 一鍵打包
+
+```bash
+cd frontend
+npm run dist
+```
+
+產出：`frontend/release/寶覺寺法會報名系統-<version>-setup.exe`（NSIS installer）。
+
+### `npm run dist` 做了什麼（三階段）
+
+| 階段 | 指令 | 產出 |
+|---|---|---|
+| 1. 後端 sidecar | `npm run api:publish`（→ [backend/publish.sh](backend/publish.sh) / [publish.ps1](backend/publish.ps1)） | `backend/publish/win-x64/Ceremony.Api.exe`（framework-dependent .NET 10 單一 exe，~64MB，已去 `.pdb`） |
+| 2. 前端 + Electron | `npm run electron:build`（= `ng build --base-href ./` + `tsc -p tsconfig.electron.json`） | `dist/frontend/browser/`（renderer）+ `electron/dist/`（main/preload） |
+| 3. 封裝 | `electron-builder`（[electron-builder.yml](frontend/electron-builder.yml)） | `release/…-setup.exe`；sidecar exe 收進 `resources/api/` |
+
+> 跨平台：sidecar 用 `dotnet publish -r win-x64` 在 **macOS / Linux 也能 cross-publish** 出 win-x64 exe；但 `electron-builder` 的 NSIS Windows target **建議在 Windows 上跑**（或 CI Windows runner）。
+
+### 打包前置依賴
+
+| 元件 | 用途 |
+|---|---|
+| .NET SDK 10.x | `dotnet publish` 出 sidecar |
+| Node 22+ | `ng build` + electron-builder |
+| Windows（建議） | NSIS installer 封裝；非 Windows 只能出到第 2 階段 |
+| `frontend/build/icon.png` | 桌面 / installer icon（來源 `reference/icons/logo.png`，electron-builder 自動轉 .ico） |
+
+### client 端執行依賴（裝機後）
+
+framework-dependent 打包，client 須有：**.NET 10 ASP.NET Core Runtime (x64)** + **Microsoft Visual C++ 2015-2022 Redistributable (x64)**（SkiaSharp 列印用）。缺少時 Electron 開機 `/prereq` 頁引導安裝（[frontend/electron/prereq.ts](frontend/electron/prereq.ts)）。
+
+### 打包預設連線（單機版重點）
+
+installer 內**已內建預設 DB 連線 `192.168.1.151 / sa / Ceremony`**（[frontend/electron/config.ts](frontend/electron/config.ts) `DEFAULT_CONFIG`）。使用者首次啟動 → `/setup` 頁五欄（含密碼）**已預填** → 按「測試連線」→「儲存並連線」即可（仍可改 IP / 帳密）。設定寫入 client 本機 `%APPDATA%/Ceremony/config.json`。
+
+> ⚠️ **安全例外**：`DEFAULT_CONFIG` 含**明文 prod 密碼**，偏離 [CLAUDE.md](CLAUDE.md) 規則 11（secret 不入 repo），為**已接受例外**（見 [docs/design/security.md](docs/design/security.md)「打包預設連線」段）。此密碼會進 installer，且 `config.ts` 一旦 commit 即進 git 歷史（事後須 rewrite history 才能清除）。
 
 ## API 一覽（29 個 endpoint shipped）
 

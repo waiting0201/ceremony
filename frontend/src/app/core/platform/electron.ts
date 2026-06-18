@@ -32,6 +32,15 @@ export interface CeremonyStatus {
     dbUser: string;
     apiPort: number;
   } | null;
+  /** 首次啟動（config 為 null）時用來預填 /setup 的打包預設（含密碼）。 */
+  defaults?: {
+    dbHost: string;
+    dbPort: number;
+    dbName: string;
+    dbUser: string;
+    dbPassword: string;
+    apiPort: number;
+  };
 }
 
 export interface DbConfigInput {

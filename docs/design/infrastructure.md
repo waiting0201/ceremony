@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-06-02 (Electron 包裝：framework-dependent .NET 10 + prereq 偵測 + 備份下載)
+last_updated: 2026-06-18 (打包預設連線 DEFAULT_CONFIG：首次啟動 /setup 預填含密碼，指向 192.168.1.151)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -77,9 +77,11 @@ last_updated: 2026-06-02 (Electron 包裝：framework-dependent .NET 10 + prereq
 ### Sidecar 模式設定流程（prod）
 
 1. 使用者灌完 installer 第一次啟動 → Electron 偵測 `%APPDATA%/Ceremony/config.json` 不存在 → 跳「初次設定」頁
-2. 使用者填：DB 主機（IP / hostname）、port（預設 1433）、DB 名稱（預設 Ceremony）、user、password
+2. 設定頁**以打包預設（`DEFAULT_CONFIG`）預填全部欄位（含密碼）**：DB 主機 `192.168.1.151`、port 1433、DB 名稱 Ceremony、user `sa`、password。使用者單機固定連寺方區網 DB，通常直接按「測試連線」即可（仍可改 IP / 帳密）
 3. 按「測試連線」→ Electron 暫存到記憶體 → spawn API（傳 ENV var）→ 打 `/health` → 成功則寫 `config.json`
 4. 後續啟動：Electron 讀 `config.json` → spawn API → API 用 ENV var 取代 `appsettings` 預留欄位
+
+> **打包預設連線（2026-06-18 決策）**：`DEFAULT_CONFIG` 定義於 [frontend/electron/config.ts](../../frontend/electron/config.ts)，`main.ts` `getStatus` 在無 `config.json` 時以 `defaults` 欄位（含密碼）回給 `/setup` 預填（[setup-page.ts](../../frontend/src/app/features/setup/setup-page.ts) `prefill()`）。**注意**：此常數含**明文 prod 密碼**，為 CLAUDE.md 規則 11 的**已接受例外**（使用者明確選擇硬編而非 gitignored 種子檔）；一旦 commit 即進 git 歷史。決策與緩解見 [security.md](security.md)「打包預設連線」段。真實密碼值僅存 user auto-memory `db-credentials.md`。
 
 `config.json` 結構（純文字 JSON，**不加密**，方案 C）：
 ```jsonc
