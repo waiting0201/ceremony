@@ -11,10 +11,10 @@ public sealed class AdminsEndpointsTests(CeremonyApiFactory factory) : IClassFix
 {
     private readonly CeremonyApiFactory _factory = factory;
 
-    private async Task<string> GetBackdoorTokenAsync()
+    private async Task<string> GetSuperAdminTokenAsync()
     {
         var client = _factory.CreateClient();
-        var resp = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "weypro12ab"));
+        var resp = await client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "Admin@123"));
         var body = await resp.Content.ReadFromJsonAsync<LoginResponse>();
         return body!.Token;
     }
@@ -30,7 +30,7 @@ public sealed class AdminsEndpointsTests(CeremonyApiFactory factory) : IClassFix
     [Fact]
     public async Task GET_admins_with_token_returns_200_with_items()
     {
-        var token = await GetBackdoorTokenAsync();
+        var token = await GetSuperAdminTokenAsync();
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -55,7 +55,7 @@ public sealed class AdminsEndpointsTests(CeremonyApiFactory factory) : IClassFix
         // 用時間戳避免測試之間 / 真實資料衝突；無 cleanup（DB 凍結，軟刪除策略）。
         var unique = $"itest_{DateTime.UtcNow:yyMMddHHmmssfff}";
 
-        var token = await GetBackdoorTokenAsync();
+        var token = await GetSuperAdminTokenAsync();
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
@@ -81,7 +81,7 @@ public sealed class AdminsEndpointsTests(CeremonyApiFactory factory) : IClassFix
     [Fact]
     public async Task POST_admins_empty_username_returns_400_with_verbatim_message()
     {
-        var token = await GetBackdoorTokenAsync();
+        var token = await GetSuperAdminTokenAsync();
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 

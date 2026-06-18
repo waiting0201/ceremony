@@ -14,7 +14,7 @@ public sealed class BelieversEndpointsTests(CeremonyApiFactory factory) : IClass
     private async Task<HttpClient> CreateAuthedClientAsync()
     {
         var loginClient = _factory.CreateClient();
-        var resp = await loginClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "weypro12ab"));
+        var resp = await loginClient.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "Admin@123"));
         var body = await resp.Content.ReadFromJsonAsync<LoginResponse>();
 
         var client = _factory.CreateClient();

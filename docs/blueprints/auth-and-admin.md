@@ -12,12 +12,12 @@ related_docs:
   - ../design/api-design.md
   - ../design/visual-design.md
 keywords: [login, auth, admin, 管理員, JWT, MainForm, AdminsForm, LoginForm]
-last_updated: 2026-05-29
+last_updated: 2026-06-18 (weypro 後門 → 系統 SuperAdmin sa@system.local)
 ---
 
 ## 背景與動機
 
-舊系統用明文密碼、硬編碼後門 `weypro/weypro12ab`、無 session 過期、無權限分級。
+舊系統用明文密碼、硬編碼後門 `weypro/weypro12ab`、無 session 過期、無權限分級。（新版已移除 weypro，改用系統 SuperAdmin `sa@system.local`）
 
 **客戶要求**：DB **完全不動**、密碼**仍用明碼**、**不需 migration**。因此：
 
@@ -26,7 +26,7 @@ last_updated: 2026-05-29
 | 密碼儲存 | **明文**（`Admins.Password` nvarchar(20) 不改） |
 | 密碼比對 | 常數時間明文比對 `FixedTimeEquals` |
 | 認證方式 | **JWT bearer**（應用層 token，不動 DB） |
-| 後門帳號 | `weypro/weypro12ab` 保留（業務未要求移除） |
+| 系統 SuperAdmin | `sa@system.local/Admin@123`（非 DB；取代舊 weypro 後門，可關閉）|
 | 失敗鎖定 | IMemoryCache（重啟清空） |
 | RBAC | 無（schema 不加 role 欄位） |
 | Audit log | Serilog 結構化檔案 log（不加 DB 表） |
@@ -55,7 +55,7 @@ last_updated: 2026-05-29
 2. 路由 redirect → /login
 3. 輸入帳號/密碼 → POST /api/v1/auth/login
 4. 後端流程：
-   - 若 username/password == "weypro"/"weypro12ab" → 給 AdminID=0 token（保留後門）
+   - 若 username/password == "sa@system.local"/"Admin@123" → 給 AdminID=0 token（系統 SuperAdmin，取代舊 weypro）
    - 否則查 Admins WHERE Username = @u AND IsEnabled = 1
    - 常數時間明文比對 FixedTimeEquals(input, admin.Password)
 5. 成功：簽發 JWT access token (30 min) + refresh token (7 days)
@@ -94,7 +94,7 @@ ShellLayout 提供 6 個功能入口（順序對齊舊 MainForm）：
 - **明文密碼比對**（DB 凍結，客戶接受）
   - 用 `CryptographicOperations.FixedTimeEquals` 防時序攻擊
   - 緩解：TLS only、最小權限 DB 帳號、connection string 入 secret store
-- **後門 `weypro/weypro12ab` 保留**
+- **系統 SuperAdmin `sa@system.local/Admin@123`（取代舊 weypro 後門）**
   - 業務未要求移除；只在 code 內檢查，不寫入 DB
 - **失敗鎖定走 IMemoryCache**
   - 重啟清空，不擴 schema
@@ -122,7 +122,7 @@ ShellLayout 提供 6 個功能入口（順序對齊舊 MainForm）：
 ## 驗收標準
 
 - [ ] 登入頁全部訊息 verbatim（含「帳號或密碼錯誤！」）
-- [ ] 後門 `weypro/weypro12ab` 仍可登入（AdminID=0）
+- [ ] 系統 SuperAdmin `sa@system.local/Admin@123` 可登入（AdminID=0）
 - [ ] `Admins.Password` 欄位仍為 nvarchar(20)（**DB 未動**）
 - [ ] 一般 admin 用 DB 內明文密碼可登入；錯密碼回 401
 - [ ] 連續 5 次失敗後鎖定 15 分鐘（in-memory）

@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - infrastructure.md
 keywords: [security, 安全, 密碼, 加密, JWT, OWASP, PII]
-last_updated: 2026-06-02 (出廠預寫連線種子取捨)
+last_updated: 2026-06-18 (移除 weypro 後門 → 系統 SuperAdmin sa@system.local；出廠連線種子)
 ---
 
 ## 安全策略總覽
@@ -24,7 +24,7 @@ last_updated: 2026-06-02 (出廠預寫連線種子取捨)
 | # | 議題 | 嚴重度 | 應用層緩解 |
 |---|---|---|---|
 | 1 | `Admins.Password` 明文儲存 | Critical | TLS only、secret store、DB 帳號最小權限、log 不寫密碼、常數時間比對 |
-| 2 | 硬編碼後門 `weypro / weypro12ab` 保留 | Critical | code 內檢查，不寫入 DB；業務未要求移除 |
+| 2 | 系統 SuperAdmin `sa@system.local`（非 DB，取代舊 weypro 後門）| High | code 內檢查、不寫入 DB；可由 `Auth:SuperAdminEnabled` 關閉 |
 | 3 | 缺少 RBAC（無 role 欄位） | High | 沿用舊行為（全 admin 同權限） |
 | 4 | 缺登入失敗鎖定 schema | Medium | IMemoryCache 紀錄（重啟清空，弱化版本） |
 | 5 | 缺 audit log 表 | Medium | Serilog 結構化檔案 log |
@@ -56,9 +56,9 @@ last_updated: 2026-06-02 (出廠預寫連線種子取捨)
 ```csharp
 public async Task<LoginResult> LoginAsync(string username, string password)
 {
-    // 後門帳號（不寫入 DB）
-    if (username == "weypro" && password == "weypro12ab")
-        return Success(IssueJwt(adminId: 0, "weypro"));
+    // 系統 SuperAdmin 帳號（不寫入 DB；取代舊 weypro 後門）
+    if (username == "sa@system.local" && password == "Admin@123")
+        return Success(IssueJwt(adminId: 0, "sa@system.local"));
 
     var admin = await repo.GetByUsernameAsync(username);
     if (admin == null || !admin.IsEnabled) return Failure("AUTH_INVALID_CREDENTIALS");
@@ -98,7 +98,7 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 ### Login 流程
 
 1. 收 `{username, password}`
-2. 若 username/password == `weypro`/`weypro12ab` → 給 AdminID=0 token（後門保留）
+2. 若 username/password == `sa@system.local`/`Admin@123`（系統 SuperAdmin，取代舊 weypro）→ 給 AdminID=0 token
 3. 否則查 `Admins WHERE Username = @u AND IsEnabled = 1`
 4. 常數時間明文比對 `FixedTimeEquals(input.Password, admin.Password)`
 5. 失敗計數 +1（IMemoryCache），達 5 次鎖 15 分鐘
@@ -266,7 +266,7 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 - [ ] `Admins.Password` 欄位仍為 nvarchar(20)（**DB 未動**）
 - [ ] 連線字串脫離明文（無 `sa.*twvsjp` 字串）
 - [ ] 無 `Pooling=False` 設定
-- [ ] 後門 `weypro/weypro12ab` 仍可登入
+- [ ] 系統 SuperAdmin `sa@system.local/Admin@123` 可登入（AdminID=0）
 - [ ] 一般 admin 用 DB 內明文密碼可登入；錯密碼回 401
 - [ ] 所有 `[Authorize]` endpoint 在無 token / 過期 token 下回 401
 - [ ] JWT access token TTL 30 分鐘；refresh token TTL 7 天

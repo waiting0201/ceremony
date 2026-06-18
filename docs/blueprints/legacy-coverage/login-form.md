@@ -39,7 +39,7 @@ last_updated: 2026-06-02
 |---|---|---|---|---|---|---|
 | 1 | `LoginForm()` constructor | 21-29 | 初始化 db、service；設定版本標籤 | ✅ 已實作 | 前端 `LoginPage` + footer | `login-page.ts` `appVersion = environment.version`；`login-page.html` 渲染 `<div class="version">{{ appVersion }}</div>` |
 | 2 | `btnConfirm_Click` event handler | 31-55 | 驗證帳密；空值檢查；關閉視窗或顯示錯誤 | ✅ 已實作 | `POST /api/v1/auth/login` | `LoginHandler.HandleAsync` 含空值檢查 + verbatim 錯誤訊息「請輸入帳號！」/「請輸入密碼！」/「帳號或密碼錯誤！」 |
-| 3 | `ValidateUser()` private method | 58-81 | 檢查硬編碼帳密或查詢 DB；設定 Global 登入狀態 | ✅ 已實作 | `POST /api/v1/auth/login` | 後門帳號走 `Auth:BackdoorEnabled` config；DB 查詢用 `AdminRepository.GetByUsernameAsync` + `CryptographicOperations.FixedTimeEquals` 常數時間比對；補強：失敗鎖定 in-memory 5 次/15 分 |
+| 3 | `ValidateUser()` private method | 58-81 | 檢查硬編碼帳密或查詢 DB；設定 Global 登入狀態 | ✅ 已實作 | `POST /api/v1/auth/login` | 後門帳號走 `Auth:SuperAdminEnabled` config；DB 查詢用 `AdminRepository.GetByUsernameAsync` + `CryptographicOperations.FixedTimeEquals` 常數時間比對；補強：失敗鎖定 in-memory 5 次/15 分 |
 
 ## 驗證紀錄
 

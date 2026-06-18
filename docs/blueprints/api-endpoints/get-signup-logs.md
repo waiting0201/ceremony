@@ -45,7 +45,7 @@ last_updated: 2026-05-27
       "remark": "",
       "prepayYear": null,
       "prepayCeremonyCategoryTitle": null,
-      "admin": "weypro",
+      "admin": "sa@system.local",
       "createDate": "2026-05-27T..."
     }
   ],

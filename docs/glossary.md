@@ -108,7 +108,7 @@ last_updated: 2026-05-26
 | DB 表 | `Admins` |
 | PK | `AdminID` (int identity) |
 
-系統操作人員。**無權限分級**，所有管理員權限相同。登入優先檢查硬編碼後門 `weypro/weypro12ab`（AdminID=0），再查 DB。
+系統操作人員。**無權限分級**，所有管理員權限相同。登入優先檢查硬編碼後門 `sa@system.local/Admin@123`（AdminID=0），再查 DB。
 
 ### 員工類型 / EmployeeType
 

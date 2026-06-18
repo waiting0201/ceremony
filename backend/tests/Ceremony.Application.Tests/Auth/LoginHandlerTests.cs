@@ -17,9 +17,9 @@ public sealed class LoginHandlerTests
     private readonly Mock<IAdminRepository> _repo = new();
     private readonly AuthOptions _authOpts = new()
     {
-        BackdoorEnabled = true,
-        BackdoorUsername = "weypro",
-        BackdoorPassword = "weypro12ab",
+        SuperAdminEnabled = true,
+        SuperAdminUsername = "sa@system.local",
+        SuperAdminPassword = "Admin@123",
         FailedLoginThreshold = 5,
         FailedLoginLockMinutes = 15,
     };
@@ -81,26 +81,26 @@ public sealed class LoginHandlerTests
     }
 
     [Fact]
-    public async Task Backdoor_returns_token_with_adminId_0()
+    public async Task SuperAdmin_returns_token_with_adminId_0()
     {
-        var result = await CreateSut().HandleAsync(new LoginRequest("weypro", "weypro12ab"));
+        var result = await CreateSut().HandleAsync(new LoginRequest("sa@system.local", "Admin@123"));
         result.Token.Should().NotBeNullOrWhiteSpace();
         result.User.Id.Should().Be(0);
-        result.User.Username.Should().Be("weypro");
+        result.User.Username.Should().Be("sa@system.local");
         result.User.Name.Should().Be("Administrator");
         _repo.Verify(r => r.GetByUsernameAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never,
             "backdoor 不應該打 DB");
     }
 
     [Fact]
-    public async Task Backdoor_disabled_falls_through_to_DB_and_fails()
+    public async Task SuperAdmin_disabled_falls_through_to_DB_and_fails()
     {
-        _authOpts.BackdoorEnabled = false;
-        _repo.Setup(r => r.GetByUsernameAsync("weypro", It.IsAny<CancellationToken>()))
+        _authOpts.SuperAdminEnabled = false;
+        _repo.Setup(r => r.GetByUsernameAsync("sa@system.local", It.IsAny<CancellationToken>()))
             .ReturnsAsync((Admin?)null);
 
         var ex = await Assert.ThrowsAsync<DomainException>(() =>
-            CreateSut().HandleAsync(new LoginRequest("weypro", "weypro12ab")));
+            CreateSut().HandleAsync(new LoginRequest("sa@system.local", "Admin@123")));
         ex.ErrorCode.Should().Be("AUTH_INVALID_CREDENTIALS");
     }
 

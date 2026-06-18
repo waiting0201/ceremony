@@ -85,7 +85,7 @@ cd frontend
 npm start
 ```
 
-打開 http://localhost:4200 → `/login` 用後門帳號 `weypro / weypro12ab` 登入。
+打開 http://localhost:4200 → `/login` 用後門帳號 `sa@system.local / Admin@123` 登入。
 
 > CORS 已對 `http://localhost:4200` 與 `http://127.0.0.1:4200` 開放（[appsettings.json](backend/src/Ceremony.Api/appsettings.json) `Cors:AllowedOrigins`）。
 
@@ -108,7 +108,7 @@ dotnet build
 # 單一 endpoint 手動測試（backdoor 登入 → 拿 token）
 TOKEN=$(curl -s -X POST http://127.0.0.1:5050/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username":"weypro","password":"weypro12ab"}' | jq -r .token)
+  -d '{"username":"sa@system.local","password":"Admin@123"}' | jq -r .token)
 curl -s -H "Authorization: Bearer $TOKEN" http://127.0.0.1:5050/api/v1/admins | jq
 ```
 

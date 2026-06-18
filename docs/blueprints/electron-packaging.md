@@ -115,7 +115,7 @@ Angular SPA + .NET API 主流程完成後，最後一步把系統包成寺方 cl
 - **Backup:Directory 可讀性**：prod 須設 UNC 共用，否則下載 404；需在部署文件提醒 DBA。
 - **客戶正式 .ico**：目前用 logo.png 由 electron-builder 產 .ico；客戶若提供原始 .ico 再替換。
 - **auto-update 未接**：需內網 update server，後續再做。
-- **後門帳號 weypro / 明文密碼**：既有 pending 安全項（[status.md](../status.md)），與本階段獨立。
+- **後門帳號 sa@system.local / 明文密碼**：既有 pending 安全項（[status.md](../status.md)），與本階段獨立。
 
 ## 參考資料
 

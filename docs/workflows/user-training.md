@@ -35,7 +35,7 @@ last_updated: 2026-05-26
   - 連續輸錯 5 次密碼會鎖 15 分鐘
   - 「資料備份」按下後彈出檔案路徑（路徑可在設定變更）
   - DataGrid 大型資料載入更快（分頁）
-- **後門帳號 `weypro/weypro12ab` 仍可用**
+- **系統 SuperAdmin 帳號 `sa@system.local/Admin@123` 可用**（取代舊 weypro）
 
 ### Module 2：核心流程實操（2 hr）
 

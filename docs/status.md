@@ -150,6 +150,12 @@ last_updated: 2026-06-18 (上私有 GitHub + windows 打包 CI + 歷史清 .bak/
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
 
+- [x] **移除 weypro 後門 → 系統 SuperAdmin `sa@system.local`** — Done 2026-06-18
+  - 舊系統硬編後門 `weypro/weypro12ab` 改為系統內建 SuperAdmin `sa@system.local` / `Admin@123`（非 DB，adminId 0）
+  - Code：`AuthOptions` `Backdoor*`→`SuperAdmin*`、[LoginHandler.cs](../backend/src/Ceremony.Application/Auth/LoginHandler.cs)、`appsettings.json`；**168 unit 測試綠**、整合測試專案編譯過（憑證字面同步替換）
+  - Docs 同步：security/database-design/infrastructure/glossary/auth-and-admin/post-auth-login/user-training/pending-business-input/README（legacy `reference/*` 保留 weypro 為史實）
+  - ⚠️ `Admin@123` 在 `appsettings.json`（私有 repo），屬 security.md 已知風險 #2；prod 可由 `Auth:SuperAdminEnabled=false` 關閉（待業務確認）
+
 - [x] **上 GitHub（私有）+ Windows 打包 CI + 歷史 secret 清除** — Done 2026-06-18
   - **打包預設連線最終定案＝gitignored 種子檔（合規）**：曾短暫走「硬編 `DEFAULT_CONFIG`」(規則 11 例外)，後**撤回**改回遠端原本的 `readDefaultConfig` + `build/default-config.json`（gitignore）+ `default-config.example.json` 範本；密碼不入 repo
   - **新增 [.github/workflows/release.yml](../.github/workflows/release.yml)**：`v*` tag / 手動 → `windows-latest` → setup-dotnet(global.json) + Node22 → npm ci → 從 secret `DEFAULT_DB_CONFIG` 寫種子 → publish.ps1 → electron:build → `electron-builder --win` → release.exe 附到 GitHub Release。解決 mac 無法產 NSIS
@@ -175,7 +181,7 @@ last_updated: 2026-06-18 (上私有 GitHub + windows 打包 CI + 歷史清 .bak/
     3. **信眾表單地址 cascade**（`believer-edit-form`）：移植報名表單城市→區域連動下拉 + 同寄件地址，取代「郵遞區號 ID」數字框（契約不變；tsc 0 / ng build 0 warning）
   - **coverage 文件刷新**：10/10 Form 全達 **100% complete**（先前低覆蓋多為「前端 shipped 未打勾」stale）；上線 gate grep（`⏳/🤔`）**0 row-level 命中**；NewSignupForm 剩餘 WinForms 列印內部事件統一 ❌ 故意捨棄（改 server-side PDF）
   - **測試**：後端 156+45+60 → **165 unit + 45 infra + 60 integration = 270 全綠**（+9 編號格式）
-  - **⚠️ 仍待後續（不阻 Electron，已記 backlog/pending）**：(a) 列印實機驗收 + Worship variant（P1）；(b) 2 項便利功能 — 選信眾自動帶預繳歷史（需 `GET /prepay?believerId`）、`BelieverListItem` 補 `IsFixedNumber`；(c) **安全簽核**：prod 關後門帳號 `weypro`、密碼明文儲存取捨需 owner（[security.md](design/security.md)）
+  - **⚠️ 仍待後續（不阻 Electron，已記 backlog/pending）**：(a) 列印實機驗收 + Worship variant（P1）；(b) 2 項便利功能 — 選信眾自動帶預繳歷史（需 `GET /prepay?believerId`）、`BelieverListItem` 補 `IsFixedNumber`；(c) **安全簽核**：prod 關後門帳號 `sa@system.local`、密碼明文儲存取捨需 owner（[security.md](design/security.md)）
   - **Doc**：10 份 legacy-coverage + README / [printing-reports.md](blueprints/printing-reports.md) / [get-signup-logs.md](blueprints/api-endpoints/get-signup-logs.md) / [gotchas.md](gotchas.md)（+3 條）/ believer & signup coverage
   - **注意**：dev API（PID 在跑）仍是舊 DLL；report/log 修正需重啟 `dotnet run` 才會 live 生效（測試已覆蓋）
 
@@ -256,7 +262,7 @@ last_updated: 2026-06-18 (上私有 GitHub + windows 打包 CI + 歷史清 .bak/
   - **後端（全新 Zipcodes 唯讀 API）**：
     - `GET /api/v1/zipcodes/cities`（distinct City，`GROUP BY City ORDER BY City`）+ `GET /api/v1/zipcodes?city=`（該城市區域，item `{zipcodeId,city,area,zipcode}`，`ORDER BY Zipcode`；city 空回空陣列）；對齊舊 [NewSignupForm.cs:662-677/406-460](../reference/old/Ceremony/NewSignupForm.cs#L662)，**未過濾 IsDisplay**（同舊）
     - 新檔：`Application/Zipcodes/`（ZipcodeContracts / IZipcodeRepository / ListZipcodeCitiesHandler / ListZipcodeAreasHandler）、`Infrastructure/Repositories/ZipcodeRepository.cs`（Dapper）、`Api/Controllers/ZipcodesController.cs`（`[Authorize]`）；DI 兩處註冊
-    - **實機 dev DB smoke**：login(weypro) → cities **22** 筆、`台北市` areas **12** 筆（中正區/100、大同區/103、中山區/104… 依 Zipcode 排序）皆 HTTP 200
+    - **實機 dev DB smoke**：login(sa@system.local) → cities **22** 筆、`台北市` areas **12** 筆（中正區/100、大同區/103、中山區/104… 依 Zipcode 排序）皆 HTTP 200
     - Tests：`Ceremony.Application.Tests/Zipcodes/ZipcodeHandlersTests` 5 case；Application 單元測試 **151 綠**；`dotnet build` 0 warning
   - **前端**：
     - 新增 `core/api/zipcodes/`（ZipcodeApi.cities/areas + models）
@@ -310,7 +316,7 @@ last_updated: 2026-06-18 (上私有 GitHub + windows 打包 CI + 歷史清 .bak/
     - `sizeBytes`：API 看得到檔用實檔大小，否則 fallback 查 `msdb.dbo.backupset`（API 與 DB 不同機時 .bak 在 DB 主機）
     - 抽 `internal static BuildBackup()` / `JoinForSqlServer()` pure helper 供單測
   - **Config**：appsettings.json 加 `"Backup": { "Directory": "D:\\Backup\\", "RetentionDays": 30 }`（prod Windows 預設，非 secret）；**dev override**：`appsettings.Development.json` 設 `/var/opt/mssql/data/`（`(local)` Docker Linux MSSQL 可寫，無 `D:\`）；目錄須 SQL Server 服務帳號可寫；**RetentionDays 尚未實作清理服務**（仍靠外部 SQL Agent）
-  - **實機驗證（dev real DB）**：login(weypro) → `POST /api/v1/backup` 預設名 + 自訂名皆 **HTTP 200**，回正確路徑 `/var/opt/mssql/data/{yyyyMMddHHmmssffffff}.bak` + sizeBytes≈108MB（msdb backupset）
+  - **實機驗證（dev real DB）**：login(sa@system.local) → `POST /api/v1/backup` 預設名 + 自訂名皆 **HTTP 200**，回正確路徑 `/var/opt/mssql/data/{yyyyMMddHHmmssffffff}.bak` + sizeBytes≈108MB（msdb backupset）
   - **踩雷**：舊版 `Directory.CreateDirectory("D:\\Backup\\")` 曾在 macOS 建出垃圾資料夾 `src/Ceremony.Api/D:\Backup\`，其反斜線名稱使 MSBuild `**/*.resx` glob 列舉失敗（`MSB3552`）→ build 壞；已刪並改 best-effort（見 [gotchas.md](gotchas.md)）
   - **Tests**：新 test project `Ceremony.Infrastructure.Tests` 的 `BackupSqlTests` 8 case（檔名格式 / 自訂名 / SQL flags verbatim / 識別子與路徑跳脫 / `JoinForSqlServer` Windows+Unix 分隔符無 `\/`）；加入 Ceremony.slnx
   - **Frontend（全新）**：icon `database`、`core/api/backup/`（BackupApi.run + models）、nav item `{ /backup, 資料備份, database }`（位於載入預繳與法會類型之間）、route `/backup`、`features/backup/backup-page.ts`（ConfirmDialog 確認 → run → 成功 dialog 顯示 fileName/fullPath/size，錯誤顯示後端 verbatim 中文）；`ConfirmDialogConfig` 加 `hideCancel?` 單 OK 結果 dialog
@@ -848,7 +854,7 @@ last_updated: 2026-06-18 (上私有 GitHub + windows 打包 CI + 歷史清 .bak/
   - **Secret 規則 D**：connection string + JWT signing key 透過 `dotnet user-secrets`；appsettings.json 只放 `__OVERRIDE_VIA_USER_SECRETS_OR_ENV__` 占位
   - **手動驗證**（4 case，皆 pass）：
     - `GET /health` → 200 `{"status":"healthy","db":"up"}`（Dapper SELECT 1 from `(local)` MSSQL）
-    - `POST /api/v1/auth/login` backdoor `weypro/weypro12ab` → 200 + JWT (HS256, exp 30min)
+    - `POST /api/v1/auth/login` backdoor `sa@system.local/Admin@123` → 200 + JWT (HS256, exp 30min)
     - `POST /api/v1/auth/login` empty username → 400 `VALIDATION_REQUIRED` + 「請輸入帳號！」verbatim
     - `POST /api/v1/auth/login` wrong password → 401 `AUTH_INVALID_CREDENTIALS` + 「帳號或密碼錯誤！」verbatim（含 DB 查詢 → null → 鎖定計數 +1）
   - **更新 backend-design.md**：.NET 8 → .NET 10、C# 12 → C# 14、新增「已落地骨架」章節

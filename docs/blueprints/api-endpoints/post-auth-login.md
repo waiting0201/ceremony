@@ -17,7 +17,7 @@ related_docs:
   - ../../design/security.md
   - ../legacy-coverage/login-form.md
   - ../auth-and-admin.md
-keywords: [auth, login, jwt, backdoor, weypro, admins]
+keywords: [auth, login, jwt, backdoor, sa@system.local, admins]
 last_updated: 2026-05-27
 ---
 
@@ -44,7 +44,7 @@ last_updated: 2026-05-27
   "token": "eyJhbGciOiJI...",  // JWT bearer token
   "user": {
     "id": 0,                    // AdminID（後門帳號 = 0）
-    "username": "weypro",
+    "username": "sa@system.local",
     "name": "Administrator"     // Admins.Name；後門 = "Administrator"
   }
 }
@@ -79,10 +79,10 @@ last_updated: 2026-05-27
 
 ### 業務邏輯區塊
 
-1. **後門帳號（不寫入 DB）**（舊：`LoginForm.cs:60-65`）
-   - 舊行為：`if (username == "weypro" && password == "weypro12ab") { Global.AdminID = 0; ... }`
-   - 新實作：同邏輯，受 `Auth:BackdoorEnabled` config 控制；後門啟用時直接發 JWT (`sub=0, name="weypro"`)
-   - 差異 / 為什麼：客戶要求保留後門但可關閉
+1. **系統 SuperAdmin 帳號（不寫入 DB）**（舊：`LoginForm.cs:60-65` 的 weypro 後門）
+   - 舊行為：`if (username == "weypro" && password == "weypro12ab") { Global.AdminID = 0; ... }`（舊系統硬編後門）
+   - 新實作：同邏輯但**改為系統 SuperAdmin `sa@system.local`**（取代 weypro），受 `Auth:SuperAdminEnabled` config 控制；啟用時直接發 JWT (`sub=0, name="sa@system.local"`)
+   - 差異 / 為什麼：移除舊 weypro 後門，改用可控的 SuperAdmin 帳號（可關閉）
 
 2. **DB 查詢明文比對**（舊：`LoginForm.cs:67-78`）
    - 舊行為：`db.Admins.Where(a => a.Username == u && a.Password == p && a.IsEnabled).FirstOrDefault()`
@@ -101,7 +101,7 @@ last_updated: 2026-05-27
 | 帳號或密碼為空 | `LoginForm.cs:33-43` 各自 MessageBox | FluentValidation 400 + 兩個 errorCode | TestLogin_EmptyUsername / EmptyPassword |
 | 帳號不存在 | `LoginForm.cs:73` 回傳 null → MessageBox | 401 + `AUTH_INVALID_CREDENTIALS`（不洩漏「帳號不存在」） | TestLogin_UnknownUser |
 | IsEnabled=false | `LoginForm.cs:67` 條件已過濾 | 401（同上） | TestLogin_DisabledUser |
-| 後門帳號 | `LoginForm.cs:60-65` 硬編碼 | 同邏輯，受 `Auth:BackdoorEnabled` config | TestLogin_Backdoor + TestLogin_BackdoorDisabled |
+| 後門帳號 | `LoginForm.cs:60-65` 硬編碼 | 同邏輯，受 `Auth:SuperAdminEnabled` config | TestLogin_SuperAdmin + TestLogin_SuperAdminDisabled |
 | 密碼大小寫敏感 | 明文 `==` 比對 | `FixedTimeEquals(bytes)` 同樣 case-sensitive | TestLogin_CasePassword |
 | 連續失敗 ≥ 5 次 | 無限制 | 423 + 鎖 15 分鐘 | TestLogin_LockoutAfterThreshold |
 
@@ -147,7 +147,7 @@ WHERE Username = @Username AND IsEnabled = 1
 
 ## 風險與未解問題
 
-- **後門帳號密碼是否要從 config 讀**：目前在 code 硬編碼（沿用舊系統）；建議改為 `Auth:BackdoorPassword` 但與舊系統行為對齊則維持硬編碼
+- **後門帳號密碼是否要從 config 讀**：目前在 code 硬編碼（沿用舊系統）；建議改為 `Auth:SuperAdminPassword` 但與舊系統行為對齊則維持硬編碼
 - **失敗鎖定 in-memory 不跨 instance**：未來水平擴展時需改 Redis 或 DB 計數；目前單 instance 部署可接受
 
 ## 參考

@@ -149,8 +149,8 @@ public class Believer
 public async Task<LoginResult> LoginAsync(string username, string password)
 {
     // 後門帳號（不寫入 DB）
-    if (username == "weypro" && password == "weypro12ab")
-        return Success(IssueJwt(adminId: 0, "weypro"));
+    if (username == "sa@system.local" && password == "Admin@123")
+        return Success(IssueJwt(adminId: 0, "sa@system.local"));
 
     var admin = await repo.GetByUsernameAsync(username);
     if (admin == null || !admin.IsEnabled) return Failure();
@@ -365,7 +365,7 @@ Connection Timeout=30;
 | # | 風險 | 影響 | 接受原因 |
 |---|---|---|---|
 | 1 | `Admins.Password` 明文 | 高（密碼外洩） | **客戶接受**；應用層用 TLS + secret store 緩解 |
-| 2 | 後門帳號 `weypro/weypro12ab` 保留 | 中 | 業務未要求移除 |
+| 2 | 系統 SuperAdmin `sa@system.local`（非 DB，取代舊 weypro）| 中 | 可由 `Auth:SuperAdminEnabled` 關閉 |
 | 3 | DB 無索引（除 PK）| 中（大量資料效能差） | DB 凍結；應用層分頁/cache/限縮搜尋緩解 |
 | 4 | 無 `Username` unique constraint | 中（可能新增重複帳號） | 應用層 enforce |
 | 5 | 無 `(Year, CeremonyCategoryID, SignupType, Number)` unique constraint | 中（race condition 可能重複編號） | 應用層 `UPDLOCK + HOLDLOCK` 序列化處理 |

@@ -22,13 +22,13 @@ public sealed class AuthEndpointsTests(CeremonyApiFactory factory) : IClassFixtu
     [Fact]
     public async Task POST_login_backdoor_returns_200_with_token_and_id_0()
     {
-        var resp = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "weypro12ab"));
+        var resp = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "Admin@123"));
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await resp.Content.ReadFromJsonAsync<LoginResponse>();
         body.Should().NotBeNull();
         body!.Token.Should().NotBeNullOrWhiteSpace();
         body.User.Id.Should().Be(0);
-        body.User.Username.Should().Be("weypro");
+        body.User.Username.Should().Be("sa@system.local");
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public sealed class AuthEndpointsTests(CeremonyApiFactory factory) : IClassFixtu
     [Fact]
     public async Task POST_login_wrong_password_returns_401()
     {
-        var resp = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "totally-wrong-pwd-xyz"));
+        var resp = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "totally-wrong-pwd-xyz"));
         resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
         var body = await resp.Content.ReadAsStringAsync();
         body.Should().Contain("AUTH_INVALID_CREDENTIALS").And.Contain("帳號或密碼錯誤！");
@@ -60,7 +60,7 @@ public sealed class AuthEndpointsTests(CeremonyApiFactory factory) : IClassFixtu
     public async Task Logout_revokes_token_subsequent_protected_calls_401()
     {
         // 1. login → get token
-        var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "weypro12ab"));
+        var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "Admin@123"));
         var body = await loginResp.Content.ReadFromJsonAsync<LoginResponse>();
         var token = body!.Token;
 
@@ -88,7 +88,7 @@ public sealed class AuthEndpointsTests(CeremonyApiFactory factory) : IClassFixtu
     [Fact]
     public async Task Logout_is_idempotent()
     {
-        var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "weypro12ab"));
+        var loginResp = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "Admin@123"));
         var token = (await loginResp.Content.ReadFromJsonAsync<LoginResponse>())!.Token;
 
         var c1 = factory.CreateClient();
@@ -107,9 +107,9 @@ public sealed class AuthEndpointsTests(CeremonyApiFactory factory) : IClassFixtu
     public async Task Logout_only_affects_invoked_token_other_session_unaffected()
     {
         // 兩次獨立 login → 兩個不同 jti 的 token
-        var t1 = (await (await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "weypro12ab")))
+        var t1 = (await (await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "Admin@123")))
                     .Content.ReadFromJsonAsync<LoginResponse>())!.Token;
-        var t2 = (await (await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "weypro12ab")))
+        var t2 = (await (await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "Admin@123")))
                     .Content.ReadFromJsonAsync<LoginResponse>())!.Token;
 
         t1.Should().NotBe(t2, "different jti per login");

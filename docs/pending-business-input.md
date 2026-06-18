@@ -40,13 +40,13 @@ last_updated: 2026-05-26
 
 ## B. 業務 / 客戶需要回答
 
-### B1. 後門帳號 `weypro/weypro12ab` 是否保留？
+### B1. 系統 SuperAdmin `sa@system.local` 是否保留？
 
-- **目前決策**：保留（業務未要求移除）
-- **影響**：[security.md](design/security.md)、[auth-and-admin.md](blueprints/auth-and-admin.md)
-- **建議**：未來移除；若客戶接受，新版可改為「需要時 DBA 直接 SSMS 改密碼」
+- **目前決策**：保留。**2026-06-18 已移除舊系統 weypro 後門**，改為系統內建 SuperAdmin `sa@system.local`（非 DB，受 `Auth:SuperAdminEnabled` 控制，可關閉）。
+- **影響**：[security.md](design/security.md)、[auth-and-admin.md](blueprints/auth-and-admin.md)、[infrastructure.md](design/infrastructure.md)（`Auth:SuperAdmin*`）
+- **建議**：prod 上線前評估是否關閉（`SuperAdminEnabled=false`），改由 DBA 直接 SSMS 維護 Admins。
 - **確認時機**：上線前
-- **狀態**：⬜（沿用舊行為）
+- **狀態**：⬜（待業務確認 prod 是否啟用）
 
 ### B2. 同時上線使用者數？
 

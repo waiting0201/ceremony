@@ -30,14 +30,14 @@ public sealed class LoginHandler(
 
         var window = TimeSpan.FromMinutes(_auth.FailedLoginLockMinutes);
 
-        // 後門帳號（沿用舊系統）— LoginForm.cs:60-65
-        if (_auth.BackdoorEnabled
-            && req.Username == _auth.BackdoorUsername
-            && FixedTimeEquals(req.Password, _auth.BackdoorPassword))
+        // 系統內建 SuperAdmin 帳號（非 DB；adminId 0）。取代舊系統 weypro 後門。
+        if (_auth.SuperAdminEnabled
+            && req.Username == _auth.SuperAdminUsername
+            && FixedTimeEquals(req.Password, _auth.SuperAdminPassword))
         {
             failures.Reset(req.Username);
-            var backdoorToken = tokens.Issue(adminId: 0, username: _auth.BackdoorUsername, name: "Administrator");
-            return new LoginResponse(backdoorToken, new LoginUser(0, _auth.BackdoorUsername, "Administrator"));
+            var superAdminToken = tokens.Issue(adminId: 0, username: _auth.SuperAdminUsername, name: "Administrator");
+            return new LoginResponse(superAdminToken, new LoginUser(0, _auth.SuperAdminUsername, "Administrator"));
         }
 
         // DB 查詢 — LoginForm.cs:67-78

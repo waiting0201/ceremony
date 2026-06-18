@@ -26,7 +26,7 @@ last_updated: 2026-05-27
   - `Ceremony.Api`：`AuthController` (`POST /api/v1/auth/login`)、`HealthController` (`/health` SELECT 1)、`ExceptionMiddleware`（DomainException → 400/401/423 + 中文訊息 verbatim）、JWT bearer auth、Serilog console、CORS allow `localhost:4200`
 - 設定：`appsettings.json` 只放 template 佔位（`__OVERRIDE_VIA_USER_SECRETS_OR_ENV__`）；實際 connection string + JWT signing key 走 `dotnet user-secrets`（**密碼不入 repo**，見 [infrastructure.md Secret 管理規則](infrastructure.md)）
 - 跑：`cd backend/src/Ceremony.Api && ASPNETCORE_ENVIRONMENT=Development dotnet run --urls=http://127.0.0.1:5050`
-- 驗證（2026-05-27 通過）：`/health` 連 (local) MSSQL 跑 SELECT 1 = 200 healthy；backdoor `weypro/weypro12ab` 發 JWT；驗證錯誤回 400 + 中文 verbatim；錯誤密碼回 401
+- 驗證（2026-05-27 通過）：`/health` 連 (local) MSSQL 跑 SELECT 1 = 200 healthy；backdoor `sa@system.local/Admin@123` 發 JWT；驗證錯誤回 400 + 中文 verbatim；錯誤密碼回 401
 
 下階段：先建 `Ceremony.Application.Tests` + `Ceremony.Api.IntegrationTests`，把 LoginHandler 5 個 case 寫成 xUnit，再開始第 2 個 endpoint。
 

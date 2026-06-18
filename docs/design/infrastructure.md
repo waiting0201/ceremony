@@ -164,7 +164,7 @@ spawn(apiExe, [`--urls=http://localhost:${apiPort}`], {
 - ⚠ 不使用 `BACKUP LOG ... TO DISK='NUL'`（會破壞還原鏈，DBA 反模式）。屬半破壞性 DBA 操作，前端勾選時 confirm 加警語（見 [security.md](security.md)）。
 | `Reporting:FontDirectory` | `./Fonts` | 內嵌 BiauKai 字型 |
 | `Reporting:RdlcPositionsFile` | `./rdlc-positions.json` | 預載 RDLC 各模板的 cm 座標表（[printing-reports-positions.md](../blueprints/printing-reports-positions.md) 為 source of truth） |
-| `Auth:BackdoorEnabled` | `true` | 是否啟用舊系統後門帳號 weypro（客戶確認後可逐步關閉） |
+| `Auth:SuperAdminEnabled` | `true` | 是否啟用系統 SuperAdmin 帳號 `sa@system.local`（非 DB；取代舊 weypro 後門，客戶確認後可關閉）。另有 `Auth:SuperAdminUsername` / `Auth:SuperAdminPassword` |
 | `Auth:FailedLoginThreshold` | `5` | 失敗鎖定門檻（in-memory） |
 | `Auth:FailedLoginLockMinutes` | `15` | 失敗鎖定時間 |
 | `Logging:Seq:ServerUrl` | `http://seq:5341`（dev） | Seq log server |
@@ -532,7 +532,7 @@ T+24h → 寫 post-mortem + 修正後重新部署
 | Logging | Seq UI | Seq + File | File only |
 | Sentry | console | self-hosted | self-hosted |
 | JWT TTL | 短（5 min）便於測試 | 標準（30 min） | 標準（30 min） |
-| `Auth:BackdoorEnabled` | true | true | **由業務決定** |
+| `Auth:SuperAdminEnabled` | true | true | **由業務決定** |
 | `RateLimit:Enabled` | false | true | true |
 | Swagger | 開放 | 開放 | **關閉** |
 | HTTPS | optional | 強制 | 強制 |

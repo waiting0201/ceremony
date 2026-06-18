@@ -15,7 +15,7 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
     private async Task<HttpClient> AuthedAsync()
     {
         var c = _factory.CreateClient();
-        var resp = await c.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("weypro", "weypro12ab"));
+        var resp = await c.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest("sa@system.local", "Admin@123"));
         var body = await resp.Content.ReadFromJsonAsync<LoginResponse>();
         var x = _factory.CreateClient();
         x.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", body!.Token);
