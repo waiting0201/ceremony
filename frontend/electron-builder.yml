@@ -37,6 +37,8 @@ nsis:
   oneClick: false
   perMachine: true
   allowToChangeInstallationDirectory: true
+  # 自訂 include：preInit macro 把預設安裝資料夾固定為英文 Ceremony（保留中文 productName）。
+  include: build/installer.nsh
   createDesktopShortcut: always
   createStartMenuShortcut: true
   shortcutName: 寶覺寺法會報名系統

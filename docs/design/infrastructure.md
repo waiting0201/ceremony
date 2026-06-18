@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-06-18 (打包預設連線 DEFAULT_CONFIG：首次啟動 /setup 預填含密碼，指向 192.168.1.151)
+last_updated: 2026-06-18 (打包預設連線 DEFAULT_CONFIG 硬編 + NSIS 安裝目錄 Ceremony + sidecar cwd 修正)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -140,7 +140,10 @@ spawn(apiExe, [`--urls=http://localhost:${apiPort}`], {
 - **server-side 部署**（若未來改）：systemd `Environment=`、IIS app pool `ConnectionStrings__Ceremony`、Docker `-e`
 - **實際密碼值**僅記載於 user auto-memory `~/.claude/projects/-Users-tim-agents-ceremony/memory/db-credentials.md`，**不在本檔**
 - 已配置 [repo root .gitignore](../../.gitignore) 規則：`appsettings.Production.json` / `appsettings.*.local.json` / `**/secrets.json` / `**/.env*`
-- **`%APPDATA%/Ceremony/config.json` 是使用者本機檔案**（不 commit、不打包進 installer、不上 update server）；使用者首次啟動填入後僅存在於該 client 的 user profile 下
+- **`%APPDATA%/Ceremony/config.json` 是使用者本機檔案**（不 commit、不上 update server）；首次啟動由 `/setup`（打包預設預填）寫出後僅存在於該 client 的 user profile 下
+- **打包預設連線 `DEFAULT_CONFIG`（2026-06-18）**：硬編於 [config.ts](../../frontend/electron/config.ts)（`dbHost=192.168.1.151` + sa 密碼）；無 `config.json` 時 `getStatus` 以 `defaults` 回給 `/setup` 預填（含密碼），使用者按「測試連線」寫出 config.json。**含明文密碼，為規則 11 已接受例外**，詳見 [security.md](security.md)「打包預設連線」段與 [blueprints/electron-packaging.md](../blueprints/electron-packaging.md)
+- **sidecar 啟動須設 `cwd = resources/api`（2026-06-02）**：single-file exe 的 ContentRoot 取自工作目錄；不設則 appsettings.json 不載入 → `Backup:Directory` 等為 null（曾致備份 500 `BACKUP_NOT_CONFIGURED`）。見 [gotchas.md](../gotchas.md)
+- **`Backup:Directory = D:\Backup`**：須存在且 SQL Server 服務帳號（`NT Service\MSSQLSERVER`）可寫，否則 BACKUP DATABASE 失敗（同機部署；舊系統已用此路徑）
 
 ### Settings keys
 
@@ -288,6 +291,8 @@ nsis:
 ```
 
 > `extraResources` 在 runtime 解開到 `process.resourcesPath`（NSIS 安裝路徑下的 `resources/api/`）。Electron main 從那邊 spawn `Ceremony.Api.exe`。
+
+> **以實際 [frontend/electron-builder.yml](../../frontend/electron-builder.yml) 為準**（上為示意）。實際另含：`nsis.include: build/installer.nsh`（`preInit` macro 把預設安裝資料夾固定為 `$PROGRAMFILES64\Ceremony`，保留中文 productName）；`extraResources` 含 `build/prereqs`；icon 用 `build/icon.png`（由 logo.png 來）。打包預設連線改走硬編 `DEFAULT_CONFIG`（[config.ts](../../frontend/electron/config.ts)），不再用 extraResources 種子檔。
 
 #### Icon 來源
 

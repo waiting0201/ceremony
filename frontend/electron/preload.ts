@@ -13,7 +13,7 @@ contextBridge.exposeInMainWorld('ceremony', {
   saveConfigAndConnect: (cfg: unknown) => ipcRenderer.invoke('ceremony:saveConfigAndConnect', cfg),
   /** 用既有設定重試連線 */
   connect: () => ipcRenderer.invoke('ceremony:connect'),
-  /** 下載備份檔到本機另存（原生對話框 + 串流寫檔） */
+  /** 下載備份檔到本機另存（原生對話框 + 串流寫檔；目前 UI 未掛，屬備用能力） */
   downloadBackup: (fileName: string, token: string) =>
     ipcRenderer.invoke('ceremony:downloadBackup', fileName, token),
   /** 開外部連結（官方下載頁等） */

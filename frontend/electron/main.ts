@@ -1,7 +1,7 @@
 // Electron main：生命週期 + prereq 偵測 + sidecar 啟動 + 首次設定導流 + IPC handlers。
 // 啟動流程：偵測 prereq → 讀 config → (prereq ok && 有 config) 則自動連線載入主程式，
 // 否則載入殼讓 renderer 走 /prereq 或 /setup。詳見 docs/design/infrastructure.md。
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
@@ -16,11 +16,14 @@ let config: CeremonyConfig | null = null;
 let apiBase: string | null = null;
 
 function createWindow(): void {
+  // 移除預設 application menu（File/Edit/View…）；保留視窗標題列與最小化/關閉鈕。
+  Menu.setApplicationMenu(null);
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
     show: false,
     title: '寶覺寺法會報名系統',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

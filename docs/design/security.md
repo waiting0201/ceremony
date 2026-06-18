@@ -140,7 +140,7 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 |---|---|
 | 本機 admin 權限者可讀到 DB 密碼 | DB 帳號**最小權限**：只能 DML + EXEC `backup proc`，無 DDL（schema 凍結；不開放 `sysadmin` / `db_owner`） |
 | 密碼以純文字存 user profile | LAN-only 部署，無公網暴露；SQL Server 開 Windows Firewall 限制來源網段 |
-| 多 client = 多份 config.json | 各 client 都是 user-profile 路徑（隨使用者 Windows 帳號），管理員交付 .exe 時提供密碼，使用者首次啟動填入 |
+| 多 client = 多份 config.json | 各 client 都是 user-profile 路徑（隨使用者 Windows 帳號）；**打包預設已預填連線（含密碼）**，使用者首次啟動按「測試連線」即可，不需逐台手填（見下「打包預設連線」段） |
 | 升級安全等級 | 架構保留方案 A（Windows Authentication）/ 方案 B（DPAPI 加密）的升級路徑，現有 Electron `config.ts` 模組可換實作不動其他層 |
 
 **評估三方案對照**：
