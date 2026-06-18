@@ -10,35 +10,15 @@ interface AuthState {
   token: string | null;
 }
 
-const STORAGE_KEY = 'ceremony.auth.v1';
-
-function loadFromStorage(): AuthState {
-  if (typeof localStorage === 'undefined') {
-    return { user: null, token: null };
-  }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { user: null, token: null };
-    const parsed = JSON.parse(raw) as AuthState;
-    if (parsed.user && parsed.token) return parsed;
-  } catch {
-    /* ignore corrupt storage */
-  }
-  return { user: null, token: null };
-}
-
-function saveToStorage(state: AuthState): void {
-  if (typeof localStorage === 'undefined') return;
-  if (state.user && state.token) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  } else {
-    localStorage.removeItem(STORAGE_KEY);
-  }
-}
+// session 僅存於記憶體、不持久化（不寫 localStorage/sessionStorage）：
+// 每次 App 啟動或 DB 連線成功後 renderer 會重新載入 → 記憶體狀態清空 →
+// authGuard 看不到 token → 強制回登入頁。確保「必須登入才能進首頁」，
+// 不會因殘留舊 token（可能來自不同 DB / 已失效）而跳過登入。
+const EMPTY_STATE: AuthState = { user: null, token: null };
 
 export const AuthStore = signalStore(
   { providedIn: 'root' },
-  withState<AuthState>(loadFromStorage()),
+  withState<AuthState>(EMPTY_STATE),
   withComputed(({ user, token }) => ({
     isLoggedIn: computed(() => user() !== null && token() !== null),
     adminId: computed(() => user()?.id ?? null),
@@ -52,9 +32,7 @@ export const AuthStore = signalStore(
         const result = await firstValueFrom(
           http.post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, credentials),
         );
-        const next: AuthState = { user: result.user, token: result.token };
-        patchState(store, next);
-        saveToStorage(next);
+        patchState(store, { user: result.user, token: result.token });
       },
       async logout(): Promise<void> {
         if (store.token()) {
@@ -66,14 +44,10 @@ export const AuthStore = signalStore(
             /* token may already be revoked / expired — proceed with local clear */
           }
         }
-        const next: AuthState = { user: null, token: null };
-        patchState(store, next);
-        saveToStorage(next);
+        patchState(store, EMPTY_STATE);
       },
       clearSession(): void {
-        const next: AuthState = { user: null, token: null };
-        patchState(store, next);
-        saveToStorage(next);
+        patchState(store, EMPTY_STATE);
       },
     };
   }),

@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - infrastructure.md
 keywords: [security, 安全, 密碼, 加密, JWT, OWASP, PII]
-last_updated: 2026-06-18 (移除 weypro 後門 → 系統 SuperAdmin sa@system.local；出廠連線種子)
+last_updated: 2026-06-18 (前端 session 改記憶體 only → 強制每次登入；移除 weypro 後門 → 系統 SuperAdmin sa@system.local；出廠連線種子)
 ---
 
 ## 安全策略總覽
@@ -79,6 +79,7 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 - **Refresh token**：opaque GUID，**in-memory store**（重啟清空；不寫 DB），TTL 7 天
 - **Claims**：`sub` (admin_id), `name`, `iat`, `exp`, `jti`（無 role，沿用舊行為）
 - **撤銷**：登出、密碼變更時 revoke
+- **前端 session 存放（2026-06-18）**：`AuthStore` token **僅存記憶體、不寫 localStorage/sessionStorage**。理由：Electron 每次啟動 / DB 連線成功後 main 會帶 `apiBase` 重新載入 renderer（`loadAppWithApi`），記憶體狀態隨之清空 → `authGuard` 看不到 token → 強制回 `/login`。確保「必須登入才能進首頁」，並避免殘留舊 token（可能來自不同 DB / 已失效）造成跳過登入直接進首頁。代價：每次開 App 都要重新登入（temple kiosk 場景可接受）。
 
 > **降低明文密碼風險的應用層措施**：
 > 1. **TLS only**（傳輸層加密）— 明文密碼 wire 不外洩
@@ -271,6 +272,7 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 - [ ] 所有 `[Authorize]` endpoint 在無 token / 過期 token 下回 401
 - [ ] JWT access token TTL 30 分鐘；refresh token TTL 7 天
 - [ ] 5 次失敗登入後第 6 次回 423 Locked（in-memory 鎖定）
+- [ ] App 啟動 / DB 連線成功重載 renderer 後 **未登入則導向 `/login`，不可直接進首頁**（token 不持久化）
 - [ ] PII 在 log 中為 mask 形式
 - [ ] 強制 HTTPS（HTTP 自動轉 HTTPS）
 - [ ] DB 連線用應用專用帳號（非 sa）

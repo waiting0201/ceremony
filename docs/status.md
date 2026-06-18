@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-18 (上私有 GitHub + windows 打包 CI + 歷史清 .bak/密碼;打包預設連線定案=gitignored 種子檔)
+last_updated: 2026-06-18 (修「DB 連線後直接進首頁」→ session 改記憶體 only 強制登入;上私有 GitHub + windows 打包 CI)
 
 
 ---
@@ -149,6 +149,12 @@ last_updated: 2026-06-18 (上私有 GitHub + windows 打包 CI + 歷史清 .bak/
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **修正「DB 連線後直接進首頁」→ 強制登入** — Done 2026-06-18
+  - 症狀：DB 連線成功 / App 啟動後 renderer 重載，直接進首頁、跳過登入
+  - 真因：`AuthStore` 把 `{user, token}` 寫 `localStorage`，重載時 `loadFromStorage` 還原舊 token → `authGuard.isLoggedIn()` 為 true → 放行（殘留 token 可能來自不同 DB / 已失效）
+  - 修：[auth.store.ts](../frontend/src/app/core/auth/auth.store.ts) session 改 **記憶體 only**（移除 load/saveToStorage），重載即清空 → 強制回 `/login`
+  - 驗證：`ng build` 0 error；Docs 同步 [security.md](design/security.md) JWT 段 + checklist
 
 - [x] **移除 weypro 後門 → 系統 SuperAdmin `sa@system.local`** — Done 2026-06-18
   - 舊系統硬編後門 `weypro/weypro12ab` 改為系統內建 SuperAdmin `sa@system.local` / `Admin@123`（非 DB，adminId 0）
