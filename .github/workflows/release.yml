@@ -1,0 +1,78 @@
+name: Release Windows Installer
+
+# 打 tag（v* 例如 v2.0.0）或手動觸發時，在 windows-latest 上產出 NSIS 安裝檔。
+# 為何只在 Windows：electron-builder 的 NSIS target 需 Windows（mac/Linux 走 Wine 不穩、無法簽章）。
+# 流程刻意不跑 `npm run dist`（該 script 是 bash 寫法，Windows 殼會炸），改分步呼叫。
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # 建立 GitHub Release + 上傳 setup.exe
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # SDK 版本由 backend/global.json 決定（目前 pin 10.0.103），避免「找不到 SDK」誤判。
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      # 1) 後端 sidecar：framework-dependent .NET 10 單一 exe → backend/publish/win-x64/Ceremony.Api.exe
+      - name: Publish .NET sidecar
+        run: pwsh backend/publish.ps1
+
+      # 2) 前端 renderer（ng build）+ Electron main/preload（tsc）
+      - name: Build renderer + electron
+        working-directory: frontend
+        run: npm run electron:build
+
+      # 3) 封裝 NSIS 安裝檔 → frontend/release/寶覺寺法會報名系統-<version>-setup.exe
+      #    --publish never：只在本機產出，不自動推到 provider（由下方 release step 附加）。
+      #    未設簽章憑證 → electron-builder 自動跳過簽章（SmartScreen 會警告，可接受）。
+      - name: Package Windows installer
+        working-directory: frontend
+        run: npx electron-builder --win --publish never
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ceremony-windows-installer
+          path: |
+            frontend/release/*.exe
+            frontend/release/*.blockmap
+            frontend/release/latest.yml
+          if-no-files-found: error
+
+      # 只有 tag 觸發才建 Release（手動 dispatch 只留 artifact）
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            frontend/release/*.exe
+            frontend/release/*.blockmap
+            frontend/release/latest.yml
+          fail_on_unmatched_files: true
+          generate_release_notes: true

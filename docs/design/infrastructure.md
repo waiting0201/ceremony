@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-06-18 (打包預設連線 DEFAULT_CONFIG 硬編 + NSIS 安裝目錄 Ceremony + sidecar cwd 修正)
+last_updated: 2026-06-18 (打包預設連線 DEFAULT_CONFIG 硬編 + NSIS 安裝目錄 Ceremony + sidecar cwd 修正 + release.yml windows CI)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -389,18 +389,20 @@ jobs:
     - Playwright 跑 smoke + critical paths
 ```
 
-```yaml
-# .github/workflows/release.yml
-on:
-  push:
-    tags: ['v*']
-jobs:
-  publish-backend:
-    - 簽章 + 上傳到 release
-  publish-electron:
-    - electron-builder publish
-    - 自動更新 manifest
-```
+### Release workflow（**已實作**：[.github/workflows/release.yml](../../.github/workflows/release.yml)）
+
+打 `v*` tag（或手動 `workflow_dispatch`）→ 在 **`windows-latest`** 產出 NSIS 安裝檔：
+
+1. `actions/setup-dotnet`（版本讀 [backend/global.json](../../backend/global.json)，目前 pin `10.0.103`）+ `actions/setup-node`（22，npm cache）
+2. `npm ci`（frontend）
+3. `pwsh backend/publish.ps1` → `backend/publish/win-x64/Ceremony.Api.exe`（framework-dependent sidecar）
+4. `npm run electron:build`（ng build + tsc electron）
+5. `npx electron-builder --win --publish never` → `frontend/release/…-setup.exe`
+6. `actions/upload-artifact` + tag 觸發時 `softprops/action-gh-release` 附 `.exe` / `.blockmap` / `latest.yml`
+
+**為何只在 Windows**：electron-builder NSIS target 需 Windows（mac/Linux 走 Wine 不穩、無法簽章）。**刻意不跑 `npm run dist`**（該 script 是 bash 寫法，Windows 原生殼會炸）→ 改上述分步。簽章未配置（無憑證）→ electron-builder 自動跳過，SmartScreen 會警告但可安裝；要簽章再於 `win.certificateFile` + `CSC_LINK` / `CSC_KEY_PASSWORD` secrets 補。
+
+> 註：上方 `ci.yml` 仍為**規劃示意**（未建）；目前實作只有 release.yml。
 
 部署：人工 promote staging → prod；prod 部署需 PR review + change ticket。
 
