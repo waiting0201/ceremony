@@ -84,5 +84,7 @@ jobs:
             frontend/release/*.exe
             frontend/release/*.blockmap
             frontend/release/latest.yml
-          fail_on_unmatched_files: true
+          # latest.yml 只有設了 electron-builder publish provider 才會產（目前 --publish never 不產）；
+          # .exe 是必要產物，缺檔容忍以免整個 release 卡住。
+          fail_on_unmatched_files: false
           generate_release_notes: true
