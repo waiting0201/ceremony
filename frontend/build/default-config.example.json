@@ -1,0 +1,8 @@
+{
+  "_comment": "出廠 DB 連線種子範例。打包前複製成 build/default-config.json 並填入正式連線（含 sa 密碼）。default-config.json 已 gitignore，絕不入 repo。每次啟動 Electron main 會以此檔的連線覆寫 %APPDATA%/Ceremony/config.json（保留每機自動產生的 jwtKey），不需在此寫 jwtKey。寺方為同機部署（程式裝在 DB 主機 192.168.1.151 上），dbHost 用該機 IP；缺此檔則 app 退回 /setup 首次設定流程。",
+  "dbHost": "192.168.1.151",
+  "dbPort": 1433,
+  "dbName": "Ceremony",
+  "dbUser": "sa",
+  "dbPassword": "<from-secrets>"
+}

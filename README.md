@@ -126,43 +126,43 @@ npm test           # vitest
 
 部署型態為 **Electron + .NET sidecar 同一個 .exe**（單機版，連寺方區網 MSSQL）。完整架構見 [docs/design/infrastructure.md](docs/design/infrastructure.md)「部署型態 / 部署單元」。
 
-### 一鍵打包
+### 推薦：GitHub Actions（windows runner）自動打包
+
+最省事、也是唯一在 macOS 開發下能產出正式 `setup.exe` 的路：推 `v*` tag → [.github/workflows/release.yml](.github/workflows/release.yml) 在 `windows-latest` 跑完整打包並附到 GitHub Release。
 
 ```bash
-cd frontend
-npm run dist
+git tag v2.0.0 && git push origin v2.0.0
 ```
 
-產出：`frontend/release/寶覺寺法會報名系統-<version>-setup.exe`（NSIS installer）。
+> 需先在 repo Settings → Secrets and variables → Actions 設 **`DEFAULT_DB_CONFIG`**（出廠連線種子的 JSON，含 sa 密碼，見下）。
 
-### `npm run dist` 做了什麼（三階段）
+### 本機打包（需 Windows）
 
-| 階段 | 指令 | 產出 |
-|---|---|---|
-| 1. 後端 sidecar | `npm run api:publish`（→ [backend/publish.sh](backend/publish.sh) / [publish.ps1](backend/publish.ps1)） | `backend/publish/win-x64/Ceremony.Api.exe`（framework-dependent .NET 10 單一 exe，~64MB，已去 `.pdb`） |
-| 2. 前端 + Electron | `npm run electron:build`（= `ng build --base-href ./` + `tsc -p tsconfig.electron.json`） | `dist/frontend/browser/`（renderer）+ `electron/dist/`（main/preload） |
-| 3. 封裝 | `electron-builder`（[electron-builder.yml](frontend/electron-builder.yml)） | `release/…-setup.exe`；sidecar exe 收進 `resources/api/` |
+`npm run dist` 是 **bash 寫法**（`bash ../backend/publish.sh`），Windows 原生殼會炸 → 改分步：
 
-> 跨平台：sidecar 用 `dotnet publish -r win-x64` 在 **macOS / Linux 也能 cross-publish** 出 win-x64 exe；但 `electron-builder` 的 NSIS Windows target **建議在 Windows 上跑**（或 CI Windows runner）。
+```powershell
+cd frontend
+npm ci
+pwsh ../backend/publish.ps1          # 1) sidecar → backend/publish/win-x64/Ceremony.Api.exe（~64MB，去 .pdb）
+npm run electron:build               # 2) ng build + tsc electron
+npx electron-builder --win           # 3) 封裝 → frontend/release/…-setup.exe（sidecar 收進 resources/api/）
+```
 
-### 打包前置依賴
+> 跨平台：sidecar 用 `dotnet publish -r win-x64` 在 **macOS / Linux 也能 cross-publish**；但 electron-builder 的 **NSIS target 需 Windows**（mac/Linux 走 Wine 不穩、無法簽章）。前置：.NET SDK 10.x、Node 22+、`frontend/build/icon.png`（由 logo.png 自動轉 .ico）。
 
-| 元件 | 用途 |
-|---|---|
-| .NET SDK 10.x | `dotnet publish` 出 sidecar |
-| Node 22+ | `ng build` + electron-builder |
-| Windows（建議） | NSIS installer 封裝；非 Windows 只能出到第 2 階段 |
-| `frontend/build/icon.png` | 桌面 / installer icon（來源 `reference/icons/logo.png`，electron-builder 自動轉 .ico） |
+### 出廠預設連線（gitignored 種子檔）
+
+單機版固定連 `192.168.1.151`。連線**不寫進 repo**，走打包種子檔：
+
+1. 複製範本：`frontend/build/default-config.example.json` → `frontend/build/default-config.json`，填真實連線（含 sa 密碼）。此檔已 **gitignore，絕不入 repo**。
+2. 打包時 electron-builder 把它收進 `resources/default-config.json`；首次啟動 [config.ts](frontend/electron/config.ts) `readDefaultConfig` 讀它寫出 `%APPDATA%/Ceremony/config.json` → 直接連線（跳過 `/setup`）。缺種子則退回 `/setup` 手填。
+3. **CI 打包**：種子由 GitHub Actions secret `DEFAULT_DB_CONFIG` 注入（workflow 寫出 `build/default-config.json`），所以 clone 出來的 repo 一定沒有此檔，屬正常。
+
+> ⚠️ 安裝檔內含明文 sa 密碼（在 `resources/default-config.json`）→ **安裝檔限內部交付勿外流**。實際密碼值僅存於 user auto-memory（repo 外）。
 
 ### client 端執行依賴（裝機後）
 
 framework-dependent 打包，client 須有：**.NET 10 ASP.NET Core Runtime (x64)** + **Microsoft Visual C++ 2015-2022 Redistributable (x64)**（SkiaSharp 列印用）。缺少時 Electron 開機 `/prereq` 頁引導安裝（[frontend/electron/prereq.ts](frontend/electron/prereq.ts)）。
-
-### 打包預設連線（單機版重點）
-
-installer 內**已內建預設 DB 連線 `192.168.1.151 / sa / Ceremony`**（[frontend/electron/config.ts](frontend/electron/config.ts) `DEFAULT_CONFIG`）。使用者首次啟動 → `/setup` 頁五欄（含密碼）**已預填** → 按「測試連線」→「儲存並連線」即可（仍可改 IP / 帳密）。設定寫入 client 本機 `%APPDATA%/Ceremony/config.json`。
-
-> ⚠️ **安全例外**：`DEFAULT_CONFIG` 含**明文 prod 密碼**，偏離 [CLAUDE.md](CLAUDE.md) 規則 11（secret 不入 repo），為**已接受例外**（見 [docs/design/security.md](docs/design/security.md)「打包預設連線」段）。此密碼會進 installer，且 `config.ts` 一旦 commit 即進 git 歷史（事後須 rewrite history 才能清除）。
 
 ## API 一覽（29 個 endpoint shipped）
 

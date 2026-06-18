@@ -5,7 +5,7 @@ import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
-import { readConfig, writeConfig, CeremonyConfig, DEFAULT_CONFIG } from './config';
+import { readConfig, writeConfig, readDefaultConfig, CeremonyConfig } from './config';
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
@@ -59,6 +59,13 @@ async function loadAppWithApi(base: string): Promise<void> {
 async function bootstrap(): Promise<void> {
   prereqs = await detectPrereqs();
   config = await readConfig();
+  // default-config.json 為「連線權威」：每次啟動以出廠種子覆寫 config 的連線（保留既有 jwtKey），
+  // 確保改種子後 config.json 立即跟進、也避免殘留舊測試連線（如先前的 (local)）。
+  // 無種子才沿用既有 config（缺種子 + 無 config → 退回 /setup）。writeConfig 會自動補每機隨機 jwtKey。
+  const seed = await readDefaultConfig();
+  if (seed?.dbHost) {
+    config = await writeConfig({ ...(seed as CeremonyConfig), jwtKey: config?.jwtKey });
+  }
   createWindow();
 
   if (prereqs.ok && config) {
@@ -102,15 +109,6 @@ ipcMain.handle('ceremony:getStatus', () => ({
         apiPort: config.apiPort ?? 0,
       }
     : null,
-  // 首次啟動（無 config）時，/setup 以此打包預設預填（含密碼，方便直接按「測試連線」）
-  defaults: {
-    dbHost: DEFAULT_CONFIG.dbHost,
-    dbPort: DEFAULT_CONFIG.dbPort,
-    dbName: DEFAULT_CONFIG.dbName,
-    dbUser: DEFAULT_CONFIG.dbUser,
-    dbPassword: DEFAULT_CONFIG.dbPassword,
-    apiPort: DEFAULT_CONFIG.apiPort ?? 0,
-  },
 }));
 
 ipcMain.handle('ceremony:recheckPrereqs', async () => {

@@ -25,6 +25,11 @@ extraResources:
     to: prereqs
     filter: ['**/*']
     # build/prereqs 不存在時 electron-builder 會略過（無 bundled installer → 走 openExternal）
+  # 出廠預寫 DB 連線種子：首次啟動無 config.json 時由 main.ts 讀此檔寫出 config（跳過 /setup）。
+  # 內含 sa 密碼 → gitignore，不入 repo（範例見 build/default-config.example.json）；
+  # 缺檔時 electron-builder 略過，app 退回 /setup 首次設定流程。
+  - from: build/default-config.json
+    to: default-config.json
 
 win:
   target:

@@ -116,7 +116,6 @@ export class SetupPage {
     if (!this.bridge) return;
     const status = await this.bridge.getStatus();
     if (status.config) {
-      // 既有設定（重連情境）：回顯但不含密碼，使用者需重輸密碼或用「用既有設定連線」。
       this.hasConfig.set(true);
       this.existingSummary.set(
         `${status.config.dbHost},${status.config.dbPort} / ${status.config.dbName}`,
@@ -126,15 +125,6 @@ export class SetupPage {
         dbPort: status.config.dbPort,
         dbName: status.config.dbName,
         dbUser: status.config.dbUser,
-      });
-    } else if (status.defaults) {
-      // 首次啟動：以打包預設預填（含密碼），使用者直接按「測試連線」即可。
-      this.form.patchValue({
-        dbHost: status.defaults.dbHost,
-        dbPort: status.defaults.dbPort,
-        dbName: status.defaults.dbName,
-        dbUser: status.defaults.dbUser,
-        dbPassword: status.defaults.dbPassword,
       });
     }
     if (!status.connected && status.hasConfig) {

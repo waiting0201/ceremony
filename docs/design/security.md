@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - infrastructure.md
 keywords: [security, 安全, 密碼, 加密, JWT, OWASP, PII]
-last_updated: 2026-06-18 (打包預設連線：明文 prod 密碼硬編 config.ts，規則 11 已接受例外)
+last_updated: 2026-06-02 (出廠預寫連線種子取捨)
 ---
 
 ## 安全策略總覽
@@ -140,8 +140,13 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 |---|---|
 | 本機 admin 權限者可讀到 DB 密碼 | DB 帳號**最小權限**：只能 DML + EXEC `backup proc`，無 DDL（schema 凍結；不開放 `sysadmin` / `db_owner`） |
 | 密碼以純文字存 user profile | LAN-only 部署，無公網暴露；SQL Server 開 Windows Firewall 限制來源網段 |
-| 多 client = 多份 config.json | 各 client 都是 user-profile 路徑（隨使用者 Windows 帳號）；**打包預設已預填連線（含密碼）**，使用者首次啟動按「測試連線」即可，不需逐台手填（見下「打包預設連線」段） |
+| 多 client = 多份 config.json | 各 client 都是 user-profile 路徑（隨使用者 Windows 帳號）；**2026-06-02 起改出廠預寫**（見下），不再逐台手填 |
 | 升級安全等級 | 架構保留方案 A（Windows Authentication）/ 方案 B（DPAPI 加密）的升級路徑，現有 Electron `config.ts` 模組可換實作不動其他層 |
+
+**出廠預寫連線（2026-06-02，取代「首次啟動手填」）**：寺方為**同機部署**（程式裝在 DB 主機上），連線固定，改為把連線烘進安裝檔。打包機放 `frontend/build/default-config.json`（`dbHost=192.168.1.151` + sa 密碼）→ electron-builder `extraResources` 打進 `resources/default-config.json`；`main.ts` **每次啟動**以種子連線覆寫 `config.json`（種子為連線權威，jwtKey 仍每機隨機保留）。**安全等級與方案 C 相同**（密碼仍明文存 client `%APPDATA%`，且現在也明文存於安裝檔內），只是輸入時機從「使用者首次填」改為「出廠預寫」。
+
+- **Secret 不入 repo（CLAUDE.md 規則 11）**：`default-config.json` 已 gitignore，只 commit `default-config.example.json`（密碼 `<from-secrets>` 占位）；真實值僅打包機本地持有。
+- **新風險**：安裝檔（.exe / resources）內含明文 sa 密碼，任何拿到安裝檔者可解出 → 安裝檔須限內部交付，勿外流；緩解仍靠「DB 帳號最小權限 + LAN-only + 防火牆網段限制」。升級路徑：未來可改 DPAPI 加密種子或安裝時才注入。
 
 **評估三方案對照**：
 
@@ -150,16 +155,6 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 | A. Windows Authentication（Integrated Security） | 不需在 client 存任何密碼 | 寺方要設 AD 或本機帳號授權，IT 門檻高 | ❌ |
 | B. DPAPI 加密 config | 即使檔案被複製到他機也不能解 | 換機要重填；首次啟動引導體驗 +1 步 | ❌（保留升級路徑） |
 | **C. 純文字 JSON config** | 部署最簡單 | 本機讀檔即拿到 | ✅ |
-
-### 打包預設連線：明文 prod 密碼硬編於 `config.ts`（**2026-06-18 決策，規則 11 的已接受例外**）
-
-單機版固定連寺方區網 DB（`192.168.1.151`）。使用者要求**打包預設**即帶這組連線，首次啟動 `/setup` 連密碼一起預填，按「測試連線」即可。
-
-- **實作**：`frontend/electron/config.ts` 的 `DEFAULT_CONFIG` 常數（含明文 prod 密碼）；`main.ts` `getStatus` 在無 `config.json` 時透過 `defaults` 欄位（含密碼）回給 `/setup` 預填。寫入後仍存於 `%APPDATA%/Ceremony/config.json`（方案 C）。
-- **與 CLAUDE.md 規則 11 的衝突**：規則 11 要求 secret 絕不入 repo。本決策為**使用者明確選擇的例外**（在「gitignored 本機檔」與「硬編 config.ts」間選後者）。
-- **不可逆性警告**：`config.ts` 受 git 追蹤，一旦 **commit**，prod 密碼即永久進入 git 歷史，事後 `.gitignore` / 刪行無法移除（須 rewrite history）。`DEFAULT_CONFIG` 註解已標記此風險。
-- **緩解**：仍受方案 C 既有緩解保護（DB 帳號最小權限、LAN-only、防火牆限來源網段）。若日後要回到合規狀態，將 `DEFAULT_CONFIG` 改回 placeholder + 改走 gitignored 種子檔，並 rewrite history 清除舊密碼。
-- **實際密碼值**：另記於 user auto-memory `db-credentials.md`，本文件**不寫**真實密碼。
 
 ## PII 保護
 

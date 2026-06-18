@@ -17,6 +17,9 @@ jobs:
     defaults:
       run:
         shell: pwsh
+    env:
+      # 出廠 DB 連線種子（含 sa 密碼）；未設則打包不含種子，安裝後退回 /setup。
+      DEFAULT_DB_CONFIG: ${{ secrets.DEFAULT_DB_CONFIG }}
 
     steps:
       - name: Checkout
@@ -38,6 +41,13 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
+
+      # 出廠 DB 連線種子：從 secret 寫出 build/default-config.json（含 sa 密碼，不入 repo）。
+      # 未設 secret 時略過 → 安裝後退回 /setup 手填（非錯誤）。
+      # secret 值為 JSON：{"dbHost":"192.168.1.151","dbPort":1433,"dbName":"Ceremony","dbUser":"sa","dbPassword":"..."}
+      - name: Write default DB config seed
+        if: ${{ env.DEFAULT_DB_CONFIG != '' }}
+        run: Set-Content -Path frontend/build/default-config.json -Value $env:DEFAULT_DB_CONFIG -NoNewline -Encoding utf8
 
       # 1) 後端 sidecar：framework-dependent .NET 10 單一 exe → backend/publish/win-x64/Ceremony.Api.exe
       - name: Publish .NET sidecar

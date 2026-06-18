@@ -44,6 +44,9 @@ __screenshots__/
 /release
 /build/prereqs
 
+# 出廠 DB 連線種子（含 sa 密碼）— 絕不入 repo；範例見 build/default-config.example.json
+/build/default-config.json
+
 # System files
 .DS_Store
 Thumbs.db

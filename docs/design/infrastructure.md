@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-06-18 (打包預設連線 DEFAULT_CONFIG 硬編 + NSIS 安裝目錄 Ceremony + sidecar cwd 修正 + release.yml windows CI)
+last_updated: 2026-06-18 (出廠連線種子 + NSIS 安裝目錄 Ceremony + release.yml windows CI + sidecar cwd)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -77,11 +77,9 @@ last_updated: 2026-06-18 (打包預設連線 DEFAULT_CONFIG 硬編 + NSIS 安裝
 ### Sidecar 模式設定流程（prod）
 
 1. 使用者灌完 installer 第一次啟動 → Electron 偵測 `%APPDATA%/Ceremony/config.json` 不存在 → 跳「初次設定」頁
-2. 設定頁**以打包預設（`DEFAULT_CONFIG`）預填全部欄位（含密碼）**：DB 主機 `192.168.1.151`、port 1433、DB 名稱 Ceremony、user `sa`、password。使用者單機固定連寺方區網 DB，通常直接按「測試連線」即可（仍可改 IP / 帳密）
+2. 使用者填：DB 主機（IP / hostname）、port（預設 1433）、DB 名稱（預設 Ceremony）、user、password
 3. 按「測試連線」→ Electron 暫存到記憶體 → spawn API（傳 ENV var）→ 打 `/health` → 成功則寫 `config.json`
 4. 後續啟動：Electron 讀 `config.json` → spawn API → API 用 ENV var 取代 `appsettings` 預留欄位
-
-> **打包預設連線（2026-06-18 決策）**：`DEFAULT_CONFIG` 定義於 [frontend/electron/config.ts](../../frontend/electron/config.ts)，`main.ts` `getStatus` 在無 `config.json` 時以 `defaults` 欄位（含密碼）回給 `/setup` 預填（[setup-page.ts](../../frontend/src/app/features/setup/setup-page.ts) `prefill()`）。**注意**：此常數含**明文 prod 密碼**，為 CLAUDE.md 規則 11 的**已接受例外**（使用者明確選擇硬編而非 gitignored 種子檔）；一旦 commit 即進 git 歷史。決策與緩解見 [security.md](security.md)「打包預設連線」段。真實密碼值僅存 user auto-memory `db-credentials.md`。
 
 `config.json` 結構（純文字 JSON，**不加密**，方案 C）：
 ```jsonc
@@ -140,8 +138,8 @@ spawn(apiExe, [`--urls=http://localhost:${apiPort}`], {
 - **server-side 部署**（若未來改）：systemd `Environment=`、IIS app pool `ConnectionStrings__Ceremony`、Docker `-e`
 - **實際密碼值**僅記載於 user auto-memory `~/.claude/projects/-Users-tim-agents-ceremony/memory/db-credentials.md`，**不在本檔**
 - 已配置 [repo root .gitignore](../../.gitignore) 規則：`appsettings.Production.json` / `appsettings.*.local.json` / `**/secrets.json` / `**/.env*`
-- **`%APPDATA%/Ceremony/config.json` 是使用者本機檔案**（不 commit、不上 update server）；首次啟動由 `/setup`（打包預設預填）寫出後僅存在於該 client 的 user profile 下
-- **打包預設連線 `DEFAULT_CONFIG`（2026-06-18）**：硬編於 [config.ts](../../frontend/electron/config.ts)（`dbHost=192.168.1.151` + sa 密碼）；無 `config.json` 時 `getStatus` 以 `defaults` 回給 `/setup` 預填（含密碼），使用者按「測試連線」寫出 config.json。**含明文密碼，為規則 11 已接受例外**，詳見 [security.md](security.md)「打包預設連線」段與 [blueprints/electron-packaging.md](../blueprints/electron-packaging.md)
+- **`%APPDATA%/Ceremony/config.json` 是使用者本機檔案**（不 commit、不上 update server）；首次啟動由出廠種子寫出後僅存在於該 client 的 user profile 下
+- **出廠連線種子 `frontend/build/default-config.json`（2026-06-02）**：同機部署 → `dbHost=192.168.1.151` + sa 密碼，打包進 `resources/default-config.json`，`main.ts` **每次啟動**以它覆寫 config.json 連線（種子為權威，跳過 /setup，保留每機 jwtKey）。**gitignore 不入 repo**（範例 `default-config.example.json` 占位）；安裝檔內含明文密碼 → 限內部交付。詳見 [security.md](security.md) 出廠預寫段與 [blueprints/electron-packaging.md](../blueprints/electron-packaging.md)
 - **sidecar 啟動須設 `cwd = resources/api`（2026-06-02）**：single-file exe 的 ContentRoot 取自工作目錄；不設則 appsettings.json 不載入 → `Backup:Directory` 等為 null（曾致備份 500 `BACKUP_NOT_CONFIGURED`）。見 [gotchas.md](../gotchas.md)
 - **`Backup:Directory = D:\Backup`**：須存在且 SQL Server 服務帳號（`NT Service\MSSQLSERVER`）可寫，否則 BACKUP DATABASE 失敗（同機部署；舊系統已用此路徑）
 
@@ -292,7 +290,7 @@ nsis:
 
 > `extraResources` 在 runtime 解開到 `process.resourcesPath`（NSIS 安裝路徑下的 `resources/api/`）。Electron main 從那邊 spawn `Ceremony.Api.exe`。
 
-> **以實際 [frontend/electron-builder.yml](../../frontend/electron-builder.yml) 為準**（上為示意）。實際另含：`nsis.include: build/installer.nsh`（`preInit` macro 把預設安裝資料夾固定為 `$PROGRAMFILES64\Ceremony`，保留中文 productName）；`extraResources` 含 `build/prereqs`；icon 用 `build/icon.png`（由 logo.png 來）。打包預設連線改走硬編 `DEFAULT_CONFIG`（[config.ts](../../frontend/electron/config.ts)），不再用 extraResources 種子檔。
+> **以實際 [frontend/electron-builder.yml](../../frontend/electron-builder.yml) 為準**（上為示意）。實際另含：`nsis.include: build/installer.nsh`（`preInit` macro 把預設安裝資料夾固定為 `$PROGRAMFILES64\Ceremony`，保留中文 productName）；`extraResources` 再加 `build/default-config.json → default-config.json`（出廠連線種子，缺檔自動略過）與 `build/prereqs`；icon 用 `build/icon.png`（由 logo.png 來）。
 
 #### Icon 來源
 
@@ -395,13 +393,16 @@ jobs:
 
 1. `actions/setup-dotnet`（版本讀 [backend/global.json](../../backend/global.json)，目前 pin `10.0.103`）+ `actions/setup-node`（22，npm cache）
 2. `npm ci`（frontend）
-3. `pwsh backend/publish.ps1` → `backend/publish/win-x64/Ceremony.Api.exe`（framework-dependent sidecar）
-4. `npm run electron:build`（ng build + tsc electron）
-5. `npx electron-builder --win --publish never` → `frontend/release/…-setup.exe`
-6. `actions/upload-artifact` + tag 觸發時 `softprops/action-gh-release` 附 `.exe` / `.blockmap` / `latest.yml`
+3. **從 GitHub Actions secret `DEFAULT_DB_CONFIG` 寫出 `frontend/build/default-config.json`**（出廠連線種子，含 sa 密碼；secret 不入 repo，CI 注入）
+4. `pwsh backend/publish.ps1` → `backend/publish/win-x64/Ceremony.Api.exe`（framework-dependent sidecar）
+5. `npm run electron:build`（ng build + tsc electron）
+6. `npx electron-builder --win --publish never` → `frontend/release/…-setup.exe`（種子 bundle 進 `resources/default-config.json`）
+7. `actions/upload-artifact` + tag 觸發時 `softprops/action-gh-release` 附 `.exe` / `.blockmap` / `latest.yml`
 
-**為何只在 Windows**：electron-builder NSIS target 需 Windows（mac/Linux 走 Wine 不穩、無法簽章）。**刻意不跑 `npm run dist`**（該 script 是 bash 寫法，Windows 原生殼會炸）→ 改上述分步。簽章未配置（無憑證）→ electron-builder 自動跳過，SmartScreen 會警告但可安裝；要簽章再於 `win.certificateFile` + `CSC_LINK` / `CSC_KEY_PASSWORD` secrets 補。
+**為何只在 Windows**：electron-builder NSIS target 需 Windows（mac/Linux 走 Wine 不穩、無法簽章）。**刻意不跑 `npm run dist`**（該 script 是 bash 寫法，Windows 原生殼會炸）→ 改上述分步。簽章未配置（無憑證）→ electron-builder 自動跳過。
 
+> **CI secret 設定**：repo Settings → Secrets and variables → Actions 新增 `DEFAULT_DB_CONFIG`，值為 `default-config.json` 的 JSON 內容（`dbHost`/`dbPort`/`dbName`/`dbUser`/`dbPassword`）。未設則 CI build 不含種子 → 安裝後退回 `/setup` 手填（非錯誤）。
+>
 > 註：上方 `ci.yml` 仍為**規劃示意**（未建）；目前實作只有 release.yml。
 
 部署：人工 promote staging → prod；prod 部署需 PR review + change ticket。
