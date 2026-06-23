@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本]
-last_updated: 2026-06-18
+last_updated: 2026-06-23 (報名新增表單法會分類依當月自動帶季別 root)
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -344,7 +344,7 @@ export class NewSignupComponent {
 ```
 
 對齊本規範的 feature：
-- [signup-list-page](../../frontend/src/app/features/signups/signup-list-page.ts) → `<app-form-overlay>` 包 `<app-signup-edit-form>`（2026-05-29：`signup-edit-form` 單頁**欄位編排對齊舊 NewSignupForm**：法會資料→信眾→基本資料→地址→名單→編號/費用→備註/預繳；地址用城市→區域連動下拉，資料源 `ZipcodeApi`（`GET /zipcodes/cities`、`?city=`）+ 同寄件地址 checkbox；見 [signup-management.md 新增段](../blueprints/signup-management.md)）
+- [signup-list-page](../../frontend/src/app/features/signups/signup-list-page.ts) → `<app-form-overlay>` 包 `<app-signup-edit-form>`（2026-05-29：`signup-edit-form` 單頁**欄位編排對齊舊 NewSignupForm**：法會資料→信眾→基本資料→地址→名單→編號/費用→備註/預繳；地址用城市→區域連動下拉，資料源 `ZipcodeApi`（`GET /zipcodes/cities`、`?city=`）+ 同寄件地址 checkbox；2026-06-23：新增模式法會分類**依當月自動帶季別 root**（`util/ceremony-season.ts` + `applySeasonDefault()`，可編輯預設，1-4春季/5-8中元/9-12秋季）；見 [signup-management.md 新增段](../blueprints/signup-management.md)）
 - [believers-page](../../frontend/src/app/features/believers/believers-page.ts) → `<app-form-overlay>` 包 `<app-believer-edit-form>`
 - [categories-page](../../frontend/src/app/features/categories/categories-page.ts) → `<app-form-overlay>` 包 `<app-category-edit-form>`
 - [admins-page](../../frontend/src/app/features/admins/admins-page.ts) → `<app-form-overlay>` 包 `<app-admin-edit-form>`

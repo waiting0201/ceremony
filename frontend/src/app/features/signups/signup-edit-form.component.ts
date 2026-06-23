@@ -27,6 +27,7 @@ import { ApiError } from '../../core/http/api-error';
 import { SIGNUP_TYPES } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
+import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-season';
 
 /**
  * 報名 create/edit 表單（不含 page layout / overlay shell）。
@@ -157,9 +158,21 @@ export class SignupEditFormComponent {
     try {
       const resp = await this.categoryApi.list();
       this.categories.set(resp.items);
+      this.applySeasonDefault();
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     }
+  }
+
+  /**
+   * 新增模式：依當月自動帶出季別 root（春季/中元/秋季）作為可編輯的預設；
+   * 子法會仍由使用者挑選。月→季對照見 docs/business-rules-implicit.md。
+   */
+  private applySeasonDefault(): void {
+    if (this.mode() !== 'create') return;                    // 編輯模式不覆蓋既有值
+    if (this.form.controls.ceremonyCategoryId.value) return; // 已有值（含使用者已選）不覆蓋
+    const rootId = resolveSeasonRootId(this.categories(), currentSeason());
+    if (rootId) this.form.controls.ceremonyCategoryId.setValue(rootId);
   }
 
   private async loadCities(): Promise<void> {

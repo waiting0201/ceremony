@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-18 (UI 版號改從 package.json 自動連動，Current Version → v2.0.1;修「DB 連線後直接進首頁」→ session 改記憶體 only 強制登入;上私有 GitHub + windows 打包 CI)
+last_updated: 2026-06-23 (報名新增表單依當月自動帶季別法會：1-4春季/5-8中元/9-12秋季，可編輯預設)
 
 
 ---
@@ -150,6 +150,10 @@ last_updated: 2026-06-18 (UI 版號改從 package.json 自動連動，Current Ve
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
 
+- [x] **報名表單依當月自動帶季別法會** — Done 2026-06-23
+  - 需求：新增報名時「法會分類」依當前月份自動帶出季別 root（1-4月春季 / 5-8月中元 / 9-12月秋季），可編輯預設，子法會仍人工挑選
+  - 實作：新增 [ceremony-season.ts](../frontend/src/app/shared/util/ceremony-season.ts)（`seasonForMonth`/`currentSeason`/`resolveSeasonRootId`，GUID 優先 title 退場）；[signup-edit-form.component.ts](../frontend/src/app/features/signups/signup-edit-form.component.ts) `loadCategories()` 後呼叫 `applySeasonDefault()`（僅 create 模式 + 欄位未有值才帶入，編輯模式不覆蓋）。`tsc --noEmit` 綠
+  - 業務面：定案 pending B3 的「月份範圍」部分，記入 [business-rules-implicit.md](business-rules-implicit.md) §17；尚待每日尖峰筆數
 - [x] **開始功能表加「解除安裝」捷徑 + 升級政策定為手動覆蓋安裝** — Done 2026-06-18
   - 升級：手動覆蓋安裝（NSIS 同 appId 認舊版→先靜默移除再裝新版，沿用 `$PROGRAMFILES64\Ceremony`，config 保留）；electron-updater 自動更新未實作（標未來項）。文件改 [infrastructure.md](design/infrastructure.md)
   - 解除安裝：原本只能從控制台移除 → [installer.nsh](../frontend/build/installer.nsh) `customInstall`/`customUnInstall` macro 在開始功能表建/刪 `解除安裝 ${PRODUCT_NAME}.lnk`（指向 electron-builder uninstaller）。已對照 app-builder-lib NSIS 模板確認 hook 與 `UNINSTALL_FILENAME`/`PRODUCT_NAME` 變數；最終 NSIS 編譯待 Windows 打包驗證。見 [electron-packaging.md](blueprints/electron-packaging.md) 第 5 項

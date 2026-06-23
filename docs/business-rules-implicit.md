@@ -12,8 +12,8 @@ related_docs:
   - blueprints/prepay-loading.md
   - blueprints/printing-reports.md
   - design/database-design.md
-keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號]
-last_updated: 2026-06-02
+keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季]
+last_updated: 2026-06-23 (§17 新增「月份→季別法會對照」：1-4春季/5-8中元/9-12秋季)
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -265,3 +265,22 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 - 其他四種列印選項恆可用
 
 > 即使搜尋類型不是普桌，使用者仍可手動點批次列印面板的「普桌」類型。menu 啟用是 UX 提示而非強制。
+
+---
+
+## 17. 月份 → 季別法會對照（**新版加值規則，非舊系統反推**）
+
+> ⚠ 此規則為新系統新增（舊 NewSignupForm 無自動判斷，季別永遠人工選），2026-06-23 由業主定案。同時釐清 [pending-business-input.md](pending-business-input.md) B3 的「月份範圍」部分。
+
+- 報名表單**新增模式**依當前月份自動帶出對應季別 root 法會（可編輯的預設，非鎖定）：
+
+  | 月份 | 季別 | Root GUID |
+  |---|---|---|
+  | 1–4 月 | 春季 | `18927907-dcad-42b2-8f2a-635c2e0fa98d` |
+  | 5–8 月 | 中元 | `0c478f0e-787c-448e-ba7b-b1579f3f1fce` |
+  | 9–12 月 | 秋季 | `3864e4dc-24db-4544-acb3-3351592f6dab` |
+
+- 只帶**季別 root**；子法會（梁皇寶懺、盂蘭盆…）仍由使用者人工挑選，逐年不同。
+- 月份取自系統當下日期（公曆月份；民國年僅換算年份不影響月份）。
+- 邊界：4/5 月之交切春季↔中元、8/9 月之交切中元↔秋季。
+- 實作：`frontend/src/app/shared/util/ceremony-season.ts`（`seasonForMonth` / `currentSeason` / `resolveSeasonRootId`，GUID 優先、title 退場）；表單 `applySeasonDefault()` 僅在 create 模式且欄位尚未有值時帶入，編輯模式不覆蓋。
