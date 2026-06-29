@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘]
-last_updated: 2026-05-29
+last_updated: 2026-06-29 (新增登入頁品牌設計：廟門圓窗 signature，刻意脫離 WinForms 版型)
 ---
 
 ## 設計原則
@@ -507,6 +507,22 @@ class FormOverlayComponent {
 | 普桌 | 21 × 29.6cm（A4） | Portrait | 標楷體 | 2cm 大字 |
 
 邊界全部 0cm（滿版）— 新版需測試實體印表機 0.5cm 不可印區是否切到內容。
+
+## 登入頁設計（品牌頁，不對齊 WinForms）
+
+登入頁是**唯一刻意脫離 WinForms 版型**的畫面，定位為品牌門面（管理員每天第一眼），需專業、莊重、有寺院品牌感。
+
+- **版面**：單欄垂直置中 — 品牌圓窗 → 寺名標題 → 登入卡 → 版本號。短螢幕（`max-height:640px`）改頂齊；窄螢幕（`max-width:480px`）縮放。
+- **Signature 元素「廟門圓窗」**：三層同心圓（純 CSS `radial-gradient`），外圈陶土光暈 → 中圈半透明奶油環 → 核心陶土圓置中 Logo（`/logo.png`，存於 `frontend/public/`）。象徵圓滿，取代通用 SaaS 分割版。
+- **Logo 處理**：核心圓內 Logo 用 `mix-blend-mode: luminosity` 融入陶土色，作為「視覺意象」而非主辨識；辨識由下方「寶覺寺」標楷體標題承擔（若要 Logo 全彩可移除該 blend mode）。
+- **排版**：寺名「寶覺寺」用 `--font-print`（標楷體）34px、`letter-spacing:0.12em`、`font-weight:normal`（楷體筆畫已足夠份量）；副標「法會報名系統」用 `--font-ui` 寬字距 0.22em。
+- **登入卡 / 控制項**：登入頁控制項比 dense admin 大一階 — input 38px、按鈕 44px（系統標準 28/32px），focus ring 用 `--c-primary` 3px 外光暈。
+- **配色**：僅用既有 design tokens（陶土 `--c-primary` 系 + 米白 `--c-bg`），未新增色票。
+- **動畫**：差序入場（圓 60ms → 標題 160ms → 卡 220ms → 版本 360ms），尊重 `prefers-reduced-motion`。
+- **稽核例外**：登入頁 SCSS 含豐富裝飾，`angular.json` 的 `anyComponentStyle` budget 由 4kB 調升至 6kB。
+- **wiring 不動**：reactive form / `auth.login()` / 導向 `/` / `errorMessage` signal / `submitting` 狀態全保留，僅換 HTML+SCSS。
+
+檔案：[../../frontend/src/app/features/login/](../../frontend/src/app/features/login/)（`login-page.html` / `.scss`，`.ts` 邏輯未變）。
 
 ## 鍵盤 / a11y
 

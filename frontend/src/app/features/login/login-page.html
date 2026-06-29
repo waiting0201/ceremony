@@ -1,31 +1,59 @@
-<div class="login">
-  <form class="card" [formGroup]="form" (ngSubmit)="onSubmit()">
-    <div class="title">寶覺寺法會報名系統</div>
-    <div class="subtitle">請輸入管理者帳號登入</div>
+<div class="login-shell">
 
-    <label class="field">
-      <span class="label">帳號</span>
+  <!-- 品牌區：廟門圓窗意象 -->
+  <div class="brand-gate" aria-hidden="true">
+    <div class="gate-circle gate-circle--outer"></div>
+    <div class="gate-circle gate-circle--mid"></div>
+    <div class="gate-circle gate-circle--inner">
+      <img class="gate-logo" src="/logo.png" alt="" width="96" height="96" />
+    </div>
+  </div>
+
+  <!-- 寺名標題 -->
+  <div class="brand-title" aria-label="寶覺寺法會報名系統">
+    <span class="brand-temple">寶覺寺</span>
+    <span class="brand-system">法會報名系統</span>
+  </div>
+
+  <!-- 登入卡片 -->
+  <form class="login-card" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+    <p class="login-card__lead">管理員登入</p>
+
+    <label class="lf">
+      <span class="lf__label">帳號</span>
       <input
+        class="lf__input"
         type="text"
         formControlName="username"
         autocomplete="username"
         spellcheck="false"
+        placeholder="請輸入帳號"
       />
     </label>
 
-    <label class="field">
-      <span class="label">密碼</span>
-      <input type="password" formControlName="password" autocomplete="current-password" />
+    <label class="lf">
+      <span class="lf__label">密碼</span>
+      <input
+        class="lf__input"
+        type="password"
+        formControlName="password"
+        autocomplete="current-password"
+        placeholder="請輸入密碼"
+      />
     </label>
 
     @if (errorMessage(); as msg) {
-      <div class="error">{{ msg }}</div>
+      <div class="login-error" role="alert">{{ msg }}</div>
     }
 
-    <button type="submit" class="submit" [disabled]="form.invalid || submitting()">
-      {{ submitting() ? '登入中...' : '登入' }}
+    <button
+      type="submit"
+      class="login-btn"
+      [disabled]="form.invalid || submitting()"
+    >
+      {{ submitting() ? '登入中⋯' : '登入' }}
     </button>
-
-    <div class="version">{{ appVersion }}</div>
   </form>
+
+  <div class="login-version">{{ appVersion }}</div>
 </div>

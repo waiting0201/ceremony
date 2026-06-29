@@ -1,93 +1,222 @@
+// Login Page — 寶覺寺廟門圓窗設計
+// Signature: 三層同心圓（廟宇圓窗意象），純 CSS radial-gradient。
+
 :host {
   display: block;
-  height: 100vh;
-}
-
-.login {
-  display: grid;
-  place-items: center;
-  height: 100%;
+  min-height: 100vh;
   background: var(--c-bg);
+  // 細緻紙紋底：讓米白背景有手工印刷感而非數位空白感
+  background-image:
+    radial-gradient(ellipse 120% 80% at 50% -10%, rgba(204, 120, 92, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 50% 105%, rgba(204, 120, 92, 0.05) 0%, transparent 55%);
 }
 
-.card {
+// 置中容器：圓窗 / 標題 / 登入卡皆為直接 flex 子項，align-items:center 才能逐項置中
+.login-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--space-xl) var(--space-lg);
+
+  animation: lp-fade-in 400ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-shell { animation: none; }
+  .brand-gate, .brand-title, .login-card, .login-version { animation: none !important; }
+}
+
+@keyframes lp-fade-in {
+  from { opacity: 0; } to { opacity: 1; }
+}
+@keyframes lp-circle-bloom {
+  from { transform: scale(0.82); opacity: 0; } to { transform: scale(1); opacity: 1; }
+}
+@keyframes lp-card-rise {
+  from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; }
+}
+
+.brand-gate {
+  position: relative;
+  width: 188px;
+  height: 188px;
+  margin-bottom: 20px;
+  animation: lp-circle-bloom 480ms cubic-bezier(0.22, 1, 0.36, 1) 60ms both;
+}
+
+.gate-circle--outer {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(204, 120, 92, 0.18) 0%, rgba(204, 120, 92, 0.06) 55%, transparent 75%);
+  transform: scale(1.32);
+}
+
+.gate-circle--mid {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(245, 229, 220, 0.92) 0%, rgba(240, 215, 196, 0.72) 55%, rgba(245, 229, 220, 0.2) 78%, transparent 88%);
+  transform: scale(1.12);
+}
+
+.gate-circle--inner {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 46% 44%, #D98A6E 0%, var(--c-primary) 42%, var(--c-primary-hover) 100%);
+  box-shadow: 0 8px 32px rgba(184, 104, 71, 0.32), 0 2px 8px rgba(184, 104, 71, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gate-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  border-radius: 14px;
+  mix-blend-mode: luminosity;
+  opacity: 0.95;
+  filter: drop-shadow(0 2px 6px rgba(44, 42, 38, 0.22));
+}
+
+.brand-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 28px;
+  animation: lp-card-rise 420ms ease-out 160ms both;
+}
+
+.brand-temple {
+  font-family: var(--font-print);
+  font-size: 34px;
+  font-weight: normal;
+  line-height: 1.1;
+  letter-spacing: 0.12em;
+  color: var(--c-text-primary);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.brand-system {
+  font-family: var(--font-ui);
+  font-size: var(--font-size-sm);
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  color: var(--c-text-secondary);
+}
+
+.login-card {
+  width: min(360px, 100%);
   display: grid;
-  gap: var(--space-md);
-  width: var(--modal-width-sm);
-  padding: var(--space-xl);
+  gap: 16px;
+  padding: 28px 28px 24px;
   background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(44, 42, 38, 0.06), 0 6px 20px rgba(44, 42, 38, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  animation: lp-card-rise 480ms cubic-bezier(0.22, 1, 0.36, 1) 220ms both;
+}
+
+.login-card__lead {
+  margin: 0 0 4px;
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--c-text-secondary);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+
+.lf {
+  display: grid;
+  gap: 5px;
+}
+
+.lf__label {
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  color: var(--c-text-secondary);
+  letter-spacing: 0.04em;
+}
+
+.lf__input {
+  height: 38px;
+  padding: 0 12px;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-md);
   border: 1px solid var(--c-border);
   border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.title {
-  font-size: var(--font-size-xl);
-  font-weight: 600;
-  text-align: center;
-}
-
-.subtitle {
-  font-size: var(--font-size-sm);
-  color: var(--c-text-secondary);
-  text-align: center;
-  margin-top: calc(-1 * var(--space-sm));
-}
-
-.field {
-  display: grid;
-  gap: var(--space-xs);
-}
-
-.label {
-  font-size: var(--font-size-sm);
-  color: var(--c-text-secondary);
-}
-
-input {
-  height: var(--control-height);
-  padding: 0 var(--space-sm);
-  font-family: inherit;
-  font-size: var(--font-size-base);
-  border: 1px solid var(--c-border);
-  border-radius: 2px;
-  background: var(--c-surface);
+  background: var(--c-bg);
   color: var(--c-text-primary);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 
+  &::placeholder { color: var(--c-text-disabled); font-size: var(--font-size-sm); }
+  &:hover:not(:focus) { border-color: var(--c-text-secondary); }
   &:focus {
     outline: none;
     border-color: var(--c-primary);
-    box-shadow: 0 0 0 1px var(--c-primary);
+    box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.18);
+    background: var(--c-surface);
   }
 }
 
-.error {
-  padding: var(--space-sm);
-  background: rgba(200, 74, 58, 0.08);
+.login-error {
+  padding: 9px 12px;
+  background: rgba(200, 74, 58, 0.07);
   color: var(--c-danger);
   font-size: var(--font-size-sm);
   border-left: 3px solid var(--c-danger);
+  border-radius: 0 3px 3px 0;
+  line-height: 1.5;
 }
 
-.submit {
-  height: var(--button-height);
+.login-btn {
+  margin-top: 4px;
+  height: 44px;
   background: var(--c-primary);
   color: #fff;
   border: none;
-  border-radius: 2px;
-  font-family: inherit;
+  border-radius: 4px;
+  font-family: var(--font-ui);
   font-size: var(--font-size-md);
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   cursor: pointer;
+  transition: background 160ms ease, box-shadow 160ms ease, transform 80ms ease;
 
-  &:hover:not(:disabled) { background: var(--c-primary-hover); }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  &:hover:not(:disabled) { background: var(--c-primary-hover); box-shadow: 0 4px 14px rgba(184, 104, 71, 0.28); }
+  &:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 2px 6px rgba(184, 104, 71, 0.2); }
+  &:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.38); }
+  &:disabled { opacity: 0.48; cursor: not-allowed; }
 }
 
-.version {
-  margin-top: var(--space-sm);
+.login-version {
+  margin-top: 16px;
   text-align: center;
-  font-size: var(--font-size-xs, 11px);
-  color: var(--c-text-tertiary, var(--c-text-secondary));
-  letter-spacing: 0.04em;
+  font-size: var(--font-size-xs);
+  color: var(--c-text-disabled);
+  letter-spacing: 0.06em;
+  animation: lp-card-rise 400ms ease-out 360ms both;
+}
+
+@media (max-width: 480px) {
+  .brand-gate { width: 148px; height: 148px; margin-bottom: 16px; }
+  .gate-logo { width: 64px; height: 64px; }
+  .brand-temple { font-size: 28px; }
+  .login-card { padding: 22px 20px 20px; gap: 14px; }
+}
+
+@media (max-height: 640px) {
+  :host { justify-content: flex-start; padding-top: 32px; }
+  .brand-gate { width: 120px; height: 120px; margin-bottom: 12px; }
+  .gate-logo { width: 52px; height: 52px; }
+  .brand-temple { font-size: 24px; }
+  .brand-title { margin-bottom: 16px; }
 }
