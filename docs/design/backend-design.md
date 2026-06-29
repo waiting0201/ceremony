@@ -11,7 +11,7 @@ related_docs:
   - infrastructure.md
   - security.md
 keywords: [backend, 後端, 服務, 架構, 分層, ASP.NET Core, EF Core, Clean Architecture, vertical slice]
-last_updated: 2026-05-27
+last_updated: 2026-06-29 (解除 DB 凍結，導入 DbUp migration；ORM 維持 Dapper)
 ---
 
 ## 已落地骨架（2026-05-27）
@@ -37,11 +37,11 @@ last_updated: 2026-05-27
 | 語言 | **C# 14**（隨 .NET 10） | 沿用 .NET 生態，舊 EF6 程式邏輯可半移植 |
 | Runtime | **.NET 10 LTS**（2026-05-27 升級，原 doc 為 .NET 8） | 現行 LTS；跨平台、長期支援、效能佳 |
 | 框架 | **ASP.NET Core 10 Minimal API + Controllers**（hybrid） | 簡單 endpoint 用 Minimal、複雜資源用 Controller |
-| ORM | **Dapper 2.x**（micro-ORM）+ 手寫 SQL | 效能可預測、無 N+1、無翻譯地雷；DB 完全凍結故 SQL-first 最直接 |
-| Migration 工具 | **無** | 客戶要求 DB 不動，無 DDL 需求 |
-| 驗證 | **明文密碼比對**（`FixedTimeEquals`） | DB 凍結；`Admins.Password` 為 nvarchar(20) 明碼，客戶接受 |
-| 授權 | **JWT bearer** | 應用層 token；**不需 DB 變更** |
-| 密碼雜湊 | **不採用** | DB 凍結，欄位無法擴大；密碼明碼存放 |
+| ORM | **Dapper 2.x**（micro-ORM）+ 手寫 SQL | 效能可預測、無 N+1、無翻譯地雷；SQL-first 最直接，與 DbUp 腳本式 migration 相容 |
+| Migration 工具 | **DbUp**（`Ceremony.Migrations`，版本化 `.sql`） | 2026-06-29 解除 DB 凍結後導入；SQL 腳本式、與 Dapper 相容（不導入 EF Core Migrations） |
+| 驗證 | **明文密碼比對**（`FixedTimeEquals`） | `Admins.Password` 現為 nvarchar(20) 明碼；DB 已可變更，雜湊化列為待評估（見 [security.md](security.md)） |
+| 授權 | **JWT bearer** | 應用層 token |
+| 密碼雜湊 | **暫不採用（待評估）** | 不再受 DB 限制；擴欄/雜湊化可走 migration，待個別決定 |
 | Logging | Serilog + Seq（dev）/ File（prod） | 結構化 log；舊系統僅 Debug.Write |
 | 任務排程 | 內建 IHostedService（背景備份、log 歸檔） | 不需外部 Hangfire |
 | 報表/列印 | **QuestPDF**（首選）或 **Puppeteer Sharp** | 取代 RDLC + LocalReport（Windows-only） |
@@ -85,6 +85,8 @@ Ceremony.sln
 │   │   ├── Middleware/          # Exception, Auth
 │   │   ├── DependencyInjection.cs
 │   │   └── Program.cs
+│   │
+│   └── Ceremony.Migrations/     # DbUp：版本化 .sql schema 變更腳本（部署時冪等執行）
 │
 ├── tests/
 │   ├── Ceremony.Domain.Tests/         # 純單元測試
@@ -94,7 +96,7 @@ Ceremony.sln
 └── docker-compose.yml         # MSSQL（測試）+ Seq 本機開發
 ```
 
-> **無 Migration 專案**：客戶要求 DB 不動，無 DDL 需求。詳見 [data-migration blueprint](../blueprints/data-migration.md)（已標記為 deprecated）。
+> **Migration 專案 `Ceremony.Migrations`**（DbUp）：2026-06-29 解除 DB 凍結後導入，承載版本化 `.sql` schema 變更腳本，部署時冪等執行。詳見 [data-migration blueprint](../blueprints/data-migration.md) 與 [database-design.md](database-design.md) §「DB schema 可變更」。
 
 依賴方向：`Api → Application → Domain`；`Infrastructure → Application/Domain`（依賴反轉）
 
@@ -190,12 +192,12 @@ SQL Server
 
 ## 重要決策（與舊系統的差異）
 
-> 注意：**DB schema 完全凍結**（見 [database-design.md](database-design.md)）。下列差異全部發生在 .NET 應用層 / 設定層，**不動 DB**。
+> 注意：**DB schema 可變更，走 DbUp migration**（2026-06-29 解除凍結，見 [database-design.md](database-design.md)）。下列差異多數仍發生在 .NET 應用層 / 設定層；schema 變更則一律走 migration 腳本。
 
 | 主題 | 舊 | 新 | 原因 |
 |---|---|---|---|
-| ORM | EF6 EDMX | **Dapper 2.x + 手寫 SQL** | 效能可預測、無 N+1、無 EF 翻譯地雷；DB 凍結時 SQL-first 最直接 |
-| Migration | EDMX 反向工程 | **無** | 客戶要求 DB 不動 |
+| ORM | EF6 EDMX | **Dapper 2.x + 手寫 SQL** | 效能可預測、無 N+1、無 EF 翻譯地雷；SQL-first 最直接 |
+| Migration | EDMX 反向工程 | **DbUp**（`Ceremony.Migrations`） | 版本化 SQL 腳本管理 schema 變更；與 Dapper 相容 |
 | Repository pattern | 泛型 GenericRepository（薄） | 每聚合一個 specific repository | 包 Dapper 提供強型別查詢 |
 | Service pattern | BaseService 純繼承（CRUD 包裝） | MediatR Handlers（每 use case 一個） | use case 為一級概念，便於測試 |
 | Dispose 模式 | `this.Dispose()` 無窮遞迴 ⚠️ | DI lifecycle 管理 | 修 bug |
@@ -205,8 +207,8 @@ SQL Server
 | Transaction | 多次 SaveChanges 非原子 | `IDbTransaction` + MediatR TransactionBehavior | 資料完整性 |
 | 業務邏輯 | 在 Form (800+ 行) | 在 Domain Service | 可測試 / 可重用 |
 | 編號生成 | `MAX(number)+1`，race condition | `UPDLOCK + HOLDLOCK` + retry | 多 session 安全（query hint，非 DDL） |
-| 密碼 | 明文 | **同（明文）+ 常數時間比對** | 客戶接受；DB 凍結 |
-| JWT | 無 session | JWT access + refresh token | 應用層 token，**不動 DB** |
+| 密碼 | 明文 | **現況明文 + 常數時間比對**；雜湊化待評估 | 不再受 DB 限制，雜湊化可走 migration（見 [security.md](security.md)） |
+| JWT | 無 session | JWT access + refresh token | 應用層 token |
 | 連線字串存放 | App.config 明文 sa 帳號 | secret store / DPAPI；DB 帳號改應用專用 | 設定層 + DB 帳號層保護 |
 
 ## Dapper 使用慣例

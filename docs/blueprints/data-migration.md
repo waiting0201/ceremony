@@ -1,31 +1,30 @@
 ---
-title: 資料遷移 — N/A（DB 完全凍結，無 migration）
-purpose: 標記「資料遷移」議題：客戶要求 DB 完全不動，新系統直連既有 Ceremony DB；無 schema migration、無資料 ETL
-status: deprecated
-applicable_when: 有人問「新系統要怎麼遷移資料」「要不要跑 migration」時，導向此檔說明「不需要」
+title: 資料遷移與 schema migration（DbUp）
+purpose: 新系統直連既有 Ceremony DB（零 ETL 搬遷）；schema 變更走 DbUp migration（2026-06-29 解除凍結）
+status: active
+applicable_when: 有人問「新系統要怎麼遷移資料」「schema 變更怎麼管理」「要不要跑 migration」時看此檔
 related_agents:
   - software-architect-blueprint
   - backend-engineer
 related_docs:
   - ../design/database-design.md
-keywords: [migration, 資料遷移, datatrans, 沿用, deprecated]
-last_updated: 2026-05-26
+keywords: [migration, 資料遷移, datatrans, 沿用, DbUp, schema]
+last_updated: 2026-06-29 (解除 DB 凍結，導入 DbUp schema migration)
 ---
 
-## ⚠️ 此 blueprint 範圍為「無」
+## 範圍：零 ETL 搬遷 + DbUp schema migration
 
-**客戶決策（2026-05-26）**：DB **完全凍結**、密碼**沿用明碼**、**不需 migration 工具**。因此：
+**決策沿革**：2026-05-26 客戶曾裁定「DB 完全凍結、無 migration」；**2026-06-29 解除此限制**，schema 變更改以 DbUp 版本化管理（見 [database-design.md](../design/database-design.md) §「DB schema 可變更」）。
 
-- ❌ **無 schema migration**（不擴 Password 欄位、不加索引、不加新表）
-- ❌ **無 DbUp / EF Migration / Flyway** 等 migration runner
-- ❌ **無 Ceremony.Migrations 專案**
-- ❌ **無資料 ETL**（沿用既有 Ceremony DB，零搬遷）
-
-詳見 [database-design.md](../design/database-design.md) §「DB 完全凍結」。
+- ✅ **零資料 ETL**：新系統**直連既有 Ceremony DB**，不搬遷資料（此點不變，仍是最大利得）
+- ✅ **schema migration 走 DbUp**：`Ceremony.Migrations` 專案承載版本化 `.sql` 腳本，部署時冪等執行
+- ✅ **可變更項**（待各自評估後實作）：擴 `Password` 欄位 / 雜湊化、加索引、加新表（audit_logs 等）、加/改 view
+- ⚠️ **向後相容原則**：並行運行新舊版期間，schema 變更須只加不破壞，確保舊系統仍可讀寫同一 DB
+- ❌ **不導入 EF Core Migrations / Flyway**：選 DbUp（SQL 腳本式）以與現行 Dapper 相容、避免換 ORM
 
 ## 仍適用的「準資料」場景
 
-雖無 migration 工具，以下情況仍涉及資料處理：
+除 schema migration 外，以下情況涉及資料（DML）處理：
 
 ### 1. 舊 DataTrans console（CeremonyNO / CeremonyON → Ceremony）
 
@@ -45,12 +44,13 @@ last_updated: 2026-05-26
 
 備份策略不變（既有 SQL Server Agent 排程）。
 
-## 切換上線流程（無資料遷移）
+## 切換上線流程（零資料遷移）
 
 ```
 1. 部署新後端（Ceremony.Api）
    - 連線字串指向既有 Ceremony DB
-   - sa 改為應用專用帳號
+   - 執行 DbUp migration（若有待套用的 schema 變更；冪等、向後相容）
+   - sa 改為應用專用帳號（DDL 權限視 migration 需求授予）
 2. 部署新 Electron client
 3. 並行運行（pilot）
    - 1 位使用者試新版，其他人續用舊版
@@ -62,15 +62,16 @@ last_updated: 2026-05-26
 6. 移除舊系統
 ```
 
-> **零 migration / 零 ETL** 是「DB 完全凍結」的最大利得：可隨時並行運行新舊版本、零停機切換、無資料遺失風險。
+> **零 ETL** 是直連既有 DB 的最大利得：可並行運行新舊版本、零停機切換、無資料遺失風險。導入 DbUp 後仍維持此利得 —— 前提是 schema 變更**向後相容**（只加不破壞），讓舊系統在並行期仍能讀寫同一 DB。
 
 ## 風險
 
 - 並行期間舊系統若有 bug 寫壞資料，新系統會看到不一致 — 建議切換前先確認舊系統穩定，或關閉舊系統寫入
 - 舊系統 `BaseService.Dispose()` 遞迴 bug — 並行期間若觸發會崩潰；切換前不再大量使用舊系統
-- 無索引在大資料量下搜尋慢 — 應用層緩解（分頁/cache/debounce）；無法根本解，需業務同意才能解凍加索引
+- **schema 變更破壞並行相容**：若 migration 改動既有欄位型別/刪欄，舊系統可能崩潰 — 並行期只做「新增」型變更，破壞性變更留到舊系統完全下架後
+- 大資料量下搜尋慢 — 先靠應用層緩解（分頁/cache/debounce），必要時走 migration 加索引（見 [performance.md](../design/performance.md)）
 
 ## 參考資料
 
-- [database-design.md](../design/database-design.md) §「DB 完全凍結」
+- [database-design.md](../design/database-design.md) §「DB schema 可變更，導入 DbUp migration」
 - [scratch/06-data-layer-migration.md](../../.scratch/explore/06-data-layer-migration.md) — 舊 DataTrans 完整邏輯（備查）

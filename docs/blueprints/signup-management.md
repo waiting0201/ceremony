@@ -180,10 +180,10 @@ last_updated: 2026-06-29 (報名維護搜尋新增「備註」範圍 checkbox，
   - Address：Signup → Believer
 - **編輯時 Name/Phone 仍允許 Signup 級獨立**
   - 業務需要：報名快照可不同於 Believer 主檔
-- **SignupLogs 仍無 `action` 欄位**（schema 凍結）
+- **SignupLogs 現況無 `action` 欄位**（沿用既有 schema）
   - 沿用舊行為：同 SignupID 的第一筆 = 新增，後續 = 編輯
   - 刪除：可選擇是否寫 log；若寫，應用層在備註欄補「[Deleted]」標記
-  - 若業務需求強烈，可日後解凍 schema 加 action 欄位
+  - 若業務需求強烈，可走 DbUp migration 加 `action` 欄位（DB 已解除凍結，待評估）
 
 ### 取捨
 
@@ -198,7 +198,7 @@ last_updated: 2026-06-29 (報名維護搜尋新增「備註」範圍 checkbox，
 | 前端 | 是 | signups feature 全部；data-grid context menu；wizard 元件；Signal-first store |
 | 後端 | 是 | Signup Repository（Dapper）+ 6 個 Handler（Create/Update/Delete/Search/Logs/PrintPrepare） |
 | API | 是 | `/signups/*` 完整 |
-| 資料庫 | **否** | DB 完全凍結（無 migration、無新索引、無新欄位） |
+| 資料庫 | 現況否 | 本功能用既有 schema；DB 已可變更，加 action 欄位/索引為待評估 migration |
 | 效能 | **是** | server-side 分頁、Dapper 直接 SQL、UPDLOCK 編號生成、in-memory cache；詳見 [performance.md](../design/performance.md) |
 | 安全 | 部分 | 寫操作 Serilog file log（非 DB audit） |
 
@@ -238,7 +238,7 @@ last_updated: 2026-06-29 (報名維護搜尋新增「備註」範圍 checkbox，
 - [ ] 列印結果走新分頁 / iframe 預覽（不再有「PDF / 預覽列印」對話）
 - [ ] 通過 [code-review](../workflows/code-review.md) 與 [qa-testing](../workflows/qa-testing.md)
 
-## 效能要點（**資料越來越多會吃這裡；DB 凍結 → 全應用層手段**）
+## 效能要點（**資料越來越多會吃這裡；以應用層手段為主，索引可走 migration 補強**）
 
 | 場景 | 措施 | 依據 |
 |---|---|---|

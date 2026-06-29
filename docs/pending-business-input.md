@@ -105,7 +105,7 @@ last_updated: 2026-06-29 (B13 定案信眾層級＋方案 C 已實作)
 
 ### B8. 變更歷程是否需要區分新增 / 編輯 / 刪除？
 
-- **目前**：DB 凍結 → SignupLogs 無 action 欄位；用「同 SignupID 第一筆 = 新增」推斷
+- **目前**：SignupLogs 現況無 action 欄位（用「同 SignupID 第一筆 = 新增」推斷）；DB 已解除凍結，如需可走 migration 加 action 欄位
 - **影響**：[signup-management.md](blueprints/signup-management.md)、變更歷程 UI 顯示
 - **問題**：使用者需要明確標示嗎？或推斷夠用？
 - **確認時機**：UX review 時
@@ -150,7 +150,7 @@ last_updated: 2026-06-29 (B13 定案信眾層級＋方案 C 已實作)
 - **目前狀況**：堂號實體只存於 `Believers.HallName`（信眾共用），報名/清單靠 `SignupView` JOIN 帶出；編輯一筆報名改堂號會回寫共用 Believer，**連動同信眾所有報名**（沿用 legacy `EditSignupForm` 行為）。使用者回報此連動為非預期。
 - **影響**：[blueprints/signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md)、[design/database-design.md](design/database-design.md)、[design/backend-design.md](design/backend-design.md)、[glossary.md](glossary.md)
 - **需要**：業務確認——同一信眾在不同年度/法會可否掛**不同**堂號？
-  - 「會不同」→ 報名層級：`Signups` 需加自有 HallName 欄（方案 A，須解 DB 凍結 + 歷史回填）
+  - 「會不同」→ 報名層級：`Signups` 需加自有 HallName 欄（方案 A，走 migration + 歷史回填）
   - 「永遠相同」→ 信眾層級：堂號集中到信眾維護、報名頁停止回寫（方案 C，零 schema）
 - **附帶確認**：目前「代入新增」改的堂號其實存不進新報名（只進 audit log），是否符合預期？→ 已隨方案 C 一併處理：堂號改唯讀，新增/編輯都不可改、僅信眾維護頁維護。
 - **確認時機**：實作此修正前

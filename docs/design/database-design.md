@@ -1,6 +1,6 @@
 ---
 title: Database Design
-purpose: 直接沿用本機既有 Ceremony 資料庫（schema 完全凍結）；本檔記錄欄位、關聯、索引、查詢策略
+purpose: 沿用本機既有 Ceremony 資料庫，schema 變更走 DbUp migration（2026-06-29 解除凍結）；本檔記錄欄位、關聯、索引、查詢策略
 applicable_when: 要寫 EF Core entity 對映、要寫查詢、要看資料關聯、要找索引/約束
 related_agents:
   - backend-engineer
@@ -11,37 +11,38 @@ related_docs:
   - security.md
   - ../blueprints/signup-management.md
 keywords: [database, db, schema, 資料庫, 索引, 法會, ceremony, signup, believer, MSSQL, EF Core, Database First]
-last_updated: 2026-05-29
+last_updated: 2026-06-29 (解除 DB 凍結，導入 DbUp migration)
 ---
 
-## ⚠️ 重要決策：DB 完全凍結（**客戶需求**）
+## ⚠️ 重要決策：DB schema 可變更，導入 DbUp migration（**2026-06-29 解除凍結**）
 
-> 新系統**直接使用本機既有 `Ceremony` 資料庫**，**完全不做任何 DB 變更**：
+> **沿革**：原為「DB 完全凍結」（客戶 2026-05-26 裁定，新系統直連既有 DB、零 DDL）。**2026-06-29 解除此限制** — 新系統**可變更既有 `Ceremony` 資料庫 schema**，並導入 migration 工具版本化管理變更。
 >
-> - 不改欄位名稱（保留 PascalCase：`BelieverID`、`MailZipcodeID`、`Createdate` 等）
-> - 不改型別 / 長度 / nullable（**`Admins.Password` 維持 nvarchar(20) 明碼**）
-> - 不新增欄位、不刪除欄位（含 `CeremonyDate` 死欄位、`MailZipcode` / `TextZipcode` 純字串）
-> - 不新增表（無 audit_logs / login_attempts / migration_progress）
-> - **不新增索引**（無 migration 工具、無 DDL 操作）
-> - 不改 schema 預設名稱（保留 `dbo`）
-> - 不改既有 view 定義（保留 `BelieverView`、`SignupView`）
-> - **無 migration 工具**（無 DbUp、無 EF Migration）
+> **現行原則**：
+>
+> - ✅ **允許 schema 變更**：新增表、新增/調整欄位、新增索引、新增或修改 view 等，**一律走 migration 腳本**（不手改 prod DB）
+> - **Migration 工具：DbUp**（SQL 腳本式，與現行 Dapper SQL-first 相容；**不導入 EF Core Migrations**，避免連帶換 ORM）。專案 `Ceremony.Migrations` 承載版本化 `.sql` 腳本，部署時自動冪等執行
+> - **既有欄位/表命名仍沿用**（PascalCase：`BelieverID`、`Createdate`、`CeremonyCategorys` 拼字等）— 不為了「正名」而 rename 既有物件，以維持與既有資料及並行運行的舊系統相容；**新增**物件才採規範命名
+> - **下列具體變更為「已解禁、待個別評估」**，不在本次一次拍板（各自開 backlog/blueprint 決定後才實作）：
+>   1. `Admins.Password` 雜湊化（擴欄 / 換演算法）— 見 [security.md](security.md)
+>   2. 大表搜尋索引 — 見 [performance.md](performance.md)
+>   3. audit_logs / login_attempts 等新表
 >
 > 此決策含義：
-> 1. **無 DB 變更腳本** — 部署 = 只部署應用程式；DB 動都不動
-> 2. **`Admins.Password` 明碼存取**（nvarchar(20)） — 客戶接受
-> 3. **JWT 認證** — 應用層產 token，**不需 DB 變更**
-> 4. **Dapper ORM**（非 EF Core） — SQL-first，對既有 schema 直接；不需 migration
-> 5. **效能優化全在應用層** — 無法靠加索引；用分頁、cache、UPDLOCK 等手法（見 [performance.md](performance.md)）
-> 6. **業務規則由應用層 enforce** — 例如「NumberTitle 由 SignupType 推導」「Username 唯一性」全部 service 層檢查
+> 1. **部署 = 部署應用程式 + 執行 DbUp migration**（版本化、冪等）
+> 2. **並行運行相容**：新舊版本共用同一 DB 期間，schema 變更須**向後相容**（以新增為主、不破壞既有欄位/型別），確保舊系統仍可讀寫
+> 3. **JWT 認證** — 應用層產 token，與 DB 變更無關
+> 4. **ORM 維持 Dapper**（非 EF Core） — SQL-first；migration 由 DbUp 獨立負責，兩者互不耦合
+> 5. **效能可選擇加索引**：除應用層分頁 / cache / UPDLOCK 外，現可透過 migration 對熱點欄位加索引（見 [performance.md](performance.md)）
+> 6. **業務規則仍主要由應用層 enforce**（如「NumberTitle 由 SignupType 推導」「Username 唯一性」）；視需要可另以 DB 約束/索引加固
 
 ## 技術選型
 
 | 面向 | 選擇 | 理由 |
 |---|---|---|
-| 主資料庫 | **既有 Microsoft SQL Server**（dev=`(local)` / prod=`192.168.1.151`） | 不動現有環境 |
-| ORM | **Dapper 2.x + 手寫 SQL** | 效能可預測、無 N+1、SQL-first；**不需 migration 工具**（POCO 直接對映既有欄位） |
-| Migration 工具 | **無** | 客戶要求不動 DB；無 DDL 變更需求 |
+| 主資料庫 | **既有 Microsoft SQL Server**（dev=`(local)` / prod=`192.168.1.151`） | 沿用既有環境；schema 變更走 migration |
+| ORM | **Dapper 2.x + 手寫 SQL** | 效能可預測、無 N+1、SQL-first；POCO 直接對映既有欄位 |
+| Migration 工具 | **DbUp**（`Ceremony.Migrations` 專案，版本化 `.sql`） | SQL 腳本式、與 Dapper 相容；部署時冪等執行（不導入 EF Core Migrations 以免換 ORM） |
 | 連線池 | enabled（覆寫舊 `Pooling=False`） | 連線字串設定變更，**不動 DB** |
 | 連線字串 | dotnet user-secrets（dev）/ ENV vars（prod） | 不在 App.config 明文，密碼**永不入 repo**（見下方） |
 | DB 帳號 | 沿用 `sa`（舊系統慣例，後續可選改為應用專用最小權限） | 客戶需求；改帳號**不算 schema 變更**，可逐步遷移 |
@@ -57,7 +58,7 @@ last_updated: 2026-05-29
 
 > 實際密碼參見 user auto-memory `~/.claude/.../memory/db-credentials.md`。完整 secret 管理規則見 [infrastructure.md Secret 管理規則](infrastructure.md)。
 
-> Dapper 對應既有欄位的方式（無 migration 也能 work）：
+> Dapper 對應既有欄位的方式（POCO 直接對映，與 migration 無耦合）：
 
 ```csharp
 // Entities/Believer.cs — POCO 對應既有 Believers 表
@@ -88,7 +89,7 @@ public class Believer
 // Dapper 自動以 property name 對應 column name；屬性名與既有 column 完全一致
 ```
 
-## 命名約定（既有，不改）
+## 命名約定（既有沿用；新增物件採規範）
 
 | 物件 | 命名 | 範例 |
 |---|---|---|
@@ -196,7 +197,7 @@ public async Task<Result> CreateAsync(string username, ...)
 - 中元：`0c478f0e-787c-448e-ba7b-b1579f3f1fce`
 - 秋季：`3864e4dc-24db-4544-acb3-3351592f6dab`
 
-> **本機 dev 資料現況（2026-05-29）**：dev DB 只有上述 3 筆根分類、**0 筆子項**，故「法會類型維護」頁原本看不到階層（程式正常，純資料缺）。已備 idempotent dev seed 在每個根下塞範例子法會（梁皇寶懺/藥師法會/三時繫念…）：[backend/db/seed/dev-seed-categories.sql](../../backend/db/seed/dev-seed-categories.sql)。**僅供本機 dev**；正式 DB 凍結（[data-migration.md](../blueprints/data-migration.md)）。
+> **本機 dev 資料現況（2026-05-29）**：dev DB 只有上述 3 筆根分類、**0 筆子項**，故「法會類型維護」頁原本看不到階層（程式正常，純資料缺）。已備 idempotent dev seed 在每個根下塞範例子法會（梁皇寶懺/藥師法會/三時繫念…）：[backend/db/seed/dev-seed-categories.sql](../../backend/db/seed/dev-seed-categories.sql)。**僅供本機 dev**；正式 DB 不以此 dev seed 灌資料（範例分類僅供開發測試）。
 
 ### 3. `Zipcodes`
 
@@ -308,11 +309,9 @@ Navigation properties（EF 自動命名）：
 
 > View 定義若有需要 query 出來確認，可在 SSMS：`sp_helptext 'BelieverView'`。本文不重複 view DDL。
 
-## 索引（既有，**不新增**）
+## 索引（可透過 migration 新增）
 
-舊 schema 僅 PK index；客戶要求 DB 完全不動，**不新增任何索引**。
-
-> **效能風險**：在 50k+ 報名規模下，搜尋會 full scan。應用層必須以下列手段補足（詳見 [performance.md](performance.md)）：
+舊 schema 僅 PK index。**2026-06-29 解除凍結後，可透過 DbUp migration 新增索引**。在 50k+ 報名規模下，對 `Signups` 搜尋熱點（姓名 / 日期 / 分類）加索引是**待評估**的優化選項；正式加索引前（或作為互補），應用層仍以下列手段補足（詳見 [performance.md](performance.md)）：
 >
 > 1. **強制 server-side 分頁**（pageSize ≤ 200）
 > 2. **善用既有 view**（`SignupView`、`BelieverView`）— 兩個 view 已存在 DB，可能由 DBA 為其加過索引（雖然 EDMX 看不到）
@@ -364,13 +363,13 @@ Connection Timeout=30;
 
 | # | 風險 | 影響 | 接受原因 |
 |---|---|---|---|
-| 1 | `Admins.Password` 明文 | 高（密碼外洩） | **客戶接受**；應用層用 TLS + secret store 緩解 |
+| 1 | `Admins.Password` 明文 | 高（密碼外洩） | 現況明文 + TLS + secret store 緩解；雜湊化可走 migration（待評估）|
 | 2 | 系統 SuperAdmin `sa@system.local`（非 DB，取代舊 weypro）| 中 | 可由 `Auth:SuperAdminEnabled` 關閉 |
-| 3 | DB 無索引（除 PK）| 中（大量資料效能差） | DB 凍結；應用層分頁/cache/限縮搜尋緩解 |
+| 3 | DB 無索引（除 PK）| 中（大量資料效能差） | 現況靠應用層分頁/cache/限縮搜尋；可走 migration 加索引（待評估）|
 | 4 | 無 `Username` unique constraint | 中（可能新增重複帳號） | 應用層 enforce |
 | 5 | 無 `(Year, CeremonyCategoryID, SignupType, Number)` unique constraint | 中（race condition 可能重複編號） | 應用層 `UPDLOCK + HOLDLOCK` 序列化處理 |
 | 6 | `Signups.AdminID` 無 FK | 低（孤兒記錄） | 應用層保證寫入時 admin 存在 |
-| 7 | `CeremonyDate` / `MailZipcode` / `TextZipcode` 等死欄位佔空間 | 低 | DB 凍結 |
+| 7 | `CeremonyDate` / `MailZipcode` / `TextZipcode` 等死欄位佔空間 | 低 | 現況保留（清理屬低優先 migration，待評估）|
 | 8 | EF nav 命名 `Zipcodes` / `Zipcodes1` 不直覺 | 低 | C# POCO 用語意化命名 |
 | 9 | 無 audit log 表 | 中 | 應用層用 Serilog 寫檔案 log |
 | 10 | 無 login_attempts 表 | 低 | 應用層用 IMemoryCache 紀錄失敗計數 |

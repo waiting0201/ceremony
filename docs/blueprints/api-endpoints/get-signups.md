@@ -151,5 +151,5 @@ Repository: `ISignupRepository.SearchAsync(SignupSearchQuery)` → `IReadOnlyLis
 
 ## 風險與未解
 
-- **SignupView 必須存在於 DB**（凍結 schema 一部分）；若 view 失蹤需向客戶確認；目前 (local) DB 已有
-- **效能**：50k+ Signups 規模下，無索引 + LIKE %x% 會 full scan；可接受但需 monitor。後續若慢加 PageSize/虛擬滾動
+- **SignupView 必須存在於 DB**（既有 schema 一部分）；若 view 失蹤需向客戶確認；目前 (local) DB 已有
+- **效能**：50k+ Signups 規模下，無索引 + LIKE %x% 會 full scan；先靠分頁/虛擬滾動緩解，必要時走 DbUp migration 加索引（見 [performance.md](../../design/performance.md)）

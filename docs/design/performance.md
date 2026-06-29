@@ -12,21 +12,22 @@ related_docs:
   - ../blueprints/signup-management.md
   - ../blueprints/printing-reports.md
 keywords: [performance, 效能, 索引, index, cache, dapper, query, paging, virtualization, signals]
-last_updated: 2026-05-26
+last_updated: 2026-06-29 (DB 解除凍結：索引改為可走 migration 的待評估選項)
 ---
 
 ## ⚠️ 重要前提
 
-**DB 完全凍結**（客戶需求）：**不新增索引、不擴欄、無任何 DDL 變更**。所有效能優化在**應用層**完成：
+**DB 可變更（2026-06-29 解除凍結）**：schema 變更走 DbUp migration（見 [database-design.md](database-design.md)）。效能策略**以應用層為主、索引為輔**：
 
-- ✅ 應用層分頁、cache、debounce、虛擬滾動
+- ✅ 應用層分頁、cache、debounce、虛擬滾動（**第一線、永遠先做**）
 - ✅ Dapper 直接 SQL（無 EF 翻譯地雷）
-- ✅ `UPDLOCK / HOLDLOCK` query hint（非 DDL）
-- ✅ 連線池（連線字串設定，非 DB 變更）
+- ✅ `UPDLOCK / HOLDLOCK` query hint
+- ✅ 連線池（連線字串設定）
 - ✅ 善用既有 view `SignupView`/`BelieverView`
-- ❌ 不加 nonclustered index
-- ❌ 不擴欄位
-- ❌ 不加新表（無 audit log / login_attempts 表）
+- ☐ **可加 nonclustered index**（走 migration，熱點欄位；待評估，見本檔末節）
+- ☐ 可擴欄位 / 可加新表（如 audit log；走 migration，待個別決定）
+
+> 原則：先用應用層手段壓低成本，索引作為資料量成長後的**互補優化**而非第一手段；任何 schema 變更須**向後相容**（並行運行期舊系統仍讀寫同一 DB）。
 
 > 若未來業務同意加索引，建議清單見本檔末「未來可能的索引（需業務同意）」。
 
@@ -85,9 +86,9 @@ var result = await conn.QueryAsync<Signup, Believer, CeremonyCategory, SignupRow
     splitOn: "HallName,Title");
 ```
 
-### 2. 應用層補足無索引（**核心**）
+### 2. 應用層優化（**第一線**）
 
-DB 凍結 + 無索引 → 應用層必須以下列手段補足，否則大表搜尋會 full scan：
+在加索引之前，應用層必須先以下列手段壓低成本，避免大表搜尋 full scan（即使日後加了索引，這些仍是基本盤）：
 
 1. **強制 server-side 分頁**：所有 list endpoint 接 `page` + `pageSize`，預設 50、max 200。`OFFSET / FETCH NEXT`
 2. **善用既有 view**：`SignupView`、`BelieverView` 在 DB 已存在，可能 DBA 為其加過內部 index（EDMX 看不到）— 用 view 取代手寫 JOIN，可能命中既有 plan cache
@@ -98,7 +99,7 @@ DB 凍結 + 無索引 → 應用層必須以下列手段補足，否則大表搜
 7. **小批次查詢**：例如預繳載入 100 筆而非一次 1000；分多次 commit
 8. **歸檔長期不查的資料**：未來業務若同意，把 N 年前資料移到 `Ceremony_Archive` DB（屬資料變更非 schema 變更）
 
-> 沒有索引的 search 在 50k 列以下尚可，500k 列以上明顯變慢。屆時應與業務協商是否解凍允許加索引。
+> 沒有索引的 search 在 50k 列以下尚可，500k 列以上明顯變慢。屆時可走 DbUp migration 加索引（DB 已解除凍結；先確認應用層手段不足再加）。
 
 ### 3. 分頁與排序
 
@@ -335,7 +336,7 @@ Electron 主程序預載：
 |---|---|---|
 | 啟動 | < 100k | 上述索引足夠 |
 | 中期 | 100k - 500k | 監控 OFFSET 大頁數性能；考慮 keyset pagination |
-| 長期 | > 500k | 評估按年份分割（partitioned view 或 partitioned table 需解凍 schema） |
+| 長期 | > 500k | 評估按年份分割（partitioned view 或 partitioned table，走 migration） |
 | 極長 | > 2M | 歸檔舊年資料至獨立庫 |
 
 ## 反模式（禁止）
@@ -348,11 +349,11 @@ Electron 主程序預載：
 - ❌ 在 hot path 用 reflection / dynamic
 - ❌ Electron renderer 直接連 DB（必經後端 API）
 
-## 未來可能的索引（需業務同意解凍 DB）
+## 可加的索引（走 DbUp migration，待評估）
 
-> 本節僅供未來規劃；目前 DB 凍結不執行。
+> DB 已可變更（2026-06-29 解除凍結）。本節索引為**待評估**選項：先確認應用層手段已不足、且資料量確實造成遲滯，再以 migration 導入。
 
-若資料量超過 50k 開始遲滯，可向業務提案以下索引（屬於純效能優化、不改 schema 結構）：
+若資料量超過 50k 開始遲滯，可規劃以下索引（純效能優化、向後相容）：
 
 | Table | 索引 | 目的 |
 |---|---|---|

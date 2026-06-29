@@ -87,7 +87,7 @@ last_updated: 2026-05-27
 2. **DB 查詢明文比對**（舊：`LoginForm.cs:67-78`）
    - 舊行為：`db.Admins.Where(a => a.Username == u && a.Password == p && a.IsEnabled).FirstOrDefault()`
    - 新實作：Dapper 撈 `SELECT TOP 1 AdminID, Name, Username, Password, IsEnabled FROM Admins WHERE Username = @u AND IsEnabled = 1`，**應用層用 `CryptographicOperations.FixedTimeEquals`** 比對 password（避免 timing attack）
-   - 差異 / 為什麼：常數時間比對 + 仍維持明文（DB 凍結）
+   - 差異 / 為什麼：常數時間比對 + 現況維持明文（雜湊化為待評估 migration，見 [security.md](../../design/security.md)）
 
 3. **失敗鎖定**（舊：無）
    - 舊行為：無鎖定機制

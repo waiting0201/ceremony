@@ -27,7 +27,7 @@ last_updated: 2026-06-29
 - 回歸測試 `UpdateSignupHandlerTests.Edit_never_writes_back_to_Believer`（+5 其他）；後端 291+6 測試綠、前端 ng build 綠。
 - 堂號維護單一入口：信眾維護頁（[believer-management.md](./believer-management.md)）。
 
-> 下方原評估內容保留作決策脈絡。方案 A（Signups 加自有 HallName 欄）未採用——業務確認堂號信眾固有、不因報名而異，且 A 撞正式 DB 凍結。
+> 下方原評估內容保留作決策脈絡。方案 A（Signups 加自有 HallName 欄）未採用——**主因是業務確認堂號為信眾固有、不因報名而異**（C 在業務語意上即正確）。當時 A 另撞「DB 凍結」政策；該限制已於 2026-06-29 解除（schema 可走 DbUp migration），但**不改變結論**：堂號既屬信眾層級，C 仍是正解。
 
 ## 背景與動機
 
@@ -90,14 +90,16 @@ WHERE BelieverID = @BelieverId
 
 | 方案 | 作法 | DB 變更 | 連動消除 | 新增可存堂號 | 風險 |
 |---|---|---|---|---|---|
-| **A（報名層級，推薦）** | `Signups` 新增 `HallName` 欄位；Create/Update 都寫 Signups 自己的列；**停止**回寫 Believers.HallName；`SignupView` 改讀 `Signups.HallName`（或讀取改走 Signups 直欄） | 需加欄 + 改 view | ✅ | ✅ | 撞「正式 DB 凍結」政策；需資料回填（見下） |
+| **A（報名層級，推薦）** | `Signups` 新增 `HallName` 欄位；Create/Update 都寫 Signups 自己的列；**停止**回寫 Believers.HallName；`SignupView` 改讀 `Signups.HallName`（或讀取改走 Signups 直欄） | 需加欄 + 改 view | ✅ | ✅ | 需 schema 變更（今可走 migration）+ 資料回填（見下） |
 | **B（信眾層級，零 schema）** | 維持共用模型；編輯報名時堂號改唯讀或明確標示「此為信眾共用堂號，修改將套用到該信眾所有報名」；移除「逐筆編輯」的錯覺 | 無 | 連動保留但「告知後同意」 | ❌（仍信眾層級） | 無法滿足「同信眾不同堂號」；只是把 bug 變成明示行為 |
 | **C（折衷）** | 編輯報名**不再**回寫 Believer（移除 `UpdateWithLogAsync` 第 1 步的 HallName 寫入）；堂號改由「信眾維護頁」單一入口維護 | 無 | ✅（報名頁不再改到他人） | ❌（報名頁無法改堂號） | 報名頁失去改堂號能力；需確認流程可接受 |
 
 **推薦**：若業務確認堂號可因報名而異 → **方案 A**；若堂號恆為信眾固有 → **方案 C**（最小變更即可止血，堂號集中到信眾維護）。方案 B 僅為過渡。
 
-### 「正式 DB 凍結」限制（方案 A 關鍵）
-[data-migration.md](./data-migration.md) 載明正式 DB 凍結。方案 A 需要 `ALTER TABLE dbo.Signups ADD HallName` + 改 `SignupView`，屬 schema 變更，**須 DBA / 業務核可解除凍結或排維護窗**。並需決定歷史資料回填策略：既有 Signups 的 HallName 應從對應 Believer 帶入（一次性 `UPDATE ... FROM Believers`），或從各筆 SignupLogs 最後一筆快照回填。
+### 方案 A 的 schema 成本（歷史脈絡）
+> 註：當時受「DB 凍結」限制，此為 A 的關鍵阻力；該限制已於 2026-06-29 解除（走 DbUp migration，見 [data-migration.md](./data-migration.md)）。下述僅留作脈絡 —— A 已因業務語意（堂號=信眾層級）而不採用，與凍結與否無關。
+
+方案 A 需要 `ALTER TABLE dbo.Signups ADD HallName` + 改 `SignupView`（屬 schema 變更，今可走 migration），並需決定歷史資料回填策略：既有 Signups 的 HallName 從對應 Believer 帶入（一次性 `UPDATE ... FROM Believers`），或從各筆 SignupLogs 最後一筆快照回填。
 
 ## 跨層影響
 
@@ -107,7 +109,7 @@ WHERE BelieverID = @BelieverId
 | 前端 | 視方案 | A：無；B：編輯表單堂號改唯讀/加提示；C：報名表單移除堂號輸入或標示「至信眾維護修改」 |
 | 後端 | 是 | A：`SignupWriteModel` 加 HallName、Insert/Update SQL 寫 Signups、移除 `hallNameForBeliever` 回寫；C：移除 `UpdateWithLogAsync` 第 1 步 HallName 寫入 |
 | API | 視方案 | 契約 `HallName` 既有；語意從「信眾欄」變「報名欄」（A）或「唯讀/移除」（C），需更新 [api-design.md](../design/api-design.md) |
-| 資料庫 | 視方案 | A：`Signups` 加 `HallName` 欄 + 改 `SignupView` + 歷史回填（受凍結限制）；B/C：無 schema 變更 |
+| 資料庫 | 視方案 | A：`Signups` 加 `HallName` 欄 + 改 `SignupView` + 歷史回填（今可走 migration）；B/C：無 schema 變更 |
 | 基礎建設 | 否 | – |
 | 安全 | 否 | 堂號非敏感 PII 升級 |
 
@@ -123,7 +125,7 @@ WHERE BelieverID = @BelieverId
 ## 風險與未解問題
 
 - **業務語意未定**：堂號信眾層級 vs 報名層級 → 決定方案 A/C，未答前不動 code（B13）。
-- **正式 DB 凍結**：方案 A 需解凍 + 歷史回填，須 DBA 核可。
+- **（已解除）DB 凍結**：原為方案 A 阻力；2026-06-29 解除後 A 可走 migration，但結論仍為 C（業務語意決定）。
 - **legacy parity 取捨**：本修法**刻意偏離** `EditSignupForm` 原行為；需在 commit message 與 legacy-coverage 註明「已知且故意」。
 - **代入新增堂號目前存不進去**：屬同源資料正確性問題，方案 A 一併解決；B/C 需另行說明預期行為。
 - **glossary 既有錯誤**：`Believers.HallName / Signups.HallName` 並列，但 `Signups.HallName` 不存在——本份順手修正。

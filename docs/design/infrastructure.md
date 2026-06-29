@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-06-18 (升級改為手動覆蓋安裝、electron-updater 標未實作;釐清連線表單只設一次、第二次以後不再出現;出廠連線種子 + NSIS 安裝目錄 Ceremony + release.yml windows CI + sidecar cwd)
+last_updated: 2026-06-29 (DB 解除凍結：schema 走 DbUp migration；runtime 帳號無 DDL、migration 用獨立帳號;rollback 改述向後相容前提)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -362,13 +362,13 @@ if (apiBase) (environment as any).apiBaseUrl = apiBase;
 
 > Dev 模式（`ng serve`）：`apiBaseUrl` 直接走 `environment.ts` 預設值 `http://localhost:5050/api/v1`，不經由 Electron。
 
-### 資料庫（MSSQL — 既有，完全不動）
+### 資料庫（MSSQL — 既有，schema 走 migration）
 
 - **版本**：沿用既有（192.168.1.151 或 localhost）
-- **Schema**：**完全凍結**（客戶需求，見 [database-design.md](database-design.md)）
-- **ORM**：Dapper + 手寫 SQL；**無 Migration 工具**
+- **Schema**：**可變更，走 DbUp migration**（2026-06-29 解除凍結，見 [database-design.md](database-design.md)）
+- **ORM**：Dapper + 手寫 SQL；**Migration 工具：DbUp**（`Ceremony.Migrations`，部署時冪等執行）
 - **備份**：見 [database-design.md](database-design.md) 備份章節
-- **DB 帳號**：sa → 應用專用帳號（最小權限，僅本 DB 表的 DML + EXEC backup proc）
+- **DB 帳號**：runtime 用應用專用帳號（最小權限，僅本 DB 表的 DML + EXEC backup proc，**無 DDL**）；**DbUp migration 於部署時用獨立高權限帳號執行**
 
 > 部署時**不執行任何 DDL**。應用程式啟動只連 DB、讀資料、寫資料 — DB 結構零變動。
 
@@ -422,7 +422,7 @@ jobs:
 | Tracing | OpenTelemetry → Jaeger（選用） |
 | Metrics | Prometheus + Grafana（選用，內網一台機可省） |
 | Health | `/health` endpoint + Electron 開機 ping |
-| Audit | Serilog file log（**DB 凍結，不寫 audit_logs 表**，見 [security.md](security.md)） |
+| Audit | Serilog file log（現況不寫 audit_logs 表；DB 已可變更，查詢型審計表為待評估，見 [security.md](security.md)） |
 
 最低必要：File log + health check。Sentry 可選但強烈建議（前端 crash + 後端 exception 集中可視化）。
 
@@ -518,12 +518,12 @@ T+0  → 偵測異常（用戶回報 / Sentry / health check 失敗）
 T+5m → 決策：rollback or hotfix
 T+10m → Electron 端：因 client 是舊版（24h 內換新版漸進），多數使用者其實還在舊版；只需把後端 API 換回舊版
 T+15m → 後端 rollback：將舊版 Ceremony.Api .dll 復原 + 重啟服務
-        DB 不需動（schema 凍結）
+        DB 多數情況不需動（migration 採向後相容；除非該版含破壞性 schema 變更）
 T+20m → 驗證舊版可用
 T+24h → 寫 post-mortem + 修正後重新部署
 ```
 
-關鍵保護：**DB schema 完全凍結** → 新舊版 API 共用同一 DB，rollback 無資料遺失風險。
+關鍵保護：**migration 採向後相容（只加不破壞）** → 新舊版 API 共用同一 DB，rollback 無資料遺失風險。破壞性 schema 變更須另備 down-migration 或延後到舊版下架。
 
 ## 環境特定設定速查
 

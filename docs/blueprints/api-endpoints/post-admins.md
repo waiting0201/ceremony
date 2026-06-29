@@ -32,7 +32,7 @@ last_updated: 2026-05-27
 ```jsonc
 {
   "username": "string (required, max 50, must be unique)",
-  "password": "string (required, max 20 — DB schema 凍結)",
+  "password": "string (required, max 20 — 對應現有 Admins.Password nvarchar(20))",
   "name": "string (optional, max 50)"
 }
 ```
@@ -56,7 +56,7 @@ last_updated: 2026-05-27
 |---|---|---|---|
 | 400 | `VALIDATION_REQUIRED` | `請輸入帳號` | username trimmed 為空 |
 | 400 | `VALIDATION_REQUIRED` | `請輸入密碼` | password trimmed 為空 |
-| 400 | `VALIDATION_LENGTH` | `密碼最多 20 個字` | password 長度 > 20（DB 凍結） |
+| 400 | `VALIDATION_LENGTH` | `密碼最多 20 個字` | password 長度 > 20（對應現有 nvarchar(20)） |
 | 409 | `ADMIN_DUPLICATE_USERNAME` | `帳號重複，請重新確認！` | username 已存在 |
 | 401 | (空) | – | 無 JWT |
 
@@ -76,7 +76,7 @@ last_updated: 2026-05-27
 | 欄位 | 舊驗證 (line) | 新驗證 | 差異 / 取捨 |
 |---|---|---|---|
 | `username` | trim+空檢查 `AdminsForm.cs:162` | `[Required] + Trim` + 應用層 unique check | 等價；新版 unique check 走 `IAdminRepository.UsernameExistsAsync` |
-| `username` 唯一性 | `adminsService.Get().FirstOrDefault(a => a.Username == ...)` line 173 | `SELECT COUNT(1) FROM Admins WHERE Username=@u`（DB 凍結，無 UNIQUE constraint） | 等價 |
+| `username` 唯一性 | `adminsService.Get().FirstOrDefault(a => a.Username == ...)` line 173 | `SELECT COUNT(1) FROM Admins WHERE Username=@u`（現況無 UNIQUE constraint；可走 migration 補，待評估） | 等價 |
 | `password` | trim+空檢查 line 191 | `[Required] + Trim + MaxLength(20)` | 補強 MaxLength（對應 DB nvarchar(20)） |
 | `name` | trim only | `Trim + MaxLength(50)` | 補強 |
 
@@ -84,7 +84,7 @@ last_updated: 2026-05-27
 
 1. **Trim 處理**：舊系統所有欄位 `Text.Trim()`。新版 handler 也 trim（API 層 boundary）
 2. **預設 `IsEnabled=true`**：新建一律啟用（與舊系統 line 98 一致）
-3. **無 password 雜湊**：明文存（DB 凍結，客戶接受）— 詳見 [security.md 已知接受風險](../../design/security.md)
+3. **現況無 password 雜湊**：明文存（DB 已可變更，雜湊化為待評估 migration）— 詳見 [security.md](../../design/security.md)
 4. **舊系統「確認密碼」雙欄位**：在新版 web/前端比對；API 只收 1 個 `password` 欄位
 
 ### 邊界 case
@@ -134,7 +134,7 @@ VALUES (@Name, @Username, @Password, 1)
 
 ## 風險與未解問題
 
-- **明文密碼進 HTTP body 是合理嗎**：是；DB 凍結唯一方式。HTTPS 為必要前提（[infrastructure.md](../../design/infrastructure.md)）
+- **明文密碼進 HTTP body 是合理嗎**：現況如此（密碼明文存放）；HTTPS 為必要前提（[infrastructure.md](../../design/infrastructure.md)）。雜湊化後仍會在 body 傳明文密碼、由後端雜湊比對
 
 ## 參考
 

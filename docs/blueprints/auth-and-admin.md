@@ -12,23 +12,23 @@ related_docs:
   - ../design/api-design.md
   - ../design/visual-design.md
 keywords: [login, auth, admin, 管理員, JWT, MainForm, AdminsForm, LoginForm]
-last_updated: 2026-06-18 (weypro 後門 → 系統 SuperAdmin sa@system.local)
+last_updated: 2026-06-29 (DB 解除凍結：密碼雜湊/RBAC/鎖定表改列為待評估 migration；認證實作維持現況)
 ---
 
 ## 背景與動機
 
 舊系統用明文密碼、硬編碼後門 `weypro/weypro12ab`、無 session 過期、無權限分級。（新版已移除 weypro，改用系統 SuperAdmin `sa@system.local`）
 
-**客戶要求**：DB **完全不動**、密碼**仍用明碼**、**不需 migration**。因此：
+**現況**（DB 已於 2026-06-29 解除凍結、可走 DbUp migration；下列認證實作目前維持現狀，雜湊化/RBAC/持久化鎖定列為待評估）：
 
-| 議題 | 處理 |
-|---|---|
-| 密碼儲存 | **明文**（`Admins.Password` nvarchar(20) 不改） |
-| 密碼比對 | 常數時間明文比對 `FixedTimeEquals` |
-| 認證方式 | **JWT bearer**（應用層 token，不動 DB） |
-| 系統 SuperAdmin | `sa@system.local/Admin@123`（非 DB；取代舊 weypro 後門，可關閉）|
-| 失敗鎖定 | IMemoryCache（重啟清空） |
-| RBAC | 無（schema 不加 role 欄位） |
+| 議題 | 現況處理 | 解凍後可行（待評估） |
+|---|---|---|
+| 密碼儲存 | **明文**（`Admins.Password` nvarchar(20)） | migration 擴欄 + 雜湊化 |
+| 密碼比對 | 常數時間明文比對 `FixedTimeEquals` | 改雜湊驗證 |
+| 認證方式 | **JWT bearer**（應用層 token） | （與 DB 無關，維持）|
+| 系統 SuperAdmin | `sa@system.local/Admin@123`（非 DB；取代舊 weypro 後門，可關閉）| （維持）|
+| 失敗鎖定 | IMemoryCache（重啟清空） | migration 加 `login_attempts` 表持久化 |
+| RBAC | 無（現況不加 role 欄位） | migration 加 `Admins.Role` 欄位 |
 | Audit log | Serilog 結構化檔案 log（不加 DB 表） |
 | 介面編排 | 保留 LoginForm / MainForm / AdminsForm 編排 |
 
@@ -91,7 +91,7 @@ ShellLayout 提供 6 個功能入口（順序對齊舊 MainForm）：
 ### 關鍵選擇
 
 - **JWT + Refresh token** 取代 Global.Islogin 全域變數
-- **明文密碼比對**（DB 凍結，客戶接受）
+- **明文密碼比對**（現況；雜湊化待評估，見上表）
   - 用 `CryptographicOperations.FixedTimeEquals` 防時序攻擊
   - 緩解：TLS only、最小權限 DB 帳號、connection string 入 secret store
 - **系統 SuperAdmin `sa@system.local/Admin@123`（取代舊 weypro 後門）**
@@ -115,9 +115,9 @@ ShellLayout 提供 6 個功能入口（順序對齊舊 MainForm）：
 | 前端 | 是 | login / shell / admins feature；AuthGuard interceptor |
 | 後端 | 是 | Auth + Admins endpoints（明文比對）+ JWT issuer |
 | API | 是 | `/auth/*`、`/admins/*`、`/backup` |
-| 資料庫 | **否** | DB 完全凍結；連 Admins 既有 nvarchar(20) Password 欄位 |
-| 基礎建設 | 是 | JWT 私鑰存放；備份目錄設定；應用專用 DB 帳號 |
-| 安全 | 部分修正 | 詳見 [security.md](../design/security.md) — 明文密碼為已知接受風險 |
+| 資料庫 | 現況否 | 目前連 Admins 既有 nvarchar(20) Password 欄位；DB 已可變更，雜湊化/RBAC/鎖定表為待評估的 migration |
+| 基礎建設 | 是 | JWT 私鑰存放；備份目錄設定；應用專用 DB 帳號（runtime 無 DDL，migration 用獨立帳號） |
+| 安全 | 部分修正 | 詳見 [security.md](../design/security.md) — 明文密碼為現況、可走 migration 改善（待評估） |
 
 ## 驗收標準
 

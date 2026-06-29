@@ -53,7 +53,7 @@ Angular SPA + .NET API 主流程完成後，最後一步把系統包成寺方 cl
 ### 不做什麼
 - 非 Windows target（mac/linux 不打包）。
 - auto-update（electron-updater）：保留為後續（需內網 update server）。
-- DB schema 變動（凍結）。
+- DB schema 變動（本打包任務範圍外；schema 變更走 DbUp，見 [data-migration.md](data-migration.md)）。
 - Windows Authentication / DPAPI 加密 config（方案 C 已決策；保留升級路徑）。
 
 ## 使用者流程
@@ -96,7 +96,7 @@ Angular SPA + .NET API 主流程完成後，最後一步把系統包成寺方 cl
 | 前端 | 是 | `src/main.ts` apiBase 覆寫；`core/platform/electron.ts` 橋接 + guard；`features/prereq` `features/setup`；`backup-page` 下載；`BackupApi.downloadUrl/fetchBlob`；routes 加 2 路由 + guard |
 | 後端 | 是 | `GET /backup/{file}/download`（controller + handler + service + 契約）；`HealthController [AllowAnonymous]` |
 | API | 是 | 新 endpoint（見 [get-backup-download.md](api-endpoints/get-backup-download.md)） |
-| 資料庫 | 否 | 凍結 |
+| 資料庫 | 否 | 本功能不動 schema |
 | 基礎建設 | 是 | framework-dependent publish；electron-builder.yml；prereq 偵測；ENV 注入（Conn/Cors/JwtKey） |
 | 安全 | 是 | 下載 traversal 防護；每機 jwtKey；CORS null/file:// |
 
