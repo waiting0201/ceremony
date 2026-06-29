@@ -1,8 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthStore } from '../../auth/auth.store';
 import { IconComponent, type IconName } from '../../../shared/icon/icon.component';
 import { environment } from '../../../../environments/environment';
+
+const SIDEBAR_COLLAPSED_KEY = 'ceremony.sidebar.collapsed';
 
 interface NavItem {
   readonly path: string;
@@ -23,6 +25,8 @@ export class ShellLayout {
   protected readonly auth = inject(AuthStore);
   protected readonly appVersion = environment.version;
 
+  protected readonly collapsed = signal(this.readCollapsed());
+
   protected readonly navItems: readonly NavItem[] = [
     { path: '/believers', label: '信眾維護', icon: 'believer' },
     { path: '/signups/new', label: '新增報名', icon: 'plus', exact: true },
@@ -33,6 +37,24 @@ export class ShellLayout {
     { path: '/reports/preview', label: '列印預覽', icon: 'printer' },
     { path: '/admins', label: '管理者', icon: 'settings' },
   ];
+
+  protected toggleCollapsed(): void {
+    const next = !this.collapsed();
+    this.collapsed.set(next);
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0');
+    } catch {
+      // localStorage 不可用時忽略，僅影響跨會話記憶
+    }
+  }
+
+  private readCollapsed(): boolean {
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1';
+    } catch {
+      return false;
+    }
+  }
 
   protected async onLogout(): Promise<void> {
     await this.auth.logout();

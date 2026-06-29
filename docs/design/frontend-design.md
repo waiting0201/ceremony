@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本]
-last_updated: 2026-06-23 (報名新增表單法會分類依當月自動帶季別 root)
+last_updated: 2026-06-29 (側邊選單可收合成圖示列)
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -423,6 +423,15 @@ list page 透過 `@ViewChild` 抓 form ref，overlay 的「確認」按鈕呼叫
 - **預設 `false`**（prefix 比對）— 例：`/reports/preview/datacard` 仍會點亮「列印預覽」
 - **`/signups` + `/signups/new` 雙雙開 `exact: true`** — 避免在「新增報名」頁時「報名維護」一起被點亮（兩個是並列、不是父子）
 - `/signups/:id/edit` 與 `/signups/:id/logs` 走 prefix 比對被排除（編輯與歷程是獨立 context，sidebar 不點亮任一項）
+
+## 側邊選單收合（**2026-06-29 決策**）
+
+側邊選單可收合成「圖示列」以擴大內容區。
+
+- **行為**：`ShellLayout` 的 brand 區右側放收合鈕（`chevron-left` 圖示），點擊在「完整（220px）↔ 圖示列（64px）」間切換；收合時只留圖示、隱藏文字標籤/品牌副標/使用者名稱/版本號
+- **狀態持久化**：`collapsed` signal，寫入 localStorage key `ceremony.sidebar.collapsed`（`'1'`/`'0'`），跨會話沿用；localStorage 不可用時 try/catch 靜默降級為不記憶
+- **提示**：收合時各 `nav-item` 與登出鈕用原生 `title` 屬性 hover 顯示文字（不另做 tooltip 元件）
+- **寬度**：`.shell` 用 `grid-template-columns`，收合切換 `--sidebar-collapsed-width: 64px`；圖示鈕 `chevron-left` 在收合態 `rotate(180deg)` 指向展開方向
 
 ## 軟體版本顯示（**2026-06-02 決策**）
 

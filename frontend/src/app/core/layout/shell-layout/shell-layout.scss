@@ -4,10 +4,15 @@
 }
 
 .shell {
+  --sidebar-collapsed-width: 64px;
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   height: 100%;
   background: var(--c-bg);
+
+  &.is-collapsed {
+    grid-template-columns: var(--sidebar-collapsed-width) 1fr;
+  }
 }
 
 .sidebar {
@@ -19,8 +24,42 @@
 }
 
 .brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   padding: var(--space-lg) var(--space-md);
   border-bottom: 1px solid var(--c-border);
+}
+
+.brand-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.collapse-toggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--c-border);
+  border-radius: 4px;
+  background: var(--c-surface);
+  color: var(--c-text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--c-primary-soft);
+    border-color: var(--c-primary);
+    color: var(--c-primary);
+  }
+}
+
+.collapse-icon {
+  transition: transform 0.15s ease;
 }
 
 .brand-title {
@@ -117,4 +156,48 @@
   padding: var(--space-lg);
   padding-bottom: 12px;
   min-height: 0;
+}
+
+.logout-label {
+  white-space: nowrap;
+}
+
+/* 收合狀態：選單收成圖示列，hover 由 title 屬性顯示文字提示 */
+.is-collapsed {
+  .brand {
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-xs);
+  }
+
+  .brand-text {
+    display: none;
+  }
+
+  .collapse-icon {
+    transform: rotate(180deg);
+  }
+
+  .nav-item {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding: var(--space-sm) 0;
+  }
+
+  .nav-label {
+    display: none;
+  }
+
+  .user,
+  .version {
+    display: none;
+  }
+
+  .sidebar-footer {
+    padding: var(--space-sm) var(--space-xs);
+  }
+
+  .logout {
+    padding: 0 var(--space-xs);
+  }
 }

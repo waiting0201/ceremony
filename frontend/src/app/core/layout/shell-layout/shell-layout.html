@@ -1,8 +1,20 @@
-<div class="shell">
+<div class="shell" [class.is-collapsed]="collapsed()">
   <aside class="sidebar">
     <div class="brand">
-      <div class="brand-title">寶覺寺</div>
-      <div class="brand-subtitle">法會報名系統</div>
+      <div class="brand-text">
+        <div class="brand-title">寶覺寺</div>
+        <div class="brand-subtitle">法會報名系統</div>
+      </div>
+      <button
+        type="button"
+        class="collapse-toggle"
+        [attr.aria-label]="collapsed() ? '展開選單' : '收合選單'"
+        [attr.aria-pressed]="collapsed()"
+        [title]="collapsed() ? '展開選單' : '收合選單'"
+        (click)="toggleCollapsed()"
+      >
+        <app-icon class="collapse-icon" name="chevron-left" [size]="20" />
+      </button>
     </div>
 
     <nav class="nav">
@@ -12,6 +24,7 @@
           [routerLink]="item.path"
           routerLinkActive="is-active"
           [routerLinkActiveOptions]="{ exact: item.exact ?? false }"
+          [title]="collapsed() ? item.label : ''"
         >
           <app-icon class="nav-icon" [name]="item.icon" [size]="20" />
           <span class="nav-label">{{ item.label }}</span>
@@ -23,7 +36,9 @@
       @if (auth.displayName(); as name) {
         <div class="user">{{ name }}</div>
       }
-      <button type="button" class="logout" (click)="onLogout()">登出</button>
+      <button type="button" class="logout" (click)="onLogout()" title="登出">
+        <span class="logout-label">登出</span>
+      </button>
       <div class="version">{{ appVersion }}</div>
     </div>
   </aside>
