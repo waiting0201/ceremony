@@ -17,7 +17,7 @@ related_docs:
   - ../api-endpoints/README.md
   - README.md
 keywords: [legacy, coverage, edit-signup, 報名編輯]
-last_updated: 2026-06-02
+last_updated: 2026-06-29 (方案 C：signup-edit 完全不回寫 Believer，含堂號)
 ---
 
 > ✅ **完成 (2026-06-02)**：20 個方法全部已實作。PUT/edit path（含 SignupLog transaction）+ 前端 `signup-edit-form` 全部 UI 連動（信眾選擇、城市/區域連動、同寄件地址、Load* 載入、編輯預填）全 ship。
@@ -25,7 +25,7 @@ last_updated: 2026-06-02
 > - 變更紀錄寫入時機（Update 觸發 SignupLog）
 > - 不可改編號 / 不可改年份 / 不可改法會的限制
 > - **刻意行為差異（2026-06-02）**：
->   - (a) signup-edit **不再**把 EmployeeType / IsFixedNumber 同步回 Believer：`UpdateSignupHandler` 對 `employeeTypeForBeliever` / `isFixedNumberForBeliever` 傳 `null`（保留 Believer 既有值，避免編輯報名時意外覆寫信眾主檔身分欄位）
+>   - (a) **signup-edit 完全不回寫 Believer（2026-06-29 方案 C 擴大）**：legacy `btnConfirm` 會把 HallName / EmployeeType / IsFixedNumber 寫回 Believers；新版 `UpdateSignupHandler` **三者皆不回寫**——`UpdateWithLogAsync` 已移除整段 Believer 更新與 `*ForBeliever` 參數。動機：堂號等屬信眾層級、清單靠 `SignupView` JOIN 帶出，回寫會「改一筆報名堂號→連動同信眾全部報名」（即 legacy 缺陷）。堂號改唯讀，僅信眾維護頁可改。見 [signup-hallname-isolation.md](../signup-hallname-isolation.md)。回歸測試：`UpdateSignupHandlerTests.Edit_never_writes_back_to_Believer`
 >   - (b) 主要 Name / Phone 於儲存時 `Trim()`；陽上名 / 亡名**不 trim**（保留刻意排版間隙，render 與字級門檻一致，詳見 [gotchas.md](../../gotchas.md)「姓名中間空格」）
 
 ## 稽核總覽
@@ -51,7 +51,7 @@ last_updated: 2026-06-02
 | 6 | `dlTextCity_SelectedIndexChanged` | 123-142 | 文件城市變更時載入對應區域 | ✅ 已實作 | 同上 | `onCityChange('text')` → `applyAddress` |
 | 7 | `dlTextZone_SelectedIndexChanged` | 144-157 | 文件區域變更時載入郵遞區號 | ✅ 已實作 | 同上 | `onAreaChange('text')` → `refreshZipcode('text')` |
 | 8 | `cbSameMailAddress_CheckedChanged` | 159-184 | 同寄件地址勾選時複製，取消時清空 | ✅ 已實作 | 前端 form logic | `onSameMailAddressChange()`：勾選複製寄件城市/區號/地址至文件，mail 空時阻止；取消時清空文件地址 |
-| 9 | `btnConfirm_Click` | 186-368 | 驗證所有必填欄位 + 更新信眾與報名 + 建檔案誌並刷新 | ✅ 已實作 | `PUT /api/v1/signups/:id` | `UpdateSignupHandler` + `SignupRepository.UpdateWithLogAsync` 含 transaction + 同步寫 Believer(HallName/EmployeeType/IsFixedNumber) + Signup 全欄位 + SignupLog |
+| 9 | `btnConfirm_Click` | 186-368 | 驗證所有必填欄位 + 更新信眾與報名 + 建檔案誌並刷新 | ✅ 已實作（**故意偏離**：不回寫 Believer） | `PUT /api/v1/signups/:id` | `UpdateSignupHandler` + `SignupRepository.UpdateWithLogAsync` 含 transaction + Signup 全欄位 + SignupLog（含 HallName 快照）。**不再同步寫 Believer**（修正堂號連動缺陷，方案 C，見上方刻意行為差異 (a) 與 [signup-hallname-isolation.md](../signup-hallname-isolation.md)）|
 | 10 | `txtYear_Validating` | 370-384 | 驗證年份格式與不早於當年 | ✅ 已實作 (部分) | `PUT /api/v1/signups/:id` | API 收 int + Year>0 檢查；regex/notInPast 留前端 |
 | 11 | `txtFee_Validating` | 386-394 | 驗證費用為純數字 | ✅ 已實作 (部分) | `PUT /api/v1/signups/:id` | API 收 int?；前端 input mask |
 | 12 | `txtNumber_Validating` | 396-418 | 驗證編號格式 + 檢查該年同類型編號重複性 | ✅ 已實作 | `PUT /api/v1/signups/:id` | `NumberExistsExcludingAsync` 排除自己 + verbatim「{year}年編號{n}重複，請重新確認！」 |

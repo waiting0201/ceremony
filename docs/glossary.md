@@ -142,7 +142,9 @@ UI label 同樣用「3-1」替代「4」。
 
 ### 堂號 / Hall Name
 
-`Believers.HallName` / `Signups.HallName` — 2-4 字的信眾組織名稱或暱稱（例：「慈光堂」「南無堂」）。
+儲存於 **`Believers.HallName`**（nvarchar(10)，信眾層級單一欄位）— 2-4 字的信眾組織名稱或暱稱（例：「慈光堂」「南無堂」）。
+
+> **堂號為信眾層級屬性（2026-06-29 定案，方案 C）**：`Signups` 表無自有 HallName 欄位；報名/清單顯示的堂號是 `SignupView` JOIN `Believers` 即時帶出，`SignupLogs.HallName` 僅為審計快照。**僅信眾維護頁可改堂號**；報名表單堂號唯讀，報名新增/編輯**不回寫** Believer（修正 legacy「改一筆報名堂號→連動同信眾全部報名」缺陷）。詳見 [signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md)、[business-rules-implicit.md §3.1](business-rules-implicit.md)。
 
 列印時：
 - 2 字 → 拆為 First + Second（各 1 字）

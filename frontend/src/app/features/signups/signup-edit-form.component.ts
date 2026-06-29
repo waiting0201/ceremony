@@ -83,6 +83,11 @@ export class SignupEditFormComponent {
   protected readonly isFixedNumber = computed<boolean>(
     () => this.selectedBeliever()?.isFixedNumber ?? false,
   );
+  // 堂號為信眾層級屬性，唯讀顯示（僅於信眾維護頁修改）。報名編輯不回寫 Believer，避免連動同信眾全部報名。
+  // 見 docs/blueprints/signup-hallname-isolation.md
+  protected readonly hallNameDisplay = computed<string>(
+    () => this.selectedBeliever()?.hallName ?? '',
+  );
 
   // 城市 / 區域連動下拉資料
   protected readonly cities = signal<string[]>([]);
@@ -107,9 +112,8 @@ export class SignupEditFormComponent {
     signupType: [1, [Validators.required]],
     // 信眾
     believerId: ['', [Validators.required]],
-    // 基本資料
+    // 基本資料（堂號為信眾屬性，不在報名表單持有；唯讀顯示自 selectedBeliever）
     name: ['', [Validators.required, Validators.maxLength(50)]],
-    hallName: [''],
     phone: [''],
     // 地址（城市/區域連動；zipcodeId 以字串持有，submit 轉 number）
     mailCity: [''],
@@ -205,7 +209,6 @@ export class SignupEditFormComponent {
         believerId: item.believerId ?? '',
         name: item.name ?? '',
         phone: item.phone ?? '',
-        hallName: item.hallName ?? '',
         remark: item.remark ?? '',
       });
       await this.applyAddress('mail', item.mailCity, null, item.mailZone, item.mailAddress);
@@ -232,7 +235,6 @@ export class SignupEditFormComponent {
       customNumber: item.number,
       fee: item.fee,
       phone: item.phone ?? '',
-      hallName: item.hallName ?? '',
       remark: item.remark ?? '',
       prepayYear: item.prepayYear,
       prepayCeremonyCategoryId: item.prepayCeremonyCategoryId ?? '',
@@ -367,7 +369,6 @@ export class SignupEditFormComponent {
       believerId: b.id,
       name: b.name,
       phone: b.phone ?? '',
-      hallName: b.hallName ?? '',
     });
     await this.applyAddress('mail', b.mailCity, b.mailZipcodeId, b.mailArea, b.mailAddress);
     await this.applyAddress('text', b.textCity, b.textZipcodeId, b.textArea, b.textAddress);
@@ -412,7 +413,8 @@ export class SignupEditFormComponent {
       customNumber: v.keepNumber ? v.customNumber : null,
       fee: v.fee,
       phone: v.phone || null,
-      hallName: v.hallName || null,
+      // 堂號為信眾屬性，取自選定信眾（後端僅用於 SignupLog 快照，不回寫 Believer）
+      hallName: this.selectedBeliever()?.hallName || null,
       mailZipcodeId: v.mailZipcodeId ? Number(v.mailZipcodeId) : null,
       textZipcodeId: v.textZipcodeId ? Number(v.textZipcodeId) : null,
       textAddress: v.textAddress || null,

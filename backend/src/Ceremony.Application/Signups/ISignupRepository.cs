@@ -21,16 +21,18 @@ public interface ISignupRepository
     Task InsertWithLogAsync(SignupWriteModel signup, SignupLogWriteModel log, int? explicitNumber, CancellationToken ct = default);
 
     /// <summary>
-    /// 編輯 Signup（全欄位覆寫，使用 signup.SignupId 為主鍵）+ 同交易插入 SignupLog + 部分更新 Believer 欄位。
+    /// 編輯 Signup（全欄位覆寫，使用 signup.SignupId 為主鍵）+ 同交易插入 SignupLog。
     /// </summary>
+    /// <remarks>
+    /// 刻意不回寫 Believer 任何欄位：堂號/員工類型/固定編號皆為「信眾層級」屬性，只在信眾維護頁修改。
+    /// （故意偏離 legacy EditSignupForm 的 believer 回寫，修正「改一筆報名堂號連動同信眾全部報名」缺陷；
+    ///  見 docs/blueprints/signup-hallname-isolation.md）
+    /// </remarks>
     /// <returns>true if updated; false if signupId not found.</returns>
     Task<bool> UpdateWithLogAsync(
         SignupWriteModel signup,
         SignupLogWriteModel log,
         int number,
-        string? hallNameForBeliever,
-        int? employeeTypeForBeliever,
-        bool? isFixedNumberForBeliever,
         CancellationToken ct = default);
 
     /// <summary>硬刪除（無 IsEnabled）。</summary>

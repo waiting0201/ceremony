@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-23 (報名新增表單依當月自動帶季別法會：1-4春季/5-8中元/9-12秋季，可編輯預設)
+last_updated: 2026-06-29 (報名堂號隔離方案 C 實作完成；B13 定案信眾層級)
 
 
 ---
@@ -150,6 +150,12 @@ last_updated: 2026-06-23 (報名新增表單依當月自動帶季別法會：1-4
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
 
+- [x] **報名堂號隔離（修正 legacy 連動缺陷）** — Done 2026-06-29
+  - 缺陷：legacy 編輯一筆報名改堂號會回寫共用 `Believers.HallName`，連動同信眾全部報名；新版原樣保留。業務定案堂號為**信眾層級** → 採方案 C（零 schema）
+  - 後端：`UpdateWithLogAsync` 移除整段 Believer 更新 + 三個 `*ForBeliever` 參數（[ISignupRepository.cs](../backend/src/Ceremony.Application/Signups/ISignupRepository.cs) / [SignupRepository.cs](../backend/src/Ceremony.Infrastructure/Repositories/SignupRepository.cs) / [UpdateSignupHandler.cs](../backend/src/Ceremony.Application/Signups/UpdateSignupHandler.cs)）；堂號仍寫 SignupLog 快照
+  - 前端：報名表單堂號改唯讀（比照員工/固定編號），取自 `selectedBeliever()`；移除 `hallName` form control（[signup-edit-form](../frontend/src/app/features/signups/signup-edit-form.component.ts)）
+  - 驗證：新增 `UpdateSignupHandlerTests`（6 測試，含 `Edit_never_writes_back_to_Believer` 回歸守門）；後端 291+6 綠、前端 ng build 綠
+  - 文件：[signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md)（done）、B13 ✅、glossary / business-rules §3.1 / edit-signup-form 覆蓋表同步
 - [x] **報名表單依當月自動帶季別法會** — Done 2026-06-23
   - 需求：新增報名時「法會分類」依當前月份自動帶出季別 root（1-4月春季 / 5-8月中元 / 9-12月秋季），可編輯預設，子法會仍人工挑選
   - 實作：新增 [ceremony-season.ts](../frontend/src/app/shared/util/ceremony-season.ts)（`seasonForMonth`/`currentSeason`/`resolveSeasonRootId`，GUID 優先 title 退場）；[signup-edit-form.component.ts](../frontend/src/app/features/signups/signup-edit-form.component.ts) `loadCategories()` 後呼叫 `applySeasonDefault()`（僅 create 模式 + 欄位未有值才帶入，編輯模式不覆蓋）。`tsc --noEmit` 綠

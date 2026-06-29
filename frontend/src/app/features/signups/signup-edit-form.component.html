@@ -70,7 +70,7 @@
       </label>
       <label class="field">
         <span>堂號</span>
-        <input type="text" formControlName="hallName" />
+        <input type="text" [value]="hallNameDisplay() || '—'" readonly title="信眾屬性，請於信眾維護調整" />
       </label>
       <label class="field">
         <span>姓名 *</span>

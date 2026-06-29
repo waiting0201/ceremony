@@ -13,7 +13,7 @@ related_docs:
   - post-signups.md
   - ../legacy-coverage/edit-signup-form.md
 keywords: [signups, update, put, signuplog]
-last_updated: 2026-05-27
+last_updated: 2026-06-29 (方案 C：不再回寫 Believer，堂號信眾層級)
 ---
 
 ## 規格
@@ -38,7 +38,7 @@ last_updated: 2026-05-27
 |---|---|---|
 | `EditSignupForm.btnConfirm_Click` | 186-368 | `UpdateSignupHandler.HandleAsync` |
 | Number 重複檢查（排除自己） | 215-223 | `SignupRepository.NumberExistsAsync(..., excludeSignupId=id)` |
-| Believer 部分欄位更新（HallName, EmployeeType, IsFixedNumber，**不更新 Name/Phone**） | 226-232 | `BelieverRepository.UpdateFromSignupEditAsync` |
+| ~~Believer 部分欄位更新（HallName/EmployeeType/IsFixedNumber）~~ **新版故意不做** | 226-232 | 已移除：堂號等為信眾層級，僅信眾維護頁可改（方案 C，見 [signup-hallname-isolation.md](../signup-hallname-isolation.md)）|
 | Signup 全欄位覆寫 + AdminID/Createdate 重新賦值 | 234-313 | UPDATE 全欄位 |
 | SignupLog 同步寫入 | 317-348 | 與 Signup 同 transaction |
 
@@ -46,7 +46,7 @@ last_updated: 2026-05-27
 
 1. **可改 Number / Year / CeremonyCategoryId / SignupType**（舊系統允許；schema 無限制）
 2. **Number 重複檢查排除自己**（`SignupID != ParamSignupID`）
-3. **Believer 同步更新部分欄位**：HallName, EmployeeType, IsFixedNumber（**Name/Phone 在 Believer 不變**，但會更新 Signup 快照欄位）
+3. **不回寫 Believer 任何欄位**（**故意偏離 legacy**）：堂號/員工類型/固定編號為信眾層級屬性，只在信眾維護頁修改；legacy 會回寫導致「改一筆報名堂號→連動同信眾全部報名」缺陷，新版不重演。堂號仍寫入 SignupLog 快照。回歸測試 `UpdateSignupHandlerTests.Edit_never_writes_back_to_Believer`
 4. **不重新分配 Number**：用 request 提供的；衝突就 409
 5. **SignupLog 同步寫入**（新一筆 audit 紀錄）
 

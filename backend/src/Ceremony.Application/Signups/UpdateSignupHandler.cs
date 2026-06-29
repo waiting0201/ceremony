@@ -6,10 +6,12 @@ using Ceremony.Domain.Services;
 namespace Ceremony.Application.Signups;
 
 /// <summary>
-/// 編輯既有報名（全欄位覆寫 + 同步 SignupLog + 部分 Believer 欄位更新）。
+/// 編輯既有報名（全欄位覆寫 + 同步 SignupLog）。刻意不回寫 Believer（堂號等信眾屬性僅於信眾維護頁改）。
 /// </summary>
 /// <remarks>
 /// Legacy: EditSignupForm.cs:186-368 (btnConfirm_Click)
+/// 偏離點：legacy 會把堂號回寫 Believers（連動同信眾全部報名）；本版不回寫，見
+/// docs/blueprints/signup-hallname-isolation.md。
 /// Blueprint: docs/blueprints/api-endpoints/put-signup.md
 /// Coverage:  docs/blueprints/legacy-coverage/edit-signup-form.md (rows 9-13)
 /// </remarks>
@@ -105,12 +107,9 @@ public sealed class UpdateSignupHandler(
             Admin: caller.AdminName,
             CreateDate: createDate);
 
-        var updated = await signupRepo.UpdateWithLogAsync(
-            signupModel, logModel, number,
-            hallNameForBeliever: hallName,
-            employeeTypeForBeliever: null,        // EmployeeType 不在 request；用 null 保留既有
-            isFixedNumberForBeliever: null,       // IsFixedNumber 不在 request；用 null 保留既有
-            ct);
+        // 刻意不回寫 Believer：堂號為信眾層級屬性，僅於信眾維護頁修改（修正 legacy 連動缺陷）。
+        // hallName 仍寫入上方 logModel 作為 audit 快照。
+        var updated = await signupRepo.UpdateWithLogAsync(signupModel, logModel, number, ct);
 
         if (!updated)
             throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名");

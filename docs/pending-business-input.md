@@ -13,7 +13,7 @@ related_docs:
   - design/database-design.md
   - design/security.md
 keywords: [pending, 待確認, 業務輸入, 客戶確認, gap]
-last_updated: 2026-06-23 (B3 月份範圍部分定案：1-4春季/5-8中元/9-12秋季)
+last_updated: 2026-06-29 (B13 定案信眾層級＋方案 C 已實作)
 ---
 
 > 本檔列出**需要業務 / 客戶 / DBA 提供資訊**才能完成的項目。每項含：問題、為何重要、影響哪些 docs、預計確認時機。
@@ -145,6 +145,17 @@ last_updated: 2026-06-23 (B3 月份範圍部分定案：1-4春季/5-8中元/9-12
 - **確認時機**：上線前合規檢查
 - **狀態**：⬜
 
+### B13. 堂號是「信眾層級」還是「報名層級」？
+
+- **目前狀況**：堂號實體只存於 `Believers.HallName`（信眾共用），報名/清單靠 `SignupView` JOIN 帶出；編輯一筆報名改堂號會回寫共用 Believer，**連動同信眾所有報名**（沿用 legacy `EditSignupForm` 行為）。使用者回報此連動為非預期。
+- **影響**：[blueprints/signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md)、[design/database-design.md](design/database-design.md)、[design/backend-design.md](design/backend-design.md)、[glossary.md](glossary.md)
+- **需要**：業務確認——同一信眾在不同年度/法會可否掛**不同**堂號？
+  - 「會不同」→ 報名層級：`Signups` 需加自有 HallName 欄（方案 A，須解 DB 凍結 + 歷史回填）
+  - 「永遠相同」→ 信眾層級：堂號集中到信眾維護、報名頁停止回寫（方案 C，零 schema）
+- **附帶確認**：目前「代入新增」改的堂號其實存不進新報名（只進 audit log），是否符合預期？→ 已隨方案 C 一併處理：堂號改唯讀，新增/編輯都不可改、僅信眾維護頁維護。
+- **確認時機**：實作此修正前
+- **狀態**：✅ 2026-06-29 定案「信眾層級」→ 採方案 C（報名編輯/新增不回寫 Believer、堂號唯讀）。已實作並回填 [signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md) / [business-rules-implicit.md §3.1](business-rules-implicit.md) / [glossary.md](glossary.md)
+
 ## C. 環境部署需求
 
 ### C1. 部署位置與 IP
@@ -199,11 +210,11 @@ last_updated: 2026-06-23 (B3 月份範圍部分定案：1-4春季/5-8中元/9-12
 
 ```
 A. DB 技術性（自己跑）      ⬜⬜⬜⬜⬜⬜⬜⬜ 0/8
-B. 業務需求                ⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 0/12
+B. 業務需求                ✅⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 1/13 (B13)
 C. 環境部署                ⬜⬜⬜⬜ 0/4
 D. 訓練導入                ⬜⬜⬜ 0/3
                           ──────────────────
-                          0/27
+                          1/28
 ```
 
 ## 確認流程建議

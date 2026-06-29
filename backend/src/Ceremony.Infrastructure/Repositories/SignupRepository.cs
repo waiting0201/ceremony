@@ -193,36 +193,17 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         SignupWriteModel s,
         SignupLogWriteModel l,
         int number,
-        string? hallNameForBeliever,
-        int? employeeTypeForBeliever,
-        bool? isFixedNumberForBeliever,
         CancellationToken ct = default)
     {
         await using var conn = await factory.CreateOpenAsync(ct);
         using var tx = await ((Microsoft.Data.SqlClient.SqlConnection)conn).BeginTransactionAsync(ct);
         try
         {
-            // 1. Update Believer 部分欄位（HallName, EmployeeType, IsFixedNumber；Name/Phone 不改）
-            if (s.BelieverId is { } bid &&
-                (hallNameForBeliever is not null || employeeTypeForBeliever is not null || isFixedNumberForBeliever is not null))
-            {
-                const string updB = """
-                    UPDATE dbo.Believers SET
-                      HallName = COALESCE(@HallName, HallName),
-                      EmployeeType = COALESCE(@EmployeeType, EmployeeType),
-                      IsFixedNumber = COALESCE(@IsFixedNumber, IsFixedNumber)
-                    WHERE BelieverID = @BelieverId
-                    """;
-                await conn.ExecuteAsync(new CommandDefinition(updB, new
-                {
-                    BelieverId = bid,
-                    HallName = hallNameForBeliever,
-                    EmployeeType = employeeTypeForBeliever,
-                    IsFixedNumber = isFixedNumberForBeliever,
-                }, transaction: tx, cancellationToken: ct));
-            }
+            // 注意：刻意不更新 Believer。堂號/員工類型/固定編號為信眾層級屬性，僅於信眾維護頁修改；
+            // 報名編輯回寫 Believer 會連動同信眾全部報名（legacy EditSignupForm 缺陷），此處不重演。
+            // 見 docs/blueprints/signup-hallname-isolation.md
 
-            // 2. Update Signup（全欄位覆寫）
+            // 1. Update Signup（全欄位覆寫）
             const string updS = """
                 UPDATE dbo.Signups SET
                   Year=@Year, CeremonyCategoryID=@CeremonyCategoryId, SignupType=@SignupType, BelieverID=@BelieverId,
@@ -253,7 +234,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
                 return false;
             }
 
-            // 3. Insert SignupLog（audit 紀錄編輯）
+            // 2. Insert SignupLog（audit 紀錄編輯；HallName 仍記當下快照值）
             const string insLog = """
                 INSERT INTO dbo.SignupLogs (
                   SignupLogID, SignupID, Year, CeremonyCategoryTitle, SignupType,
