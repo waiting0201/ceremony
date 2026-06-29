@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本]
-last_updated: 2026-06-29 (側邊選單可收合成圖示列)
+last_updated: 2026-06-29 (列印普桌啟用條件改看選取列 signupType===4)
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -509,7 +509,7 @@ interface MenuContext<T> {
 | 列印收據 | `selected.length >= 1` | `printer` | – |
 | 列印薦牌 | `selected.length >= 1` | `printer` | – |
 | 列印文牒 | `selected.length >= 1` | `printer` | – |
-| 列印普桌 | `selected.length >= 1 && filters.signupType === 4` | `printer` | – |
+| 列印普桌 | `selected.length >= 1 && selected.every(r => r.signupType === 4)` | `printer` | – |
 | 刪除資料 | `selected.length >= 1` | `trash` | ✅ |
 | 瀏覽歷程 | `selected.length === 1` | `history` | – |
 

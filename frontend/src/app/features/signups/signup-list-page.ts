@@ -44,7 +44,6 @@ import {
 interface MenuContext {
   selectedRows: SignupListItem[];
   triggerRow: SignupListItem;
-  signupTypeFilter: number;
 }
 
 const REPORT_TYPES: { value: SingleReportType; label: string }[] = [
@@ -467,7 +466,6 @@ export class SignupListPage implements OnInit {
       context: {
         selectedRows: rows,
         triggerRow: rows[0],
-        signupTypeFilter: this.form.controls.signupType.value,
       },
     });
   }
@@ -477,7 +475,6 @@ export class SignupListPage implements OnInit {
     return {
       selectedRows: rows.length > 0 ? rows : [triggerRow],
       triggerRow,
-      signupTypeFilter: this.form.controls.signupType.value,
     };
   }
 
@@ -689,8 +686,16 @@ function buildPrintItem(
       if (ctx.selectedRows.length === 0) {
         return { enabled: false, reason: '請先選擇報名資料' };
       }
-      if (spec.value === 'worship' && ctx.signupTypeFilter !== 4) {
-        return { enabled: false, reason: '僅普桌類型 (4) 可列印' };
+      // 普桌只能套用在 SignupType=4 的資料上（後端對單筆 by-id 驗證、批次強制 type=4）。
+      // 不再看搜尋篩選，改驗證實際選取的每一列都是普桌；夾雜非普桌就擋下，避免印出錯位 PDF。
+      if (spec.value === 'worship') {
+        const nonWorship = ctx.selectedRows.filter((r) => r.signupType !== 4);
+        if (nonWorship.length > 0) {
+          return {
+            enabled: false,
+            reason: `選取含 ${nonWorship.length} 筆非普桌資料，僅普桌(類型 4)可列印`,
+          };
+        }
       }
       return true;
     },

@@ -13,7 +13,7 @@ related_docs:
   - blueprints/printing-reports.md
   - design/database-design.md
 keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季]
-last_updated: 2026-06-29 (§3.1 堂號改信眾層級：報名編輯不回寫 Believer，方案 C)
+last_updated: 2026-06-29 (§16 列印普桌啟用條件改看選取列而非搜尋篩選)
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -260,12 +260,20 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 
 ---
 
-## 16. 「列印普桌」啟用條件
+## 16. 「列印普桌」啟用條件（2026-06-29 改：改看選取列，不看搜尋篩選）
 
-- SignupForm 右鍵 menu「列印普桌」：**僅當 `dlSearchSignupType.SelectedValue == 4` 才 enabled**
+- SignupForm 右鍵 menu「列印普桌」：**只要選取的每一列 `signupType == 4`（普桌）即 enabled，與搜尋篩選 `signupType` 無關**
+- 選取若夾雜任一筆非普桌資料 → grey out + tooltip「選取含 N 筆非普桌資料，僅普桌(類型 4)可列印」
 - 其他四種列印選項恆可用
 
-> 即使搜尋類型不是普桌，使用者仍可手動點批次列印面板的「普桌」類型。menu 啟用是 UX 提示而非強制。
+> **舊規則（已淘汰）**：原本「僅當搜尋篩選 `signupType == 4` 才 enabled」。改為驗證實際選取列，讓使用者在「全部」篩選下也能直接挑普桌資料列印，不必先切篩選。
+>
+> **為何安全（無 bug）**：啟用條件放寬只是 UX 層；真正的防呆在後端且未動 —
+> - 單筆列印走 `GET /reports/worship?signupId=`，by-id 驗證 `SignupType != 4 → 422 WORSHIP_ONLY_TYPE_4`（[GenerateReportHandlers.cs:121](../backend/src/Ceremony.Application/Reports/GenerateReportHandlers.cs)）
+> - 批次列印走編號區間，`BatchReportHandler` **強制 `SignupType=4`**（[BatchReportHandler.cs:25-26](../backend/src/Ceremony.Application/Reports/BatchReportHandler.cs)），區間內非普桌列一律被過濾，不會套錯版型
+> - 前端只放行「選取全為普桌」，混選直接擋下，所以送到後端的一定是合法集合
+>
+> 批次走編號區間的既有不精確性（區間內未選的普桌列也會印）維持不變，仍由既有 confirmation dialog 提示。
 
 ---
 

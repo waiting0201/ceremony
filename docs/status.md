@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-29 (解除 DB 完全凍結 → 改走 DbUp migration；具體 schema 變更列待評估 backlog)
+last_updated: 2026-06-29 (列印普桌啟用條件改看選取列 every signupType===4，與搜尋篩選解耦)
 
 
 ---
@@ -161,6 +161,12 @@ last_updated: 2026-06-29 (解除 DB 完全凍結 → 改走 DbUp migration；具
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
 
+- [x] **「列印普桌」啟用條件改看選取列（與搜尋篩選解耦）** — Done 2026-06-29
+  - 需求：即使搜尋篩選非普桌，也要能直接挑普桌資料列印；但要驗證、不能出 bug
+  - 改法：右鍵「列印普桌」由 `filters.signupType === 4` 改為 `selected.every(r => r.signupType === 4)`；混選含非普桌即 grey out + tooltip「選取含 N 筆非普桌資料」（[signup-list-page.ts](../frontend/src/app/features/signups/signup-list-page.ts) `buildPrintItem`；同時移除 `MenuContext.signupTypeFilter` 死碼）
+  - 無 bug 依據：後端防呆未動且本就是真正守門 — 單筆 by-id 驗證 `type=4`（[GenerateReportHandlers.cs:121](../backend/src/Ceremony.Application/Reports/GenerateReportHandlers.cs)）、批次 `BatchReportHandler` 強制 `type=4`（[BatchReportHandler.cs:25-26](../backend/src/Ceremony.Application/Reports/BatchReportHandler.cs)）；前端只放行純普桌選取
+  - 驗證：`tsc -p tsconfig.app.json --noEmit` 0 err；無殘留 `signupTypeFilter` 參照
+  - 文件同步：[business-rules-implicit.md §16](business-rules-implicit.md)（淘汰舊規則 + 記錄 why-safe）、[frontend-design.md](design/frontend-design.md) 選單啟用表、[signup-management.md](blueprints/signup-management.md)（選單表/啟用條件/2 checklist）
 - [x] **解除「DB 完全凍結」限制，改為可走 migration（DbUp）** — Done 2026-06-29（決策 + 文件同步）
   - 沿革：2026-05-26 客戶曾裁定「DB 完全凍結、密碼明碼、無 migration」（status 下方 Archive 有記錄）；**2026-06-29 解除**，schema 可變更、走 **DbUp** 版本化 `.sql` migration（不導入 EF Core Migrations，ORM 維持 Dapper）
   - 範圍：本次只「解除原則 + 引入 migration 工具」；具體變更（密碼雜湊、加索引、audit/login_attempts 新表、RBAC role 欄位）改列為**待個別評估**的 backlog，不一次拍板
