@@ -14,12 +14,12 @@ related_docs:
   - ../legacy-coverage/signup-form.md
   - get-believers.md
 keywords: [signups, search, predicatebuilder, signupview]
-last_updated: 2026-05-27
+last_updated: 2026-06-29
 ---
 
 ## 規格
 
-`GET /api/v1/signups?year=&isScope=&ceremonyCategoryId=&signupType=&number=&searchKey=&scopeName=&scopeLivingName=&scopeDeadName=&scopePhone=&isFixedNumber=`，需要 JWT。
+`GET /api/v1/signups?year=&isScope=&ceremonyCategoryId=&signupType=&number=&searchKey=&scopeName=&scopeLivingName=&scopeDeadName=&scopePhone=&scopeRemark=&isFixedNumber=`，需要 JWT。
 
 ### Query parameters
 
@@ -35,9 +35,10 @@ last_updated: 2026-05-27
 | `scopeLivingName` | bool | false | searchKey LIKE 6 個 `LivingNameOne..Six` (OR) |
 | `scopeDeadName` | bool | false | searchKey LIKE 6 個 `DeadNameOne..Six` (OR) |
 | `scopePhone` | bool | false | searchKey LIKE `Phone` |
+| `scopeRemark` | bool | false | searchKey LIKE `Remark`（新版加入，舊系統無此搜尋欄位） |
 | `isFixedNumber` | bool | false | 含「固定編號 = true」OR 條件 |
 
-**OR 群組規則**（沿用舊系統 line 825-830）：
+**OR 群組規則**（沿用舊系統 line 825-830，`scopeRemark` 為新版擴充）：
 - 任一 `scope*` 旗標需配合 `searchKey` 非空才生效
 - `isFixedNumber=true` 獨立加入 OR 群組
 - 若 OR 群組有任何條件 → 整個 OR 群組 AND 進 WHERE；否則略過

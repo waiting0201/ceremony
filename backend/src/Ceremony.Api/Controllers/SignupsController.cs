@@ -37,6 +37,7 @@ public sealed class SignupsController(
         [FromQuery] bool scopeLivingName = false,
         [FromQuery] bool scopeDeadName = false,
         [FromQuery] bool scopePhone = false,
+        [FromQuery] bool scopeRemark = false,
         [FromQuery] bool isFixedNumber = false,
         CancellationToken ct = default)
     {
@@ -51,6 +52,7 @@ public sealed class SignupsController(
             ScopeLivingName: scopeLivingName,
             ScopeDeadName: scopeDeadName,
             ScopePhone: scopePhone,
+            ScopeRemark: scopeRemark,
             IsFixedNumber: isFixedNumber);
         return Ok(await search.HandleAsync(query, ct));
     }

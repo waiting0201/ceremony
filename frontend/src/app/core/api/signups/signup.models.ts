@@ -47,6 +47,7 @@ export interface SignupSearchQuery {
   scopeLivingName?: boolean;
   scopeDeadName?: boolean;
   scopePhone?: boolean;
+  scopeRemark?: boolean;
   isFixedNumber?: boolean;
 }
 

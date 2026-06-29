@@ -69,6 +69,8 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
                 orClauses.Add("(DeadNameOne LIKE @SearchKey OR DeadNameTwo LIKE @SearchKey OR DeadNameThree LIKE @SearchKey OR DeadNameFour LIKE @SearchKey OR DeadNameFive LIKE @SearchKey OR DeadNameSix LIKE @SearchKey)");
             if (query.ScopePhone)
                 orClauses.Add("Phone LIKE @SearchKey");
+            if (query.ScopeRemark)
+                orClauses.Add("Remark LIKE @SearchKey");
             if (orClauses.Count > 0)
                 p.Add("@SearchKey", Like(key));
         }

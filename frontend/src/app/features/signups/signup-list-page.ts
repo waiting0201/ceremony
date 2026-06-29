@@ -159,6 +159,7 @@ export class SignupListPage implements OnInit {
     scopeLivingName: [false],
     scopeDeadName: [false],
     scopePhone: [false],
+    scopeRemark: [false],
   });
 
   protected readonly batchForm = this.fb.nonNullable.group({
@@ -210,7 +211,11 @@ export class SignupListPage implements OnInit {
     this.form.patchValue(cached, { emitEvent: false });
     // scope* 連動 key 啟用狀態
     const anyScope =
-      cached.scopeName || cached.scopeLivingName || cached.scopeDeadName || cached.scopePhone;
+      cached.scopeName ||
+      cached.scopeLivingName ||
+      cached.scopeDeadName ||
+      cached.scopePhone ||
+      cached.scopeRemark;
     this.keyEnabled.set(anyScope);
     const keyCtrl = this.form.controls.searchKey;
     if (anyScope) keyCtrl.enable({ emitEvent: false });
@@ -239,7 +244,8 @@ export class SignupListPage implements OnInit {
   private bindScopeKeyToggle(): void {
     const update = () => {
       const v = this.form.getRawValue();
-      const any = v.scopeName || v.scopeLivingName || v.scopeDeadName || v.scopePhone;
+      const any =
+        v.scopeName || v.scopeLivingName || v.scopeDeadName || v.scopePhone || v.scopeRemark;
       this.keyEnabled.set(any);
       const ctrl = this.form.controls.searchKey;
       if (any) {
@@ -249,7 +255,13 @@ export class SignupListPage implements OnInit {
         if (ctrl.value) ctrl.setValue('', { emitEvent: false });
       }
     };
-    for (const name of ['scopeName', 'scopeLivingName', 'scopeDeadName', 'scopePhone'] as const) {
+    for (const name of [
+      'scopeName',
+      'scopeLivingName',
+      'scopeDeadName',
+      'scopePhone',
+      'scopeRemark',
+    ] as const) {
       this.form.controls[name].valueChanges
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe(update);
@@ -284,6 +296,7 @@ export class SignupListPage implements OnInit {
       scopeLivingName: v.scopeLivingName,
       scopeDeadName: v.scopeDeadName,
       scopePhone: v.scopePhone,
+      scopeRemark: v.scopeRemark,
       isFixedNumber: v.isFixedNumber,
     };
   }
@@ -320,6 +333,7 @@ export class SignupListPage implements OnInit {
       scopeLivingName: false,
       scopeDeadName: false,
       scopePhone: false,
+      scopeRemark: false,
     });
     this.form.controls.searchKey.disable({ emitEvent: false });
     this.keyEnabled.set(false);

@@ -13,6 +13,7 @@ export interface SignupSearchFormSnapshot {
   scopeLivingName: boolean;
   scopeDeadName: boolean;
   scopePhone: boolean;
+  scopeRemark: boolean;
 }
 
 /**

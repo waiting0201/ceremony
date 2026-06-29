@@ -18,6 +18,7 @@ public sealed record SignupSearchQuery(
     bool ScopeLivingName = false,
     bool ScopeDeadName = false,
     bool ScopePhone = false,
+    bool ScopeRemark = false,
     bool IsFixedNumber = false);
 
 /// <summary>
