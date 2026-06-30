@@ -15,6 +15,13 @@ public interface ISignupRepository
     Task<bool> NumberExistsExcludingAsync(int year, Guid ceremonyCategoryId, int signupType, int number, Guid excludeSignupId, CancellationToken ct = default);
 
     /// <summary>
+    /// 查某信眾在同一 (Year, CeremonyCategoryID) 既有的報名（忽略 SignupType，用於重複報名警示）。
+    /// 編輯模式以 excludeSignupId 排除自己。查無回空清單。
+    /// </summary>
+    Task<IReadOnlyList<SignupDuplicateItem>> FindDuplicatesByBelieverAsync(
+        int year, Guid ceremonyCategoryId, Guid believerId, Guid? excludeSignupId, CancellationToken ct = default);
+
+    /// <summary>
     /// 在交易內 lock 編號 + 插入 Signup + 插入 SignupLog。
     /// 若 nextNumber 為 null 則由 repository 內部用 UPDLOCK + MAX+1 算；否則用呼叫端提供值（keepNumber 路徑）。
     /// </summary>

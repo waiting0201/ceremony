@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import type {
   CreateSignupRequest,
+  SignupDuplicateListResponse,
   SignupListItem,
   SignupListResponse,
   SignupLogListResponse,
@@ -33,6 +34,26 @@ export class SignupApi {
 
   getById(id: string): Promise<SignupListItem> {
     return firstValueFrom(this.http.get<SignupListItem>(`${this.base}/${id}`));
+  }
+
+  /**
+   * 重複報名警示：查某信眾在同一 (year, ceremonyCategoryId) 既有的報名（忽略 signupType）。
+   * 編輯模式帶 excludeSignupId 排除自己。
+   */
+  checkDuplicates(q: {
+    year: number;
+    ceremonyCategoryId: string;
+    believerId: string;
+    excludeSignupId?: string | null;
+  }): Promise<SignupDuplicateListResponse> {
+    let params = new HttpParams()
+      .set('year', q.year)
+      .set('ceremonyCategoryId', q.ceremonyCategoryId)
+      .set('believerId', q.believerId);
+    if (q.excludeSignupId) params = params.set('excludeSignupId', q.excludeSignupId);
+    return firstValueFrom(
+      this.http.get<SignupDuplicateListResponse>(`${this.base}/duplicates`, { params }),
+    );
   }
 
   listLogs(id: string): Promise<SignupLogListResponse> {

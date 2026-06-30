@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<GetSignupHandler>();
         services.AddScoped<ListSignupLogsHandler>();
         services.AddScoped<CreateSignupHandler>();
+        services.AddScoped<CheckSignupDuplicatesHandler>();
         services.AddScoped<UpdateSignupHandler>();
         services.AddScoped<DeleteSignupHandler>();
         services.AddScoped<ExportSignupsHandler>();

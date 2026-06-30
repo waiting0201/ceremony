@@ -13,6 +13,7 @@ public sealed class SignupsController(
     SearchSignupsHandler search,
     GetSignupHandler get,
     ListSignupLogsHandler logs,
+    CheckSignupDuplicatesHandler checkDuplicates,
     CreateSignupHandler create,
     UpdateSignupHandler update,
     DeleteSignupHandler delete,
@@ -78,6 +79,21 @@ public sealed class SignupsController(
     [ProducesResponseType(typeof(SignupLogListResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<SignupLogListResponse>> GetLogs(Guid id, CancellationToken ct)
         => Ok(await logs.HandleAsync(id, ct));
+
+    /// <summary>重複報名警示：某信眾在同一 (Year, CeremonyCategoryID) 是否已有報名（忽略 SignupType，不阻擋）</summary>
+    /// <remarks>
+    /// Legacy: 無對應（舊系統不檢查信眾重複報名）。新版刻意增強。
+    /// Blueprint: docs/blueprints/api-endpoints/get-signup-duplicates.md
+    /// </remarks>
+    [HttpGet("duplicates")]
+    [ProducesResponseType(typeof(SignupDuplicateListResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SignupDuplicateListResponse>> Duplicates(
+        [FromQuery] int year,
+        [FromQuery] Guid ceremonyCategoryId,
+        [FromQuery] Guid believerId,
+        [FromQuery] Guid? excludeSignupId = null,
+        CancellationToken ct = default)
+        => Ok(await checkDuplicates.HandleAsync(year, ceremonyCategoryId, believerId, excludeSignupId, ct));
 
     /// <summary>新增報名（含 UPDLOCK 編號分配 + SignupLog 同步寫入）</summary>
     /// <remarks>

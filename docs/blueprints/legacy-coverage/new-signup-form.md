@@ -29,6 +29,7 @@ last_updated: 2026-05-29
 > - 地址 city→area 連動下拉 ✅（新增 `GET /zipcodes/cities` + `GET /zipcodes?city=`）+ 同寄件地址 checkbox
 > - inline 新建 Believer ❌ 故意捨棄（前端 orchestration：POST /believers 後再 POST /signups）；員工類型 + 固定編號於報名表單唯讀顯示（信眾屬性，於信眾維護調整）
 > - 選信眾自動帶入「預繳歷史」+ 固定編號顯示已補（2026-06-02，`BelieverListItem.IsFixedNumber` + `GET /prepay?believerId`）
+> - **重複報名警示 ➕ 新版增強（2026-06-30，無對應 legacy 行）**：舊 NewSignupForm 不檢查信眾重複報名；新版選信眾後即時查 `(Year, CeremonyCategoryID)` 同信眾既有報名（忽略 SignupType）跳警示但不阻擋。見 [get-signup-duplicates.md](../api-endpoints/get-signup-duplicates.md)。不影響本表覆蓋率（非 legacy 方法）。
 
 ## 稽核總覽
 

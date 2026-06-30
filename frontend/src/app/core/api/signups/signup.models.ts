@@ -73,6 +73,20 @@ export interface CreateSignupRequest {
   prepayCeremonyCategoryId?: string | null;
 }
 
+/** 重複報名警示項：某信眾在同一 (year, ceremonyCategoryId) 既有的報名（忽略 signupType）。 */
+export interface SignupDuplicateItem {
+  signupId: string;
+  signupType: number;
+  numberTitle: string | null;
+  number: number | null;
+  name: string | null;
+}
+
+export interface SignupDuplicateListResponse {
+  items: SignupDuplicateItem[];
+  total: number;
+}
+
 export interface SignupLogItem {
   id: string;
   signupId: string;

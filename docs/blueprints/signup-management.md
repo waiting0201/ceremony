@@ -16,7 +16,7 @@ related_docs:
   - prepay-loading.md
   - printing-reports.md
 keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印]
-last_updated: 2026-06-29 (列印普桌啟用條件改看選取列 every signupType===4，與搜尋篩選解耦)
+last_updated: 2026-06-30 (新增重複報名警示：同信眾同年同法會即時提示但不阻擋)
 ---
 
 ## 背景與動機
@@ -130,6 +130,7 @@ last_updated: 2026-06-29 (列印普桌啟用條件改看選取列 every signupTy
 - 城市/區域連動下拉資料源：`GET /zipcodes/cities`、`GET /zipcodes?city=`（見 [get-zipcodes.md](api-endpoints/get-zipcodes.md)）；對齊舊 `LoadCity` / `dlMailCity_SelectedIndexChanged`
 - **員工類型 + 固定編號唯讀顯示**：新流程不於報名建立時改信眾屬性（inline 新建/編輯 Believer 故意捨棄，於信眾維護調整）。`BelieverListItem` 已含 `IsFixedNumber`（2026-06-02），報名表單唯讀顯示「固定編號 是/否」
 - **選信眾自動帶入預繳歷史**：`pickBeliever` 呼叫 `GET /prepay?believerId&year`，最新報名有預繳則帶入預繳年/法會（對齊舊 `BelieverSelected:1102-1115`；見 [get-prepay-believer-latest.md](api-endpoints/get-prepay-believer-latest.md)）
+- **重複報名警示（新版加值，2026-06-30）**：選定信眾後（或改年份/法會時）即時查該信眾在同一 `(Year, CeremonyCategoryID)`（**忽略報名類型**）是否已有報名；有則於信眾區塊下方跳 `.alert-warn` 警示並逐筆列「編號 · 報名類型」。**僅提醒、不阻擋**，使用者仍可照常儲存。判定走唯讀 `GET /signups/duplicates`（`SignupApi.checkDuplicates`），前端以 `combineLatest`（year/ceremony/believer 三 control，debounce 300ms）觸發。編輯模式帶 `excludeSignupId` 排除自身。詳見 [get-signup-duplicates.md](api-endpoints/get-signup-duplicates.md)、[business-rules-implicit.md](../business-rules-implicit.md) §1.4
 - 「確認」→ `POST /api/v1/signups`（`CreateSignupHandler`，atomic：Insert Signups 自動 Number/NumberTitle + Insert SignupLogs 快照）；成功訊息「編號{number}，新增報名成功」
 - 「列印資料卡」路徑仍待列印模組 PoC
 - 實作：[signup-edit-form.component](../../frontend/src/app/features/signups/signup-edit-form.component.ts)（create/edit 共用）
@@ -149,6 +150,8 @@ last_updated: 2026-06-29 (列印普桌啟用條件改看選取列 every signupTy
    - 編號重複檢查排除自身 SignupID
 5. 「修改報名成功」
 ```
+
+- **重複報名警示同樣適用編輯**（共用 `signup-edit-form`）：若把年份/法會改成與該信眾另一筆相同，跳警示但**排除自己這筆**（`excludeSignupId=signupId`）；僅提醒、不阻擋。見上方「新增」段與 [get-signup-duplicates.md](api-endpoints/get-signup-duplicates.md)。
 
 ### 歷程（SignupLogForm 對應）
 

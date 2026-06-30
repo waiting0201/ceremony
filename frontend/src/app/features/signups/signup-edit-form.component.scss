@@ -154,3 +154,11 @@
   .meta { color: var(--c-text-secondary); margin-left: auto; font-size: var(--font-size-xs); }
   .r2 { color: var(--c-text-secondary); font-size: var(--font-size-xs); }
 }
+
+// 重複報名警示清單（.alert-warn 內）
+.dup-list {
+  margin: var(--space-xs) 0 0;
+  padding-left: var(--space-lg);
+
+  li { font-size: var(--font-size-sm); }
+}

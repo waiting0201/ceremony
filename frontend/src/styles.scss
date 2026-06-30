@@ -158,6 +158,12 @@ a {
     border-color: var(--c-border);
     color: var(--c-text-primary);
   }
+
+  &.alert-warn {
+    background: #FBF1DF;
+    border-color: var(--c-warning);
+    color: #8A5A14;
+  }
 }
 
 .hint {

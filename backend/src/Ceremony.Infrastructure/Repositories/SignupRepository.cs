@@ -191,6 +191,36 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         return n > 0;
     }
 
+    public async Task<IReadOnlyList<SignupDuplicateItem>> FindDuplicatesByBelieverAsync(
+        int year, Guid ceremonyCategoryId, Guid believerId, Guid? excludeSignupId, CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT SignupID, SignupType, NumberTitle, Number, Name
+            FROM dbo.Signups
+            WHERE Year = @Year AND CeremonyCategoryID = @Cat AND BelieverID = @Believer
+              AND (@Exclude IS NULL OR SignupID <> @Exclude)
+            ORDER BY SignupType, Number
+            """;
+
+        await using var conn = await factory.CreateOpenAsync(ct);
+        var rows = await conn.QueryAsync(new CommandDefinition(sql,
+            new { Year = year, Cat = ceremonyCategoryId, Believer = believerId, Exclude = excludeSignupId },
+            cancellationToken: ct));
+
+        var list = new List<SignupDuplicateItem>();
+        foreach (var r in rows)
+        {
+            var d = (IDictionary<string, object?>)r;
+            list.Add(new SignupDuplicateItem(
+                SignupId: (Guid)d["SignupID"]!,
+                SignupType: (int)d["SignupType"]!,
+                NumberTitle: d["NumberTitle"] as string,
+                Number: d["Number"] as int?,
+                Name: d["Name"] as string));
+        }
+        return list;
+    }
+
     public async Task<bool> UpdateWithLogAsync(
         SignupWriteModel s,
         SignupLogWriteModel l,

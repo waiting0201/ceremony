@@ -54,6 +54,19 @@
     } @else {
       <button type="button" class="btn btn-primary" (click)="openBelieverPicker()">選擇信眾</button>
     }
+
+    <!-- 重複報名警示：同信眾同年同法會（忽略報名類型）已有報名。僅提醒，不阻擋。 -->
+    @if (duplicates().length) {
+      <div class="alert alert-warn" role="alert">
+        <strong>⚠️ 此信眾在 {{ form.controls.year.value }} 年「{{ selectedCeremonyTitle() }}」已有
+          {{ duplicates().length }} 筆報名（仍可繼續報名）：</strong>
+        <ul class="dup-list">
+          @for (d of duplicates(); track d.signupId) {
+            <li>{{ d.numberTitle }}{{ d.number }} · {{ signupTypeLabel(d.signupType) }}</li>
+          }
+        </ul>
+      </div>
+    }
   </fieldset>
 
   <!-- 基本資料（對齊舊 dlEmployeeType / txtHallName / txtName / txtPhone） -->

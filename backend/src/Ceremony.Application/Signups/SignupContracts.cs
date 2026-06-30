@@ -57,3 +57,16 @@ public sealed record SignupListItem(
     DateTime? CreateDate);
 
 public sealed record SignupListResponse(IReadOnlyList<SignupListItem> Items, int Total);
+
+/// <summary>
+/// 重複報名警示項：某信眾在同一 (Year, CeremonyCategoryID) 既有的報名摘要（忽略 SignupType）。
+/// </summary>
+/// <remarks>新版增強，legacy 無此檢查。詳見 docs/blueprints/api-endpoints/get-signup-duplicates.md。</remarks>
+public sealed record SignupDuplicateItem(
+    Guid SignupId,
+    int SignupType,
+    string? NumberTitle,
+    int? Number,
+    string? Name);
+
+public sealed record SignupDuplicateListResponse(IReadOnlyList<SignupDuplicateItem> Items, int Total);

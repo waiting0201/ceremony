@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-06-02 (加 GET /backup/{file}/download)
+last_updated: 2026-06-30 (加 GET /signups/duplicates — 重複報名警示)
 ---
 
 ## 通則
@@ -157,6 +157,7 @@ HTTP status 映射：
 | DELETE | `/signups/{id}` | 刪除 |
 | GET | `/signups/{id}/logs` | 歷程（Createdate DESC） |
 | GET | `/signups/{id}/believer-fill-context?year=` | NewSignupForm 自動帶入：含「今年以前最新報名」 |
+| GET | `/signups/duplicates?year=&ceremonyCategoryId=&believerId=&excludeSignupId=` | 重複報名警示：某信眾在同一 (year, ceremonyCategoryId) 既有報名（**忽略 signupType**）→ `{items:[{signupId, signupType, numberTitle, number, name}], total}`。查無回空。新版增強，legacy 無此檢查；僅警示不阻擋。Blueprint: [get-signup-duplicates.md](../blueprints/api-endpoints/get-signup-duplicates.md) |
 | POST | `/signups/check-number-conflict` | `{year, ceremonyId, signupType, number, excludeSignupId?}` |
 | POST | `/signups/next-number` | `{year, ceremonyId, signupType}` → `{next}`（對應 Library.GetSignupNumber） |
 | POST | `/signups/export-excel` | body: 同 search query → 回傳 .xlsx 串流 |

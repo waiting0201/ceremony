@@ -11,9 +11,11 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { combineLatest, debounceTime, distinctUntilChanged, map, startWith } from 'rxjs';
 import { SignupApi } from '../../core/api/signups/signup.api';
 import type {
   CreateSignupRequest,
+  SignupDuplicateItem,
   SignupListItem,
 } from '../../core/api/signups/signup.models';
 import { CategoryApi } from '../../core/api/categories/category.api';
@@ -24,7 +26,7 @@ import { ZipcodeApi } from '../../core/api/zipcodes/zipcode.api';
 import type { ZipcodeAreaItem } from '../../core/api/zipcodes/zipcode.models';
 import { PrepayApi } from '../../core/api/prepay/prepay.api';
 import { ApiError } from '../../core/http/api-error';
-import { SIGNUP_TYPES } from '../../shared/util/signup-type';
+import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-season';
@@ -96,6 +98,10 @@ export class SignupEditFormComponent {
   protected readonly mailZipcode = signal('');
   protected readonly textZipcode = signal('');
 
+  // 重複報名警示：選定信眾在同年同法會（忽略報名類型）既有的報名；僅警示、不阻擋
+  protected readonly duplicates = signal<SignupDuplicateItem[]>([]);
+  protected readonly checkingDuplicates = signal(false);
+
   protected readonly believerSearchTerm = signal('');
   protected readonly believerSearchResults = signal<BelieverListItem[]>([]);
   protected readonly believerSearching = signal(false);
@@ -156,6 +162,67 @@ export class SignupEditFormComponent {
     this.form.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.dirtyChange.emit(this.form.dirty));
+
+    // 重複報名警示：year / 法會 / 信眾 任一變動就（去抖後）重查。
+    // pickBeliever / applyItem 都是透過 patchValue 改 believerId，會觸發此處。
+    combineLatest([
+      this.form.controls.year.valueChanges.pipe(startWith(this.form.controls.year.value)),
+      this.form.controls.ceremonyCategoryId.valueChanges.pipe(
+        startWith(this.form.controls.ceremonyCategoryId.value),
+      ),
+      this.form.controls.believerId.valueChanges.pipe(
+        startWith(this.form.controls.believerId.value),
+      ),
+    ])
+      .pipe(
+        debounceTime(300),
+        map(([year, ceremonyCategoryId, believerId]) => ({ year, ceremonyCategoryId, believerId })),
+        distinctUntilChanged(
+          (a, b) =>
+            a.year === b.year &&
+            a.ceremonyCategoryId === b.ceremonyCategoryId &&
+            a.believerId === b.believerId,
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => void this.checkDuplicates());
+  }
+
+  /**
+   * 查選定信眾在同年同法會（忽略報名類型）是否已有報名 → 警示用。
+   * 三鍵未齊則清空；編輯模式排除自己這筆。便利功能，失敗不阻斷流程。
+   */
+  private async checkDuplicates(): Promise<void> {
+    const year = this.form.controls.year.value;
+    const ceremonyCategoryId = this.form.controls.ceremonyCategoryId.value;
+    const believerId = this.form.controls.believerId.value;
+    if (!year || year <= 0 || !ceremonyCategoryId || !believerId) {
+      this.duplicates.set([]);
+      return;
+    }
+    this.checkingDuplicates.set(true);
+    try {
+      const resp = await this.api.checkDuplicates({
+        year,
+        ceremonyCategoryId,
+        believerId,
+        excludeSignupId: this.signupId(),
+      });
+      this.duplicates.set(resp.items);
+    } catch {
+      this.duplicates.set([]);
+    } finally {
+      this.checkingDuplicates.set(false);
+    }
+  }
+
+  /** 警示逐筆用：報名類型代碼 → 顯示名稱（沿用共用 helper）。 */
+  protected readonly signupTypeLabel = signupTypeLabel;
+
+  /** 警示標題用：依目前選定的法會 id 取名稱。 */
+  protected selectedCeremonyTitle(): string {
+    const id = this.form.controls.ceremonyCategoryId.value;
+    return this.flatCategories().find((c) => c.id === id)?.title ?? '';
   }
 
   private async loadCategories(): Promise<void> {
