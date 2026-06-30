@@ -140,6 +140,62 @@ public sealed class RendererSmokeTests
         ShouldBePdf(pdf);
     }
 
+    // 第 6 位往生/陽上必印滿（修正 legacy 缺陷，business-rules-implicit §18）。
+    // 回歸鎖：legacy 把第 6 位「靜默丟字」（PDF 仍有效，只是少一欄）→ ShouldBePdf 抓不到。
+    // 故用「只填第 6 位 vs 全空」比 PDF 大小：第 6 位若有渲染必含額外字符/字型子集 → 變大；
+    // 若被丟掉則兩者相等。直接隔離 d[5]/l[5] 是否真的畫出來。
+    [Fact]
+    public void Tablet_Base_SixthDeadAndLiving_AreRendered()
+    {
+        TabletData Data(string?[] dead, string?[] living) => new(
+            Number: "信1", HallNameFirst: "甲", HallNameSecond: "堂",
+            DeadNames: dead, LivingNames: living, ParaFontSizeCm: 0.6, Template: TabletTemplate.Base);
+
+        var empty = new TabletRenderer().Render(Data(N(), N()));
+        var sixthOnly = new TabletRenderer().Render(Data(
+            N(null, null, null, null, null, "亡己"),
+            N(null, null, null, null, null, "陽巳")));
+        ShouldBePdf(sixthOnly);
+        sixthOnly.Length.Should().BeGreaterThan(empty.Length,
+            "第 6 位往生/陽上必須真的渲染（非如 legacy 靜默丟字）");
+
+        var full = new TabletRenderer().Render(Data(
+            N("亡甲", "亡乙", "亡丙", "亡丁", "亡戊", "亡己"),
+            N("陽子", "陽丑", "陽寅", "陽卯", "陽辰", "陽巳")));
+        ShouldBePdf(full);
+        DumpIfRequested(full, "tablet_six.pdf");
+    }
+
+    [Fact]
+    public void Text_Base_SixthDeadAndLiving_AreRendered()
+    {
+        TextData Data(string?[] dead, string?[] living) => new(
+            Number: "信1", HallNameFirst: "甲", HallNameSecond: "堂",
+            DeadNames: dead, LivingNames: living,
+            Address: "台北市中山區民族東路161號5樓", Template: TextTemplate.Base);
+
+        var empty = new TextRenderer().Render(Data(N(), N()));
+        var sixthOnly = new TextRenderer().Render(Data(
+            N(null, null, null, null, null, "亡己"),
+            N(null, null, null, null, null, "陽巳")));
+        ShouldBePdf(sixthOnly);
+        sixthOnly.Length.Should().BeGreaterThan(empty.Length,
+            "第 6 位往生/陽上必須真的渲染（非如 legacy 靜默丟字）");
+
+        var full = new TextRenderer().Render(Data(
+            N("亡甲", "亡乙", "亡丙", "亡丁", "亡戊", "亡己"),
+            N("陽子", "陽丑", "陽寅", "陽卯", "陽辰", "陽巳")));
+        ShouldBePdf(full);
+        DumpIfRequested(full, "text_six.pdf");
+    }
+
+    // 設 CEREMONY_PDF_DUMP=<dir> 時把 PDF 寫出供 pdftotext 對位驗收；未設則不落地（CI 純記憶體）。
+    private static void DumpIfRequested(byte[] pdf, string name)
+    {
+        var dir = Environment.GetEnvironmentVariable("CEREMONY_PDF_DUMP");
+        if (!string.IsNullOrEmpty(dir)) System.IO.File.WriteAllBytes(System.IO.Path.Combine(dir, name), pdf);
+    }
+
     [Theory]
     [InlineData(WorshipTemplate.One)]
     [InlineData(WorshipTemplate.Two)]

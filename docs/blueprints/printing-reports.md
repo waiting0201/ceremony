@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-06-02
+last_updated: 2026-06-30 (薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)
 ---
 
 ## 背景與動機
@@ -201,6 +201,8 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 欄位：HallNameFirst / HallNameSecond / Number / 6×LivingName / 6×DeadName
 
+> ✅ **第 6 位往生/陽上必印滿（修正 legacy 缺陷，2026-06-30 已實作）**：legacy RDLC + 原 renderer 只畫 `d[0..4]`/`l[0..4]`，第 6 格 silently 丟掉。已在 `TabletRenderer`（往生 default + 陽上 Two/One/Base）補 `[5]`，座標（補矩陣空位）往生6 `Top9.4464/L4.9`、陽上6 `Top15.44174/L1.56167`，納入 `GroupFontPt` 分組。回歸鎖 `RendererSmokeTests`、pdftoppm 影像驗證。視覺圖 [reference/diagrams/tablet-text-sixth-name-position.png](../../reference/diagrams/tablet-text-sixth-name-position.png)。詳見 [business-rules-implicit.md §18](../business-rules-implicit.md)。
+
 > **變體選擇邏輯（已完整反推）**：詳見下方「變體選擇邏輯」章節。可選擇：(a) 還原 9 個 RDLC 結構，或 (b) 新版改用單一彈性模板 + 條件式渲染。**建議 (a)**：版面已驗證可用，1:1 還原最安全。
 
 ### 4. 文牒（tmpText × 2 變體）
@@ -218,6 +220,8 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 欄位：HallNameFirst / HallNameSecond / Number / 6×LivingName / 6×DeadName / 垂直地址圖
 
 > **往生/陽上欄位的逐格絕對列印座標、列距、主欄**見 [printing-reports-positions.md § 12（tmpText）/ § 13（tmpTextTwo）](printing-reports-positions.md)：tmpText 往生 5 格矩陣列距 **2.06375cm**、陽上 **1.98436cm**；tmpTextTwo 恰 2 亡皆整欄高。此表為對位驗收與排查重疊的 single source of truth。
+
+> ✅ **第 6 位往生/陽上必印滿（同薦牌，2026-06-30 已實作）**：文牒同印往生 + 陽上，原 `TextRenderer`（陽上 inline / 往生 tmpText）只畫 `[0..4]`。已補 `[5]`，座標（補矩陣空位）往生6 `Top5.72264/L12.41251`、陽上6 `Top17.25916/L21.87382`。回歸鎖 + 影像驗證（往生+陽上各 6 位全印）。詳見 [business-rules-implicit.md §18](../business-rules-implicit.md)。
 
 ### 5. 普桌（tmpWorship × 6 變體）
 

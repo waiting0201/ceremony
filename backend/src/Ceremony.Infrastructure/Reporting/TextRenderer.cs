@@ -46,16 +46,18 @@ public sealed class TextRenderer
                     const double livingPitch = 17.25916 - 15.2748; // 1.98436
                     const double livingFull = 6.72806;
                     var lv = data.LivingNames;
+                    // 第 6 位（lv[5]）補在下排右欄 L21.87382（主欄 lv[0] 正下方），使矩陣對稱（座標確認見 business-rules-implicit §18）。
                     var fl = VerticalText.GroupFontPt(pt08l,
-                        (lv[0], livingFull),
+                        (lv[0], VerticalText.Avail(lv[5], livingPitch, livingFull)),
                         (lv[1], VerticalText.Avail(lv[3], livingPitch, livingFull)),
                         (lv[2], VerticalText.Avail(lv[4], livingPitch, livingFull)),
-                        (lv[3], livingFull), (lv[4], livingFull));
+                        (lv[3], livingFull), (lv[4], livingFull), (lv[5], livingFull));
                     DrawText(layers, 15.2748, 21.87382, 0.91251, livingFull, fl, lv[0], vertical: true);
                     DrawText(layers, 15.2748, 20.96131, 0.91251, livingFull, fl, lv[1], vertical: true);
                     DrawText(layers, 15.2748, 20.0488, 0.91251, livingFull, fl, lv[2], vertical: true);
                     DrawText(layers, 17.25916, 20.96131, 0.91251, livingFull, fl, lv[3], vertical: true);
                     DrawText(layers, 17.25916, 20.0488, 0.91251, livingFull, fl, lv[4], vertical: true);
+                    DrawText(layers, 17.25916, 21.87382, 0.91251, livingFull, fl, lv[5], vertical: true); // Six（補：下排右欄，主欄正下方）
 
                     // DeadName（Rectangle2 群組，絕對座標 = Rect 原點 + 相對；0.8cm）
                     DrawDeadNames(layers, data);
@@ -93,16 +95,19 @@ public sealed class TextRenderer
         // 次要格上排只在「正下方有名字」時才以列距為界，否則整欄高（不限）。
         const double pitch = 5.72264 - 3.65889; // 2.06375
         const double full = 10.50374;
+        // 第 6 位（d[5]）補在下排正中央 L12.41251（主欄 d[0] 正下方），使矩陣對稱（座標確認見 business-rules-implicit §18）。
+        // d[0] 之前下方為空可用整欄高；現 d[5] 在其正下方 → 改用列距為界（無第 6 位時 Avail 回整欄高＝向後相容）。
         var f = VerticalText.GroupFontPt(pt08,
-            (d[0], full),
+            (d[0], VerticalText.Avail(d[5], pitch, full)),
             (d[1], VerticalText.Avail(d[3], pitch, full)),
             (d[2], VerticalText.Avail(d[4], pitch, full)),
-            (d[3], full), (d[4], full));
+            (d[3], full), (d[4], full), (d[5], full));
         DrawText(layers, 3.65889, 12.41251, 0.91251, full, f, d[0], vertical: true); // One（主欄）
         DrawText(layers, 3.65889, 13.32502, 0.91251, full, f, d[1], vertical: true); // Two
         DrawText(layers, 3.65889, 11.5, 0.91251, full, f, d[2], vertical: true);     // Three
         DrawText(layers, 5.72264, 13.32502, 0.91251, full, f, d[3], vertical: true); // Four
         DrawText(layers, 5.72264, 11.5, 0.91251, full, f, d[4], vertical: true);     // Five
+        DrawText(layers, 5.72264, 12.41251, 0.91251, full, f, d[5], vertical: true); // Six（補：下排中央，主欄正下方）
     }
 
     private static void DrawText(LayersDescriptor layers, double top, double left, double width, double height, double fontPt, string? text, bool bold = false, bool vMiddle = false, bool vertical = false)

@@ -13,7 +13,7 @@ related_docs:
   - blueprints/printing-reports.md
   - design/database-design.md
 keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季]
-last_updated: 2026-06-29 (§16 列印普桌啟用條件改看選取列而非搜尋篩選)
+last_updated: 2026-06-30 (§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -293,3 +293,33 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 - 月份取自系統當下日期（公曆月份；民國年僅換算年份不影響月份）。
 - 邊界：4/5 月之交切春季↔中元、8/9 月之交切中元↔秋季。
 - 實作：`frontend/src/app/shared/util/ceremony-season.ts`（`seasonForMonth` / `currentSeason` / `resolveSeasonRootId`，GUID 優先、title 退場）；表單 `applySeasonDefault()` 僅在 create 模式且欄位尚未有值時帶入，編輯模式不覆蓋。
+
+---
+
+## 18. 薦牌／文牒列印「第 6 位往生/陽上」必印滿（**新版修正 legacy 缺陷**，2026-06-30 定案）
+
+> ⚠ 此為新系統**刻意偏離 legacy**：舊系統第 6 位往生/陽上**可登錄、可存 DB、可搜尋，但列印時被默默丟掉**。新版要求**印滿 6 個**。
+
+**Legacy 行為（缺陷）：**
+- DB（`Signups.DeadNameSix` / `LivingNameSix`）、輸入表單（`txtDeadNameSix` 等，**未** disable）、列印 ViewModel（[SignupForm.cs:316](../reference/old/Ceremony/SignupForm.cs#L316) / [372](../reference/old/Ceremony/SignupForm.cs#L372)）**都有**第 6 欄。
+- 但 RDLC 報表版面只宣告 dataset `<Field>`、**沒有第 6 格 textbox** → `=Fields!DeadNameSix.Value` 從未渲染。薦牌（`tmpTablet*`）、文牒（`tmpText*`）**全部 11 個變體皆只印 1–5**。唯一印第 6 的是普桌 `tmpWorship`（`LivingNameSix`）。
+- 屬隱性缺陷（無提示），非刻意 disable。
+
+**新版決議：薦牌、文牒列印一律印滿 6 位往生 + 6 位陽上。**
+
+**狀態：✅ 已實作（2026-06-30）。** `TabletRenderer`（往生 default case + 陽上 Two/One/Base 三變體）與 `TextRenderer`（往生 tmpText + 陽上 inline）共 4 組補上 `d[5]`/`l[5]` 繪製：座標補矩陣空位、納入 `GroupFontPt` 統一字級分組（主名 `Avail` 改看第 6 位 → 有第 6 位才縮、無則行為與舊版完全相同＝向後相容）。回歸鎖：`RendererSmokeTests` 以「只填第 6 位 vs 全空」比 PDF 大小，隔離 `[5]` 是否真渲染（legacy 靜默丟字時兩者相等 → 失敗）。pdftotext + pdftoppm 影像驗證薦牌/文牒往生+陽上各 6 位全印、第 6 位落矩陣空位。**仍待**：實機預印紙對位驗收（±0.2cm）。
+
+**原始缺陷（背景）：** 新 QuestPDF renderer 原從 legacy RDLC 1:1 抽座標，**沿用了同一缺陷** — [TabletRenderer.cs:100-104](../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs#L100-L104)（往生）/ [110-188](../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs#L110-L188)（陽上）與 [TextRenderer.cs:54-58](../backend/src/Ceremony.Infrastructure/Reporting/TextRenderer.cs#L54-L58)（陽上）/ [101-105](../backend/src/Ceremony.Infrastructure/Reporting/TextRenderer.cs#L101-L105)（往生）只畫 `d[0..4]` / `l[0..4]`，`d[5]`/`l[5]` 永不繪製（data 陣列已是 6 元素，只差座標與分組）。**薦牌、文牒各有往生 + 陽上兩組，共 4 組要補。**
+
+**第 6 格座標（已確認，2026-06-30 Tim 拍板）：** legacy 無任何來源（已查證：薦牌 9 + 文牒 2 共 11 個變體，`Fields!DeadNameSix.Value` / `LivingNameSix.Value` 皆未綁定 textbox，最大渲染數恆為 5；`...Six` 只在 DataSet `<Fields>` 宣告，是孤兒欄位）。各組現為 2×3 缺一角，第 6 格**補進該空位使矩陣對稱**，座標如下（cm，直書，origin = 左上）：
+
+| 報表 | 區 | Top | Left | 格寬 | 對齊依據 |
+|---|---|---|---|---|---|
+| 薦牌 tmpTablet | 往生6 | **9.4464** | **4.9** | 0.6 | Top 對齊往生下排 d4/d5、Left 對齊主名 d1 |
+| 薦牌 tmpTablet | 陽上6 | **15.44174** | **1.56167** | 0.7 | Top 對齊陽上下排 l4/l5、Left 對齊主名 l1 |
+| 文牒 tmpText | 往生6 | **5.72264** | **12.41251** | 0.91251 | 同上邏輯 |
+| 文牒 tmpText | 陽上6 | **17.25916** | **21.87382** | 0.91251 | 同上邏輯 |
+
+> 視覺確認圖（按真實 cm 比例，紅色虛線為第 6 格）：[reference/diagrams/tablet-text-sixth-name-position.png](../reference/diagrams/tablet-text-sixth-name-position.png)（向量原圖 `.svg` + 產圖腳本 `.draw.js` 同目錄，座標若調整重跑即可）。
+
+> **僅基本變體出現第 6 位**：其他變體（`tmpTabletOne/Two/_One…`、`tmpTextTwo`）本就是 1–2 位往生的少格版，不會有第 6 位，只需改 `tmpTablet`(基本) 與 `tmpText`(基本)。**實機對位仍建議印一張驗收**（預印紙 ±0.2cm；見 [printing-reports.md](blueprints/printing-reports.md) 預印對位段）。第 6 位字級／列距比照同排次要格(4/5)納入 `GroupFontPt` 分組。

@@ -91,17 +91,21 @@ public sealed class TabletRenderer
                 // 可用高：次要格(Two/Three)取「到下一格的列距」且僅當下方有名字才限制；主欄/末排用全高。
                 const double deadRowPitch = 9.4464 - 7.5825; // 1.8639
                 const double deadFull = 11.0331;
+                // 第 6 位（d[5]）補在下排正中央 L4.9（主欄 d[0] 正下方），使 2×3 矩陣對稱（座標確認見 business-rules-implicit §18）。
+                // d[0] 之前下方為空可用整欄高；現 d[5] 在其正下方 → 改用列距為界（有第 6 位才縮，無則 Avail 回整欄高＝向後相容）。
                 var f = VerticalText.GroupFontPt(paraPt,
-                    (d[0], deadFull),
+                    (d[0], VerticalText.Avail(d[5], deadRowPitch, deadFull)),
                     (d[1], VerticalText.Avail(d[3], deadRowPitch, deadFull)),
                     (d[2], VerticalText.Avail(d[4], deadRowPitch, deadFull)),
                     (d[3], 5.5298),
-                    (d[4], 5.5298));
+                    (d[4], 5.5298),
+                    (d[5], 5.5298));
                 DrawText(layers, 7.5825, 4.9, 0.6, deadFull, f, d[0], vertical: true);   // One（主，高欄）
                 DrawText(layers, 7.5825, 5.8, 0.6, deadFull, f, d[1], vertical: true);   // Two
                 DrawText(layers, 7.5825, 4.0, 0.6, deadFull, f, d[2], vertical: true);   // Three
                 DrawText(layers, 9.4464, 5.8, 0.6, deadFull, f, d[3], vertical: true);   // Four
                 DrawText(layers, 9.4464, 4.0, 0.6, deadFull, f, d[4], vertical: true);   // Five
+                DrawText(layers, 9.4464, 4.9, 0.6, deadFull, f, d[5], vertical: true);   // Six（補：下排中央，主欄正下方）
                 break;
             }
         }
@@ -143,15 +147,16 @@ public sealed class TabletRenderer
             {
                 // Two 變體 L 微調
                 var f = VerticalText.GroupFontPt(pt06,
-                    (l[0], LivingFull),
+                    (l[0], VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
                     (l[1], VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
                     (l[2], VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
-                    (l[3], LivingFull), (l[4], LivingFull));
+                    (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
                 DrawText(layers, 14.00389, 1.52639, 0.7, LivingFull, f, l[0], vertical: true);
                 DrawText(layers, 14.00389, 0.8, 0.7, LivingFull, f, l[1], vertical: true);
                 DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l[2], vertical: true);
                 DrawText(layers, 15.44174, 0.8, 0.7, LivingFull, f, l[3], vertical: true);
                 DrawText(layers, 15.44174, 0.1, 0.7, LivingFull, f, l[4], vertical: true);
+                DrawText(layers, 15.44174, 1.52639, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
                 break;
             }
 
@@ -159,15 +164,16 @@ public sealed class TabletRenderer
             {
                 // One 變體
                 var f = VerticalText.GroupFontPt(pt06,
-                    (l[0], LivingFull),
+                    (l[0], VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
                     (l[1], VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
                     (l[2], VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
-                    (l[3], LivingFull), (l[4], LivingFull));
+                    (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
                 DrawText(layers, 14.00389, 1.56167, 0.7, LivingFull, f, l[0], vertical: true);
                 DrawText(layers, 14.00389, 0.83528, 0.7, LivingFull, f, l[1], vertical: true);
                 DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l[2], vertical: true);
                 DrawText(layers, 15.44174, 0.83528, 0.7, LivingFull, f, l[3], vertical: true);
                 DrawText(layers, 15.44174, 0.1, 0.7, LivingFull, f, l[4], vertical: true);
+                DrawText(layers, 15.44174, 1.56167, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
                 break;
             }
 
@@ -175,15 +181,16 @@ public sealed class TabletRenderer
             {
                 // Base
                 var f = VerticalText.GroupFontPt(pt06,
-                    (l[0], LivingFull),
+                    (l[0], VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
                     (l[1], VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
                     (l[2], VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
-                    (l[3], LivingFull), (l[4], LivingFull));
+                    (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
                 DrawText(layers, 14.00389, 1.56167, 0.7, LivingFull, f, l[0], vertical: true);
                 DrawText(layers, 14.00389, 0.83528, 0.7, LivingFull, f, l[1], vertical: true);
                 DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l[2], vertical: true);
                 DrawText(layers, 15.44174, 0.83528, 0.7, LivingFull, f, l[3], vertical: true);
                 DrawText(layers, 15.44174, 0.13528, 0.7, LivingFull, f, l[4], vertical: true);
+                DrawText(layers, 15.44174, 1.56167, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
                 break;
             }
         }

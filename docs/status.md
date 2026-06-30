@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-29 (列印普桌啟用條件改看選取列 every signupType===4，與搜尋篩選解耦)
+last_updated: 2026-06-30 (薦牌/文牒第 6 位往生/陽上已實作＋測試綠，移入 Recently Done)
 
 
 ---
@@ -160,6 +160,13 @@ last_updated: 2026-06-29 (列印普桌啟用條件改看選取列 every signupTy
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **薦牌／文牒印滿第 6 位往生/陽上（修正 legacy 缺陷）** — Done 2026-06-30
+  - 背景：舊系統第 6 位可登錄/存 DB/搜尋但列印被默默丟掉（11 個 RDLC 變體皆無第 6 格 textbox）；新 renderer 沿用同缺陷只畫 `[0..4]`
+  - 實作：`TabletRenderer`(往生 default + 陽上 Two/One/Base) + `TextRenderer`(往生 tmpText + 陽上 inline) 共 4 組補 `[5]`，座標補矩陣空位、納入 `GroupFontPt` 統一字級分組（主名 `Avail` 改看第 6 位、無第 6 位時行為不變＝向後相容）
+  - 座標：薦牌往生 `9.4464/4.9`、薦牌陽上 `15.44174/1.56167`、文牒往生 `5.72264/12.41251`、文牒陽上 `17.25916/21.87382`（見 [business-rules-implicit.md §18](business-rules-implicit.md)）
+  - 驗證：solution build 0 err；Infrastructure 65 測試綠（新增「只填第 6 位 vs 全空」回歸鎖隔離 `[5]` 渲染）；pdftotext + pdftoppm 影像確認薦牌/文牒往生+陽上各 6 位全印出、第 6 位落在矩陣空位
+  - **仍待**：實機預印紙對位驗收（±0.2cm，需印表機環境）
 
 - [x] **「列印普桌」啟用條件改看選取列（與搜尋篩選解耦）** — Done 2026-06-29
   - 需求：即使搜尋篩選非普桌，也要能直接挑普桌資料列印；但要驗證、不能出 bug
