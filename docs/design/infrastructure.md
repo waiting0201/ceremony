@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-06-29 (DB 解除凍結：schema 走 DbUp migration；runtime 帳號無 DDL、migration 用獨立帳號;rollback 改述向後相容前提)
+last_updated: 2026-07-01 (prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -228,6 +228,7 @@ Electron main 開機先偵測 client 是否裝齊必要元件，缺了走 `/prer
 
 - **非 Windows（dev on macOS/Linux）**：略過偵測（回 ok），sidecar 走 `dotnet run`，不需 client runtime。
 - **bundled installer（可選）**：若把 installer 放 `frontend/build/prereqs/`（→ 打包進 `resources/prereqs/`），`launchInstaller` 直接執行；缺檔則 `openExternal` 開官方下載頁。
+  - **2026-07-01 決策**：改為固定內建離線安裝檔（client 現場常無網路，不能臨時連網下載），`frontend/build/prereqs/` 已放兩個檔（gitignore，不進 repo，僅本機/CI 打包用）：`vc_redist.x64.exe`（[aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)）、`aspnetcore-runtime-10-win-x64.exe`（直接下載連結 [aka.ms/dotnet/10.0/aspnetcore-runtime-win-x64.exe](https://aka.ms/dotnet/10.0/aspnetcore-runtime-win-x64.exe)，會導向當前最新 10.0.x 版；`dotnet.microsoft.com/download/dotnet/10.0/runtime` 只是需手動點選的落地頁，非直接下載連結）。**新機器/CI 打包前須重新放這兩個檔**（不在 repo 裡）；發版時建議定期重新下載以跟上 patch 版號。
 
 ### 備份下載（另存，**2026-06-02 新增**）
 

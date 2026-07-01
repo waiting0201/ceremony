@@ -7,14 +7,14 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-06-30 (新增重複報名警示 GET /signups/duplicates；薦牌/文牒第 6 位往生/陽上已實作＋測試綠)
+last_updated: 2026-07-01 (prereq 離線安裝檔內建，更版 2.1.1)
 
 
 ---
 
 > 本檔由 Claude **自動維護**。任務開始/完成/卡住都必須更新。新增項目也要寫入。詳細規則見 [../CLAUDE.md](../CLAUDE.md) 「狀態追蹤規則」。
 
-**Current Version**: `v2.1.0`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
+**Current Version**: `v2.1.1`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
 
 ## 🔄 In Progress
 
@@ -43,7 +43,8 @@ last_updated: 2026-06-30 (新增重複報名警示 GET /signups/duplicates；薦
   - **✅ 實測（打包後 win-unpacked bundle，連本機 SQL；192.168.1.151 從 dev 機連不到故以 localhost 驗後端路徑）**：cwd 修好後 ContentRoot = `resources/api`、appsettings 載入、`POST /backup` **200** 寫出 ~108MB `.bak`；**`clearLog:true` 亦 200**（FULL recovery → 產 `.trn` log backup + SHRINKFILE、`logCleared=true`、`logClearError=null`）；`electron:build` 0 warning/0 err；`electron-builder --win` 成功、bundled 種子 = `192.168.1.151`
   - **⚠ 仍待實機驗證（需安裝執行）**：安裝精靈預設路徑 = `Program Files\Ceremony`、首次啟動不出現 setup 直接連線（config.json = 種子連線）、視窗無選單列、立即備份成功寫 D:\Backup、registry VC++ / .NET 10 偵測、實機列印
   - **⚠ 寺方 DB 主機需求**：`D:\Backup` 存在且 `NT Service\MSSQLSERVER`（或實際 SQL 服務帳號）可寫（舊系統已用此路徑，多半已具備）
-  - **後續（不阻當前）**：auto-update（需內網 update server）、可選 bundle prereq installers 到 `frontend/build/prereqs/`
+  - **✅ prereq installers 已內建（2026-07-01）**：`frontend/build/prereqs/` 放妥 `vc_redist.x64.exe` + `aspnetcore-runtime-10-win-x64.exe`（gitignore 不進 repo，來源見 [infrastructure.md](design/infrastructure.md) 「軟體相依偵測」）；client 現場常無網路，改固定內建離線安裝檔，`launchInstaller` 不再落到 `openExternal`
+  - **後續（不阻當前）**：auto-update（需內網 update server）
 
 ## 📋 Backlog
 
@@ -160,6 +161,12 @@ last_updated: 2026-06-30 (新增重複報名警示 GET /signups/duplicates；薦
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **prereq 離線安裝檔內建（VC++ Redistributable + .NET 10 ASP.NET Core Runtime）** — Done 2026-07-01，**更版 v2.1.1**（PATCH：僅打包資源調整，無程式邏輯變更）
+  - 背景：實機打包測試時 prereq 頁偵測到缺 ASP.NET Core Runtime 10.x（[frontend/electron/prereq.ts](../frontend/electron/prereq.ts) 判斷正確、非 bug，見 [gotchas.md](gotchas.md)），使用者要求現場安裝不依賴連網下載
+  - 做法：把 `vc_redist.x64.exe`（[aka.ms/vs/17/release/vc_redist.x64.exe](https://aka.ms/vs/17/release/vc_redist.x64.exe)）與 `aspnetcore-runtime-10-win-x64.exe`（[aka.ms/dotnet/10.0/aspnetcore-runtime-win-x64.exe](https://aka.ms/dotnet/10.0/aspnetcore-runtime-win-x64.exe)）放入 `frontend/build/prereqs/`（既有 gitignore + electron-builder.yml extraResources 機制，本身無需改 code）；已驗證兩檔為合法 Windows PE 執行檔
+  - 文件同步：[infrastructure.md](design/infrastructure.md) 「軟體相依偵測」補來源連結與決策
+  - **注意**：兩檔不進 repo，新機器/CI 打包前須重新放置（見 infrastructure.md 提醒）
 
 - [x] **重複報名警示：同信眾同年同法會即時提示（不阻擋）** — Done 2026-06-30，**更版 v2.1.0**（MINOR：新增 endpoint + UI，向後相容）
   - 需求：新增/編輯報名時，若選定信眾在同一 `(Year, CeremonyCategoryID)`（**忽略報名類型**）已有報名 → 跳警示，但**仍可報**
