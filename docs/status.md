@@ -124,6 +124,10 @@ last_updated: 2026-07-01 (prereq 離線安裝檔內建，更版 2.1.1)
 - [ ] **環境部署 4 項** — 部署位置/IP、update server、Code Signing、Sentry — 見 [pending §C](pending-business-input.md)
 - [ ] **訓練導入 3 項** — 排程、並行期、緊急聯絡 — 見 [pending §D](pending-business-input.md)
 - [ ] **Harness 自身**：Observability / HITL 章節化 / Iteration meta-rule / Cost tracking / doc-lint skill / PostToolUse hook
+- [ ] **32 位元 Windows client 支援評估** — 2026-07-01 實測某台寺方機器為 32 位元，裝 x64-only 安裝包報「不是正確的 Win32 應用程式」
+  - Why P2（先擱置）：工程量不小（後端多一條 `win-x86` publish、electron-builder 加 `ia32` target、另備 32 位元版 runtime 安裝檔、且 SkiaSharp/QuestPDF 原生庫是否有 win-x86 版未確認），且 32 位元 Windows 已停產多年，優先建議該 client 換 64 位元機器
+  - Detail: 根因與決策見 [gotchas.md](gotchas.md)「安裝包是 x64-only」條目
+  - 若之後真的有多台 32 位元機器（換機不可行）才評估重啟此項
 
 ## 🚧 Blocked
 

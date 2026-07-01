@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern]
-last_updated: 2026-06-02
+last_updated: 2026-07-01 (新增 x64-only 安裝包裝到 32 位元 Windows 的已知限制)
 ---
 
 ## 通用陷阱
@@ -185,6 +185,7 @@ last_updated: 2026-06-02
 - **安裝檔內含明文 sa 密碼**：出廠預寫連線後，`resources/default-config.json` 在 installer 內可被解出 → 安裝檔限內部交付勿外流（取捨見 [security.md](design/security.md)）。
 - **🔴 spawn single-file sidecar 一定要設 `cwd`，否則 appsettings.json 不載入**：ASP.NET Core single-file exe 的 ContentRoot 取自**工作目錄**（不是 exe 路徑）。`sidecar.ts` 若 `spawn(exe, …)` 不帶 `cwd`，ContentRoot 會變成 Electron 的 cwd（如 repo root / 安裝目錄）→ 找不到同層 `appsettings.json` → `Backup:Directory`、`Cors`、`Jwt:Issuer/Audience` 等全為 null。實際後果：**「資料備份」回 500 `BACKUP_NOT_CONFIGURED: Backup:Directory 未設定`**（連 backdoor 登入仍可，因 `SuperAdminEnabled` 有 code 預設值，故易被誤判成只有備份壞）。修法：`spawn` 帶 `cwd = path.dirname(exe)`（packaged = `resources/api`）。診斷招：看 API 啟動 log 的 `Content root path:` 是否指向 exe 所在資料夾。
 - **「立即備份」直接寫 `Backup:Directory`（D:\Backup），不跳選資料夾**：寺方為同機部署（程式裝在 DB 主機上），.bak 由 SQL Server 寫本機 D:\Backup 即可，使用者不需選位置（2026-06-02 決策，撤回先前「先選位置再備份」）。`D:\Backup` 須存在且 SQL Server 服務帳號（`NT Service\MSSQLSERVER`）可寫，否則 BACKUP DATABASE 即時失敗（`Cannot open backup device … Operating system error 3/5`）。dev 機可 `icacls "D:\Backup" /grant "NT Service\MSSQLSERVER:(OI)(CI)M"`。`electron/download.ts` 的下載另存仍保留為備用能力（UI 未掛）。
+- **安裝包是 x64-only，裝到 32 位元 Windows 會報「不是正確的 Win32 應用程式」**：`electron-builder.yml` `win.target.arch` 只有 `[x64]`，後端 sidecar 也只 publish `win-x64`；32 位元 OS 的載入器連 PE header 都解不了，這訊息是 Windows 對「執行檔架構不合」的通用錯誤，**與檔案有沒有正確複製、有沒有跑正式 NSIS 安裝檔無關**。**2026-07-01 決策**：暫不建 x86（32 位元）版安裝包（工程量不小：後端要多一條 `win-x86` publish、electron-builder 要加 `ia32` target、還要另外準備 32 位元版 ASP.NET Core Runtime / VC++ Redistributable 安裝檔，且 SkiaSharp/QuestPDF 原生庫是否有 win-x86 版尚未確認）；先擱置，改建議該 client 換 64 位元機器（32 位元 Windows 已停產多年，.NET 10 對 x86 支援也弱）。
 
 ## 反模式速查
 
