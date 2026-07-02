@@ -52,6 +52,7 @@ public sealed class TextRenderer
                         (lv[1], VerticalText.Avail(lv[3], livingPitch, livingFull)),
                         (lv[2], VerticalText.Avail(lv[4], livingPitch, livingFull)),
                         (lv[3], livingFull), (lv[4], livingFull), (lv[5], livingFull));
+
                     DrawText(layers, 15.2748, 21.87382, 0.91251, livingFull, fl, lv[0], vertical: true);
                     DrawText(layers, 15.2748, 20.96131, 0.91251, livingFull, fl, lv[1], vertical: true);
                     DrawText(layers, 15.2748, 20.0488, 0.91251, livingFull, fl, lv[2], vertical: true);
@@ -59,8 +60,11 @@ public sealed class TextRenderer
                     DrawText(layers, 17.25916, 20.0488, 0.91251, livingFull, fl, lv[4], vertical: true);
                     DrawText(layers, 17.25916, 21.87382, 0.91251, livingFull, fl, lv[5], vertical: true); // Six（補：下排右欄，主欄正下方）
 
-                    // DeadName（Rectangle2 群組，絕對座標 = Rect 原點 + 相對；0.8cm）
-                    DrawDeadNames(layers, data);
+                    // DeadName（Rectangle2 群組，絕對座標 = Rect 原點 + 相對；0.8cm）。
+                    // 往生／陽上**各自獨立**算安全字級（見 ComputeDeadFontPt 註解）——兩者共用同一個
+                    // 0.8cm 起始基準，姓名不多時自然一樣大；只有當某一組自己排不下時才會各自縮小，
+                    // 不會因為另一組縮小而連帶被拖小（見 docs/gotchas.md「往生字級被拖累」條）。
+                    DrawDeadNames(layers, data, ComputeDeadFontPt(data));
 
                     // PhotoAddress（垂直地址 PNG，Top 4.1 Left 25.4 W 0.66 H 16.8 FitProportional）
                     if (!string.IsNullOrEmpty(data.Address))
@@ -77,17 +81,19 @@ public sealed class TextRenderer
         }).GeneratePdf();
     }
 
-    private static void DrawDeadNames(LayersDescriptor layers, TextData data)
+    /// <summary>
+    /// DeadName 群組「自己不重疊」的安全上限字級。與 LivingName 各自獨立計算（同一 0.8cm 基準），
+    /// **不跨組對齊**：往生名字多、擠到需要縮小時，只縮往生自己，陽上不會被拖著一起縮小
+    /// （曾經加過跨組取最小值對齊、已撤回，見 docs/gotchas.md）。
+    /// </summary>
+    private static double ComputeDeadFontPt(TextData data)
     {
         var pt08 = 0.8 * PointsPerCm;
         var d = data.DeadNames;
         if (data.Template == TextTemplate.Two)
         {
             // tmpTextTwo Rectangle2 origin (3.62361, 11.5) — 2 亡者皆高欄
-            var f2 = VerticalText.GroupFontPt(pt08, (d[0], 10.50374), (d[1], 10.50374));
-            DrawText(layers, 3.65889, 13.01299, 0.91251, 10.50374, f2, d[0], vertical: true);
-            DrawText(layers, 3.62361, 11.85, 0.91251, 10.50374, f2, d[1], vertical: true);
-            return;
+            return VerticalText.GroupFontPt(pt08, (d[0], 10.50374), (d[1], 10.50374));
         }
 
         // tmpText Rectangle2 origin (3.65889, 11.5) — 5 格矩陣：上排 Two/Three(Top3.65889)
@@ -97,17 +103,30 @@ public sealed class TextRenderer
         const double full = 10.50374;
         // 第 6 位（d[5]）補在下排正中央 L12.41251（主欄 d[0] 正下方），使矩陣對稱（座標確認見 business-rules-implicit §18）。
         // d[0] 之前下方為空可用整欄高；現 d[5] 在其正下方 → 改用列距為界（無第 6 位時 Avail 回整欄高＝向後相容）。
-        var f = VerticalText.GroupFontPt(pt08,
+        return VerticalText.GroupFontPt(pt08,
             (d[0], VerticalText.Avail(d[5], pitch, full)),
             (d[1], VerticalText.Avail(d[3], pitch, full)),
             (d[2], VerticalText.Avail(d[4], pitch, full)),
             (d[3], full), (d[4], full), (d[5], full));
-        DrawText(layers, 3.65889, 12.41251, 0.91251, full, f, d[0], vertical: true); // One（主欄）
-        DrawText(layers, 3.65889, 13.32502, 0.91251, full, f, d[1], vertical: true); // Two
-        DrawText(layers, 3.65889, 11.5, 0.91251, full, f, d[2], vertical: true);     // Three
-        DrawText(layers, 5.72264, 13.32502, 0.91251, full, f, d[3], vertical: true); // Four
-        DrawText(layers, 5.72264, 11.5, 0.91251, full, f, d[4], vertical: true);     // Five
-        DrawText(layers, 5.72264, 12.41251, 0.91251, full, f, d[5], vertical: true); // Six（補：下排中央，主欄正下方）
+    }
+
+    private static void DrawDeadNames(LayersDescriptor layers, TextData data, double fontPt)
+    {
+        var d = data.DeadNames;
+        if (data.Template == TextTemplate.Two)
+        {
+            DrawText(layers, 3.65889, 13.01299, 0.91251, 10.50374, fontPt, d[0], vertical: true);
+            DrawText(layers, 3.62361, 11.85, 0.91251, 10.50374, fontPt, d[1], vertical: true);
+            return;
+        }
+
+        const double full = 10.50374;
+        DrawText(layers, 3.65889, 12.41251, 0.91251, full, fontPt, d[0], vertical: true); // One（主欄）
+        DrawText(layers, 3.65889, 13.32502, 0.91251, full, fontPt, d[1], vertical: true); // Two
+        DrawText(layers, 3.65889, 11.5, 0.91251, full, fontPt, d[2], vertical: true);     // Three
+        DrawText(layers, 5.72264, 13.32502, 0.91251, full, fontPt, d[3], vertical: true); // Four
+        DrawText(layers, 5.72264, 11.5, 0.91251, full, fontPt, d[4], vertical: true);     // Five
+        DrawText(layers, 5.72264, 12.41251, 0.91251, full, fontPt, d[5], vertical: true); // Six（補：下排中央，主欄正下方）
     }
 
     private static void DrawText(LayersDescriptor layers, double top, double left, double width, double height, double fontPt, string? text, bool bold = false, bool vMiddle = false, bool vertical = false)

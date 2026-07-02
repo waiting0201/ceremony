@@ -53,8 +53,11 @@ internal static class SkiaImageHelpers
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(SKColors.Transparent);
 
-        using var font = new SKFont(KaiTypeface, fontSize);
-        using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = true };
+        // Edging=Alias（不抗鋸齒）：抗鋸齒的邊緣半透明像素在這種窄欄（25px 寬）小字級下佔比高，
+        // 疊加印表機網點後視覺上明顯偏灰，客戶反映「地址字要再黑一點」。改無鋸齒後每個像素非黑即透明，
+        // 列印出來才是實黑（同 DashedLine 既有的 IsAntialias=false 選擇）。
+        using var font = new SKFont(KaiTypeface, fontSize) { Edging = SKFontEdging.Alias };
+        using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = false };
 
         var metrics = font.Metrics;
         var glyphHeight = metrics.Descent - metrics.Ascent;     // = font 行高（≈ 字級）

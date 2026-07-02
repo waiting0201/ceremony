@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-06-30 (薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)
+last_updated: 2026-07-02 (新增薦牌實體對位開放問題＋debugGrid 校正工具，待實測)
 ---
 
 ## 背景與動機
@@ -126,7 +126,29 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 ### 測試
 
-`backend/tests/Ceremony.Infrastructure.Tests/Reporting/RendererSmokeTests.cs` — 9 Tablet 變體 + 2 Text 變體 + DataCard/Receipt/Worship + `VerticalText.Stack`（直書）+ `VerticalText.GroupFontPt`（整組統一字級，4 case）helper 等；Infrastructure 全套 **42 綠**。
+`backend/tests/Ceremony.Infrastructure.Tests/Reporting/RendererSmokeTests.cs` — 9 Tablet 變體 + 2 Text 變體 + DataCard/Receipt/Worship + `VerticalText.Stack`（直書）+ `VerticalText.GroupFontPt`（整組統一字級，4 case）helper + `debugGrid` 校正格線 等；Infrastructure 全套 **69 綠**。
+
+### 文牒兩項客戶回饋修正（2026-07-02，源自 `reference/文牒問題.pdf` 手寫註記）
+
+客戶提供一張舊系統實際列印的文牒樣張（郵撥類報名，「郵1」= `NumberTitle=郵` + 編號 1，非另一種列印模板；見下方「編號欄」考據），上面手寫兩處修正意見：
+
+1. **地址要再黑一點**：[SkiaImageHelpers.VerticalAddress](../../backend/src/Ceremony.Infrastructure/Reporting/SkiaImageHelpers.cs)（垂直地址 25×605px PNG）原用 `IsAntialias=true`；在這麼窄的欄位、這麼小的點陣尺寸下，抗鋸齒邊緣的半透明灰階像素佔比偏高，肉眼看起來偏灰而非純黑。**修正**：改 `SKFont.Edging=SKFontEdging.Alias` + `IsAntialias=false`（與同檔案 `DashedLine` 既有的做法一致），有畫到的像素一律純黑（alpha=255 時 RGB=0,0,0）。回歸鎖：`Skia_VerticalAddress_NoAntiAliasedGrayEdges`（掃描每個像素驗證無灰階邊）。
+2. **往生（DeadName）姓名字級要跟陽上（LivingName）一樣大，但不能因此重疊，且不能靠縮小陽上來湊**：`TextRenderer` 「往生」「陽上」兩組**各自獨立**呼叫 `VerticalText.GroupFontPt`（共用同一 0.8cm 基準），各自都是「自己那組不重疊」的安全上限。姓名字數不多的常見情境（如該 PDF 樣張：2 位往生、3 位陽上）兩組本來就都不需縮字，**自然一樣大**，不需要額外邏輯。
+   - **曾經走過的彎路（已撤回）**：一度加了 `VerticalText.Harmonize(a, b) = Math.Min(a, b)`，兩組算完各自安全上限後取交集套用到兩組，想讓「兩組視覺一致」。但真的拿一筆往生超過 3 位、且有名字帶開頭全形空格的 dev DB 真實資料（`987F3061-...`，5 位往生）測過後發現：這種資料往生會被自己的次要格擠到需要縮到 ~0.516cm，Harmonize 會把陽上（原本可以維持 0.8cm 的「黃清霞」）也一起拖小到 0.516cm——客戶明確反映**不要縮小陽上**，要的是「盡量放大往生」而非「必要時犧牲陽上」。
+   - **數學上的硬限制**：往生次要格（Two/Three）可用高度＝列距（如 tmpText 為 2.06375cm），當名字字數（含刻意保留的開頭全形空格）撐到 4 行以上時，該格能用的字級上限就是「列距 ÷ 行數」，物理上不可能再放大而不疊到下一格（Four/Five）。這種擁擠情境下往生就是會比陽上小，這是版面空間不夠、不是程式邏輯錯誤，**不能靠犧牲陽上換取兩組一致**。
+   - **最終定案**：往生／陽上維持各自獨立計算，不跨組對齊。名字不多時自然一樣大（滿足客戶原始訴求）；名字擁擠到需要縮小時，只縮往生自己，陽上不受影響。回歸鎖：`Text_DeadAndLivingFontSizes_MatchWhenNeitherNeedsShrinking`（取自該 PDF 樣張的真實姓名/地址）+ `Text_DeadNameShrinks_WithoutDraggingDownLivingName`（驗證往生縮字不影響陽上）。已用 `pdftoppm` 影像驗證：常見情境兩組字級一致、地址列印純黑；擁擠情境（dev DB 真實 5 位往生）往生縮小但陽上維持 0.8cm。
+
+> **「郵1」考據**：舊系統 `SignupType` 共 5 類（1=No、2=寺、3=觀、4=普、**5=郵＝郵撥**），列印 Number 欄為 `NumberTitle+號`（見下方「報表『編號欄』字串格式」段），故「郵1」= 郵撥類第 1 號，用同一套 `tmpText`/`tmpTextTwo` 模板列印，**不是**額外的郵寄專用列印格式（已查證舊 19 個 RDLC 無第三種文牒變體）。
+
+### 薦牌實體對位開放問題（2026-07-02，源自 `reference/薦牌問題.pdf` 手寫註記，**未解決，待實測**）
+
+跟上面文牒的同一個蔡家測試資料，但這次客戶反映的是**薦牌**（[TabletRenderer](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs)）：實際列印紙條插入蓮花瓶牌位座後，文字位置對不準視窗（跑到視窗外、蓋到雕花邊框）。
+
+排查已排除三種常見成因：座標對照 `tmpTablet.rdlc` XML 逐一核對 1:1 吻合、實際跑 `TabletRenderer` 轉圖檢視文字不重疊不超出頁面邊界、`GroupFontPt` 的全形空格修正（見上方「文牒兩項客戶回饋修正」#2 同源 helper）本來就已套用在薦牌。判斷是「RDLC 校準當年的牌位座實體尺寸」與「客戶現有牌位座」不一致——這是**紙條 vs 實體外殼視窗的對位問題**，光看 PDF 或照片無法反推正確修正量。
+
+**已做**：`TabletRenderer.Render(data, debugGrid: true)` 疊 1cm 刻度格線的診斷版本（不進生產路徑），供印出後插入實體牌位座量測。回歸鎖 `Tablet_DebugGrid_ForRealComplaintScenario_DumpsCalibrationPdf`。
+
+**待辦**：見 [status.md](../status.md) Blocked 清單 / [gotchas.md](../gotchas.md)「薦牌實體對位」條——需要使用者/現場人員拿校正尺標版本實測回報視窗上下緣對到第幾條刻度線，才能算出精確修正量。
 
 ### 本輪仍未做（remaining）
 

@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 using Ceremony.Domain.Services;
 using Ceremony.Infrastructure.Reporting;
@@ -189,6 +190,33 @@ public sealed class RendererSmokeTests
         DumpIfRequested(full, "text_six.pdf");
     }
 
+    // 客戶反映（reference/薦牌問題.pdf 手寫註記）薦牌實際列印紙條插入蓮花瓶牌位座後，文字位置
+    // 對不準視窗（跑到視窗外/蓋到雕花邊框）。座標已對照 tmpTablet.rdlc XML 逐一核對、與原始 1:1
+    // 吻合，PDF 本身文字也不重疊、不超出 11.5×25.4cm 頁面邊界 —— 判斷是「RDLC 校準當年的牌位座
+    // 實體尺寸」與「客戶現有牌位座」不一致，屬於實體對位問題，不是排版邏輯錯誤。無實測尺寸可反推
+    // 修正量，故先提供 debugGrid 疊 1cm 刻度格線版本：印出後插入同一個牌位座，實測視窗上緣/下緣
+    // 對到第幾條刻度線，才能算出精確修正量。回歸鎖：只驗證 debugGrid 不會撞壞既有排版、仍是有效
+    // PDF；真正的座標修正待實機量測後再做（見 docs/gotchas.md「薦牌實體對位」條）。
+    [Fact]
+    public void Tablet_DebugGrid_ForRealComplaintScenario_DumpsCalibrationPdf()
+    {
+        // 近似 reference/薦牌問題.pdf 場景：2 亡（蔡姓歷代祖先、蔡黃氏）+ 3 陽（蔡渭水、蔡慧明、蔡碧英）
+        var data = new TabletData(
+            Number: "郵1", HallNameFirst: null, HallNameSecond: null,
+            DeadNames: N("蔡姓歷代祖先", "蔡黃氏"),
+            LivingNames: N("蔡渭水", "蔡慧明", "蔡碧英"),
+            ParaFontSizeCm: 0.8, Template: TabletTemplate.Two);
+
+        var plain = new TabletRenderer().Render(data);
+        ShouldBePdf(plain);
+        DumpIfRequested(plain, "tablet_alignment_complaint.pdf");
+
+        var grid = new TabletRenderer().Render(data, debugGrid: true);
+        ShouldBePdf(grid);
+        grid.Length.Should().BeGreaterThan(plain.Length, "格線疊層必須真的畫出來，不是被忽略的參數");
+        DumpIfRequested(grid, "tablet_alignment_complaint_grid.pdf");
+    }
+
     // 設 CEREMONY_PDF_DUMP=<dir> 時把 PDF 寫出供 pdftotext 對位驗收；未設則不落地（CI 純記憶體）。
     private static void DumpIfRequested(byte[] pdf, string name)
     {
@@ -218,6 +246,78 @@ public sealed class RendererSmokeTests
         // PNG magic number
         png[0].Should().Be(0x89);
         Encoding.ASCII.GetString(png, 1, 3).Should().Be("PNG");
+    }
+
+    // 客戶反映（reference/文牒問題.pdf 手寫註記）文牒垂直地址列印偏灰，要求「再黑一點」。
+    // 根因：抗鋸齒邊緣像素在 25px 窄欄小字級下佔比高，視覺變淡灰。改 Edging=Alias +
+    // IsAntialias=false 後，每個有畫到的像素理應為純黑（alpha=255 的像素其 RGB 必為 0,0,0），
+    // 不應再有「部分透明的灰邊」像素。用像素掃描鎖住這個不重來。
+    [Fact]
+    public void Skia_VerticalAddress_NoAntiAliasedGrayEdges()
+    {
+        var png = SkiaImageHelpers.VerticalAddress("台北市中山區金山南路一段63巷1號1F");
+        using var bitmap = SkiaSharp.SKBitmap.Decode(png);
+
+        var hasInk = false;
+        for (var x = 0; x < bitmap.Width; x++)
+        {
+            for (var y = 0; y < bitmap.Height; y++)
+            {
+                var p = bitmap.GetPixel(x, y);
+                if (p.Alpha == 0) continue; // 透明背景
+                hasInk = true;
+                // 有畫到的像素必須是全黑（不可是抗鋸齒留下的灰階邊緣）
+                p.Red.Should().Be(0);
+                p.Green.Should().Be(0);
+                p.Blue.Should().Be(0);
+            }
+        }
+        hasInk.Should().BeTrue("地址字要有實際畫到黑色像素，不能整張空白");
+    }
+
+    // 客戶反映（reference/文牒問題.pdf 手寫註記）文牒「往生」姓名字級要跟「陽上」一樣大。
+    // 往生／陽上共用同一 0.8cm 基準、各自獨立計算安全字級：典型資料（本例即取自該 PDF 上的姓名）
+    // 兩組都不需縮字，自然都維持 0.8cm、視覺一致，不需要額外的跨組對齊邏輯。
+    [Fact]
+    public void Text_DeadAndLivingFontSizes_MatchWhenNeitherNeedsShrinking()
+    {
+        var dumpDir = Environment.GetEnvironmentVariable("CEREMONY_PDF_DUMP");
+        var data = new TextData(
+            Number: "郵1", HallNameFirst: null, HallNameSecond: null,
+            DeadNames: N("蔡姓歷代祖先", "蔡黃氏"),
+            LivingNames: N("蔡渭水", "蔡慧明", "蔡碧英"),
+            Address: "台灣台北市大安區金山南路一段63巷1號1F", Template: TextTemplate.Base);
+
+        var pdf = new TextRenderer().Render(data);
+        ShouldBePdf(pdf);
+        if (!string.IsNullOrEmpty(dumpDir))
+            System.IO.File.WriteAllBytes(System.IO.Path.Combine(dumpDir, "text_mail1_sample.pdf"), pdf);
+    }
+
+    // 反過來：往生那組字數多到需要縮字時，只縮往生自己，**陽上不會被拖著一起縮小**
+    // （2026-07-02 second-guess：曾經加過跨組取最小值對齊兩組，會導致陽上被往生拖累而
+    // 意外變小，客戶反映後撤回；見 docs/gotchas.md「往生字級被拖累」條）。
+    // 主欄可用高固定 10.50374cm（無第 6 位、下方為空 → 整欄高）；14 字時 10.50374/14≈0.750cm
+    // < 0.8cm，確實會觸發往生縮字；陽上只有 1 個短名、avail 充足，理應仍是舊字級 0.8cm。
+    [Fact]
+    public void Text_DeadNameShrinks_WithoutDraggingDownLivingName()
+    {
+        var crowded = string.Concat(Enumerable.Repeat("蔡", 14)); // 14 字，超過主欄可用高的字級門檻
+        var data = new TextData(
+            Number: "郵1", HallNameFirst: null, HallNameSecond: null,
+            DeadNames: N(crowded), LivingNames: N("蔡"),
+            Address: "台北市", Template: TextTemplate.Base);
+
+        var pdf = new TextRenderer().Render(data);
+        ShouldBePdf(pdf);
+
+        var deadFont = VerticalText.GroupFontPt(0.8 * PtPerCm, (crowded, 10.50374));
+        (deadFont / PtPerCm).Should().BeApproximately(10.50374 / 14, 1e-6,
+            "14 字超出主欄可用高／0.8cm 門檻，DeadName 自身安全字級應縮小");
+
+        var livingFont = VerticalText.GroupFontPt(0.8 * PtPerCm, ("蔡", 6.72806));
+        (livingFont / PtPerCm).Should().BeApproximately(0.8, 1e-6,
+            "陽上只有 1 個短名、可用高遠超所需，即使往生同一頁被迫縮字，陽上仍應維持舊字級 0.8cm，不受影響");
     }
 
     [Fact]

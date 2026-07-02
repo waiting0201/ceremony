@@ -19,7 +19,7 @@ public sealed class TabletRenderer
     private const string FontFamily = "BiauKai";
     private const double PointsPerCm = 28.3464567;
 
-    public byte[] Render(TabletData data)
+    public byte[] Render(TabletData data, bool debugGrid = false)
     {
         var paraPt = data.ParaFontSizeCm * PointsPerCm;
 
@@ -53,9 +53,41 @@ public sealed class TabletRenderer
 
                     DrawDeadNames(layers, data, paraPt);
                     DrawLivingNames(layers, data);
+
+                    // 現場對位校正用：疊 1cm 刻度格線（不進生產列印路徑，debugGrid 預設 false）。
+                    // 用途：reference/薦牌問題.pdf 反映實體牌位座插入後文字對不準視窗，但沒有實測
+                    // 尺寸可校正座標。印這張帶格線版本、插入同一個牌位座，回報視窗上緣/下緣對到
+                    // 第幾條刻度線，才能算出精確修正量（見 docs/gotchas.md「薦牌實體對位」條）。
+                    if (debugGrid) DrawCalibrationGrid(layers);
                 });
             });
         }).GeneratePdf();
+    }
+
+    private static void DrawCalibrationGrid(LayersDescriptor layers)
+    {
+        const string gridColor = "#FF00FF"; // 桃紅：跟黑色文字/牌位雕花都能明顯區分
+        for (var x = 0; x <= 11; x++)
+        {
+            layers.Layer()
+                .TranslateX(x, Unit.Centimetre)
+                .Height(25.4f, Unit.Centimetre)
+                .LineVertical(0.3f).LineColor(gridColor);
+            layers.Layer()
+                .TranslateX(x + 0.05f, Unit.Centimetre)
+                .Text($"{x}").FontSize(6).FontColor(gridColor);
+        }
+        for (var y = 0; y <= 25; y++)
+        {
+            layers.Layer()
+                .TranslateY(y, Unit.Centimetre)
+                .Width(11.5f, Unit.Centimetre)
+                .LineHorizontal(0.3f).LineColor(gridColor);
+            layers.Layer()
+                .TranslateX(11.1f, Unit.Centimetre)
+                .TranslateY(y + 0.02f, Unit.Centimetre)
+                .Text($"{y}").FontSize(6).FontColor(gridColor);
+        }
     }
 
     private static void DrawDeadNames(LayersDescriptor layers, TabletData data, double paraPt)

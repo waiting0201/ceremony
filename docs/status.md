@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-02 (信眾 picker 對齊舊系統，更版 2.1.2)
+last_updated: 2026-07-02 (新增薦牌實體對位 Blocked 項，待實測校正)
 
 
 ---
@@ -133,10 +133,11 @@ last_updated: 2026-07-02 (信眾 picker 對齊舊系統，更版 2.1.2)
 
 > 卡住中，需要外部資訊或決策才能繼續
 
-- [ ] **<任務名>**
-  - Blocker: <為什麼卡住>
-  - Waiting on: <等誰、等什麼>
-  - Since: YYYY-MM-DD
+- [ ] **薦牌（TabletRenderer）實體對位修正** — `reference/薦牌問題.pdf`
+  - Blocker: 客戶反映實際列印紙條插入蓮花瓶牌位座後文字對不準視窗；已排除座標搬移手誤、PDF 內部重疊/超出頁面邊界、往生字級疊字舊 bug 三種可能，判斷是「RDLC 校準當年的牌位座尺寸」與「客戶現有牌位座」不一致 —— 需要實體量測才能反推正確修正量，無法只憑照片/程式碼判斷
+  - Waiting on: 使用者/現場人員印出校正尺標版本（`TabletRenderer.Render(data, debugGrid:true)`，已建好、回歸測試 `Tablet_DebugGrid_ForRealComplaintScenario_DumpsCalibrationPdf`）並插入同一個牌位座，回報視窗上緣/下緣對到第幾條 1cm 刻度線
+  - Since: 2026-07-02
+  - Detail: [gotchas.md](gotchas.md)「薦牌實體對位」條
 
 ## 📍 目前文件化進度（會話開始先讀這份）
 
