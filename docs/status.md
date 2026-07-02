@@ -7,14 +7,14 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-01 (prereq 離線安裝檔內建，更版 2.1.1)
+last_updated: 2026-07-02 (信眾 picker 對齊舊系統，更版 2.1.2)
 
 
 ---
 
 > 本檔由 Claude **自動維護**。任務開始/完成/卡住都必須更新。新增項目也要寫入。詳細規則見 [../CLAUDE.md](../CLAUDE.md) 「狀態追蹤規則」。
 
-**Current Version**: `v2.1.1`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
+**Current Version**: `v2.1.2`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
 
 ## 🔄 In Progress
 
@@ -165,6 +165,18 @@ last_updated: 2026-07-01 (prereq 離線安裝檔內建，更版 2.1.1)
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **新增報名「選擇信眾」picker 對齊舊系統** — Done 2026-07-02，**更版 v2.1.2**（PATCH：沿用既有 endpoint，僅前端行為/樣式對齊）
+  - 需求：使用者要求 signup-edit-form 的信眾 picker 搜尋方式與清單欄位要跟舊 `NewSignupForm` 完全一樣
+  - 落差：舊系統單一輸入框 OR 比對 14 欄（Name/Phone/6組陽上/6組往生），清單每筆報名一列共 16 欄；新版原本只搜 Name、每信眾一列簡化卡片
+  - 做法：**不新增後端功能**——改用既有 `GET /api/v1/signups`（`SignupApi.search` + `scopeName/scopePhone/scopeLivingName/scopeDeadName`）取代 `/believers` 搜尋，回傳的 `SignupListItem` 本已含全部所需欄位；選定後仍用既有 `GET /believers/{id}` 補完整明細（zipcode ID 等）供表單預填
+  - 詳見 [signup-management.md](blueprints/signup-management.md)「新增（NewSignupForm）」段落與 [legacy-coverage/new-signup-form.md](blueprints/legacy-coverage/new-signup-form.md) row 3/4/24
+  - 已知落差：`/signups` 未暴露 `CeremonySort`，無法 100% 重現舊排序，前端以整體反轉近似
+  - **追加修正（2026-07-02）**：placeholder 改「輸入姓名、電話、陽上名或往生名...」（原文寫「信眾姓名」易誤導只搜姓名）
+  - **追加修正 2（2026-07-02）**：搜尋改回「按鈕觸發」（原本 `(input)` 事件無論有無 debounce 都是「打字就打 API」，使用者反映感覺慢）——對齊舊 `btnBelieverSearch_Click` 語意，文字輸入只更新框內顯示，按「搜尋」鈕或 Enter 才真正查詢；新增 `believerHasSearched` 旗標修正「無符合資料」提示的觸發時機（避免打字未按搜尋就誤顯示）
+  - **追加修正 3（2026-07-02）**：`--c-dead-name-bg`（往生欄底色，全域 token）從 `#EFDCC4` 改成 `#E3B274`——原色跟 grid hover 色（`--c-row-alt`/`--c-primary-soft` 這類淺米色）太接近分不清，此為全域樣式變數，believers-page / signup-list-page 等其他頁面的往生欄也一併變深，見 [visual-design.md](design/visual-design.md)
+  - **追加修正 4（2026-07-02）**：picker「搜尋」按鈕高度跟 `.search-input` 對不齊（`.btn`/`.btn-sm` 預設高度都跟 `--control-height` 不同），改為 scoped override 明確對齊；hover 往生欄「沒反應」——因 `.dead` 自己有底色蓋掉 `tr:hover` 的背景，比照既有 `is-selected + dead` 的 `color-mix` 手法，讓 hover 時整列（含往生欄）都一起變色
+  - 驗證：`ng build` 0 warning/err、`ng test` 通過；**仍待**實機手測：搜尋 14 欄命中 + 多筆報名重複列顯示 + 搜尋改成按鈕觸發（打字不再自動查）+ 搜尋按鈕高度與輸入框對齊 + hover 整列（含往生欄）都變色
 
 - [x] **prereq 離線安裝檔內建（VC++ Redistributable + .NET 10 ASP.NET Core Runtime）** — Done 2026-07-01，**更版 v2.1.1**（PATCH：僅打包資源調整，無程式邏輯變更）
   - 背景：實機打包測試時 prereq 頁偵測到缺 ASP.NET Core Runtime 10.x（[frontend/electron/prereq.ts](../frontend/electron/prereq.ts) 判斷正確、非 bug，見 [gotchas.md](gotchas.md)），使用者要求現場安裝不依賴連網下載

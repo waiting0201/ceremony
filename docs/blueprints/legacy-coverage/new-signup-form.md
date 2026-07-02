@@ -48,8 +48,8 @@ last_updated: 2026-05-29
 |---|---|---|---|---|---|---|
 | 1 | `NewSignupForm()` constructor | 58-83 | 初始化表單、服務、設定面板 | ✅ 已實作 | 前端 form init | `signup-edit-form.component` constructor：`loadCategories()` + `loadCities()` + create/edit mode effect |
 | 2 | `btnNextStep_Click` | 85-112 | 下一步：載入城市、員工類型，代入邏輯 | ❌ 故意捨棄 | – | 新版單頁表單（mockup v4），無「下一步」流程 |
-| 3 | `btnBelieverSearch_Click` | 114-124 | 驗證搜尋條件後查詢信眾 | ✅ 已實作 | `GET /api/v1/believers` | signup-edit-form 信眾 modal picker `searchBelievers`（依姓名查 GET /believers） |
-| 4 | `dgvBelievers_CellClick` | 126-137 | 選擇信眾行並加載其資料 | ✅ 已實作 | 前端 row select | `pickBeliever` 選定後預填表單（基本資料 + 地址 city/area + 陽上/往生名單） |
+| 3 | `btnBelieverSearch_Click` | 114-124 | 驗證搜尋條件後查詢信眾 | ✅ 已實作 | `GET /api/v1/signups`（`searchKey`+4 scope flags） | signup-edit-form 信眾 modal picker `searchBelievers`（2026-07-02 改：單一輸入框 OR 比對 Name/Phone/6組陽上/6組往生共 14 欄，對齊舊 txtQ，沿用既有 /signups search 非 /believers） |
+| 4 | `dgvBelievers_CellClick` | 126-137 | 選擇信眾行並加載其資料 | ✅ 已實作 | 前端 row select + `GET /api/v1/believers/{id}` | `pickBeliever` 選定後（2026-07-02：改用該列 believerId 查 /believers/{id} 取完整明細）預填表單（基本資料 + 地址 city/area + 陽上/往生名單） |
 | 5 | `cbKeepNumber_CheckedChanged` | 139-149 | 切換編號手動輸入啟用狀態 | ✅ 已實作 | 前端 form logic | `keepNumber` checkbox 控制「編號」欄顯示/送出 |
 | 6 | `btnConfirm_Click` | 151-362 | **複合邏輯：表單驗證 + 編號分配 + 新增報名**（211 行核心方法） | ✅ 已實作 | `POST /api/v1/signups` | `CreateSignupHandler` + `SignupRepository.InsertWithLogAsync` 含 UPDLOCK + HOLDLOCK + transaction + 同步寫 SignupLog；行為改善（舊系統無 lock，有 race window） |
 | 7 | `btnCancel_Click` | 364-369 | 返回第一步並清空表單 | ✅ 已實作 | 前端 form reset | overlay 關閉 / `form.reset` + dirty 確認（form-overlay） |
@@ -69,7 +69,7 @@ last_updated: 2026-05-29
 | 21 | `LoadCity()` helper | 662-677 | 載入城市下拉清單 | ✅ 已實作 | `GET /api/v1/zipcodes/cities` | `ZipcodeRepository.GetCitiesAsync`（GROUP BY City ORDER BY City，對齊舊；未過濾 IsDisplay） |
 | 22 | `LoadEmployeeType()` helper | 679-703 | 載入員工類型清單 (3 類) | ✅ 已實作 | `GET /api/v1/believers` | 員工類型 + **固定編號**於 signup 表單**唯讀顯示**（`employeeTypeTitle` / `isFixedNumber`）；inline 編輯信眾屬性故意捨棄（新流程不於報名改信眾主檔，於信眾維護調整）。`BelieverListItem` 已補 `IsFixedNumber`（2026-06-02）|
 | 23 | `LoadPrepayCeremony()` helper | 705-713 | 載入預繳法會下拉清單 | ✅ 已實作 | `GET /api/v1/categories` | 預繳法會下拉（共用 `flatCategories`） |
-| 24 | `LoadBelievers()` helper | 715-734 | 查詢並顯示信眾清單 | ✅ 已實作 | `GET /api/v1/believers` | 信眾 modal picker 結果清單 |
+| 24 | `LoadBelievers()` helper | 715-734 | 查詢並顯示信眾清單 | ✅ 已實作 | `GET /api/v1/signups` | 信眾 modal picker 結果清單（2026-07-02 改：16 欄表格、每報名一列，1:1 對齊舊 dgvBelievers 可見欄位，不再是簡化卡片） |
 | 25 | `GetNumberText()` helper | 736-751 | **避 4 規則** (個位 4 → "3-1") | ✅ 已實作 | `Domain.Services.AvoidFourFormatter` | 純函式，11 個 case xUnit 覆蓋；display only，DB 仍存 int |
 | 26 | `PanelFormSwitch()` helper | 753-793 | 切換表單面板控制項狀態 | ✅ 已實作 | 前端 form mode | Angular form mode / overlay state（create vs edit） |
 | 27 | `PanelFilterSwitch()` helper | 795-817 | 切換篩選面板控制項狀態 | ✅ 已實作 | 前端 form mode | 同上（單頁表單無獨立篩選面板，狀態由 form mode 控制） |

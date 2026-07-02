@@ -17,6 +17,7 @@
     - **forward**：新增 endpoint 前必查 `reference/old/Ceremony/` 對應 Form，把邏輯/驗證/邊界 case 寫入 [docs/blueprints/api-endpoints/](docs/blueprints/api-endpoints/)（複製 `_template.md`），code 僅放 doc comment 指回 blueprint
     - **reverse**：每個 Form 維護 [docs/blueprints/legacy-coverage/](docs/blueprints/legacy-coverage/) `<form>.md` 覆蓋表；每完成一個 endpoint 回頭勾選；上線前所有 Form 100% 解釋每一行（無 `pending` / `🤔 待確認`）
 11. **Secret 絕不入 repo**：DB 帳密 / JWT key / API token 等永不出現在 commit 的檔；dev 走 `dotnet user-secrets`、prod 走 ENV vars / Vault；docs 只寫 template 含 `<from-secrets>` 占位；實際值僅存於 user auto-memory（`~/.claude/.../memory/`）
+12. **回應一律用繁體中文**：對使用者的所有文字回覆（含說明、摘要、提問）都用繁體中文；code / commit message / identifier 不受此限
 
 ## 文件同步規則（CRITICAL）
 

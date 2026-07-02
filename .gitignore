@@ -24,3 +24,4 @@ reference/old/
 # DB backups — never commit (大檔 + 含 PII；本機保留即可)
 *.bak
 *.trn
+reference/

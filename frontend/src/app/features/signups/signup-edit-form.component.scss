@@ -106,7 +106,7 @@
 .picker-modal {
   background: var(--c-surface);
   border-radius: 4px;
-  width: 560px;
+  width: min(1200px, calc(100vw - var(--space-xl)));
   max-width: calc(100vw - var(--space-xl));
   max-height: calc(100vh - var(--space-xl));
   display: flex;
@@ -126,6 +126,13 @@
   gap: var(--space-sm);
   overflow: auto;
 }
+.picker-search-row {
+  display: flex;
+  gap: var(--space-sm);
+
+  .search-input { flex: 1; }
+  .btn { height: var(--control-height); } // 對齊 search-input 高度，而非 .btn/.btn-sm 預設值
+}
 .search-input {
   height: var(--control-height);
   padding: 0 var(--space-sm);
@@ -133,26 +140,15 @@
   border-radius: 2px;
   font-family: inherit;
 }
-.picker-results { display: grid; gap: var(--space-xs); max-height: 400px; overflow: auto; }
-.picker-row {
-  display: grid;
-  gap: 4px;
-  text-align: left;
-  background: var(--c-row-alt);
-  border: 1px solid var(--c-border-soft);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: 2px;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--font-size-sm);
-  color: var(--c-text-primary);
+.picker-results { display: grid; gap: var(--space-xs); }
+.picker-table-wrap {
+  max-height: 400px;
+  overflow: auto;
 
-  &:hover { background: var(--c-primary-soft); border-color: var(--c-primary); }
-
-  .r1 { display: flex; align-items: center; gap: var(--space-sm); }
-  .hall { background: var(--c-primary-soft); padding: 0 var(--space-xs); border-radius: 2px; font-size: var(--font-size-xs); }
-  .meta { color: var(--c-text-secondary); margin-left: auto; font-size: var(--font-size-xs); }
-  .r2 { color: var(--c-text-secondary); font-size: var(--font-size-xs); }
+  // .dead 自己有底色，hover 只設 tr 背景蓋不到它，整列會看起來「少一格沒反應」——比照 is-selected + dead 的 color-mix 手法讓整列一起變色
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--c-row-alt); }
+  tbody tr:hover td.dead { background: color-mix(in srgb, var(--c-row-alt) 55%, var(--c-dead-name-bg)); }
 }
 
 // 重複報名警示清單（.alert-warn 內）

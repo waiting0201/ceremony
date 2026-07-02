@@ -232,29 +232,51 @@
         <button type="button" class="btn btn-sm" (click)="closeBelieverPicker()">關閉</button>
       </header>
       <div class="picker-body">
-        <input
-          type="text"
-          class="search-input"
-          placeholder="輸入信眾姓名..."
-          [value]="believerSearchTerm()"
-          (input)="searchBelievers($any($event.target).value)"
-        />
+        <div class="picker-search-row">
+          <input
+            type="text"
+            class="search-input"
+            placeholder="輸入姓名、電話、陽上名或往生名..."
+            [value]="believerSearchTerm()"
+            (input)="onBelieverSearchInput($any($event.target).value)"
+            (keydown)="onBelieverSearchKeydown($event)"
+          />
+          <button type="button" class="btn btn-primary" (click)="triggerBelieverSearch()">搜尋</button>
+        </div>
         <div class="picker-results">
           @if (believerSearching()) {
             <div class="hint">搜尋中…</div>
-          } @else if (believerSearchResults().length === 0 && believerSearchTerm()) {
+          } @else if (believerSearchResults().length === 0 && believerHasSearched()) {
             <div class="hint">無符合資料</div>
           } @else {
-            @for (b of believerSearchResults(); track b.id) {
-              <button type="button" class="picker-row" (click)="pickBeliever(b)">
-                <div class="r1">
-                  <strong>{{ b.name }}</strong>
-                  @if (b.hallName) { <span class="hall">{{ b.hallName }}</span> }
-                  <span class="meta">{{ b.phone ?? '' }}</span>
-                </div>
-                <div class="r2">{{ b.mailCity ?? '' }}{{ b.mailArea ?? '' }}{{ b.mailAddress ?? '' }}</div>
-              </button>
-            }
+            <!-- 欄位順序對齊舊 NewSignupForm.Designer.cs:1017-1355 可見欄位（dgvBelievers） -->
+            <div class="picker-table-wrap">
+              <table class="data-table dense">
+                <thead>
+                  <tr>
+                    <th>堂號</th><th>姓名</th><th>聯絡電話</th><th>編號標題</th><th>編號</th>
+                    <th>年份</th><th>法會</th>
+                    <th>往生1</th><th>往生2</th><th>往生3</th><th>往生3-1</th><th>往生5</th><th>往生6</th>
+                    <th>陽上1</th><th>陽上2</th><th>陽上3</th><th>陽上3-1</th><th>陽上5</th><th>陽上6</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of believerSearchResults(); track row.id) {
+                    <tr (click)="pickBeliever(row)">
+                      <td>{{ row.hallName }}</td>
+                      <td>{{ row.name }}</td>
+                      <td>{{ row.phone }}</td>
+                      <td>{{ row.numberTitle }}</td>
+                      <td>{{ row.number }}</td>
+                      <td>{{ row.year }}</td>
+                      <td>{{ row.ceremonyTitle }}</td>
+                      @for (n of row.deadNames; track $index) { <td class="dead">{{ n }}</td> }
+                      @for (n of row.livingNames; track $index) { <td>{{ n }}</td> }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           }
         </div>
       </div>

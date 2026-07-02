@@ -103,8 +103,9 @@ export class SignupEditFormComponent {
   protected readonly checkingDuplicates = signal(false);
 
   protected readonly believerSearchTerm = signal('');
-  protected readonly believerSearchResults = signal<BelieverListItem[]>([]);
+  protected readonly believerSearchResults = signal<SignupListItem[]>([]);
   protected readonly believerSearching = signal(false);
+  protected readonly believerHasSearched = signal(false);
   protected readonly believerPickerOpen = signal(false);
 
   protected readonly mode = computed<'create' | 'edit'>(() =>
@@ -402,35 +403,71 @@ export class SignupEditFormComponent {
 
   // ── 信眾搜尋 picker ───────────────────────────────────────────────
 
+  private believerSearchToken = 0;
+
   protected openBelieverPicker(): void {
     this.believerPickerOpen.set(true);
     this.believerSearchTerm.set('');
     this.believerSearchResults.set([]);
+    this.believerHasSearched.set(false);
   }
 
   protected closeBelieverPicker(): void {
     this.believerPickerOpen.set(false);
+    this.believerSearchToken++; // 讓任何仍在飛行中的查詢回應失效
   }
 
-  protected async searchBelievers(term: string): Promise<void> {
-    const trimmed = term.trim();
+  /** 輸入只更新框內文字，不打 API；對齊舊 NewSignupForm 按「搜尋」鍵才查詢 */
+  protected onBelieverSearchInput(term: string): void {
     this.believerSearchTerm.set(term);
+    this.believerHasSearched.set(false);
+  }
+
+  protected onBelieverSearchKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      this.triggerBelieverSearch();
+    }
+  }
+
+  /** 對齊舊 NewSignupForm.cs:114-124（btnBelieverSearch_Click） */
+  protected triggerBelieverSearch(): void {
+    const trimmed = this.believerSearchTerm().trim();
     if (!trimmed) {
       this.believerSearchResults.set([]);
+      this.believerHasSearched.set(false);
       return;
     }
     this.believerSearching.set(true);
+    this.believerHasSearched.set(true);
+    void this.runBelieverSearch(trimmed);
+  }
+
+  private async runBelieverSearch(trimmed: string): Promise<void> {
+    const token = ++this.believerSearchToken;
     try {
-      const resp = await this.believerApi.search({ name: trimmed });
-      this.believerSearchResults.set(resp.items);
+      // 對齊舊 NewSignupForm.cs:715-722（txtQ 單一輸入框，OR 比對 Name/Phone/6組陽上/6組往生）
+      const resp = await this.api.search({
+        searchKey: trimmed,
+        scopeName: true,
+        scopePhone: true,
+        scopeLivingName: true,
+        scopeDeadName: true,
+      });
+      if (token !== this.believerSearchToken) return; // 舊查詢的回應，畫面已經換了輸入內容
+      // /signups 依 Year/CeremonySort/NumberTitle/Number 全部 ascending 排序；反轉近似舊系統「新的在前」
+      this.believerSearchResults.set(resp.items.slice().reverse());
     } catch (err) {
+      if (token !== this.believerSearchToken) return;
       this.errorMessage.set(toMessage(err));
     } finally {
-      this.believerSearching.set(false);
+      if (token === this.believerSearchToken) this.believerSearching.set(false);
     }
   }
 
-  protected async pickBeliever(b: BelieverListItem): Promise<void> {
+  protected async pickBeliever(row: SignupListItem): Promise<void> {
+    if (!row.believerId) return;
+    const b = await this.believerApi.getById(row.believerId);
     this.selectedBeliever.set(b);
     this.form.patchValue({
       believerId: b.id,
