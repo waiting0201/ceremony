@@ -1,0 +1,10 @@
+{
+  "dotnet.preferCSharpExtension": true,
+  "dotnet.defaultSolution": "backend/Ceremony.slnx",
+  "files.watcherExclude": {
+    "reference/old/**": true
+  },
+  "search.exclude": {
+    "reference/old/**": true
+  }
+}
