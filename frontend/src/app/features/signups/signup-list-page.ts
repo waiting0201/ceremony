@@ -595,26 +595,7 @@ export class SignupListPage implements OnInit {
       await this.printSingle(type, items[0]);
       return;
     }
-    const numbers = items
-      .map((i) => i.number)
-      .filter((n): n is number => n != null)
-      .sort((a, b) => a - b);
-    if (numbers.length === 0) {
-      this.errorMessage.set('選取項目缺少編號，無法列印');
-      return;
-    }
-    const min = numbers[0];
-    const max = numbers[numbers.length - 1];
-    const span = max - min + 1;
-    if (span > items.length) {
-      const ok = await this.confirmDialog.ask({
-        title: '批次列印確認',
-        message: `將列印編號 ${min}–${max} 共 ${span} 筆（含非選取 ${span - items.length} 筆）。\n後端依編號區間印出，無法精確只印選取的 ${items.length} 筆。\n確定？`,
-        confirmLabel: '確認列印',
-      });
-      if (!ok) return;
-    }
-    await this.printBatch(type, min, max);
+    await this.printSelected(type, items);
   }
 
   private async printSingle(type: SingleReportType, item: SignupListItem): Promise<void> {
@@ -624,6 +605,25 @@ export class SignupListPage implements OnInit {
     try {
       const { blob, fileName } = await this.reportApi.single(type, item.id);
       openPdfInNewTab(blob, fileName);
+    } catch (err) {
+      this.errorMessage.set(toMessage(err));
+    } finally {
+      this.printing.set(false);
+    }
+  }
+
+  private async printSelected(type: SingleReportType, items: SignupListItem[]): Promise<void> {
+    if (this.printing()) return;
+    this.printing.set(true);
+    this.errorMessage.set(null);
+    try {
+      const resp = await this.reportApi.batch({
+        reportType: type,
+        signupIds: items.map((i) => i.id),
+      });
+      openPdfInNewTab(resp.blob, resp.fileName);
+      const count = resp.signupCount ?? items.length;
+      this.successMessage.set(`已列印 ${count} 筆 (${resp.fileName})`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {

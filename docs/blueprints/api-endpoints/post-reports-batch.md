@@ -15,8 +15,8 @@ related_docs:
   - ../printing-reports.md
   - ../printing-reports-positions.md
   - ../legacy-coverage/signup-form.md
-keywords: [reports, batch, print, pdf, merge, range]
-last_updated: 2026-05-27
+keywords: [reports, batch, print, pdf, merge, range, signupIds, 勾選, 精準列印]
+last_updated: 2026-07-03 (加 signupIds[] 精準勾選列印模式，取代原本「多筆勾選只能近似成編號區間」的 v1 限制)
 ---
 
 ## 規格
@@ -25,24 +25,33 @@ last_updated: 2026-05-27
 
 `POST /api/v1/reports/batch`
 
+### 兩種選取模式（2026-07-03 新增 signupIds 模式）
+
+- **`signupIds` 模式**（新）：body 帶 `signupIds` 非空陣列 → 精準只印這幾筆，不論編號是否連續；優先於 `numberStart`/`numberEnd`（兩者同時給時，`signupIds` 生效，range 欄位被忽略）
+- **編號區間模式**（原有）：`signupIds` 未給或為空陣列 → 走 `numberStart`/`numberEnd` 區間 + 其餘篩選條件（沿用原行為）
+- 兩者皆缺（`signupIds` 空 且 `numberStart`/`numberEnd` 任一為 null）→ 400 `VALIDATION_INVALID` / `編號錯誤`
+
+**背景**：[signup-management.md](../signup-management.md) 原記錄 v1 限制「選 8 筆但只想印這 8 筆」需退化為編號區間近似列印（區間內含非選取列會一併印出，前端跳確認對話框告知）。前端 grid 多選列印已改呼叫此新模式，不再需要近似 + 確認對話框。
+
 ### Request DTO
 
 ```jsonc
 {
-  "reportType": "datacard",       // "datacard" | "receipt" | "tablet" | "text" | "worship"（必填）
-  "numberStart": 1,                // int >= 1（必填）
-  "numberEnd": 50,                 // int >= numberStart（必填）
-  "year": 115,                     // int (民國年)，可選
-  "yearGte": false,                // bool，true → year >= Y，false → year == Y；對齊舊 cbIsScope
-  "ceremonyCategoryId": "<guid>",  // 可選
-  "signupType": 1                  // 1..5；可選
+  "reportType": "datacard",        // "datacard" | "receipt" | "tablet" | "text" | "worship"（必填）
+  "signupIds": ["<guid>", "..."],  // 可選；非空時為「精準選取模式」，優先於 numberStart/numberEnd
+  "numberStart": 1,                // int（signupIds 未給時必填）
+  "numberEnd": 50,                 // int >= numberStart（signupIds 未給時必填）
+  "year": 115,                     // int (民國年)，可選；僅編號區間模式使用
+  "yearGte": false,                // bool，true → year >= Y，false → year == Y；對齊舊 cbIsScope；僅編號區間模式使用
+  "ceremonyCategoryId": "<guid>",  // 可選；僅編號區間模式使用
+  "signupType": 1                  // 1..5；可選；僅編號區間模式使用（signupIds 模式下不套用此篩選，選了哪幾筆就是哪幾筆）
 }
 ```
 
 ### Response
 
 - **200 OK** + `Content-Type: application/pdf`
-- `Content-Disposition: attachment; filename="batch-<reportType>-<numberStart>-<numberEnd>.pdf"`
+- `Content-Disposition: attachment; filename` — 編號區間模式 `"batch-<reportType>-<numberStart>-<numberEnd>.pdf"`；`signupIds` 模式 `"batch-<reportType>-selected-<count>.pdf"`（`<count>` 為 worship 過濾後實際列印筆數）
 - Body：合併後的 PDF binary
 - Header `X-Signup-Count: <int>`（合併幾份 signup）
 
@@ -50,10 +59,10 @@ last_updated: 2026-05-27
 
 | HTTP | errorCode | message (verbatim) | 觸發條件 |
 |---|---|---|---|
-| 400 | `VALIDATION_INVALID` | `編號錯誤` | `numberEnd < numberStart`（對齊 SignupForm.cs:454） |
+| 400 | `VALIDATION_INVALID` | `編號錯誤` | `signupIds` 空 且（`numberStart`/`numberEnd` 任一為 null，或 `numberEnd < numberStart`）（對齊 SignupForm.cs:454，`signupIds` 模式免此檢查） |
 | 400 | `VALIDATION_INVALID` | `報表類型錯誤` | reportType 不在 5 種白名單 |
 | 401 | `AUTH_REQUIRED` | – | 無 JWT |
-| 404 | `BATCH_NO_SIGNUPS` | `查無符合條件的報名資料` | 篩選後無任何 signup |
+| 404 | `BATCH_NO_SIGNUPS` | `查無符合條件的報名資料` | 篩選後（或 `signupIds` 查出結果經 worship 過濾後）無任何 signup |
 
 ## 舊系統對照（規則 A — forward）
 
@@ -78,6 +87,7 @@ last_updated: 2026-05-27
 1. **編號範圍 + 條件查詢**（舊：`SignupForm.cs:462-474`）
    - 舊：用 `IQueryable<SignupView>` 串 LINQ Where + OrderBy(Number)
    - 新：`SignupRepository.SearchByNumberRangeAsync` 用 Dapper + DynamicParameters 動態組 WHERE；走既有 `dbo.SignupView`；ORDER BY Number
+   - **新增（無舊系統對應，純新版加值）**：`signupIds` 模式改呼叫 `SignupRepository.SearchByIdsAsync`（`WHERE SignupID IN @Ids ORDER BY Number`），不套用 year/ceremonyCategoryId/signupType 篩選——選了哪幾筆就是哪幾筆
 
 2. **5 種報表 ViewModel 組合**（舊：`SignupForm.cs:480-647`）
    - 舊：5 case 各自 foreach signups 組 ViewModel
@@ -93,7 +103,10 @@ last_updated: 2026-05-27
 | 場景 | 舊 code 行為 (line) | 新版行為 | 對應測試 |
 |---|---|---|---|
 | `numberEnd < numberStart` | `:454` MessageBox 並 return | 400 `編號錯誤` | `BatchReportHandlerTests.Invalid_range` + Integration `400_when_range_inverted` |
-| reportType=worship + 含 non-type-4 signup | 舊：直接 render，可能對位錯亂 | **僅 render SignupType=4 的列**（防呆，比舊系統嚴格）；若全部被過濾 → 404 `BATCH_NO_SIGNUPS` | `BatchReportHandlerTests.Worship_skips_non_type_4` |
+| reportType=worship + 含 non-type-4 signup（編號區間模式） | 舊：直接 render，可能對位錯亂 | **僅 render SignupType=4 的列**（防呆，比舊系統嚴格）；若全部被過濾 → 404 `BATCH_NO_SIGNUPS` | `BatchReportHandlerTests.Worship_skips_non_type_4` |
+| reportType=worship + 勾選含 non-type-4 signup（`signupIds` 模式） | 無舊系統對應 | 同上：僅 render 勾選列中 `SignupType=4` 的部分；全部被過濾 → 404 `BATCH_NO_SIGNUPS` | `SignupIds_worship_filters_non_type_4_and_can_end_empty` / `SignupIds_worship_all_filtered_out_throws_BATCH_NO_SIGNUPS` |
+| `signupIds` 與 `numberStart`/`numberEnd` 同時提供 | 無舊系統對應 | `signupIds` 優先，range 欄位被忽略（不會混用兩種條件） | `SignupIds_takes_priority_over_range_when_both_provided` |
+| `signupIds` 空 且 range 缺一 | 無舊系統對應 | 400 `編號錯誤`（等同編號區間模式的必填檢查） | `Missing_both_ids_and_range_throws_VALIDATION_INVALID` / Integration `POST_batch_missing_ids_and_range_returns_400` |
 | 篩選後 0 筆 | 舊：產空 PDF 並嘗試列印（崩潰風險）| 404 `BATCH_NO_SIGNUPS` 「查無符合條件的報名資料」| `400_when_no_signups_match` |
 | Print Format（PDF / 預覽列印）| 舊有 `CustomDialogForm` 對話 | **故意捨棄**：API 統一回 PDF byte，預覽由前端 PDF.js 處理 | – |
 
@@ -129,6 +142,8 @@ ORDER BY Number
 |---|---|---|
 | `signupviewService.Get().Where(...).OrderBy(...)` | `SignupForm.cs:462-474` | LINQ 串接 |
 
+`signupIds` 模式新增 `SignupRepository.SearchByIdsAsync(IReadOnlyList<Guid> ids)`（`WHERE SignupID IN @Ids ORDER BY Number`），無舊系統對應方法。
+
 ## 驗收標準
 
 - [x] 規格段所有欄位有 DTO 型別 + 驗證
@@ -136,6 +151,7 @@ ORDER BY Number
 - [x] 錯誤碼與舊 MessageBox 文字 verbatim「編號錯誤」
 - [x] 對應的 `legacy-coverage/signup-form.md` rows 16, 33 勾選為 `✅ 已實作`
 - [x] 含舊系統行為對照測試（XUnit + 真實 DB integration）
+- [x] **`signupIds` 精準選取模式**：優先於編號區間、worship 過濾一致、缺兩者回 400（皆有單元 + 整合測試）
 - [ ] 客戶實機列印驗收（同單筆列印，待印表機環境）
 
 ## 風險與未解問題

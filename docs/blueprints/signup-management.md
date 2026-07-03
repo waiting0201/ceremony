@@ -15,8 +15,8 @@ related_docs:
   - ../design/performance.md
   - prepay-loading.md
   - printing-reports.md
-keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印]
-last_updated: 2026-07-02 (信眾 picker 改 1:1 對齊舊 dgvBelievers：14 欄 OR 搜尋 + 每報名一列 16 欄清單)
+keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印, 勾選列印, signupIds]
+last_updated: 2026-07-03 (勾選多筆列印改用 signupIds 精準模式，取代原本近似編號區間 + 確認對話框的 v1 限制)
 ---
 
 ## 背景與動機
@@ -85,10 +85,10 @@ last_updated: 2026-07-02 (信眾 picker 改 1:1 對齊舊 dgvBelievers：14 欄 
 - **與搜尋篩選 `signupType` 解耦**：在「全部」篩選下挑出純普桌列也能列印（舊版需先把篩選切成普桌）
 - 安全性未降低：後端單筆 by-id 驗證 type=4、批次 `BatchReportHandler` 強制 type=4，前端只放行純普桌選取（詳見 [business-rules-implicit.md §16](../business-rules-implicit.md)）
 
-**多筆列印實作策略**：
-- 選 ≤ 3 筆 → 逐筆呼叫單筆 endpoint，前端用 PdfMerger（或 lazy：開多個 tab）
-- 選 > 3 筆 → 直接呼叫 `POST /api/v1/reports/batch`（需湊出連續編號區間；不連續時改用 numberStart=min, numberEnd=max + 前端 filter，trade-off：可能多印不在選取的編號）
-- **暫定 v1**：只支援單筆 + batch 區間（兩條路）；右鍵列印改成「以選列的編號區間批次列印」並顯示 confirmation；多筆「選 8 筆但只想印這 8 筆」未來再做
+**多筆列印實作策略（2026-07-03 更新，取代原 v1 限制）**：
+- 選 1 筆 → 呼叫單筆 endpoint（`GET /reports/{type}?signupId=`）
+- 選 > 1 筆 → 呼叫 `POST /api/v1/reports/batch` 帶 `signupIds: [勾選的 id...]`（見 [post-reports-batch.md](api-endpoints/post-reports-batch.md)），後端依 `SignupID IN (...)` 精準只印勾選的那幾筆，**不論編號是否連續**，不再需要湊區間或多印非選取列
+- **已撤回**：原 v1「不連續時退化成 `numberStart=min, numberEnd=max` 編號區間 + 跳確認對話框告知會多印非選取筆數」的近似做法——已被上述精準模式取代，前端 `signup-list-page.ts` 的 `actionPrint` 不再跳該確認框
 - 觸發方式：右鍵 menu / 列尾 kebab menu / 鍵盤 `Menu` 鍵 / 長按（touch）
 
 #### 批次列印面板（btnPrint_Click 等價）

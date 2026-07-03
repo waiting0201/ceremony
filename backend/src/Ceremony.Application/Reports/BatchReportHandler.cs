@@ -15,25 +15,44 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
 {
     public async Task<(byte[] Pdf, string FileName, int SignupCount)> HandleAsync(BatchReportRequest req, CancellationToken ct = default)
     {
-        if (req.NumberEnd < req.NumberStart)
+        // 兩種選取模式：SignupIds（勾選的任意幾筆，不論編號是否連續）優先於編號區間
+        var useIds = req.SignupIds is { Count: > 0 };
+
+        if (!useIds && (req.NumberStart is null || req.NumberEnd is null || req.NumberEnd < req.NumberStart))
             throw new DomainException("VALIDATION_INVALID", "編號錯誤");
 
         var reportType = (req.ReportType ?? string.Empty).Trim().ToLowerInvariant();
         if (reportType is not ("datacard" or "receipt" or "tablet" or "text" or "worship"))
             throw new DomainException("VALIDATION_INVALID", "報表類型錯誤");
 
-        // Worship 防呆：限定 SignupType=4，若呼叫端沒給就強制加（比舊系統嚴格）
-        var signupTypeFilter = reportType == "worship" ? 4 : req.SignupType;
+        IReadOnlyList<SignupListItem> signups;
+        string fileName;
 
-        var query = new SignupRangeQuery(
-            NumberStart: req.NumberStart,
-            NumberEnd: req.NumberEnd,
-            Year: req.Year,
-            YearGte: req.YearGte,
-            CeremonyCategoryId: req.CeremonyCategoryId,
-            SignupType: signupTypeFilter);
+        if (useIds)
+        {
+            signups = await repo.SearchByIdsAsync(req.SignupIds!, ct);
+            // Worship 防呆：跟編號區間模式一致，混選時只印其中 SignupType=4 的部分
+            if (reportType == "worship")
+                signups = signups.Where(s => s.SignupType == 4).ToList();
+            fileName = $"batch-{reportType}-selected-{signups.Count}.pdf";
+        }
+        else
+        {
+            // Worship 防呆：限定 SignupType=4，若呼叫端沒給就強制加（比舊系統嚴格）
+            var signupTypeFilter = reportType == "worship" ? 4 : req.SignupType;
 
-        var signups = await repo.SearchByNumberRangeAsync(query, ct);
+            var query = new SignupRangeQuery(
+                NumberStart: req.NumberStart!.Value,
+                NumberEnd: req.NumberEnd!.Value,
+                Year: req.Year,
+                YearGte: req.YearGte,
+                CeremonyCategoryId: req.CeremonyCategoryId,
+                SignupType: signupTypeFilter);
+
+            signups = await repo.SearchByNumberRangeAsync(query, ct);
+            fileName = $"batch-{reportType}-{req.NumberStart}-{req.NumberEnd}.pdf";
+        }
+
         if (signups.Count == 0)
             throw new DomainException("BATCH_NO_SIGNUPS", "查無符合條件的報名資料");
 
@@ -53,16 +72,16 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
         }
 
         var merged = merger.Merge(pdfs);
-        var fileName = $"batch-{reportType}-{req.NumberStart}-{req.NumberEnd}.pdf";
         return (merged, fileName, signups.Count);
     }
 }
 
 public sealed record BatchReportRequest(
     string ReportType,
-    int NumberStart,
-    int NumberEnd,
+    int? NumberStart = null,
+    int? NumberEnd = null,
     int? Year = null,
     bool YearGte = false,
     Guid? CeremonyCategoryId = null,
-    int? SignupType = null);
+    int? SignupType = null,
+    IReadOnlyList<Guid>? SignupIds = null);

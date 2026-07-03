@@ -55,6 +55,12 @@ public interface ISignupRepository
     Task<IReadOnlyList<SignupListItem>> SearchByNumberRangeAsync(SignupRangeQuery query, CancellationToken ct = default);
 
     /// <summary>
+    /// 批次列印用：依明確選取的 SignupId 清單查 signups（不論編號是否連續），
+    /// 供「勾選任意幾筆只印這幾筆」使用。ORDER BY Number 與範圍列印輸出順序一致。
+    /// </summary>
+    Task<IReadOnlyList<SignupListItem>> SearchByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken ct = default);
+
+    /// <summary>
     /// 取某信眾「Year ≤ yearLte 的最新一筆報名」的預繳資訊（ORDER BY Year DESC, CeremonySort DESC）。
     /// 對應舊 NewSignupForm.BelieverSelected:1102-1115。查無報名回 null。
     /// </summary>

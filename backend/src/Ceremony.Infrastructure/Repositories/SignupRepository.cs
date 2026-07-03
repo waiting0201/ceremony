@@ -481,6 +481,33 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         return list;
     }
 
+    public async Task<IReadOnlyList<SignupListItem>> SearchByIdsAsync(IReadOnlyList<Guid> ids, CancellationToken ct = default)
+    {
+        if (ids.Count == 0) return Array.Empty<SignupListItem>();
+
+        const string sql = """
+            SELECT
+              SignupID, Year, CeremonyCategoryID, CeremonyTitle, SignupType, NumberTitle, Number, Fee,
+              Employee, BelieverID, Name, HallName, Phone, IsFixedNumber,
+              LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
+              DeadNameOne,   DeadNameTwo,   DeadNameThree,   DeadNameFour,   DeadNameFive,   DeadNameSix,
+              MailCity, MailZone, MailZipcode, MailAddress,
+              TextCity, TextZone, TextZipcode, TextAddress,
+              PrepayYear, PrepayCeremonyCategoryID, PrepayCeremonyTitle,
+              Remark, AdminName, Createdate
+            FROM dbo.SignupView
+            WHERE SignupID IN @Ids
+            ORDER BY Number
+            """;
+
+        await using var conn = await factory.CreateOpenAsync(ct);
+        var rows = await conn.QueryAsync(new CommandDefinition(sql, new { Ids = ids }, cancellationToken: ct));
+        var list = new List<SignupListItem>();
+        foreach (var r in rows)
+            list.Add(MapRow(r));
+        return list;
+    }
+
     private static SignupListItem MapRow(dynamic r)
     {
         var d = (IDictionary<string, object?>)r;

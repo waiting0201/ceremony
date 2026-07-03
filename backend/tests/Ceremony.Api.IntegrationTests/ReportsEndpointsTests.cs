@@ -140,6 +140,40 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
         bytes[3].Should().Be(0x46);
     }
 
+    [Fact]
+    public async Task POST_batch_ids_returns_merged_PDF_for_exact_selection_regardless_of_gaps()
+    {
+        var client = await AuthedAsync();
+
+        var listResp = await client.GetAsync("/api/v1/signups?year=115&signupType=1");
+        var list = await listResp.Content.ReadFromJsonAsync<SignupListResponse>();
+        list!.Items.Should().HaveCountGreaterThanOrEqualTo(2);
+
+        var ordered = list.Items.OrderBy(i => i.Number).ToList();
+        var picked = new[] { ordered[0].Id, ordered[^1].Id };
+
+        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch",
+            new BatchReportRequest("datacard", SignupIds: picked));
+
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        resp.Content.Headers.ContentDisposition?.FileName.Should().Be("batch-datacard-selected-2.pdf");
+        resp.Headers.GetValues("X-Signup-Count").Single().Should().Be("2");
+
+        var bytes = await resp.Content.ReadAsByteArrayAsync();
+        bytes.Length.Should().BeGreaterThan(1000);
+        bytes[0].Should().Be(0x25);
+    }
+
+    [Fact]
+    public async Task POST_batch_missing_ids_and_range_returns_400()
+    {
+        var client = await AuthedAsync();
+        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch", new BatchReportRequest("datacard"));
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var body = await resp.Content.ReadAsStringAsync();
+        body.Should().Contain("編號錯誤");
+    }
+
     private async Task AssertReportEndpoint(string endpoint, int signupType, string expectedPrefix)
     {
         var client = await AuthedAsync();

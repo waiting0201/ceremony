@@ -32,11 +32,13 @@ export class ReportApi {
       }),
     );
     const countHeader = resp.headers.get('x-signup-count');
+    const fallbackName =
+      req.signupIds?.length
+        ? `batch-${req.reportType}-selected-${req.signupIds.length}.pdf`
+        : `batch-${req.reportType}-${req.numberStart}-${req.numberEnd}.pdf`;
     return {
       blob: resp.body!,
-      fileName:
-        extractFileName(resp.headers.get('content-disposition')) ??
-        `batch-${req.reportType}-${req.numberStart}-${req.numberEnd}.pdf`,
+      fileName: extractFileName(resp.headers.get('content-disposition')) ?? fallbackName,
       signupCount: countHeader ? Number(countHeader) : undefined,
     };
   }
