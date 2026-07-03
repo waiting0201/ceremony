@@ -13,6 +13,7 @@ public sealed class ReportsController(
     GenerateDataCardHandler dataCard,
     GenerateReceiptHandler receipt,
     GenerateTabletHandler tablet,
+    GenerateTabletSampleHandler tabletSample,
     GenerateTextHandler text,
     GenerateWorshipHandler worship,
     BatchReportHandler batch,
@@ -58,6 +59,20 @@ public sealed class ReportsController(
 
         var (pdf, fileName) = await tablet.HandleAsync(signupId, debugOverlay, ct);
         return File(pdf, "application/pdf", fileName);
+    }
+
+    /// <summary>開發用：薦牌「5 位亡者 + 5 位陽上」固定樣本 PDF（不依賴 DB，Base 變體）</summary>
+    /// <remarks>
+    /// 僅 Development 環境可用（同 debugOverlay），供搭配 <c>?debugOverlay=true</c> 樣板疊圖直接檢視列印位置，
+    /// 不需要在 DB 建一筆對應的報名資料。見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
+    /// </remarks>
+    [HttpGet("tablet/sample")]
+    public IActionResult TabletSample([FromQuery] bool debugOverlay = false)
+    {
+        if (!env.IsDevelopment()) return NotFound();
+
+        var pdf = tabletSample.Handle(debugOverlay);
+        return File(pdf, "application/pdf", "tablet-sample-5dead-5living.pdf");
     }
 
     /// <summary>產生文牒 PDF (36.5×26.2cm 橫寬；2 變體)</summary>

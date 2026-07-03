@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<GenerateDataCardHandler>();
         services.AddScoped<GenerateReceiptHandler>();
         services.AddScoped<GenerateTabletHandler>();
+        services.AddScoped<GenerateTabletSampleHandler>();
         services.AddScoped<GenerateTextHandler>();
         services.AddScoped<GenerateWorshipHandler>();
         services.AddScoped<BatchReportHandler>();

@@ -88,6 +88,19 @@ public sealed class GenerateTabletHandler(ISignupRepository repo, IReportRendere
 }
 
 /// <summary>
+/// 開發用：薦牌「5 位亡者 + 5 位陽上」固定樣本 PDF（Base 變體，最擁擠的 2×3 矩陣排版）。
+/// 不依賴 DB 資料，供開發人員搭配 debugOverlay 樣板疊圖直接檢視列印位置。
+/// </summary>
+/// <remarks>
+/// Blueprint: docs/blueprints/printing-reports.md「開發用列印位置檢視工具」
+/// </remarks>
+public sealed class GenerateTabletSampleHandler(IReportRenderer renderer)
+{
+    public byte[] Handle(bool debugOverlay = false)
+        => renderer.RenderTablet(ReportModelBuilders.TabletSample(), debugOverlay);
+}
+
+/// <summary>
 /// 文牒 PDF（2 變體）。
 /// </summary>
 /// <remarks>

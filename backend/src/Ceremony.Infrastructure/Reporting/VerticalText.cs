@@ -59,4 +59,14 @@ internal static class VerticalText
     /// </summary>
     public static double Avail(string? below, double rowPitchCm, double fullHeightCm)
         => string.IsNullOrWhiteSpace(below) ? fullHeightCm : rowPitchCm;
+
+    /// <summary>
+    /// 2026-07-06 使用者指定：同一欄「上排」與「下排」姓名（不同人）之間要留一個全形空白間距，
+    /// 不能緊貼。正下方有名字時在姓名尾端補一個全形空格（U+3000）——<see cref="Stack"/> 會把它
+    /// 渲染成多一列空白，<see cref="GroupFontPt"/> 因此多算一列而統一縮字，天然在「上排文字尾端」
+    /// 與「下排文字起點（下一個列距邊界）」之間空出一個字高的間距，不需另外調整任何 Top/Left 座標
+    /// （不違反 printing-reports-positions.md 的零容忍偏差條款）。下方為空（沒有下排名字）則不補。
+    /// </summary>
+    public static string? WithBottomGap(string? name, string? below)
+        => string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(below) ? name : name + "　";
 }

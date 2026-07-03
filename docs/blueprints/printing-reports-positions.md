@@ -12,7 +12,7 @@ related_docs:
   - ../design/visual-design.md
   - ../workflows/qa-testing.md
 keywords: [rdlc, 位置, position, layout, 座標, 列印, 套印, tablet, worship, datacard, receipt, text, 嚴格, strict, 1:1]
-last_updated: 2026-07-05 (§3 tmpTablet 加 OneOne 變體 Number/陽上/亡者 2cm Margin 補償；頁高 25.5cm；亡者中心線水平置中)
+last_updated: 2026-07-06 (§3 亡者/陽上矩陣同欄上下排姓名間補一個全形空白間距，不動座標；先前 OneOne 變體 Number/陽上/亡者 2cm Margin 補償；頁高 25.5cm；亡者中心線水平置中)
 ---
 
 ## 📌 適用範圍（2026-05-27 補充）
@@ -201,6 +201,8 @@ last_updated: 2026-07-05 (§3 tmpTablet 加 OneOne 變體 Number/陽上/亡者 2
 > - **§3/§10/§11（3+ 位亡者，Base/UnderscoreOne/UnderscoreTwo）**：中間欄（One/Six）`Left = DeadCenterX − fontCm/2`；右欄（Two/Four）`Left = DeadCenterX + fontCm/2 + Gap`；左欄（Three/Five）`Left = DeadCenterX − fontCm/2 − Gap − fontCm`，取代前一版固定值 `4.9`／`5.8`／`4.25`
 > - **改成動態算位置是這輪最大的方法論改變**：之前所有變體的欄位 X 座標都是編譯期常數，不管字級縮多小位置都不變；現在先算好共用字級才動態算置中位置，縮字後置中點不會偏移，且字級縮小時欄位間距自動變寬（原本固定值只精確涵蓋單一測試案例的字級）
 > - 詳細背景見 [printing-reports.md](printing-reports.md)「薦牌實體對位開放問題」2026-07-05 追加段落
+>
+> ⚠️ **2026-07-06 使用者指定：亡者／陽上矩陣同一欄「上排」與「下排」姓名之間要留一個全形空白間距**：適用範圍是 DeadName 2×3 矩陣（Base/UnderscoreOne/UnderscoreTwo：d[0]/d[5]、d[1]/d[3]、d[2]/d[4] 三組同欄配對）與 LivingName 3-6 位矩陣（Two/One/Base：l[0]/l[5]、l[1]/l[3]、l[2]/l[4] 三組同欄配對）；1-2 位的變體（單欄或左右並排，無上下配對）不受影響。**做法不動任何 Top/Left 座標**（遵守本檔零容忍偏差條款）：新增 `VerticalText.WithBottomGap(name, below)`，正下方有名字時在姓名尾端補一個全形空格（U+3000）；`VerticalText.Stack` 會把它渲染成多一列空白，`GroupFontPt` 因此多算一列而統一縮字，天然在上排文字尾端與下排起點之間空出一個字高間距。實作見 [VerticalText.cs](../../backend/src/Ceremony.Infrastructure/Reporting/VerticalText.cs)、[TabletRenderer.cs](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs) `DrawDeadNames`/`DrawLivingNames`。PDF 已更新至 `reference/output/tablet_5dead_5living_overlay.pdf`，16 個既有 Tablet 測試全數通過。
 
 ## 4. tmpTabletOne.rdlc（薦牌 — 1 亡者 + 3-6 陽上）
 

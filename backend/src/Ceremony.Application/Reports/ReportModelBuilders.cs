@@ -77,4 +77,25 @@ internal static class ReportModelBuilders
             LivingNames: livingNames,
             Template: template);
     }
+
+    /// <summary>
+    /// 開發用固定測試資料：5 位亡者 + 5 位陽上（3+ 亡 3+ 陽 → 落在 TabletTemplate.Base fallback，
+    /// 也就是最擁擠的 2×3 矩陣排版），供 <c>GenerateTabletSampleHandler</c> 搭配 debugOverlay 樣板疊圖
+    /// 做列印位置檢視，不需要在 DB 建對應的報名資料。
+    /// </summary>
+    public static TabletModel TabletSample()
+    {
+        var deadNames = new string?[] { "亡者一", "亡者二", "亡者三", "亡者四", "亡者五", null };
+        var livingNames = new string?[] { "陽上一", "陽上二", "陽上三", "陽上四", "陽上五", null };
+        var (template, paraFontSize) = PrintTemplateSelector.ChooseTablet(deadNames, livingNames);
+        var paraSizeCm = double.Parse(paraFontSize.Replace("cm", ""));
+        return new TabletModel(
+            Number: "測1",
+            HallNameFirst: "測",
+            HallNameSecond: "試",
+            DeadNames: deadNames,
+            LivingNames: livingNames,
+            ParaFontSizeCm: paraSizeCm,
+            Template: template);
+    }
 }

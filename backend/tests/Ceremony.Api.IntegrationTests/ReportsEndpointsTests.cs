@@ -56,6 +56,25 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
         => await AssertReportEndpoint("text", signupType: 1, expectedPrefix: "text-");
 
     [Fact]
+    public async Task GET_tablet_sample_returns_5dead5living_PDF_in_development()
+    {
+        var client = await AuthedAsync();
+
+        var resp = await client.GetAsync("/api/v1/reports/tablet/sample?debugOverlay=true");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        resp.Content.Headers.ContentType?.MediaType.Should().Be("application/pdf");
+        resp.Content.Headers.ContentDisposition?.FileName.Should().Be("tablet-sample-5dead-5living.pdf");
+
+        var bytes = await resp.Content.ReadAsByteArrayAsync();
+        bytes.Length.Should().BeGreaterThan(1000);
+        bytes[0].Should().Be(0x25);  // %PDF magic
+        bytes[1].Should().Be(0x50);
+        bytes[2].Should().Be(0x44);
+        bytes[3].Should().Be(0x46);
+    }
+
+    [Fact]
     public async Task GET_worship_nonType4_returns_422()
     {
         var client = await AuthedAsync();

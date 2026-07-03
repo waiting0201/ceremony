@@ -192,10 +192,15 @@ public sealed class TabletRenderer
                 const double deadFull = 8.4957;
                 // 第 6 位（d[5]）補在下排正中央（主欄 d[0] 正下方），使 2×3 矩陣對稱（座標確認見 business-rules-implicit §18）。
                 // d[0] 之前下方為空可用整欄高；現 d[5] 在其正下方 → 改用列距為界（有第 6 位才縮，無則 Avail 回整欄高＝向後相容）。
+                // 2026-07-06：同欄上/下排姓名（d[0]/d[5]、d[1]/d[3]、d[2]/d[4]）之間要留一個全形空白，
+                // 見 VerticalText.WithBottomGap——只影響字級/顯示內容，不動任何 Top/Left 座標。
+                var d0Gap = VerticalText.WithBottomGap(d[0], d[5]);
+                var d1Gap = VerticalText.WithBottomGap(d[1], d[3]);
+                var d2Gap = VerticalText.WithBottomGap(d[2], d[4]);
                 var f = VerticalText.GroupFontPt(paraPt,
-                    (d[0], VerticalText.Avail(d[5], deadRowPitch, deadFull)),
-                    (d[1], VerticalText.Avail(d[3], deadRowPitch, deadFull)),
-                    (d[2], VerticalText.Avail(d[4], deadRowPitch, deadFull)),
+                    (d0Gap, VerticalText.Avail(d[5], deadRowPitch, deadFull)),
+                    (d1Gap, VerticalText.Avail(d[3], deadRowPitch, deadFull)),
+                    (d2Gap, VerticalText.Avail(d[4], deadRowPitch, deadFull)),
                     (d[3], 5.5298),
                     (d[4], 5.5298),
                     (d[5], 5.5298));
@@ -203,9 +208,9 @@ public sealed class TabletRenderer
                 var centerX = DeadCenterX - fontCm / 2;
                 var rightX = DeadCenterX + fontCm / 2 + DeadColumnGap;
                 var leftX = DeadCenterX - fontCm / 2 - DeadColumnGap - fontCm;
-                DrawText(layers, 7.5825, centerX, 0.6, deadFull, f, d[0], vertical: true);   // One（主，中間上）
-                DrawText(layers, 7.5825, rightX, 0.6, deadFull, f, d[1], vertical: true);   // Two（右邊上）
-                DrawText(layers, 7.5825, leftX, 0.6, deadFull, f, d[2], vertical: true);   // Three（左邊上）
+                DrawText(layers, 7.5825, centerX, 0.6, deadFull, f, d0Gap, vertical: true);   // One（主，中間上）
+                DrawText(layers, 7.5825, rightX, 0.6, deadFull, f, d1Gap, vertical: true);   // Two（右邊上）
+                DrawText(layers, 7.5825, leftX, 0.6, deadFull, f, d2Gap, vertical: true);   // Three（左邊上）
                 DrawText(layers, 9.4464, rightX, 0.6, deadFull, f, d[3], vertical: true);   // Four（右邊下）
                 DrawText(layers, 9.4464, leftX, 0.6, deadFull, f, d[4], vertical: true);   // Five（左邊下）
                 DrawText(layers, 9.4464, centerX, 0.6, deadFull, f, d[5], vertical: true);   // Six（中間下，主欄正下方）
@@ -254,14 +259,18 @@ public sealed class TabletRenderer
             case TabletTemplate.Two:
             {
                 // Two 變體 L 微調
+                // 2026-07-06：同欄上/下排姓名之間留一個全形空白，見 VerticalText.WithBottomGap。
+                var l0GapTwo = VerticalText.WithBottomGap(l[0], l[5]);
+                var l1GapTwo = VerticalText.WithBottomGap(l[1], l[3]);
+                var l2GapTwo = VerticalText.WithBottomGap(l[2], l[4]);
                 var f = VerticalText.GroupFontPt(pt06,
-                    (l[0], VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
-                    (l[1], VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
-                    (l[2], VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
+                    (l0GapTwo, VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
+                    (l1GapTwo, VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
+                    (l2GapTwo, VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
                     (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
-                DrawText(layers, 14.00389, 1.52639, 0.7, LivingFull, f, l[0], vertical: true);
-                DrawText(layers, 14.00389, 0.8, 0.7, LivingFull, f, l[1], vertical: true);
-                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l[2], vertical: true);
+                DrawText(layers, 14.00389, 1.52639, 0.7, LivingFull, f, l0GapTwo, vertical: true);
+                DrawText(layers, 14.00389, 0.8, 0.7, LivingFull, f, l1GapTwo, vertical: true);
+                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l2GapTwo, vertical: true);
                 DrawText(layers, 15.44174, 0.8, 0.7, LivingFull, f, l[3], vertical: true);
                 DrawText(layers, 15.44174, 0.1, 0.7, LivingFull, f, l[4], vertical: true);
                 DrawText(layers, 15.44174, 1.52639, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
@@ -271,14 +280,18 @@ public sealed class TabletRenderer
             case TabletTemplate.One:
             {
                 // One 變體
+                // 2026-07-06：同欄上/下排姓名之間留一個全形空白，見 VerticalText.WithBottomGap。
+                var l0GapOne = VerticalText.WithBottomGap(l[0], l[5]);
+                var l1GapOne = VerticalText.WithBottomGap(l[1], l[3]);
+                var l2GapOne = VerticalText.WithBottomGap(l[2], l[4]);
                 var f = VerticalText.GroupFontPt(pt06,
-                    (l[0], VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
-                    (l[1], VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
-                    (l[2], VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
+                    (l0GapOne, VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
+                    (l1GapOne, VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
+                    (l2GapOne, VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
                     (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
-                DrawText(layers, 14.00389, 1.56167, 0.7, LivingFull, f, l[0], vertical: true);
-                DrawText(layers, 14.00389, 0.83528, 0.7, LivingFull, f, l[1], vertical: true);
-                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l[2], vertical: true);
+                DrawText(layers, 14.00389, 1.56167, 0.7, LivingFull, f, l0GapOne, vertical: true);
+                DrawText(layers, 14.00389, 0.83528, 0.7, LivingFull, f, l1GapOne, vertical: true);
+                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l2GapOne, vertical: true);
                 DrawText(layers, 15.44174, 0.83528, 0.7, LivingFull, f, l[3], vertical: true);
                 DrawText(layers, 15.44174, 0.1, 0.7, LivingFull, f, l[4], vertical: true);
                 DrawText(layers, 15.44174, 1.56167, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
@@ -288,14 +301,18 @@ public sealed class TabletRenderer
             default:
             {
                 // Base
+                // 2026-07-06：同欄上/下排姓名之間留一個全形空白，見 VerticalText.WithBottomGap。
+                var l0Gap = VerticalText.WithBottomGap(l[0], l[5]);
+                var l1Gap = VerticalText.WithBottomGap(l[1], l[3]);
+                var l2Gap = VerticalText.WithBottomGap(l[2], l[4]);
                 var f = VerticalText.GroupFontPt(pt06,
-                    (l[0], VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
-                    (l[1], VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
-                    (l[2], VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
+                    (l0Gap, VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
+                    (l1Gap, VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
+                    (l2Gap, VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
                     (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
-                DrawText(layers, 14.00389, 1.56167, 0.7, LivingFull, f, l[0], vertical: true);
-                DrawText(layers, 14.00389, 0.83528, 0.7, LivingFull, f, l[1], vertical: true);
-                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l[2], vertical: true);
+                DrawText(layers, 14.00389, 1.56167, 0.7, LivingFull, f, l0Gap, vertical: true);
+                DrawText(layers, 14.00389, 0.83528, 0.7, LivingFull, f, l1Gap, vertical: true);
+                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l2Gap, vertical: true);
                 DrawText(layers, 15.44174, 0.83528, 0.7, LivingFull, f, l[3], vertical: true);
                 DrawText(layers, 15.44174, 0.13528, 0.7, LivingFull, f, l[4], vertical: true);
                 DrawText(layers, 15.44174, 1.56167, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
