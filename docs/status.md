@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-02 (新增薦牌實體對位 Blocked 項，待實測校正)
+last_updated: 2026-07-05 (薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 
 
 ---
@@ -133,11 +133,11 @@ last_updated: 2026-07-02 (新增薦牌實體對位 Blocked 項，待實測校正
 
 > 卡住中，需要外部資訊或決策才能繼續
 
-- [ ] **薦牌（TabletRenderer）實體對位修正** — `reference/薦牌問題.pdf`
-  - Blocker: 客戶反映實際列印紙條插入蓮花瓶牌位座後文字對不準視窗；已排除座標搬移手誤、PDF 內部重疊/超出頁面邊界、往生字級疊字舊 bug 三種可能，判斷是「RDLC 校準當年的牌位座尺寸」與「客戶現有牌位座」不一致 —— 需要實體量測才能反推正確修正量，無法只憑照片/程式碼判斷
-  - Waiting on: 使用者/現場人員印出校正尺標版本（`TabletRenderer.Render(data, debugGrid:true)`，已建好、回歸測試 `Tablet_DebugGrid_ForRealComplaintScenario_DumpsCalibrationPdf`）並插入同一個牌位座，回報視窗上緣/下緣對到第幾條 1cm 刻度線
-  - Since: 2026-07-02
-  - Detail: [gotchas.md](gotchas.md)「薦牌實體對位」條
+- [ ] **薦牌（TabletRenderer）實體對位修正 — 主欄溢出已修正、亡者欄位改用中心線動態置中，仍待實機確認** — `reference/薦牌問題.pdf`
+  - Blocker（已縮小範圍）: 客戶反映實際列印紙條插入蓮花瓶牌位座後文字對不準視窗；已排除座標搬移手誤、PDF 內部重疊/超出頁面邊界、往生字級疊字舊 bug 三種可能。2026-07-03 用新的 `debugOverlay` 疊 `reference/template/薦牌.jpg` 樣板照片量測，發現並修正了 Base 變體主欄可用高度（`deadFull`）確實比窗框內緣多出約 2.5cm 的 porting 落差；2026-07-05 使用者反映「亡者列印沒有很正」，改用「故／靈位」字符中心線為基準全面重寫亡者定位邏輯（動態算置中座標，取代編譯期固定常數）（見下方 Detail）——但樣板照片是否等於客戶目前實際使用的牌位座尚未確認，仍需實體量測才能結案
+  - Waiting on: 使用者/現場人員印出修正後版本（可搭配 `TabletRenderer.Render(data, debugGrid:true)`）並插入同一個牌位座，回報視窗上緣/下緣對到第幾條 1cm 刻度線，確認這次修正方向正確或算出更精確的修正量
+  - Since: 2026-07-02（2026-07-03、2026-07-05 部分修正）
+  - Detail: [gotchas.md](gotchas.md)「薦牌實體對位」條、[printing-reports.md](blueprints/printing-reports.md)「薦牌實體對位開放問題」
 
 ## 📍 目前文件化進度（會話開始先讀這份）
 
@@ -166,6 +166,34 @@ last_updated: 2026-07-02 (新增薦牌實體對位 Blocked 項，待實測校正
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **開發用列印位置檢視工具（文牒/資料卡/薦牌樣板疊圖）** — Done 2026-07-03（內部 dev-only 工具，不影響對外版本號）
+  - 需求：延續薦牌既有 `debugGrid` 格線校正工具的精神，讓開發人員能疊上 `reference/template/` 的實體樣板掃描照直接肉眼比對列印欄位對不對齊，涵蓋文牒/資料卡/薦牌三種報表
+  - 做法：比照 `WorshipRenderer` 既有的 EmbeddedResource 背景圖手法，`DataCardRenderer`/`TextRenderer`/`TabletRenderer` 的 `Render(...)` 加 `debugOverlay` 參數；`ReportsController` 的 3 個 GET endpoint 加 `?debugOverlay=true`，僅 Development 環境放行（其他環境回 404）；不加前端 UI
+  - 素材：`reference/template/{文牒,資料卡,薦牌}.jpg`（200 DPI 掃描），資料卡樣板有 EXIF 側拍已用 Pillow 轉正
+  - **附帶發現**：疊圖後直接印證了下方 Blocked 項「薦牌實體對位」的客訴——Base/OneOne 變體文字貼近甚至超出雕花窗框邊緣；另外資料卡的欄位標籤與樣板紙已印標籤重複繪製、略為錯位
+  - 驗證：`dotnet build`/`dotnet test` 全數通過；`RendererSmokeTests.cs` 新增 `DebugOverlay` 回歸測試；`CEREMONY_PDF_DUMP` 落地後用 `pdftoppm` 轉圖目視確認三種報表疊圖皆正確對齊且方向正確
+  - 文件同步：[printing-reports.md](blueprints/printing-reports.md)「開發用列印位置檢視工具」、[api-design.md](design/api-design.md) Reports/Print 表註記
+  - **追加（2026-07-03）用樣板照片量測薦牌，修正一個確定的 bug**：對「附帶發現」的薦牌窗框溢出做像素分析（量出雕花窗框內緣 Y: 6.2294~16.0782cm），確認 Base 變體主欄可用高度 `deadFull=11.0331cm` 確實比窗框內緣多出約 2.5cm（14 字以上長名字會印到窗框外）——這是可從量測值直接反推的 porting 落差，經使用者確認後改為量測值 `deadFull=8.4957`，回歸鎖 `Tablet_Base_LongDeadName_StaysWithinMeasuredWindow`；仍歸類在下方 Blocked（樣板照片是否等於客戶實際牌位座尚待實機確認）
+  - **追加（2026-07-03）資料卡改版，已結案**：量測發現樣板照片沒有「亡者」欄、也沒有堂號（HallName）欄，樣板第一個欄位「陽上：」實際在 Top≈2.69cm（原程式碼畫在 4.707cm），樣板右側印有跟薦牌同款「故◯◯靈位」窗框圖案。經使用者確認改版方向（Number 留左、預繳留右、堂號不印、亡者改印進右側窗框）後：`DataCardData`/`DataCardModel`/`ReportModelBuilders.DataCard` 移除 `HallName`；新增 `DrawDeadNamesInWindow`（比照 TabletRenderer 直書堆疊 + GroupFontPt 縮字，多位亡者用「、」串接塞進窗框缺口）；陽上整段上移對齊樣板；移除失去意義的虛線分隔。因資料卡是平面 A5 紙（不像薦牌要塞實體 3D 牌位座），量測值可直接定案不需等實機測試。回歸鎖 `DataCard_MultipleDeadNames_StayWithinMeasuredWindow`。詳見 [printing-reports.md](blueprints/printing-reports.md)「資料卡改版」
+  - **再追加（2026-07-03）拿掉重複標題**：使用者指出樣板紙本身就已經預印每個欄位的標題文字，程式不需要再印一次。拿掉「陽上：」「地址：」「電話：」「備註：」「確認無誤請簽名：」5 個標題 `DrawText` 呼叫 + 簽名底線 `Line1`（樣板已印），程式現在只印欄位內容；順手清掉因此變成死碼的 `DrawLine` method 與 `DrawText` 的 `vAlign`/`VerticalAlign` 參數。用 `CEREMONY_PDF_DUMP` + `pdftoppm` 目視確認疊圖後不再有雙重疊字，PDF 複製存於 `reference/output/`（`.gitignore` 排除，不進 repo）供直接開啟檢視。`dotnet test` 309 個測試全數通過
+  - **再追加（2026-07-04）使用者指定版面微調**：陽上改 3 排 × 2 欄（6 字寬 4.8cm，1st→第一排、2nd/4th→第二排前/後、3rd/5th→第三排前/後）；地址上移 1cm、備註下移 0.5cm，兩者皆縮寬到 10.4cm 避開右側樣板窗框、可換行不裁切；亡者窗框內文字再靠右 0.3cm。新增回歸測試 `DataCard_FiveLivingNamesAndWrappedText_DumpsCalibrationPdf`（5 位陽上 + 刻意寫長地址/備註觸發換行），疊圖確認新版面互不重疊，PDF 存於 `reference/output/datacard_five_living_wrapped_overlay.pdf`。`dotnet test` 310 個測試全數通過
+  - **再追加（2026-07-05）使用者再指定版面調整**：地址/電話/備註改對齊陽上的方式（直接對齊樣板量到的標題「上緣」：地址 6.4135、電話 8.8392、備註 9.8679，取代前一版用位移量推算的座標）；亡者改成跟薦牌一樣的 2×3 矩陣（1st 中間上、2nd 右邊上、3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下，完全比照 `TabletRenderer.DrawDeadNames`），並整體往下 0.1cm、往左 0.1cm。**踩雷**：窗框內緣只有 2.9845cm 寬塞不下 3 欄用 0.8cm 字級（短名字時 `GroupFontPt` 不會縮，欄距 0.75cm 幾乎貼在一起），改把這個窗框專用字級基準降到 0.6cm 才留得出間隙——用 `甲乙丙丁戊己` 6 個相異單字疊圖才看得出這個問題（用同姓氏測試資料會誤判成正常）。新增回歸測試 `DataCard_SixDeadNames_MatrixStaysWithinMeasuredWindow`、`DataCard_SixDistinctDeadNames_MatrixColumnsDoNotTouch`、`DataCard_OneDeadName_MatrixCenterTopRenders`；PDF 存於 `reference/output/`。`dotnet test` 312 個測試全數通過
+
+- [x] **薦牌（TabletRenderer）Number 位置微調** — Done 2026-07-05
+  - 需求：使用者提出薦牌 3 項修改，經確認後只有第 3 項需要動 code——亡者「中間上/右邊上/左邊上/右邊下/左邊下/中間下」矩陣（3 位以上變體）使用者確認現況已符合、不用改；陽上排法使用者要求維持參照舊系統 RDLC 座標、不重新設計；Number（掛號）位置從左上角原點往下、往右各移 0.1cm
+  - 做法：`TabletRenderer.cs` 的 Number `DrawText` 呼叫從 `(0.0, 0.0)` 改成 `(0.1, 0.1)`，9 個變體共用同一行程式碼，全部套用
+  - 驗證：`dotnet test` 312 個測試全數通過；用 `debugOverlay` 疊圖 + 裁切左上角目視確認「郵1」不再貼齊紙張邊緣
+  - 文件同步：[printing-reports.md](blueprints/printing-reports.md)「薦牌實體對位開放問題」、[printing-reports-positions.md](blueprints/printing-reports-positions.md) §3
+  - **追加（2026-07-05）使用者反映「薦牌亡者的列印沒有很正」**：第一輪用 `debugOverlay` 疊圖逐一實測（不是憑感覺）發現 Two 變體 `DeadNameTwo Left=4.2` 跟窗框內緣（量測 4.191cm）幾乎貼齊、Base 變體 `DeadNameThree/Five Left=4.0` 更嚴重直接印到邊框外，先用固定值 `Left=4.34`／`4.25` 修正
+  - **再追加（2026-07-05）使用者給出更完整規則，全面改版取代固定值**：以樣板紙「故」「靈位」兩組靜態字的字符中心線為排版基準——1 位亡者完全置中、2 位分居中心線左右、3+ 位沿用 2×3 矩陣但中間欄置中在中心線。量出中心線 `X=5.685cm`（「故」「靈位」bounding box 中心幾乎重合，跟窗框幾何中心互相印證），並疊回無渲染文字的原始樣板照片核對精確貫穿兩組字視覺中心。**方法論改變**：位置改成「先算 `GroupFontPt` 共用字級，再動態算置中座標」，取代「編譯期固定常數、不管字級縮多小位置都不變」的舊做法，一併解決 Base 變體先前「只能剛好清邊框」的取捨疑慮。新增回歸測試 `Tablet_OneDeadName_DumpsCenteredOverlay`；`dotnet test` 314 個測試全數通過；PDF 存於 `reference/output/{tablet_one_dead_centered_overlay,tablet_two_variant_overlay,tablet_base_three_dead_overlay}.pdf`
+  - **三追加（2026-07-05）「只有一位時，亡者位置沒在故靈位正中間」，第一次改法猜錯方向**：誤判成「Y 座標也要整體置中在故～靈位空隙裡」（`Top = 故下緣 + (空隙高度 − 文字高度) / 2`），量出故下緣 `Y=7.5946cm`／靈上緣 `Y=13.462cm`（空隙 5.8674cm）套用。收緊 `GroupFontPt` avail 至實測空隙這項改動是對的、有保留。
+  - **四追加（2026-07-05）使用者糾正「還是不對 要在故的正下方」**：原意是水平方向在中心線上，垂直方向要**緊接在故正下方**，不是整塊漂浮置中在空隙中間。改回 `Top = 故下緣量測值 7.5946`（跟改版前的舊值 7.5825 幾乎相同，等於只補上水平置中、垂直維持原邏輯）。`dotnet test` 314 個測試全數通過（無新增測試，沿用同一個回歸測試驗證新結果）；PDF 已更新至 `reference/output/tablet_one_dead_centered_overlay.pdf`
+  - **五追加（2026-07-05）使用者確認實體紙張尺寸為 11.5×25.5cm**：原 RDLC 值 25.4cm 高度少了 0.1cm。`TabletRenderer.PageHeightCm` 改為 `25.5`（9 個變體共用同一常數，全部套用），順手把 `page.Size(...)` 呼叫跟 `DrawCalibrationGrid` 內原本重複寫死的 `25.4f`/`11.5f` 都改成讀取 `PageWidthCm`/`PageHeightCm` 常數，避免下次改頁面尺寸又漏改其中一處。所有欄位座標都是絕對值、不受頁高影響，只補足頁尾多出的 0.1cm 空白。`dotnet test` 314 個測試全數通過（無需新增測試）；重新產出全部薦牌疊圖 PDF 確認頁面比例正確、樣板疊圖仍對齊
+  - **六追加（2026-07-05）使用者反映「只有一位往生者的 template 引用有問題，template 變比較小，上方跟右方有一大片留白」，抓到真的 bug**：三個 renderer（DataCard/Text/Tablet）的 debugOverlay 最初都用 `.Image(TemplateImage).FitArea()`（保留原圖比例、留白），但樣板掃描照實際比例跟假定的頁面 cm 比例對不上，尤其**薦牌 OneOne 變體**（內容區 11.5×21.5cm，比例 1.87）跟樣板原生比例（2.23）落差最大，量測確認疊圖只填滿容器寬度的 83.7%、右側留白達 16%。改用 `.FitUnproportionally()`（直接拉伸填滿容器，忽略原圖比例）——這個工具本來就是假設「樣板照片＝我們的 cm 座標系統」去比對位置，非等比縮放反而更符合這個假設。三個 renderer 都受影響、都已修正（不只薦牌）。修正後像素量測確認全部疊圖填滿容器寬高達 99.8%+。`dotnet test` 314 個測試全數通過（無需新增測試）；PDF 已更新至 `reference/output/`
+  - **七追加（2026-07-05）使用者追問「上下也（跟）右有留白，再確認一下」，第一次判斷「這是 QuestPDF 限制非 bug」**：OneOne 變體疊圖上下緣各留 118px（≈2cm），對應 `tmpTabletOneOne` 的 Page Margin 設計。試過負值 `TranslateY(-2cm)` 想蓋滿整張紙，但在 `page.Content().Layers(...)` 底下操作會被 Margin 整層裁掉（回歸測試抓到：疊圖版 PDF 位元組數跟不疊圖版完全一樣），因此先下結論「技術限制、改不了」，改回原本版本。
+  - **八追加（2026-07-05）使用者不接受「限制」的說法、指示參考 3 位亡者（無 margin）疊圖方式，重新查出正確做法**：關鍵在於先前只試了 `page.Content()` 內的路徑，沒有進一步查 QuestPDF 是否有繞過 Margin 的其他 API。改用 `page.Background(...)`——這是畫在「整張實體紙」座標系統，不受 `page.Content()` 的 Margin 影響；`layers.PrimaryLayer().Background(...)` 在 `debugOverlay=true` 時改用 `Colors.Transparent`（保留呼叫維持 Layers 容器尺寸，只是不再蓋白底擋住 Background 疊的樣板照片）。修正後像素量測確認 OneOne 疊圖四邊留白全部歸零，完整看到牌位圖案。`dotnet test` 314 個測試全數通過；PDF 已更新至 `reference/output/`。**教訓**：「這是第三方套件的技術限制」這個結論下得太早——只證明了一條路走不通，不代表沒有其他路徑；使用者的直覺（3 位亡者疊圖沒問題，代表 template 引用方式本身沒問題，問題出在別處）是對的
+  - **九追加（2026-07-05）疊圖修好、蓋滿整張紙後，露出更早就存在的排版 bug**：使用者指出「留白可以了，但是 y 軸的位置不對，請參考三位亡者的 y 軸位置」，點名 Number、陽上、亡者三處。用 cm 尺標疊在渲染結果上精確量測，確認根因：這三處分別跟 TwoOne/UnderscoreOne/OneTwo/One 等「沒有 Page Margin」的變體共用同一個座標常數（`Number Top=0.1`、`LivingNameOne Top=14.00389`、`DeadGapTop=7.5946`），但只有 OneOne 有 2cm Margin，`page.Content()` 座標原點比真實頁面頂端低 2cm，OneOne 印出來的實體位置因此比其他共用同一常數的變體低了 2cm——這個錯位其實從一開始就存在，只是被「舊版疊圖只顯示裁切後內容區」巧合遮住，這輪蓋滿整張紙才第一次真正看見。三處都加上 `data.Template == TabletTemplate.OneOne ? 2.0 : 0.0` 的補償，content-Y 減去這個值。**技術細節**：原本擔心負值 Y（如 `0.1-2.0=-1.9`）會像先前 Image 疊圖一樣被 QuestPDF 整層裁掉，但實測**文字元素不會被裁**，只有 `Image` 疊圖那條路徑會——同一個 Margin 座標系統，不同元素類型的裁切行為不一樣。`dotnet test` 314 個測試全數通過；PDF 已更新至 `reference/output/`
 
 - [x] **新增報名「選擇信眾」picker 對齊舊系統** — Done 2026-07-02，**更版 v2.1.2**（PATCH：沿用既有 endpoint，僅前端行為/樣式對齊）
   - 需求：使用者要求 signup-edit-form 的信眾 picker 搜尋方式與清單欄位要跟舊 `NewSignupForm` 完全一樣

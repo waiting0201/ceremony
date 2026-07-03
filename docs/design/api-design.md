@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-06-30 (加 GET /signups/duplicates — 重複報名警示)
+last_updated: 2026-07-03 (加 reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)
 ---
 
 ## 通則
@@ -184,6 +184,10 @@ HTTP status 映射：
 每個 endpoint 支援：
 - `?format=pdf|preview`（preview 走相同格式但加 watermark「預覽」）
 - `?variant=auto|tabletOne|tabletOneOne|...` 強制指定模板變體（auto 走 server 端邏輯）
+
+> ⚠️ **本表與目前 [ReportsController](../../backend/src/Ceremony.Api/Controllers/ReportsController.cs) 實際行為已有落差**（既有落差，非本次任務範圍）：實際是 `GET` + `[FromQuery] signupId`（單筆），不是 `POST` + `body: {signupIds[]}`；`format=preview` / `variant=` 這兩個 query 參數在現有 Controller 中也未實作。
+
+**`debugOverlay`（dev-only，2026-07-03 新增）**：`datacard` / `tablet` / `text` 三個 GET endpoint 額外支援 `?debugOverlay=true`，會在產出的 PDF 疊上 `reference/template/` 對應的實體樣板照片，供開發人員檢視列印位置是否對齊。**僅 `ASPNETCORE_ENVIRONMENT=Development` 可用，其他環境回 404**。詳見 [printing-reports.md](../blueprints/printing-reports.md)「開發用列印位置檢視工具」。
 
 ### Backup
 

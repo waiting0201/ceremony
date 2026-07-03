@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-07-02 (新增薦牌實體對位開放問題＋debugGrid 校正工具，待實測)
+last_updated: 2026-07-05 (薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 ---
 
 ## 背景與動機
@@ -140,15 +140,92 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 > **「郵1」考據**：舊系統 `SignupType` 共 5 類（1=No、2=寺、3=觀、4=普、**5=郵＝郵撥**），列印 Number 欄為 `NumberTitle+號`（見下方「報表『編號欄』字串格式」段），故「郵1」= 郵撥類第 1 號，用同一套 `tmpText`/`tmpTextTwo` 模板列印，**不是**額外的郵寄專用列印格式（已查證舊 19 個 RDLC 無第三種文牒變體）。
 
-### 薦牌實體對位開放問題（2026-07-02，源自 `reference/薦牌問題.pdf` 手寫註記，**未解決，待實測**）
+### 薦牌實體對位開放問題（2026-07-02 發現，2026-07-03 部分修正，**仍待實機確認**）
 
 跟上面文牒的同一個蔡家測試資料，但這次客戶反映的是**薦牌**（[TabletRenderer](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs)）：實際列印紙條插入蓮花瓶牌位座後，文字位置對不準視窗（跑到視窗外、蓋到雕花邊框）。
 
-排查已排除三種常見成因：座標對照 `tmpTablet.rdlc` XML 逐一核對 1:1 吻合、實際跑 `TabletRenderer` 轉圖檢視文字不重疊不超出頁面邊界、`GroupFontPt` 的全形空格修正（見上方「文牒兩項客戶回饋修正」#2 同源 helper）本來就已套用在薦牌。判斷是「RDLC 校準當年的牌位座實體尺寸」與「客戶現有牌位座」不一致——這是**紙條 vs 實體外殼視窗的對位問題**，光看 PDF 或照片無法反推正確修正量。
+排查已排除三種常見成因：座標對照 `tmpTablet.rdlc` XML 逐一核對 1:1 吻合、實際跑 `TabletRenderer` 轉圖檢視文字不重疊不超出頁面邊界、`GroupFontPt` 的全形空格修正（見上方「文牒兩項客戶回饋修正」#2 同源 helper）本來就已套用在薦牌。判斷是「RDLC 校準當年的牌位座實體尺寸」與「客戶現有牌位座」不一致——這是**紙條 vs 實體外殼視窗的對位問題**，原本判斷光看 PDF 無法反推正確修正量。
 
 **已做**：`TabletRenderer.Render(data, debugGrid: true)` 疊 1cm 刻度格線的診斷版本（不進生產路徑），供印出後插入實體牌位座量測。回歸鎖 `Tablet_DebugGrid_ForRealComplaintScenario_DumpsCalibrationPdf`。
 
-**待辦**：見 [status.md](../status.md) Blocked 清單 / [gotchas.md](../gotchas.md)「薦牌實體對位」條——需要使用者/現場人員拿校正尺標版本實測回報視窗上下緣對到第幾條刻度線，才能算出精確修正量。
+**2026-07-03 用 `debugOverlay` 樣板照片量測，修正了一個確定的 bug**：疊上 `reference/template/薦牌.jpg`（200 DPI）後用像素分析量出雕花窗框內緣 Y 範圍 6.2294~16.0782cm。發現 Base/UnderscoreOne/UnderscoreTwo 變體主欄（One，無第 6 位搭配時）原本可用高度 `deadFull=11.0331cm` 從 top=7.5825 算到 18.6156cm，比窗框內緣底部多出約 2.5cm——14 字以上長名字會被印到窗框外。已改為量測值 `deadFull=8.4957`，回歸鎖 `Tablet_Base_LongDeadName_StaysWithinMeasuredWindow`。這個修正是「從量測值直接反推」，不是憑空猜測，但**樣板照片是否等於客戶目前實際使用的牌位座仍未確認**，所以仍歸類為部分修正而非結案。
+
+**2026-07-05 使用者確認/微調**：
+- 亡者（3 位以上變體，Base/UnderscoreOne/UnderscoreTwo）的「1 中間上、2 右邊上、3 左邊上、4 右邊下、5 左邊下、6 中間下」排法——使用者確認**現況已經是這樣，不用改**（One/Two 等其他變體維持原本的簡單高欄排版，不套用這個矩陣）
+- 陽上排法——使用者要求**維持參照舊系統（RDLC）排法**，不重新設計成跟亡者一樣工整的中間/左/右對稱座標（目前 `DrawLivingNames` 各變體的 Left 座標，例如 Base 分支 `l[4] Left=0.13528` 跟 `l[1] Left=0.83528` 不對稱，是 RDLC 原始值，非 bug，不動）
+- **Number 位置**：左上角原點往下、往右各移 0.1cm（`0.0, 0.0` → `0.1, 0.1`），純位置微調，不影響字級/字型
+
+**2026-07-05 追加：使用者反映「薦牌亡者的列印沒有很正」，追查後發現並修正兩個確定的邊界問題**（用 `debugOverlay` 疊圖 + 像素量測比對，不是憑感覺）：
+- **Two/TwoOne/TwoTwo 變體（恰好 2 位亡者）**：次要欄位（Two，d[1]）原 RDLC 值 `Left=4.2`，跟樣板量測窗框內緣左界 `4.191cm` 幾乎貼齊（實測渲染墨色起點只有約 0.06cm 淨空），肉眼看起來壓在雕花邊框上。改為 `Left=4.34`（4.191+0.15 安全邊界），跟主欄 One（`Left=5.3`）之間仍留有間距不會互撞
+- **Base/UnderscoreOne/UnderscoreTwo 變體（3 位以上亡者）**：次要欄位（Three/Five，d[2]/d[4]）原 RDLC 值 `Left=4.0`，比窗框內緣左界（4.191cm）**還要更偏左**——比 Two 變體的問題更嚴重。用 3 位亡者實測（`蔡氏三`）確認文字整個印到雕花邊框外面。改為 `Left=4.25`（剛好清邊框，留約 0.06cm 淨空）。**已知取捨**：受窗框寬度物理限制（扣掉安全邊界後，剩餘寬度不夠同時容納「不縮字的中間欄」+「不貼邊框的左欄」），無法像 Two 變體一樣留到 0.15cm 邊界，只能做到剛好清邊框；使用者已確認接受這個取捨（極端情況：中間欄與左欄同時用滿版基礎字級、皆未觸發縮字時，理論上仍有極小機率互相貼近，但已比修正前直接印出邊框外好很多）
+- 回歸鎖：現有 `Tablet_DebugGrid_ForRealComplaintScenario_DumpsCalibrationPdf`（Two 變體場景）新增疊圖產出 `tablet_alignment_complaint_overlay.pdf`；新增 `Tablet_Base_ThreeDeadNames_DumpsThreeColumnOverlay`（Base 變體 3 位亡者疊圖，`tablet_base_three_dead_overlay.pdf`）
+- PDF 存於 `reference/output/{tablet_two_variant_overlay,tablet_base_three_dead_overlay}.pdf`
+
+**2026-07-05 再追加：改用「故／靈位」字符中心線為排版基準，取代逐一微調的固定座標**。使用者給出明確規則：亡者排版以樣板紙預印的「故」「靈位」兩組靜態字的**字符中心線**為準——1 位亡者完全置中在中心線上；2 位時分居中心線左右；3 位以上時沿用既有 2×3 矩陣（1st 中間上、2nd 右邊上、3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下），中間欄置中在中心線上。
+
+- **量測中心線**：用像素分析抓「故」與「靈位」兩組字的 bounding box 中心，分別為 5.6769cm / 5.696cm（幾乎重合，取平均 `DeadCenterX = 5.685`）；這個值也跟窗框內緣量測寬度的幾何中心（`(4.191+7.163)/2=5.677cm`）幾乎一致，互相印證量測無誤——另外把這條中心線疊回**原始樣板照片**（無任何渲染文字）核對，精確貫穿「故」與「靈位」視覺中心。
+- **改成動態算位置**：這是這輪最大的方法論改變——之前所有變體的欄位 X 座標都是編譯期常數（不管字級縮多小，位置固定），這次改成**先算好 `GroupFontPt` 共用字級，再用字級動態算置中位置**（`Left = DeadCenterX − fontCm/2` 這類公式），因為要置中的是「實際渲染寬度」，縮字後如果位置不跟著變就會偏一邊。三種情境都改寫：
+  - 1 位（One/OneOne/OneTwo）：`Left = DeadCenterX − fontCm/2`，完全置中
+  - 2 位（Two/TwoOne/TwoTwo）：以 `DeadColumnGap=0.1cm` 對稱分居中心線左右（One 右、Two 左），取代前一輪用固定值 `Left=4.34` 硬修
+  - 3+ 位（Base/UnderscoreOne/UnderscoreTwo）：中間欄置中、左右欄各以 `DeadColumnGap` 對稱分居兩側，取代前一輪用固定值 `Left=4.25` 硬修——這個新算法在字級縮到最小的極端情況下自動有更多邊框淨空（不像前一輪的固定值只精確涵蓋單一測試案例），一併解決了 Base 變體「剛好清邊框」的取捨疑慮
+- 回歸測試新增 `Tablet_OneDeadName_DumpsCenteredOverlay`（1 位亡者置中疊圖）；`Tablet_DebugGrid_ForRealComplaintScenario_DumpsCalibrationPdf`／`Tablet_Base_ThreeDeadNames_DumpsThreeColumnOverlay` 同步驗證新算法。PDF 存於 `reference/output/tablet_one_dead_centered_overlay.pdf` 等
+- `dotnet test` 314 個測試全數通過
+
+**2026-07-05 再追加、後又修正：1 位亡者的垂直位置**。使用者指出「只有一位時，亡者位置沒在故靈位正中間」——當時把它理解成「整體垂直置中在故～靈位的空隙裡」，改成 `topY = 故下緣 + (空隙高度 − 實際文字高度) / 2`。使用者驗收後糾正：**「還是不對，要在故的正下方」**——「正中間」指的是水平方向在中心線上，不是把文字整塊漂浮置中在故跟靈位中間的空白處；垂直方向應該緊接在「故」正下方起排。改回 `topY = DeadGapTop`（故下緣 Y=7.5946cm，跟改版前的舊值 `7.5825`幾乎相同，等於保留原本的垂直起點、只套用水平置中）。`GroupFontPt` 的 avail 仍保留收緊到「故～靈位空隙 5.8674cm − 0.1 安全邊界」，避免長名字縮字上限跟實測空隙脫節（這部分改動是對的，沒有被這次糾正推翻）。**只有 1 位亡者這個情境需要水平置中**——2 位與 3+ 位矩陣都是明確的「上排/下排」列位，維持故下緣起排不變。
+
+**仍待辦**：見 [status.md](../status.md) Blocked 清單 / [gotchas.md](../gotchas.md)「薦牌實體對位」條——需要使用者/現場人員拿修正後版本（可搭配 `debugGrid:true`）實測回報視窗上下緣對到第幾條刻度線，確認這次修正方向正確或算出更精確的修正量。
+
+### 開發用列印位置檢視工具（樣板疊圖，2026-07-03）
+
+在 `debugGrid`（格線）之外，新增另一種對位輔助：把 `reference/template/` 底下的實體樣板掃描照（文牒.jpg / 資料卡.jpg / 薦牌.jpg，200 DPI）疊在產出 PDF 的文字層底下，讓開發人員直接肉眼比對欄位是否落在樣板框線/欄位內，比純格線更直覺。
+
+- **觸發**：既有 3 個 GET endpoint 加 `debugOverlay` query 參數 —
+  `GET /api/v1/reports/{datacard,tablet,text}?signupId=...&debugOverlay=true`。收據沒有樣板圖、普桌本身已有真背景圖，故不適用。
+- **環境限制**：僅 `ASPNETCORE_ENVIRONMENT=Development` 可用；其他環境一律回 404（不是 403，避免洩漏功能存在），見 [ReportsController](../../backend/src/Ceremony.Api/Controllers/ReportsController.cs)。
+- **實作**：比照 [WorshipRenderer](../../backend/src/Ceremony.Infrastructure/Reporting/WorshipRenderer.cs) 既有的 `EmbeddedResource + LoadBackground()` 手法，樣板照複製進 `Reporting/Assets/DebugTemplates/`（英文檔名，中文檔名做 EmbeddedResource 邏輯名稱有建置風險）；`DataCardRenderer` / `TextRenderer` / `TabletRenderer` 的 `Render(...)` 各加 `bool debugOverlay = false`，預設 `false` 不影響生產路徑。`TabletTemplate.OneOne`（頁面有 2cm 上下 margin）疊圖需對齊內容區高度，其餘變體對齊整張頁面——跟既有 `debugGrid` 一樣可以同時開啟。
+- **已知限制（重要，不要誤用）**：掃描樣板尺寸跟 RDLC 座標換算出的頁面尺寸有小誤差（例如文牒頁 36.5×26.2cm，掃描圖換算約 36.4×25.7cm），資料卡樣板另有 EXIF 側拍需轉正。這個工具**只能做粗略肉眼比對**，不能取代 [printing-reports-positions.md](printing-reports-positions.md) 的 RDLC ground truth、`debugGrid` 實體校正、或下面「本輪仍未做」列的 `±0.05cm CI 座標量測自動化`（規劃中，尚未實作）。
+- **回歸測試**：`RendererSmokeTests.cs` 的 `DataCard_DebugOverlay_DumpsCalibrationPdf` / `Text_DebugOverlay_DumpsCalibrationPdf` / `Tablet_DebugOverlay_DumpsCalibrationPdf`。
+- **附帶發現**：疊圖後可直接肉眼看到薦牌 Base/OneOne 變體的文字貼近甚至超出雕花窗框邊緣、資料卡的欄位標籤（陽上／地址／電話／備註）與樣板紙上已印的標籤重複繪製而略為錯位——與「薦牌實體對位開放問題」互相印證，兩者後續處理見下方對應段落。
+- **✅ 2026-07-05 修正：`.FitArea()` 導致疊圖縮小、留白**——使用者反映「只有一位往生者的 template 引用有問題，似乎 template 變比較小，上方跟右方有一大片留白」。根因：三個 renderer 最初都用 `.Image(TemplateImage).FitArea()`（保留原圖比例、置中/靠邊留白），但樣板掃描照的實際比例（掃描誤差）跟我們假定的頁面／內容區 cm 比例對不上，尤其**薦牌 OneOne 變體**（內容區扣掉上下 2cm margin 後是 11.5×21.5cm，比例 1.87）跟樣板照片原生比例（11.52×25.69cm，比例 2.23）落差最大，疊圖因此明顯縮小、右側留白達寬度 16%。改用 `.FitUnproportionally()`（直接拉伸填滿容器，忽略原圖比例）——這個工具的用途本來就是「假設樣板照片＝我們的 cm 座標系統」去比對位置，容許非等比縮放反而更符合這個假設，比保留比例留白更正確。像素量測確認修正後三個 renderer 的疊圖都填滿容器寬高達 99.8%+ 以上（先前薦牌 OneOne 只有 83.7%）。三個 renderer 都受影響已一併修正（不只薦牌）。
+- **✅ 2026-07-05 真正修正：改用 `page.Background()` 繞開 Margin 裁切，OneOne 疊圖終於蓋滿整張紙**——使用者追問「上下也（跟）右有留白，再確認一下」，且明確指出「那不是正常的留白」，不接受「這是 QuestPDF 限制」的說法，並提示參考 3 位亡者（Base 變體，無 margin）的疊圖方式。重新檢討後發現關鍵：先前失敗的負值 `TranslateY(-2cm)` 是在 **`page.Content().Layers(...)`** 底下操作，這個座標系統本來就會被 `page.Margin(...)` 裁切；但 QuestPDF 另外提供 **`page.Background(...)`**，是畫在「整張實體紙」座標系統、完全不受 `page.Content()` 的 Margin 影響。把疊圖從 `page.Content()` 內的 `Layer` 改成 `page.Background().Image(TemplateImage).FitUnproportionally()`，並把 `layers.PrimaryLayer().Background("#FFFFFF")` 在 `debugOverlay=true` 時改用 `Colors.Transparent`（否則白底會蓋掉 Background 疊的樣板照片；PrimaryLayer 仍要保留呼叫以維持 Layers 容器尺寸）。修正後像素量測確認 OneOne 疊圖四邊留白全部歸零（含上下 margin 區域），完整看到牌位圖案全貌，文字仍在 `page.Content()` 座標系統內、依然遵守 margin。回歸測試 `Tablet_DebugOverlay_DumpsCalibrationPdf(OneOne)` 通過（先前用負值位移的版本這裡會失敗）。**教訓**：先前「這是 QuestPDF 限制、不是 bug」的結論下得太早——只證明了「在 `page.Content()` 座標系統內」這條路走不通，沒有進一步排查 QuestPDF 是否有繞過 Margin 的其他 API；使用者不接受「限制」說法、要求再查，才找到 `page.Background()` 這個正確路徑。
+
+- **✅ 2026-07-05 疊圖修好後，露出了一個更早就存在、被舊工具遮住的真實排版 bug**：使用者接著指出「留白可以了，但是 y 軸的位置不對，請參考三位亡者的 y 軸位置」，具體點名 Number、陽上、亡者三處。因為疊圖以前只顯示內容區（21.5cm）裁切後的畫面，OneOne 的文字位置錯誤剛好被裁掉的範圍「巧合遮住」；疊圖蓋滿整張紙後，錯位第一次真正被看見。用 cm 尺標疊在渲染結果上精確量測，確認根因：**Number（`Top=0.1`）、LivingNames「1 位陽上」分支（`Top=14.00389`，OneOne 與 TwoOne/UnderscoreOne 共用）、DeadNames「1 位亡者」分支（`DeadGapTop=7.5946`，OneOne 與 OneTwo/One 共用）這三處都是「多個變體共用同一個座標常數」，但只有 OneOne 有 2cm Page Margin**——`page.Content()` 的座標原點比真實頁面頂端低 2cm，所以只有 OneOne 印出來的實體位置會比共用同一個常數的其他變體（TwoOne/UnderscoreOne/OneTwo/One，這些都沒有 margin）低 2cm。實測驗證：LivingNames 修正前印在 true-page Y≈16.0cm，比樣板紙預印的「陽上」標籤（Y≈12.5~13.7cm）多空了快 2.3cm；Number 修正前印在 Y≈2.3cm，不是預期的頁面頂端附近。
+  - **修法**：三處都加 `var marginCompensation = data.Template == TabletTemplate.OneOne ? 2.0 : 0.0;`，content-Y 一律減去這個補償值，讓 OneOne 印出來的實體頁面高度跟共用同一個座標常數的其他變體一致。
+  - **關鍵技術發現**：原本擔心負值 `TranslateY`（例如 `0.1 - 2.0 = -1.9`）會像先前 debugOverlay 圖片疊圖那樣被 QuestPDF 整層裁掉——**但實測文字（`Text` fluent API）不會被裁掉**，只有先前疊圖用的 `Image` + `.FitUnproportionally()`/`.FitArea()` 那條路徑會被裁；`回歸測試（含檢查 PDF 位元組數變大的測試）全數通過證實這點。這代表 QuestPDF 對「超出 Margin 範圍的內容」是否裁切，**依內容類型而不是座標系統統一決定**，不能從一種元素的行為直接類推到另一種。
+  - PDF 已更新至 `reference/output/`，`dotnet test` 314 個測試全數通過（無需新增測試，既有測試已能驗證內容真的畫出來）。
+
+### 資料卡改版（2026-07-03，用 `debugOverlay` 樣板量測發現版面結構落差後改版）
+
+用 `debugOverlay` 疊 `reference/template/資料卡.jpg` 後，用 cm 格線 + 像素分析精確量出樣板實際版面，發現舊 25-TextBox 版面（1:1 還原 `tmpDataCard.rdlc`）跟樣板紙有結構性落差：**樣板 Y=0~2.85cm 完全空白，沒有「亡者」欄、也沒有堂號（HallName）欄**——樣板上第一個出現的欄位是「陽上：」（Top≈2.6924cm），跟舊程式碼畫在 Top=4.707cm 差了約 2cm；樣板右側印有一個跟薦牌同款的「故◯◯靈位」窗框圖案（量測內緣 Left=14.986~17.9705cm，「故」字下緣 Y=5.6388cm、「靈位」上緣 Y=11.4427cm）。
+
+**使用者確認的改版方向**：
+- Number（掛號）留左（沿用原座標，不受影響）
+- 預繳（Prepay）留右（沿用原座標——原本以為會跟窗框重疊而縮窄，後來確認窗框 Top=4.40cm 起，跟預繳所在列（Top 0.776~1.667cm）不重疊，改回原寬度）
+- 堂號（HallName）不印——**已從 `DataCardData`/`DataCardModel`/`ReportModelBuilders.DataCard` 整條移除**，不是保留欄位只是不畫
+- 亡者姓名改印進右側樣板窗框裡，比照 [TabletRenderer](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs) 用 `VerticalText.Stack` + `GroupFontPt` 直書堆疊（見 `DataCardRenderer.DrawDeadNamesInWindow`）：多位亡者以「、」串接成一欄，縮字塞進窗框缺口（量測高度 5.8039cm，扣 0.3cm 安全邊界）
+- 陽上／地址／電話／備註／簽名：陽上整段（含 2 排）依樣板量到的 Top≈2.69cm 上移（其餘列距不變）；地址/電話/備註/簽名原本座標跟樣板量測值已經很接近（誤差 <0.35cm），沿用不動
+- 原本分隔「亡者」跟「陽上」的虛線（Line2）已移除——樣板該位置本來就沒有印線，亡者欄拿掉後這條線也失去意義
+
+**2026-07-03 追加：拿掉重複標題**。疊圖後發現「陽上：」「地址：」「電話：」「備註：」「確認無誤請簽名：」樣板紙本身就已經預印這些欄位標題（跟簽名底線），程式又在幾乎同一位置重畫一次同樣的文字，肉眼看起來是淡淡的疊字/雙重印。使用者確認樣板已有標題，**程式不再印任何標題文字，只印欄位內容**（Left 座標維持在標題右側原本留給內容的位置不變）：拿掉 5 個標題 `DrawText` 呼叫、拿掉整個 `Line1`（簽名底線，樣板已印）；連帶清掉這之後就沒人用的 `DrawLine` method 與 `DrawText` 的 `vAlign`/`VerticalAlign` 參數（原本只有簽名標題那行用 `Bottom`，拿掉後全部呼叫都是預設 `Top`，簡化掉未使用的分支）。
+
+**回歸測試**：`DataCard_MultipleDeadNames_StayWithinMeasuredWindow`（4 位亡者串接縮字仍需留在窗框內）、`DataCard_DebugOverlay_DumpsCalibrationPdf`。
+
+**跟薦牌不同的地方**：資料卡是平面 A5 紙，不像薦牌要塞進實體 3D 牌位座——這裡的座標修正可以直接照樣板照片量測值定案，不需要像薦牌那樣等實機插入測試。
+
+**2026-07-04 使用者指定版面微調**：
+- **陽上改 3 排 × 2 欄**（原本 2 排、欄寬過寬較擠）：`LivingNames[0]` 第一排；`[1]`／`[3]` 第二排前／後；`[2]`／`[4]` 第三排前／後。欄寬只留 6 字寬（`0.8cm × 6 = 4.8cm`，剛好夠不用更寬）；前欄 `Left=4.328`，後欄 `Left=9.986` 寬 `4.8` 結束於 `14.786`，跟右側樣板窗框（`Left=14.986` 起）留 0.2cm 不重疊；三排 `Top` 分別為 `2.690`／`3.643`／`4.596`（沿用原本 0.953cm 列距）
+- **地址上移 1cm**（`6.753→5.753`），**寬度收到 10.4cm**（`4.328` 起算結束於 `14.728`，避開窗框），不設 `.Height()` 故文字過長會自動換行、不裁切
+- **備註下移 0.5cm**（`9.602→10.102`），寬度同樣收到 10.4cm 避開窗框，可多行
+- **亡者窗框內文字再靠右 0.3cm**（`DrawDeadNamesInWindow` 的 `columnLeft` 從 `15.985` 改 `15.985 + 0.3`），窗框內緣右界 `17.9705` 仍有 1.4cm+ 餘裕，不會超框
+- 電話欄位使用者未要求調整，維持原座標不動
+- 回歸測試新增 `DataCard_FiveLivingNamesAndWrappedText_DumpsCalibrationPdf`（5 位陽上 + 刻意寫長的地址/備註觸發換行），用 `debugOverlay` 疊圖目視確認新版面互不重疊；PDF 存於 `reference/output/datacard_five_living_wrapped_overlay.pdf`
+
+**2026-07-05 使用者再指定版面調整**：
+- **地址／電話／備註改為對齊陽上的方式**（對齊樣板量到的標題文字「上緣」，而非用位移量推算）：地址 `Top=6.4135`、電話 `Top=8.8392`、備註 `Top=9.8679`，直接取代前一版用 ±1cm/±0.5cm 位移算出來的座標——原本的位移量沒有對齊到樣板實際標題位置，這次改成跟陽上同一套方法（量測標題上緣）才會準
+- **亡者改成跟薦牌一樣的 2×3 矩陣**，取代原本單欄「、」串接：1st 中間上、2nd 右邊上、3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下（完全比照 [TabletRenderer.DrawDeadNames](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs) default 分支的排法），並整體再往下 0.1cm、往左 0.1cm
+  - `DrawDeadNamesInWindow` 改寫：`topRowY=5.7388`、`rowPitch=2.6`、`bottomRowY=8.3388`、`fullHeight≈2.9039`（到「靈」字上緣扣 0.2 安全邊界），三欄 X：`centerX=16.185`、`leftX/rightX = centerX∓0.75`
+  - **踩雷**：窗框內緣只有 2.9845cm 寬，容不下 3 欄用 0.8cm 字級——`GroupFontPt` 只會縮不會放大，短名字（1 字）在只受高度限制時可以維持 0.8cm base，但 0.8cm 字寬跟 0.75cm 欄距幾乎沒有間隙，肉眼看起來 3 欄黏在一起。改把這個窗框專用的 `baseFontCm` 降到 0.6cm（其餘欄位不受影響），才留得出欄距；用 `甲乙丙丁戊己` 6 個相異單字疊圖實測確認 3 欄真的分開、不黏在一起（回歸測試 `DataCard_SixDistinctDeadNames_MatrixColumnsDoNotTouch`）
+- 回歸測試：`DataCard_SixDeadNames_MatrixStaysWithinMeasuredWindow`（滿 6 位亡者含長名字驗證矩陣不超框）、`DataCard_SixDistinctDeadNames_MatrixColumnsDoNotTouch`、`DataCard_OneDeadName_MatrixCenterTopRenders`（典型單一亡者情境）；PDF 存於 `reference/output/{datacard_six_dead_matrix_overlay,datacard_six_distinct_dead_overlay}.pdf`
 
 ### 本輪仍未做（remaining）
 
@@ -195,9 +272,9 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 | 邊界 | 0cm 滿版 |
 | 字型 | 標楷體 |
 | 字級 | 0.6cm（小標注）~ 1cm（主內容） |
-| 特殊 | 實線/虛線分隔、簽名欄「確認無誤請簽名」 |
+| 特殊 | 虛線分隔、簽名底線、所有欄位標題文字（陽上/地址/電話/備註/確認無誤請簽名）皆已於 2026-07-03 改版移除——樣板紙本身已預印，程式只印內容 |
 
-欄位：HallName / Number / Prepay / 6×LivingName / 6×DeadName / Address / Phone / Remark
+欄位（2026-07-03 改版後）：Number / Prepay / 5×LivingName / 5×DeadName（印進右側樣板窗框）/ Address / Phone / Remark。**HallName 已移除**（樣板無堂號欄，見下方「資料卡改版」）
 
 ### 2. 收據（tmpReceipt）
 
@@ -215,7 +292,7 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 | 屬性 | 值 |
 |---|---|
-| 紙張 | 11.5cm × 25.4cm（牌位窄長） |
+| 紙張 | 11.5cm × 25.5cm（牌位窄長；2026-07-05 使用者確認實體紙張尺寸，原 RDLC 值 25.4cm 少 0.1cm，已在 `TabletRenderer.PageHeightCm` 修正，9 變體共用） |
 | 方向 | Portrait |
 | 邊界 | 0cm |
 | 字型 | 標楷體 |

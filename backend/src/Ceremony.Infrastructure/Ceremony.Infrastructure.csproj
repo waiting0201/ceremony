@@ -22,6 +22,9 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Reporting\Assets\worship2.png" />
+    <EmbeddedResource Include="Reporting\Assets\DebugTemplates\datacard-template.jpg" />
+    <EmbeddedResource Include="Reporting\Assets\DebugTemplates\text-template.jpg" />
+    <EmbeddedResource Include="Reporting\Assets\DebugTemplates\tablet-template.jpg" />
   </ItemGroup>
 
   <ItemGroup>

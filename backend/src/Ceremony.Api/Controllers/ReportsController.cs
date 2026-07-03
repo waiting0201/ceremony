@@ -1,6 +1,8 @@
 using Ceremony.Application.Reports;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Hosting;
 
 namespace Ceremony.Api.Controllers;
 
@@ -13,16 +15,21 @@ public sealed class ReportsController(
     GenerateTabletHandler tablet,
     GenerateTextHandler text,
     GenerateWorshipHandler worship,
-    BatchReportHandler batch) : ControllerBase
+    BatchReportHandler batch,
+    IHostEnvironment env) : ControllerBase
 {
     /// <summary>產生報名資料卡 PDF (A5 橫 21×14.8cm)</summary>
     /// <remarks>
     /// Legacy: SignupForm.cs:188-240 (tsmiPrintDataCard) + :956-1050 (PrintDataCard helper) + tmpDataCard.rdlc
+    /// debugOverlay：開發用列印位置檢視工具（樣板疊圖），僅 Development 環境可用，見
+    /// docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
     /// </remarks>
     [HttpGet("datacard")]
-    public async Task<IActionResult> DataCard([FromQuery] Guid signupId, CancellationToken ct)
+    public async Task<IActionResult> DataCard([FromQuery] Guid signupId, [FromQuery] bool debugOverlay, CancellationToken ct)
     {
-        var (pdf, fileName) = await dataCard.HandleAsync(signupId, ct);
+        if (debugOverlay && !env.IsDevelopment()) return NotFound();
+
+        var (pdf, fileName) = await dataCard.HandleAsync(signupId, debugOverlay, ct);
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -41,22 +48,30 @@ public sealed class ReportsController(
     /// <remarks>
     /// Legacy: SignupForm.cs:1148-1333 (PrintTablet) + tmpTablet*.rdlc 9 變體
     /// 變體選擇由 Domain.Services.PrintTemplateSelector.ChooseTablet 決定。
+    /// debugOverlay：開發用列印位置檢視工具（樣板疊圖），僅 Development 環境可用，見
+    /// docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
     /// </remarks>
     [HttpGet("tablet")]
-    public async Task<IActionResult> Tablet([FromQuery] Guid signupId, CancellationToken ct)
+    public async Task<IActionResult> Tablet([FromQuery] Guid signupId, [FromQuery] bool debugOverlay, CancellationToken ct)
     {
-        var (pdf, fileName) = await tablet.HandleAsync(signupId, ct);
+        if (debugOverlay && !env.IsDevelopment()) return NotFound();
+
+        var (pdf, fileName) = await tablet.HandleAsync(signupId, debugOverlay, ct);
         return File(pdf, "application/pdf", fileName);
     }
 
     /// <summary>產生文牒 PDF (36.5×26.2cm 橫寬；2 變體)</summary>
     /// <remarks>
     /// Legacy: SignupForm.cs:1335-1552 (PrintText) + tmpText.rdlc / tmpTextTwo.rdlc
+    /// debugOverlay：開發用列印位置檢視工具（樣板疊圖），僅 Development 環境可用，見
+    /// docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
     /// </remarks>
     [HttpGet("text")]
-    public async Task<IActionResult> Text([FromQuery] Guid signupId, CancellationToken ct)
+    public async Task<IActionResult> Text([FromQuery] Guid signupId, [FromQuery] bool debugOverlay, CancellationToken ct)
     {
-        var (pdf, fileName) = await text.HandleAsync(signupId, ct);
+        if (debugOverlay && !env.IsDevelopment()) return NotFound();
+
+        var (pdf, fileName) = await text.HandleAsync(signupId, debugOverlay, ct);
         return File(pdf, "application/pdf", fileName);
     }
 

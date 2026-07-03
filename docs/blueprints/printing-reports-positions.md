@@ -12,7 +12,7 @@ related_docs:
   - ../design/visual-design.md
   - ../workflows/qa-testing.md
 keywords: [rdlc, 位置, position, layout, 座標, 列印, 套印, tablet, worship, datacard, receipt, text, 嚴格, strict, 1:1]
-last_updated: 2026-06-02
+last_updated: 2026-07-05 (§3 tmpTablet 加 OneOne 變體 Number/陽上/亡者 2cm Margin 補償；頁高 25.5cm；亡者中心線水平置中)
 ---
 
 ## 📌 適用範圍（2026-05-27 補充）
@@ -67,7 +67,9 @@ last_updated: 2026-06-02
 
 ## 紙張尺寸總覽（必查表）
 
-實作 QuestPDF 前先用此表確認 page size，避免設成錯誤大小。**所有 9 個牌位變體都是 11.5 × 25.4cm 直式**（doc v1 曾誤標部分為橫向超寬版，已更正）：
+實作 QuestPDF 前先用此表確認 page size，避免設成錯誤大小。**所有 9 個牌位變體都是 11.5 × 25.4cm 直式**（doc v1 曾誤標部分為橫向超寬版，已更正）。
+
+> ⚠️ **2026-07-05 使用者更正**：下表 tmpTablet 系列 9 個 Height 值 `25.4` 為 RDLC 原始記錄（保留供追溯），**實體薦牌紙張正確尺寸為 11.5×25.5cm**（高度多 0.1cm）。`TabletRenderer.PageHeightCm` 已改為 `25.5`，9 個變體共用同一常數全部套用；詳見 §3 開頭的覆蓋說明。
 
 | RDLC | Width (cm) | Height (cm) | 方向 | 備註 |
 |---|---|---|---|---|
@@ -124,6 +126,16 @@ last_updated: 2026-06-02
 | Textbox13 | "確認無誤請簽名：" | 13.182 | 9.590 | 6.548 | 0.749 | 0.8cm |
 | Line1 | 簽名底線 (實線) | 13.931 | 16.125 | 3.638 | 0 | Solid |
 
+> ⚠️ **2026-07-03 改版覆蓋（依規則 5 走 PR review 後生效，見 [DataCardRenderer.cs](../../backend/src/Ceremony.Infrastructure/Reporting/DataCardRenderer.cs)）**：上表是 `tmpDataCard.rdlc` 原始座標（歷史記錄，保留供追溯），但跟目前實際使用的樣板紙（`reference/template/資料卡.jpg`，200 DPI 量測）對不起來——樣板 Y=0~2.85cm 空白，沒有 HallName、也沒有「亡者」欄，樣板右側印有「故◯◯靈位」窗框圖案。**目前實作已改用以下座標，取代上表對應列**：
+> - `HallName` / `txtTitleDeadName` / `DeadNameOne~Five`（橫式 5 欄）/ `Line2`：**已移除**，不再繪製
+> - **2026-07-05 改版**：亡者姓名改成跟 [TabletRenderer.DrawDeadNames](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs) default 分支一樣的 2×3 矩陣（取代前一版單欄「、」串接）：1st 中間上、2nd 右邊上、3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下。`topRowY=5.7388`（"故" 下緣 5.6388 再往下 0.1cm）、`rowPitch=2.6`、`bottomRowY=8.3388`、`fullHeight≈2.9039`（到「靈」字上緣 11.4427 扣 0.2 安全邊界）；X 座標 `centerX=16.185`（前一版單欄置中值 16.285 再往左 0.1cm）、`leftX/rightX = centerX∓0.75`；**字級基準降到 0.6cm**（原 0.8cm 在窗框內 3 欄會擠到看起來像連在一起，`GroupFontPt` 只會縮不會放大，故降低 base 才留得出欄距）
+> - `txtPrepay`／`txtPhone`：不變，沿用上表座標（跟樣板量測值誤差 <0.35cm，視為已對齊；電話使用者未要求調整位置，但 2026-07-05 對齊方式仍改為對齊標題上緣，見下）
+> - **2026-07-03 追加**：`txtTitleLivingName`（"陽上："）／`txtTitleAddress`（"地址："）／`txtTitlePhone`（"電話："）／`txtTitleRemark`（"備註："）／`Textbox13`（"確認無誤請簽名："）／`Line1`（簽名底線）：**全部移除，不再繪製**——樣板紙本身已預印這些標題文字與簽名底線，程式重畫會造成肉眼可見的雙重疊字。程式只印欄位「內容」，位置對齊各標題右側原本留給內容的 Left 座標
+> - **2026-07-04 使用者指定版面調整**：
+>   - `LivingNameOne~Five` 改 3 排 × 2 欄（原 2 排較擠）：`LivingNameOne` 第一排 `Top=2.690 Left=4.328`；`LivingNameTwo`／`LivingNameFour` 第二排前/後 `Top=3.643 Left=4.328／9.986`；`LivingNameThree`／`LivingNameFive` 第三排前/後 `Top=4.596 Left=4.328／9.986`；每格 `Width=4.8`（6 字寬，`0.8cm×6`），後欄結束於 14.786，避開窗框（`Left=14.986` 起）
+> - **2026-07-05 改版（取代 2026-07-04 用位移量推算的座標）**：`txtAddress`／`txtPhone`／`txtRemark` 的上下對齊方式改參照陽上——直接對齊樣板量到的標題文字「上緣」：`txtAddress Top=6.4135`、`txtPhone Top=8.8392`、`txtRemark Top=9.8679`。`txtAddress`／`txtRemark` 的 `Width` 收到 `10.4`（避開窗框 `Left=14.986`），不設 `.Height()` 過長自動換行；`txtPhone` 寬度不變（電話通常短，實務上不會碰到窗框）
+> - 詳細背景見 [printing-reports.md](printing-reports.md)「資料卡改版」
+
 ## 2. tmpReceipt.rdlc（收據，雙聯）
 
 **頁面**：21cm × 29.7cm（A4），Tablix 高 59.4cm（兩聯堆疊）
@@ -164,7 +176,7 @@ last_updated: 2026-06-02
 
 ## 3. tmpTablet.rdlc（薦牌 — 基本版）
 
-**頁面**：11.5cm × 25.4cm（窄長牌位）；**ReportParameter**：`ParaFontSize` 預設 0.8cm（動態調整 DeadName 字級）
+**頁面**：11.5cm × 25.4cm（窄長牌位，RDLC 原始值）——⚠️ **2026-07-05 使用者確認實體薦牌紙張正確尺寸為 11.5×25.5cm**（高度多 0.1cm），[TabletRenderer.cs](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs) 的 `PageHeightCm` 已改為 `25.5`，9 個變體（本節 §3 及下方 §4-11）共用同一個常數全部套用。所有欄位座標都是從頁面左上角 (0,0) 起算的絕對值，改頁高不影響既有座標，只補足頁尾多出的 0.1cm 空白，避免印表機用「符合紙張大小」列印時因 PDF 頁面比實體紙張短而整體跑位。下表頁面尺寸沿用 RDLC 原始記錄（歷史追溯用），程式實際頁高請以 25.5cm 為準；**ReportParameter**：`ParaFontSize` 預設 0.8cm（動態調整 DeadName 字級）
 
 | Name | 綁定 | Top | Left | Width | Height | FontSize |
 |---|---|---|---|---|---|---|
@@ -177,6 +189,18 @@ last_updated: 2026-06-02
 | LivingNameThree | =Fields!LivingNameThree.Value | 14.00 | 0.10 | 0.70 | 1.261 | 0.6cm |
 | LivingNameFour | =Fields!LivingNameFour.Value | 15.442 | 0.835 | 0.70 | 1.261 | 0.6cm |
 | LivingNameFive | =Fields!LivingNameFive.Value | 15.442 | 0.10 | 0.70 | 1.261 | 0.6cm |
+
+> ⚠️ **2026-07-05 Number 位置改版覆蓋**：[TabletRenderer.cs](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs) 的 `Number`（掛號）原本畫在左上角原點 `Top=0.0 Left=0.0`，使用者指定往下、往右各移 0.1cm，改為 `Top=0.1 Left=0.1`。此為 9 個變體共用的同一行程式碼，全部變體都套用這個位移。其餘欄位（HallName／DeadName／LivingName）維持上表 RDLC 原始座標不動——使用者確認亡者 3+ 位變體的矩陣排法、陽上排法皆維持現況，僅 Number 需要調整。
+>
+> ⚠️ **2026-07-05 追加：OneOne 變體的 Number／LivingNames「1 位陽上」／DeadNames「1 位亡者」都要扣 2cm Margin 補償**：這三處程式碼分別跟 TwoOne/UnderscoreOne/OneTwo/One 等「沒有 Page Margin」的變體共用同一個座標常數（`Number Top=0.1`、`LivingNameOne Top=14.00389`、DeadNames 的 `DeadGapTop=7.5946`）。但只有 OneOne 有 2cm Page Margin，`page.Content()` 的座標原點比真實頁面頂端低 2cm，導致 OneOne 印出來的實體位置比其他共用同一常數的變體低了 2cm（用 `debugOverlay` 疊圖蓋滿整張紙後才第一次看得出來——舊版疊圖只顯示裁切後的內容區，巧合把這個錯位蓋住了）。已在三處分別加上 `data.Template == TabletTemplate.OneOne ? 2.0 : 0.0` 的補償，OneOne 的 content-Y 都要減去這個值。**技術細節**：補償後 Number 的 content-Y 會變成負值（`0.1-2.0=-1.9`），原本擔心會被 QuestPDF 裁掉（先前 debugOverlay 圖片疊圖的負值位移確實被裁），但實測**文字元素不會被裁**，只有 `Image` 疊圖那條路徑會被裁——QuestPDF 對「超出 Margin 的內容」是否裁切依元素類型而定，不能直接類推。
+>
+> ⚠️ **2026-07-05 亡者欄位改版覆蓋（取代同日稍早的「次要欄位邊界修正」固定值，見下方 why）**：使用者反映「薦牌亡者的列印沒有很正」，先用 `debugOverlay` 疊圖 + 像素量測抓出 Two/Base 變體次要欄位壓邊框的問題，改用固定值 `Left=4.34`／`4.25` 修正過一版；使用者接著給出更完整的規則——**所有亡者欄位改以樣板紙預印的「故」「靈位」字符中心線為排版基準**（1 位完全置中、2 位分居中心線左右、3+ 位沿用 2×3 矩陣但中間欄置中在中心線上），比逐一微調固定值更有原則、也一併解決了先前 Base 變體「只能剛好清邊框」的取捨疑慮。
+> - **中心線量測**：`reference/template/薦牌.jpg` 200 DPI 像素量測「故」bounding box 中心 5.6769cm、「靈位」bounding box 中心 5.696cm（幾乎重合），取平均 `DeadCenterX=5.685cm`；跟窗框內緣量測寬度的幾何中心（`(4.191+7.163)/2=5.677cm`）互相印證；把這條線疊回**無任何渲染文字的原始樣板照片**核對，精確貫穿「故」「靈位」視覺中心
+> - **§4/§5/§6（1 位亡者，One/OneOne/OneTwo）**：`DeadNameOne` 從固定 `Top=7.5825 Left=4.8` 改為 `Left = DeadCenterX − fontCm/2`（`fontCm` 是 `GroupFontPt` 算出的共用字級，換算成 cm）水平置中在中心線上；`Top` 改用量測值 `DeadGapTop=7.5946`（「故」下緣，跟舊值 `7.5825` 幾乎相同）**緊接在「故」正下方**——中途曾一度改成「垂直置中在故～靈位整個空隙裡」（`Top = 7.5946 + (5.8674 − 文字高度) / 2`），使用者驗收後糾正「要在故的正下方」，故改回貼著故下緣起排，只套用水平置中。`GroupFontPt` 的 avail 從 RDLC 值 `6.466`（比實測空隙 `13.462−7.5946=5.8674` 大）收緊到 `5.8674 − 0.1`，避免長名字縮字上限超出「靈」字上緣（這項改動保留，未被糾正推翻）
+> - **§7-9（2 位亡者，TwoOne/TwoTwo/Two）**：`DeadNameOne`／`DeadNameTwo` 改為以 `DeadColumnGap=0.1cm` 對稱分居中心線左右（`rightX = DeadCenterX + Gap/2`、`leftX = DeadCenterX − Gap/2 − fontCm`），取代前一版固定值 `Left=5.3`／`4.34`；`Top` 維持原 RDLC 值 `7.5825`（2 位屬於「上排」列位，非置中情境）
+> - **§3/§10/§11（3+ 位亡者，Base/UnderscoreOne/UnderscoreTwo）**：中間欄（One/Six）`Left = DeadCenterX − fontCm/2`；右欄（Two/Four）`Left = DeadCenterX + fontCm/2 + Gap`；左欄（Three/Five）`Left = DeadCenterX − fontCm/2 − Gap − fontCm`，取代前一版固定值 `4.9`／`5.8`／`4.25`
+> - **改成動態算位置是這輪最大的方法論改變**：之前所有變體的欄位 X 座標都是編譯期常數，不管字級縮多小位置都不變；現在先算好共用字級才動態算置中位置，縮字後置中點不會偏移，且字級縮小時欄位間距自動變寬（原本固定值只精確涵蓋單一測試案例的字級）
+> - 詳細背景見 [printing-reports.md](printing-reports.md)「薦牌實體對位開放問題」2026-07-05 追加段落
 
 ## 4. tmpTabletOne.rdlc（薦牌 — 1 亡者 + 3-6 陽上）
 

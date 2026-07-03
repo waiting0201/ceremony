@@ -7,16 +7,15 @@ namespace Ceremony.Application.Reports;
 /// </summary>
 public interface IReportRenderer
 {
-    byte[] RenderDataCard(DataCardModel model);
+    byte[] RenderDataCard(DataCardModel model, bool debugOverlay = false);
     byte[] RenderReceipt(ReceiptModel model);
-    byte[] RenderTablet(TabletModel model);
-    byte[] RenderText(TextModel model);
+    byte[] RenderTablet(TabletModel model, bool debugOverlay = false);
+    byte[] RenderText(TextModel model, bool debugOverlay = false);
     byte[] RenderWorship(WorshipModel model);
 }
 
 public sealed record DataCardModel(
     string Number,
-    string? HallName,
     string? Prepay,
     string?[] DeadNames,
     string?[] LivingNames,

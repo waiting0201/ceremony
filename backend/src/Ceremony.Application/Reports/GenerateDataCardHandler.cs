@@ -15,12 +15,12 @@ public sealed class GenerateDataCardHandler(
     ISignupRepository signupRepo,
     IReportRenderer renderer)
 {
-    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, CancellationToken ct = default)
+    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, bool debugOverlay = false, CancellationToken ct = default)
     {
         var s = await signupRepo.GetByIdAsync(signupId, ct)
             ?? throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名");
 
-        return (renderer.RenderDataCard(ReportModelBuilders.DataCard(s)),
+        return (renderer.RenderDataCard(ReportModelBuilders.DataCard(s), debugOverlay),
                 $"datacard-{s.Year}-{s.NumberTitle}-{s.Number}.pdf");
     }
 }

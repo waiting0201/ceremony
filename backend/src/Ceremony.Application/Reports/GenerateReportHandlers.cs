@@ -77,12 +77,12 @@ public sealed class GenerateReceiptHandler(ISignupRepository repo, IReportRender
 /// </remarks>
 public sealed class GenerateTabletHandler(ISignupRepository repo, IReportRenderer renderer)
 {
-    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, CancellationToken ct = default)
+    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, bool debugOverlay = false, CancellationToken ct = default)
     {
         var s = await repo.GetByIdAsync(signupId, ct)
             ?? throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名");
 
-        return (renderer.RenderTablet(ReportModelBuilders.Tablet(s)),
+        return (renderer.RenderTablet(ReportModelBuilders.Tablet(s), debugOverlay),
                 $"tablet-{s.Year}-{s.NumberTitle}-{s.Number}.pdf");
     }
 }
@@ -95,12 +95,12 @@ public sealed class GenerateTabletHandler(ISignupRepository repo, IReportRendere
 /// </remarks>
 public sealed class GenerateTextHandler(ISignupRepository repo, IReportRenderer renderer)
 {
-    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, CancellationToken ct = default)
+    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, bool debugOverlay = false, CancellationToken ct = default)
     {
         var s = await repo.GetByIdAsync(signupId, ct)
             ?? throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名");
 
-        return (renderer.RenderText(ReportModelBuilders.Text(s)),
+        return (renderer.RenderText(ReportModelBuilders.Text(s), debugOverlay),
                 $"text-{s.Year}-{s.NumberTitle}-{s.Number}.pdf");
     }
 }

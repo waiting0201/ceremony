@@ -1,3 +1,4 @@
+using System.Reflection;
 using Ceremony.Domain.Services;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
@@ -18,8 +19,14 @@ public sealed class TextRenderer
 {
     private const string FontFamily = "BiauKai";
     private const double PointsPerCm = 28.3464567;
+    private const double PageWidthCm = 36.5;
+    private const double PageHeightCm = 26.2;
 
-    public byte[] Render(TextData data)
+    // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
+    // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
+    private static readonly byte[] TemplateImage = LoadTemplate("text-template.jpg");
+
+    public byte[] Render(TextData data, bool debugOverlay = false)
     {
         return Document.Create(container =>
         {
@@ -32,6 +39,19 @@ public sealed class TextRenderer
                 page.Content().Layers(layers =>
                 {
                     layers.PrimaryLayer().Background("#FFFFFF");
+
+                    if (debugOverlay)
+                    {
+                        // 2026-07-05 修正：FitArea() 保留原圖比例、置中留白，樣板照片掃描比例跟頁面
+                        // cm 尺寸對不上時會縮小留白（見 TabletRenderer 同一輪修正的說明）。改用
+                        // FitUnproportionally() 直接拉伸填滿容器，符合「疊圖＝座標系統」的比對用途。
+                        layers.Layer()
+                            .TranslateX(0, Unit.Centimetre)
+                            .TranslateY(0, Unit.Centimetre)
+                            .Width((float)PageWidthCm, Unit.Centimetre)
+                            .Height((float)PageHeightCm, Unit.Centimetre)
+                            .Image(TemplateImage).FitUnproportionally();
+                    }
 
                     // Number (Top 3.8, Left 31.49729, 1cm Bold)
                     DrawText(layers, 3.8, 31.49729, 4.74896, 1.10272, 1.0 * PointsPerCm, data.Number, bold: true);
@@ -147,6 +167,16 @@ public sealed class TextRenderer
 
         var span = layer.Text(content).FontSize((float)fontPt).FontFamily(FontFamily).LineHeight(1f);
         if (bold) span.Bold();
+    }
+
+    private static byte[] LoadTemplate(string fileName)
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        var name = asm.GetManifestResourceNames().Single(n => n.EndsWith(fileName, StringComparison.Ordinal));
+        using var stream = asm.GetManifestResourceStream(name)!;
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        return ms.ToArray();
     }
 }
 

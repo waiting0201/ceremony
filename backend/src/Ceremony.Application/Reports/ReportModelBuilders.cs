@@ -17,7 +17,6 @@ internal static class ReportModelBuilders
             : string.Empty;
         return new DataCardModel(
             Number: SignupReportContext.DataCardNumber(s),
-            HallName: s.HallName,
             Prepay: prepay,
             DeadNames: deadNames,
             LivingNames: livingNames,
