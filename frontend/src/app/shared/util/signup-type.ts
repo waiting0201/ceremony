@@ -7,7 +7,7 @@ export interface SignupTypeOption {
 export const SIGNUP_TYPES: readonly SignupTypeOption[] = [
   { value: 1, label: '一般報名', numberTitle: 'No' },
   { value: 2, label: '寺方', numberTitle: '寺' },
-  { value: 3, label: '觀音媽', numberTitle: '觀' },
+  { value: 3, label: '觀音會', numberTitle: '觀' },
   { value: 4, label: '普桌', numberTitle: '普' },
   { value: 5, label: '郵寄', numberTitle: '郵' },
 ];
