@@ -17,7 +17,7 @@ public sealed class LogoutHandler(IJwtBlacklist blacklist)
         if (string.IsNullOrWhiteSpace(jti)) return;
 
         var expClaim = user.FindFirst(JwtRegisteredClaimNames.Exp)?.Value;
-        var ttl = TimeSpan.FromMinutes(30);  // fallback：與預設 access token 壽命同
+        var ttl = TimeSpan.FromMinutes(600);  // fallback：與預設 access token 壽命同（10 小時）
         if (long.TryParse(expClaim, out var expSec))
         {
             var expUtc = DateTimeOffset.FromUnixTimeSeconds(expSec);

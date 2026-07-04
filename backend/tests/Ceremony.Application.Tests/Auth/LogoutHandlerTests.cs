@@ -59,7 +59,7 @@ public sealed class LogoutHandlerTests
         Sut().Handle(MakeUser(jti: "abc", expUnix: null));
 
         _blacklist.Verify(b => b.Revoke("abc", It.IsAny<TimeSpan>()), Times.Once);
-        capturedTtl.Should().Be(TimeSpan.FromMinutes(30));
+        capturedTtl.Should().Be(TimeSpan.FromMinutes(600));
     }
 }
 
