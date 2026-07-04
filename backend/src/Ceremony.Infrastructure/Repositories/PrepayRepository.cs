@@ -131,15 +131,15 @@ public sealed class PrepayRepository(IDbConnectionFactory factory) : IPrepayRepo
 
         try
         {
-            // 群組互斥鎖：序列化「同 (Year, Ceremony, SignupType)」的並發預繳載入，避免兩人同時跑整段。
-            // Transaction owner → commit/rollback 時自動釋放。逾時 30s 回 -1，視為忙碌中。
+            // 群組互斥鎖：序列化「同 (Year, Ceremony, SignupType)」的並發配號作業（預繳載入 / 插入順移共用同一
+            // resource 命名空間 "signup-number:"，避免兩者互踩）。Transaction owner → commit/rollback 自動釋放。逾時 30s 回 -1。
             var lockRc = await conn.ExecuteScalarAsync<int>(new CommandDefinition("""
                 DECLARE @rc int;
                 EXEC @rc = sp_getapplock @Resource = @Resource, @LockMode = 'Exclusive',
                      @LockOwner = 'Transaction', @LockTimeout = 30000;
                 SELECT @rc;
                 """,
-                new { Resource = $"prepay:{targetYear}:{targetCeremonyId}:{signupType}" },
+                new { Resource = $"signup-number:{targetYear}:{targetCeremonyId}:{signupType}" },
                 transaction: tx, cancellationToken: ct));
             if (lockRc < 0)
                 throw new DomainException("PREPAY_BUSY", "另一筆預繳載入進行中，請稍後再試");

@@ -15,6 +15,7 @@ public sealed class SignupsController(
     ListSignupLogsHandler logs,
     CheckSignupDuplicatesHandler checkDuplicates,
     CreateSignupHandler create,
+    InsertShiftSignupHandler insertShift,
     UpdateSignupHandler update,
     DeleteSignupHandler delete,
     ExportSignupsHandler export) : ControllerBase
@@ -109,6 +110,23 @@ public sealed class SignupsController(
     {
         var caller = ExtractCaller(User);
         var result = await create.HandleAsync(request, caller, ct);
+        return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
+    }
+
+    /// <summary>插入報名於指定編號，並把該群組內 Number ≥ 指定編號的既有報名 +1 順移（列表右鍵「在此前插入」）</summary>
+    /// <remarks>
+    /// Legacy: 無對應（舊系統無「插入並順移」）。新版增強。
+    /// Blueprint: docs/blueprints/api-endpoints/post-signups-insert-shift.md
+    /// CustomNumber = 插入位置（必填）；KeepNumber 忽略。
+    /// </remarks>
+    [HttpPost("insert-shift")]
+    [ProducesResponseType(typeof(SignupListItem), StatusCodes.Status201Created)]
+    public async Task<ActionResult<SignupListItem>> InsertShift(
+        [FromBody] CreateSignupRequest request,
+        CancellationToken ct)
+    {
+        var caller = ExtractCaller(User);
+        var result = await insertShift.HandleAsync(request, caller, ct);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
 

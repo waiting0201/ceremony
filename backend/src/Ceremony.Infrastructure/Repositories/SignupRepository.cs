@@ -1,6 +1,7 @@
 using System.Text;
 using Ceremony.Application.Prepay;
 using Ceremony.Application.Signups;
+using Ceremony.Domain.Exceptions;
 using Ceremony.Infrastructure.Persistence;
 using Dapper;
 
@@ -368,63 +369,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
                     cancellationToken: ct));
             }
 
-            const string insertSignup = """
-                INSERT INTO dbo.Signups (
-                  SignupID, Year, CeremonyCategoryID, SignupType, BelieverID,
-                  NumberTitle, Number, Fee, Name, Phone,
-                  LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
-                  DeadNameOne, DeadNameTwo, DeadNameThree, DeadNameFour, DeadNameFive, DeadNameSix,
-                  MailZipcodeID, MailAddress, TextZipcodeID, TextAddress,
-                  Remark, PrepayYear, PrepayCeremonyCategoryID, AdminID, Createdate
-                ) VALUES (
-                  @SignupId, @Year, @CeremonyCategoryId, @SignupType, @BelieverId,
-                  @NumberTitle, @Number, @Fee, @Name, @Phone,
-                  @L1, @L2, @L3, @L4, @L5, @L6,
-                  @D1, @D2, @D3, @D4, @D5, @D6,
-                  @MailZipcodeId, @MailAddress, @TextZipcodeId, @TextAddress,
-                  @Remark, @PrepayYear, @PrepayCeremonyCategoryId, @AdminId, @CreateDate
-                )
-                """;
-            await conn.ExecuteAsync(new CommandDefinition(insertSignup, new
-            {
-                s.SignupId, s.Year, s.CeremonyCategoryId, s.SignupType, s.BelieverId,
-                s.NumberTitle, Number = number, s.Fee, s.Name, s.Phone,
-                L1 = s.LivingNames[0], L2 = s.LivingNames[1], L3 = s.LivingNames[2],
-                L4 = s.LivingNames[3], L5 = s.LivingNames[4], L6 = s.LivingNames[5],
-                D1 = s.DeadNames[0], D2 = s.DeadNames[1], D3 = s.DeadNames[2],
-                D4 = s.DeadNames[3], D5 = s.DeadNames[4], D6 = s.DeadNames[5],
-                s.MailZipcodeId, s.MailAddress, s.TextZipcodeId, s.TextAddress,
-                s.Remark, s.PrepayYear, s.PrepayCeremonyCategoryId, s.AdminId, s.CreateDate,
-            }, transaction: tx, cancellationToken: ct));
-
-            const string insertLog = """
-                INSERT INTO dbo.SignupLogs (
-                  SignupLogID, SignupID, Year, CeremonyCategoryTitle, SignupType,
-                  HallName, Name, Phone, NumberTitle, Number, Fee,
-                  LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
-                  DeadNameOne, DeadNameTwo, DeadNameThree, DeadNameFour, DeadNameFive, DeadNameSix,
-                  MailCity, MailZone, MailAddress, TextCity, TextZone, TextAddress,
-                  Remark, PrepayYear, PrepayCeremonyCategoryTitle, Admin, Createdate
-                ) VALUES (
-                  @SignupLogId, @SignupId, @Year, @CeremonyCategoryTitle, @SignupType,
-                  @HallName, @Name, @Phone, @NumberTitle, @Number, @Fee,
-                  @L1, @L2, @L3, @L4, @L5, @L6,
-                  @D1, @D2, @D3, @D4, @D5, @D6,
-                  @MailCity, @MailZone, @MailAddress, @TextCity, @TextZone, @TextAddress,
-                  @Remark, @PrepayYear, @PrepayCeremonyCategoryTitle, @Admin, @CreateDate
-                )
-                """;
-            await conn.ExecuteAsync(new CommandDefinition(insertLog, new
-            {
-                l.SignupLogId, l.SignupId, l.Year, l.CeremonyCategoryTitle, l.SignupType,
-                l.HallName, l.Name, l.Phone, l.NumberTitle, Number = number, l.Fee,
-                L1 = l.LivingNames[0], L2 = l.LivingNames[1], L3 = l.LivingNames[2],
-                L4 = l.LivingNames[3], L5 = l.LivingNames[4], L6 = l.LivingNames[5],
-                D1 = l.DeadNames[0], D2 = l.DeadNames[1], D3 = l.DeadNames[2],
-                D4 = l.DeadNames[3], D5 = l.DeadNames[4], D6 = l.DeadNames[5],
-                l.MailCity, l.MailZone, l.MailAddress, l.TextCity, l.TextZone, l.TextAddress,
-                l.Remark, l.PrepayYear, l.PrepayCeremonyCategoryTitle, l.Admin, l.CreateDate,
-            }, transaction: tx, cancellationToken: ct));
+            await InsertSignupWithLogRowsAsync(conn, tx, s, l, number, ct);
 
             await tx.CommitAsync(ct);
         }
@@ -433,6 +378,117 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
             await tx.RollbackAsync(ct);
             throw;
         }
+    }
+
+    public async Task InsertWithShiftAsync(SignupWriteModel s, SignupLogWriteModel l, int number, CancellationToken ct = default)
+    {
+        await using var conn = await factory.CreateOpenAsync(ct);
+        using var tx = await ((Microsoft.Data.SqlClient.SqlConnection)conn).BeginTransactionAsync(ct);
+
+        try
+        {
+            // 群組互斥鎖：序列化同 (Year, Ceremony, SignupType) 的配號/順移/預繳載入，避免並發互踩。
+            // 與 PrepayRepository 共用 "signup-number:" 命名空間。逾時 30s → -1 → SIGNUP_BUSY。
+            var lockRc = await conn.ExecuteScalarAsync<int>(new CommandDefinition("""
+                DECLARE @rc int;
+                EXEC @rc = sp_getapplock @Resource = @Resource, @LockMode = 'Exclusive',
+                     @LockOwner = 'Transaction', @LockTimeout = 30000;
+                SELECT @rc;
+                """,
+                new { Resource = $"signup-number:{s.Year}:{s.CeremonyCategoryId}:{s.SignupType}" },
+                transaction: tx, cancellationToken: ct));
+            if (lockRc < 0)
+                throw new DomainException("SIGNUP_BUSY", "另一筆報名編號作業進行中，請稍後再試");
+
+            // 插入點其後（含）的既有編號整批 +1 順移。(Year,Cat,Type,Number) 無 unique index → 一句 set-based UPDATE 即可，無中間衝突。
+            const string shiftSql = """
+                UPDATE dbo.Signups WITH (UPDLOCK, HOLDLOCK)
+                SET Number = Number + 1
+                WHERE Year = @Year AND CeremonyCategoryID = @Cat AND SignupType = @Type AND Number >= @Number
+                """;
+            await conn.ExecuteAsync(new CommandDefinition(
+                shiftSql,
+                new { Year = s.Year, Cat = s.CeremonyCategoryId, Type = s.SignupType, Number = number },
+                transaction: tx, cancellationToken: ct));
+
+            // 插入新報名於指定編號（順移列不另 append SignupLog：Number 為歷史快照、避免大群組 log 爆量）。
+            await InsertSignupWithLogRowsAsync(conn, tx, s, l, number, ct);
+
+            await tx.CommitAsync(ct);
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
+    }
+
+    /// <summary>在既有交易內插入 Signup + 對應 SignupLog（共用於 InsertWithLogAsync / InsertWithShiftAsync）。</summary>
+    private static async Task InsertSignupWithLogRowsAsync(
+        System.Data.Common.DbConnection conn,
+        System.Data.Common.DbTransaction tx,
+        SignupWriteModel s,
+        SignupLogWriteModel l,
+        int number,
+        CancellationToken ct)
+    {
+        const string insertSignup = """
+            INSERT INTO dbo.Signups (
+              SignupID, Year, CeremonyCategoryID, SignupType, BelieverID,
+              NumberTitle, Number, Fee, Name, Phone,
+              LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
+              DeadNameOne, DeadNameTwo, DeadNameThree, DeadNameFour, DeadNameFive, DeadNameSix,
+              MailZipcodeID, MailAddress, TextZipcodeID, TextAddress,
+              Remark, PrepayYear, PrepayCeremonyCategoryID, AdminID, Createdate
+            ) VALUES (
+              @SignupId, @Year, @CeremonyCategoryId, @SignupType, @BelieverId,
+              @NumberTitle, @Number, @Fee, @Name, @Phone,
+              @L1, @L2, @L3, @L4, @L5, @L6,
+              @D1, @D2, @D3, @D4, @D5, @D6,
+              @MailZipcodeId, @MailAddress, @TextZipcodeId, @TextAddress,
+              @Remark, @PrepayYear, @PrepayCeremonyCategoryId, @AdminId, @CreateDate
+            )
+            """;
+        await conn.ExecuteAsync(new CommandDefinition(insertSignup, new
+        {
+            s.SignupId, s.Year, s.CeremonyCategoryId, s.SignupType, s.BelieverId,
+            s.NumberTitle, Number = number, s.Fee, s.Name, s.Phone,
+            L1 = s.LivingNames[0], L2 = s.LivingNames[1], L3 = s.LivingNames[2],
+            L4 = s.LivingNames[3], L5 = s.LivingNames[4], L6 = s.LivingNames[5],
+            D1 = s.DeadNames[0], D2 = s.DeadNames[1], D3 = s.DeadNames[2],
+            D4 = s.DeadNames[3], D5 = s.DeadNames[4], D6 = s.DeadNames[5],
+            s.MailZipcodeId, s.MailAddress, s.TextZipcodeId, s.TextAddress,
+            s.Remark, s.PrepayYear, s.PrepayCeremonyCategoryId, s.AdminId, s.CreateDate,
+        }, transaction: tx, cancellationToken: ct));
+
+        const string insertLog = """
+            INSERT INTO dbo.SignupLogs (
+              SignupLogID, SignupID, Year, CeremonyCategoryTitle, SignupType,
+              HallName, Name, Phone, NumberTitle, Number, Fee,
+              LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
+              DeadNameOne, DeadNameTwo, DeadNameThree, DeadNameFour, DeadNameFive, DeadNameSix,
+              MailCity, MailZone, MailAddress, TextCity, TextZone, TextAddress,
+              Remark, PrepayYear, PrepayCeremonyCategoryTitle, Admin, Createdate
+            ) VALUES (
+              @SignupLogId, @SignupId, @Year, @CeremonyCategoryTitle, @SignupType,
+              @HallName, @Name, @Phone, @NumberTitle, @Number, @Fee,
+              @L1, @L2, @L3, @L4, @L5, @L6,
+              @D1, @D2, @D3, @D4, @D5, @D6,
+              @MailCity, @MailZone, @MailAddress, @TextCity, @TextZone, @TextAddress,
+              @Remark, @PrepayYear, @PrepayCeremonyCategoryTitle, @Admin, @CreateDate
+            )
+            """;
+        await conn.ExecuteAsync(new CommandDefinition(insertLog, new
+        {
+            l.SignupLogId, l.SignupId, l.Year, l.CeremonyCategoryTitle, l.SignupType,
+            l.HallName, l.Name, l.Phone, l.NumberTitle, Number = number, l.Fee,
+            L1 = l.LivingNames[0], L2 = l.LivingNames[1], L3 = l.LivingNames[2],
+            L4 = l.LivingNames[3], L5 = l.LivingNames[4], L6 = l.LivingNames[5],
+            D1 = l.DeadNames[0], D2 = l.DeadNames[1], D3 = l.DeadNames[2],
+            D4 = l.DeadNames[3], D5 = l.DeadNames[4], D6 = l.DeadNames[5],
+            l.MailCity, l.MailZone, l.MailAddress, l.TextCity, l.TextZone, l.TextAddress,
+            l.Remark, l.PrepayYear, l.PrepayCeremonyCategoryTitle, l.Admin, l.CreateDate,
+        }, transaction: tx, cancellationToken: ct));
     }
 
     public async Task<IReadOnlyList<SignupListItem>> SearchByNumberRangeAsync(SignupRangeQuery query, CancellationToken ct = default)

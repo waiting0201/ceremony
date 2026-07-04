@@ -185,6 +185,75 @@ public sealed class SignupsEndpointsTests(CeremonyApiFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task POST_insert_shift_inserts_at_number_and_shifts_subsequent_by_one()
+    {
+        var client = await AuthedAsync();
+
+        var believerName = $"itest_ins_{DateTime.UtcNow:yyMMddHHmmssfff}";
+        var believerResp = await client.PostAsJsonAsync("/api/v1/believers", new
+        {
+            employeeType = 1,
+            name = believerName,
+            mailAddress = "整合測試地址",
+        });
+        believerResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var believer = await believerResp.Content.ReadFromJsonAsync<Application.Believers.BelieverListItem>();
+
+        const int year = 997;                                                    // 專用年份，避開真實資料
+        const int signupType = 1;
+        var ceremonyId = Guid.Parse("18927907-dcad-42b2-8f2a-635c2e0fa98d");     // 春季
+
+        object Body(string name, int? customNumber = null) => new
+        {
+            year,
+            ceremonyCategoryId = ceremonyId,
+            signupType,
+            believerId = believer!.Id,
+            name,
+            mailAddress = "整合測試地址",
+            customNumber,
+        };
+
+        async Task<SignupListItem> PostAsync(string url, object body)
+        {
+            var r = await client.PostAsJsonAsync(url, body);
+            r.StatusCode.Should().Be(HttpStatusCode.Created);
+            return (await r.Content.ReadFromJsonAsync<SignupListItem>())!;
+        }
+
+        async Task<int?> NumberOfAsync(Guid id)
+        {
+            var r = await client.GetAsync($"/api/v1/signups/{id}");
+            r.StatusCode.Should().Be(HttpStatusCode.OK);
+            return (await r.Content.ReadFromJsonAsync<SignupListItem>())!.Number;
+        }
+
+        // 1. 自動配 3 筆連號（a, a+1, a+2）——不假設起始值，實測捕捉
+        var s1 = await PostAsync("/api/v1/signups", Body("插入測試一"));
+        var s2 = await PostAsync("/api/v1/signups", Body("插入測試二"));
+        var s3 = await PostAsync("/api/v1/signups", Body("插入測試三"));
+        var a = s1.Number!.Value;
+        s2.Number.Should().Be(a + 1);
+        s3.Number.Should().Be(a + 2);
+
+        // 2. 在中間位置（a+1）插入 → 新筆取得 a+1，原 a+1/a+2 各 +1 順移
+        var inserted = await PostAsync("/api/v1/signups/insert-shift", Body("插入的新報名", customNumber: a + 1));
+        inserted.Number.Should().Be(a + 1, because: "插入位置編號");
+
+        // 3. 驗證順移：a 不動、原 a+1 → a+2、原 a+2 → a+3
+        (await NumberOfAsync(s1.Id)).Should().Be(a, because: "小於插入位置，不動");
+        (await NumberOfAsync(s2.Id)).Should().Be(a + 2, because: "原 a+1 應 +1");
+        (await NumberOfAsync(s3.Id)).Should().Be(a + 3, because: "原 a+2 應 +1");
+
+        // 4. 新插入筆有對應 SignupLog（Number = a+1）
+        var logsResp = await client.GetAsync($"/api/v1/signups/{inserted.Id}/logs");
+        logsResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var logs = await logsResp.Content.ReadFromJsonAsync<SignupLogListResponse>();
+        logs!.Total.Should().Be(1);
+        logs.Items[0].Number.Should().Be(a + 1);
+    }
+
+    [Fact]
     public async Task Full_signup_lifecycle_create_read_and_logs()
     {
         var client = await AuthedAsync();

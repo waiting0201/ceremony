@@ -31,7 +31,7 @@ import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog
 import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { FormOverlayComponent } from '../../shared/form-overlay/form-overlay.component';
-import { SignupEditFormComponent } from './signup-edit-form.component';
+import { SignupEditFormComponent, type InsertAtContext } from './signup-edit-form.component';
 import { SignupSearchState, type SignupSearchFormSnapshot } from './signup-search-state';
 import {
   SIGNUP_COLUMNS,
@@ -61,6 +61,8 @@ const LS_COL_WIDTHS = 'ceremony.signupList.colWidths';
 interface EditOverlayState {
   signupId: string | null;
   fromSignupId: string | null;
+  // 插入模式（右鍵「在此前插入」）：帶目標群組 + 插入位置編號，走 InsertShift（後續編號 +1 順移）。
+  insertAt?: InsertAtContext | null;
 }
 
 @Component({
@@ -494,6 +496,14 @@ export class SignupListPage implements OnInit {
         onClick: (ctx) => this.actionAddFrom(ctx.selectedRows[0]),
       },
       {
+        id: 'insert-before',
+        label: '在此前插入',
+        icon: 'insert-above',
+        enabledWhen: (ctx) =>
+          (ctx.triggerRow.number != null) || { enabled: false, reason: '此列無編號可插入' },
+        onClick: (ctx) => this.actionInsertBefore(ctx.triggerRow),
+      },
+      {
         id: 'edit',
         label: '修改資料',
         icon: 'pencil',
@@ -532,6 +542,21 @@ export class SignupListPage implements OnInit {
 
   private actionAddFrom(item: SignupListItem): void {
     this.editOverlay.set({ signupId: null, fromSignupId: item.id });
+  }
+
+  /** 在此列前插入一筆新報名（該列與其後編號 +1 順移）。 */
+  private actionInsertBefore(item: SignupListItem): void {
+    if (item.number == null) return;
+    this.editOverlay.set({
+      signupId: null,
+      fromSignupId: null,
+      insertAt: {
+        number: item.number,
+        year: item.year,
+        ceremonyCategoryId: item.ceremonyCategoryId,
+        signupType: item.signupType,
+      },
+    });
   }
 
   private actionEdit(item: SignupListItem): void {

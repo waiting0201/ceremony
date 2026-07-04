@@ -64,6 +64,14 @@ export class SignupApi {
     return firstValueFrom(this.http.post<SignupListItem>(this.base, body));
   }
 
+  /**
+   * 插入報名於指定編號（body.customNumber），並把同群組內 Number ≥ 該編號的既有報名 +1 順移。
+   * 對應列表右鍵「在此前插入」。
+   */
+  insertShift(body: CreateSignupRequest): Promise<SignupListItem> {
+    return firstValueFrom(this.http.post<SignupListItem>(`${this.base}/insert-shift`, body));
+  }
+
   update(id: string, body: CreateSignupRequest): Promise<SignupListItem> {
     return firstValueFrom(this.http.put<SignupListItem>(`${this.base}/${id}`, body));
   }

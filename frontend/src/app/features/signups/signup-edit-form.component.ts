@@ -45,6 +45,14 @@ import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-s
  *
  * 由外部容器（route page / overlay）呼叫 `submit()` 觸發儲存；成功 emit `saved`。
  */
+/** 插入模式（列表右鍵「在此前插入」）帶入的目標群組與插入位置編號。 */
+export interface InsertAtContext {
+  number: number;
+  year: number;
+  ceremonyCategoryId: string;
+  signupType: number;
+}
+
 @Component({
   selector: 'app-signup-edit-form',
   imports: [ReactiveFormsModule],
@@ -64,6 +72,8 @@ export class SignupEditFormComponent {
 
   readonly signupId = input<string | null>(null);
   readonly fromSignupId = input<string | null>(null);
+  // 插入模式（列表右鍵「在此前插入」）：帶入目標群組 + 插入位置編號，走 InsertShift（後續編號 +1 順移）。
+  readonly insertAt = input<InsertAtContext | null>(null);
   readonly saved = output<void>();
   readonly cancelled = output<void>();
   readonly dirtyChange = output<boolean>();
@@ -113,6 +123,8 @@ export class SignupEditFormComponent {
   protected readonly mode = computed<'create' | 'edit'>(() =>
     this.signupId() ? 'edit' : 'create',
   );
+  // 插入模式：非編輯、且帶 insertAt。年/法會/類型鎖定為目標群組。
+  protected readonly isInsert = computed<boolean>(() => !this.signupId() && !!this.insertAt());
 
   protected readonly form = this.fb.nonNullable.group({
     // 法會資料（舊 Step1）
@@ -161,6 +173,10 @@ export class SignupEditFormComponent {
     effect(() => {
       const fromId = this.fromSignupId();
       if (fromId && !this.signupId()) void this.prefillFromSignup(fromId);
+    });
+    effect(() => {
+      const ins = this.insertAt();
+      if (ins && !this.signupId()) this.applyInsertContext(ins);
     });
     this.form.valueChanges
       .pipe(takeUntilDestroyed(this.destroyRef))
@@ -504,6 +520,21 @@ export class SignupEditFormComponent {
     }
   }
 
+  /** 插入模式：帶入目標群組 + 插入位置編號，並鎖定年/法會/類型（避免改掉群組使插入位失義）。 */
+  private applyInsertContext(ins: InsertAtContext): void {
+    this.form.patchValue({
+      year: ins.year,
+      ceremonyCategoryId: ins.ceremonyCategoryId,
+      signupType: ins.signupType,
+      keepNumber: true,
+      customNumber: ins.number,
+    });
+    this.form.controls.year.disable();
+    this.form.controls.ceremonyCategoryId.disable();
+    this.form.controls.signupType.disable();
+    this.form.controls.keepNumber.disable();
+  }
+
   /** 對外暴露：由 overlay / route page 觸發儲存 */
   async submit(): Promise<void> {
     if (this.form.invalid || this.saving()) return;
@@ -536,7 +567,8 @@ export class SignupEditFormComponent {
     this.errorMessage.set(null);
     try {
       const editing = this.signupId();
-      if (editing) await this.api.update(editing, body);
+      if (this.isInsert()) await this.api.insertShift(body);
+      else if (editing) await this.api.update(editing, body);
       else await this.api.create(body);
       this.form.markAsPristine();
       this.saved.emit();

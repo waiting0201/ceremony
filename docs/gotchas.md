@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-04 (薦牌實體對位條結案：使用者確認列印 OK；追加：色彩 token 對比度要實測不要憑感覺；--c-border 對比不足、DPI 縮放文件承諾未實作，兩項待處理)
+last_updated: 2026-07-04 (追加：插入並順移用 set-based UPDATE 因無 unique index、與預繳共用 applock；薦牌實體對位條結案；色彩 token 對比度要實測；--c-border 對比不足、DPI 縮放未實作)
 ---
 
 ## 通用陷阱
@@ -237,6 +237,7 @@ last_updated: 2026-07-04 (薦牌實體對位條結案：使用者確認列印 OK
 - **安裝包是 x64-only，裝到 32 位元 Windows 會報「不是正確的 Win32 應用程式」**：`electron-builder.yml` `win.target.arch` 只有 `[x64]`，後端 sidecar 也只 publish `win-x64`；32 位元 OS 的載入器連 PE header 都解不了，這訊息是 Windows 對「執行檔架構不合」的通用錯誤，**與檔案有沒有正確複製、有沒有跑正式 NSIS 安裝檔無關**。**2026-07-01 決策**：暫不建 x86（32 位元）版安裝包（工程量不小：後端要多一條 `win-x86` publish、electron-builder 要加 `ia32` target、還要另外準備 32 位元版 ASP.NET Core Runtime / VC++ Redistributable 安裝檔，且 SkiaSharp/QuestPDF 原生庫是否有 win-x86 版尚未確認）；先擱置，改建議該 client 換 64 位元機器（32 位元 Windows 已停產多年，.NET 10 對 x86 支援也弱）。
 
 - **預繳配號的計數器一律 `nextNo = 固定號 + 1`（含往回設）— 刻意對齊舊系統的邊界 bug**：舊 `LoadPrepayForm` 每處理一個固定編號後一律把計數器設為 `固定號 + 1`（[LoadPrepayForm.cs:132/136](../reference/old/Ceremony/LoadPrepayForm.cs#L132)）。當固定號**小於**當前計數器（僅在「目標年/法會已有既存資料 `MAX(Number)>0`、且該固定信眾的固定號落在既存範圍內」才發生）時，舊系統會把計數器「往回設」，理論上可能把既存編號重新當成 gap 配給非固定信眾 → 產生重號。這是舊系統的 latent bug，但**正常年初對空法會載入（`MAX=0`）不會觸發**，且新舊輸出在該常見情境完全一致。`PrepayNumberAllocator` **刻意保留 `nextNo = n + 1`（不用 `Math.Max`）** 以完全對齊舊輸出（回歸鎖 `PrepayNumberAllocatorTests.LegacyBackwardSet_*`）。若未來要「修掉」這個 latent bug，需與業務確認能否偏離舊行為，屆時改回 `Math.Max` 並更新該測試。
+- **「插入並順移」順移既有列可用單句 set-based UPDATE，因為 `(Year,Cat,Type,Number)` 無 unique index**：`SignupRepository.InsertWithShiftAsync` 用 `UPDATE dbo.Signups SET Number = Number + 1 WHERE ... AND Number >= @N` 一句把插入點其後全部往上推。因為 DB 層**沒有** `(Year,CeremonyCategoryID,SignupType,Number)` 唯一索引（見 [database-design.md](design/database-design.md)），set-based UPDATE 不會撞唯一約束、不需「由大到小逐列移」。**但**若未來替該組合加了 unique index，這句會在更新中途撞唯一鍵——屆時要改成由大到小逐列 UPDATE 或 `SET Number = -Number` 兩階段。並發安全靠同交易的 `sp_getapplock`（resource `signup-number:{year}:{cat}:{type}`，**與預繳載入共用命名空間**）+ `UPDLOCK/HOLDLOCK`。插入模式**刻意不做編號重複檢查**（插入位置本就佔用，那正是要順移的對象）。
 - **預繳載入的並行安全靠 UPDLOCK/HOLDLOCK + `sp_getapplock`，不是靠 idempotency**：idempotency（比對已存在 BelieverID）只擋「同信眾重複建立」，擋不了「兩個並發載入配到同一個 Number」。真正防重號的是把「讀 `MAX(Number) WITH (UPDLOCK, HOLDLOCK)` → 配號 → insert」收在**單一 transaction**（範圍鎖持有到 commit，連一般報名的並發插入也擋），外加 `sp_getapplock` 序列化同組載入。若把讀 MAX 移出交易或拿掉鎖 hint，並發下就會重號——[PrepayRepository.InsertPrepayBatchAsync](../backend/src/Ceremony.Infrastructure/Repositories/PrepayRepository.cs) 早期版本曾犯此錯（讀 MAX 在交易外、與 insert 分離），已修正。
 
 ## 反模式速查

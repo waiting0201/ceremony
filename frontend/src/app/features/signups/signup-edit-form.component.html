@@ -194,6 +194,13 @@
       <fieldset class="block">
         <legend>編號 / 費用 / 備註 / 預繳</legend>
         <div class="grid two">
+          @if (isInsert()) {
+            <p class="hint span-row">
+              插入模式：新報名將取得編號
+              <strong>{{ form.controls.customNumber.value }}</strong>
+              ，該群組內編號 ≥ 此值的既有報名會自動 +1 順移（年／法會／類型已鎖定）。
+            </p>
+          }
           <label class="field-check span-row">
             <input type="checkbox" formControlName="keepNumber" />
             <span>指定編號（不由系統自動分配）</span>

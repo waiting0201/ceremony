@@ -153,6 +153,7 @@ HTTP status 映射：
 | GET | `/signups/search` | 主搜尋；query 對應舊 PredicateBuilder（year, isScope, ceremonyId, signupType, number, isFixedNumber, key, scopeName, scopeLivingName, scopeDeadName, scopePhone, page, pageSize, sort） |
 | GET | `/signups/{id}` | 單筆 + 完整 nav |
 | POST | `/signups` | 新增（atomic：含 believer create/update + signup_log） |
+| POST | `/signups/insert-shift` | 插入報名於指定編號（`customNumber`），同群組 Number ≥ 該編號的既有報名 +1 順移（單一交易 + `sp_getapplock` + `UPDLOCK/HOLDLOCK`）。刻意不做編號重複檢查。列表右鍵「在此前插入」。新版增強，legacy 無。Blueprint: [post-signups-insert-shift.md](../blueprints/api-endpoints/post-signups-insert-shift.md) |
 | PUT | `/signups/{id}` | 編輯（atomic） |
 | DELETE | `/signups/{id}` | 刪除 |
 | GET | `/signups/{id}/logs` | 歷程（Createdate DESC） |

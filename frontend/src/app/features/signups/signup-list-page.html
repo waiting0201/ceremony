@@ -195,13 +195,14 @@
 
   @if (editOverlay(); as o) {
     <app-form-overlay
-      [title]="o.signupId ? '編輯報名' : '新增報名'"
+      [title]="o.signupId ? '編輯報名' : (o.insertAt ? '插入報名（後續順移）' : '新增報名')"
       [dirty]="editFormDirty()"
       (close)="onOverlayClose()"
     >
       <app-signup-edit-form
         [signupId]="o.signupId"
         [fromSignupId]="o.fromSignupId"
+        [insertAt]="o.insertAt ?? null"
         (saved)="onOverlaySaved()"
         (dirtyChange)="onEditFormDirtyChange($event)"
       />

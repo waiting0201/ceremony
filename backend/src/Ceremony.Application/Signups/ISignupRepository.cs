@@ -28,6 +28,17 @@ public interface ISignupRepository
     Task InsertWithLogAsync(SignupWriteModel signup, SignupLogWriteModel log, int? explicitNumber, CancellationToken ct = default);
 
     /// <summary>
+    /// 插入報名於指定編號 <paramref name="number"/>，並把同 (Year, CeremonyCategoryID, SignupType) 內
+    /// 原本 <c>Number &gt;= number</c> 的既有報名整批 +1 順移。全程單一交易。
+    /// </summary>
+    /// <remarks>
+    /// 用 <c>sp_getapplock</c>（resource <c>signup-number:{year}:{cat}:{type}</c>，與預繳載入共用）序列化同群組作業，
+    /// UPDATE 加 UPDLOCK/HOLDLOCK 範圍鎖。順移的既有列只 UPDATE Number、不另 append SignupLog。
+    /// applock 逾時（30s）丟 <c>DomainException("SIGNUP_BUSY")</c>。
+    /// </remarks>
+    Task InsertWithShiftAsync(SignupWriteModel signup, SignupLogWriteModel log, int number, CancellationToken ct = default);
+
+    /// <summary>
     /// 編輯 Signup（全欄位覆寫，使用 signup.SignupId 為主鍵）+ 同交易插入 SignupLog。
     /// </summary>
     /// <remarks>
