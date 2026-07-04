@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-07-04 (薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
+last_updated: 2026-07-04 (普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 ---
 
 ## 背景與動機
@@ -94,7 +94,7 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 4. Linux TW-Kai（全字庫正楷體，開源可散布）
 找不到 → 印警告（**不 silently fallback**，對齊「禁止 fallback」條款）。**部署機仍必須安裝/打包標楷體**（Windows 內建即可；Linux/容器需 TW-Kai 或 `CEREMONY_KAI_FONT`）。
 
-> ⚠️ **直書姓名不可靠窄欄自動換行**：薦牌姓名欄寬≈字級，換成真標楷體（全形字寬≈1em≈欄寬）後 QuestPDF 因「單字放不下」**靜默丟字**（整欄消失）。TabletRenderer 已改為**顯式每字一行**（`StackVertical`，\n 分隔、不約束寬度）。**Worship（普桌）尚未套用此修正 → 普桌陽上姓名目前不顯示（known issue，見下）。**
+> ⚠️ **直書姓名不可靠窄欄自動換行**：薦牌姓名欄寬≈字級，換成真標楷體（全形字寬≈1em≈欄寬）後 QuestPDF 因「單字放不下」**靜默丟字**（整欄消失）。TabletRenderer 已改為**顯式每字一行**（`StackVertical`，\n 分隔、不約束寬度）。**Worship（普桌）已於 2026-07-04 套用同一修正（連同 6 變體各自座標，見下）。**
 
 ### 薦牌字型/直書/重疊修正驗證（2026-05-29）
 
@@ -231,9 +231,12 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 ### 本輪仍未做（remaining）
 
-- **🔴 Worship（普桌）陽上姓名不顯示** — 同類 silent 丟字（陽上字級 2–3cm 在 2.2cm 欄寬被丟）；需比照 TabletRenderer 套用 `StackVertical` + 不約束寬度，並以 worship RDLC 重新核對欄距/字級（3cm 字在 2.2cm 欄距是否重疊待查）
+- ✅ **(已修 2026-07-04) Worship（普桌）陽上姓名不顯示 + 6 變體各自座標**（新舊對照稽核後確認為同一工作項，一次修完）
+  - **原問題（實際渲染驗證）**：silent 丟字發生在 One/Two/Three 變體（3cm 字塞進寫死的 2.2cm 欄寬 → QuestPDF 整欄丟掉，PDF 只剩 Number）；且 6 變體全部共用 Base 的 2×3 矩陣座標、只切字級
+  - **客戶樣張佐證（[reference/普桌.jpg](../../reference/普桌.jpg)，紅筆標註普595–600）**：客戶手圈 ①–⑥ 位置順序與舊 RDLC 各變體完全一致 → 確認「照 RDLC 1:1 還原」即客戶要求。並帶出兩條定案需求：**「各容納5個字」**（每格 5 字，對應「3 字姓名＋闔家」型態）與**「同欄上下排名字之間要有空格」**
+  - **修法（WorshipRenderer 全面改寫）**：姓名改 `VerticalText.Stack` 顯式每字一行 + 不約束寬度（免丟字）；6 變體各自座標依 [printing-reports-positions.md](printing-reports-positions.md) §14–19（One 單欄置中 8.55021 / Two 雙欄 10.34938+6.62188 / Three 三角＝主欄 8.55021 通過下排 12.10938+5.00792 之間 / Four 2×2 / Five 上 2 下 3 / Base 2×3 矩陣）；`GroupFontPt` 整組統一字級守格高（One/Two/Three base 3cm、其餘 2cm；avail=RDLC 格高）；有上下排的變體（Base 0↔3/1↔4/2↔5、Four 0↔2/1↔3、Five 上下欄 X 錯開取重疊者）套 `WithBottomGap` 全形空格——5 字＋空格＝6 列由縮字吸收（10.21125/6≈1.70cm）
+  - **驗證**：新增回歸鎖 `Worship_LivingNames_AreNotSilentlyDropped`（6 變體逐一比對有/無姓名 PDF 位元組差）+ `Worship_CustomerSampleScenarios_DumpCalibrationPdfs`（樣張普595–600 六情境）；全套 340 測試綠；6 張 PDF 轉圖目視與客戶樣張排版一致，存於 `reference/output/worship_*.pdf`
 - **客戶實機列印驗收**（需印表機環境）
-- **Worship 6 變體各自座標 layout**（本輪只做了字級切換 + 背景；選定的 4 項**不含** Worship 變體座標）
 - **±0.05cm CI 座標量測自動化**
 - ✅ **(已修 2026-05-29)** SkiaImageHelpers（文牒垂直地址 PNG）字型：原 `SKTypeface.FromFamilyName("BiauKai")` 在 OS 找不到家族名 → `SKTypeface.Default`（無中文字符）→ 地址整排 **tofu 方框**。**關鍵**：Skia 的 `FromFamilyName` 與 QuestPDF 的 `FontManager` 是兩條獨立解析路徑，ReportFonts 註冊進 QuestPDF 救不到 Skia。已改為 `SKTypeface.FromFile(ReportFonts.ResolvedPath)` 載入同一字型檔（快取）；影像驗證地址正確直排標楷體、數字旋轉 90°
 - ✅ **(已修 2026-05-29)** 文牒垂直地址**字會黏在一起**：每字往下步進原照搬舊 GDI+ 公式 `MeasureString.Height − 9`，但 GDI+ MeasureString.Height 膨脹（含 line gap，≈1.4–1.5× 字級），SkiaSharp 的 `Descent−Ascent` 已是緊湊行高（25.6px），再 −9 變 16.6px < 字面 23px → 重疊。改為**步進 = 字型行高**（不再 −9/−10）→ 字距正常、不黏（影像驗證）

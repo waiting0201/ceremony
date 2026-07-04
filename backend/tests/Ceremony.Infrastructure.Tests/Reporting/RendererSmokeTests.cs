@@ -473,6 +473,52 @@ public sealed class RendererSmokeTests
         ShouldBePdf(pdf);
     }
 
+    // 2026-07-04 回歸鎖：普桌陽上姓名曾被 QuestPDF 靜默丟字（3cm 字塞 2.2cm 欄寬，One/Two/Three
+    // 變體整欄消失，PDF 只剩 Number）。改用 VerticalText.Stack 顯式直書後，「有姓名」的 PDF 必須
+    // 真的比「無姓名」多出內容——若又被靜默丟字，兩者位元組數會相同。逐一鎖 6 個變體。
+    [Theory]
+    [InlineData(WorshipTemplate.One)]
+    [InlineData(WorshipTemplate.Two)]
+    [InlineData(WorshipTemplate.Three)]
+    [InlineData(WorshipTemplate.Four)]
+    [InlineData(WorshipTemplate.Five)]
+    [InlineData(WorshipTemplate.Base)]
+    public void Worship_LivingNames_AreNotSilentlyDropped(WorshipTemplate template)
+    {
+        var withNames = new WorshipRenderer().Render(new WorshipData(
+            Number: "普1", LivingNames: N("陳大明", "林小華", "張三豐", "李四端", "王五福", "趙六順"), Template: template));
+        var withoutNames = new WorshipRenderer().Render(new WorshipData(
+            Number: "普1", LivingNames: N(), Template: template));
+
+        ShouldBePdf(withNames);
+        withNames.Length.Should().BeGreaterThan(withoutNames.Length,
+            "陽上姓名必須真的渲染出來（若被 QuestPDF 靜默丟字，PDF 會跟無姓名版一樣大）");
+    }
+
+    // 2026-07-04 客戶樣張 reference/普桌.jpg 全情境（普595–600）：1 位 7 字、2 位 7 字、3 位三角、
+    // 4 位 2×2、5 位上2下3、6 位矩陣「各容納5個字」（含闔家型態，觸發 5字+上下排空格=6列 的縮字）。
+    // 用 CEREMONY_PDF_DUMP 落地供目視比對樣張排版。
+    [Fact]
+    public void Worship_CustomerSampleScenarios_DumpCalibrationPdfs()
+    {
+        var r = new WorshipRenderer();
+        var cases = new (string Name, WorshipData Data)[]
+        {
+            ("worship_one_7chars.pdf", new WorshipData("普595", N("一二三四五六七"), WorshipTemplate.One)),
+            ("worship_two_7chars.pdf", new WorshipData("普596", N("一二三四五六七", "一二三四五六七"), WorshipTemplate.Two)),
+            ("worship_three_triangle.pdf", new WorshipData("普597", N("一二三四五六", "一二三四", "一二三四"), WorshipTemplate.Three)),
+            ("worship_four_2x2.pdf", new WorshipData("普598", N("一二三四五", "一二三四五", "一二三四五", "一二三四五"), WorshipTemplate.Four)),
+            ("worship_five_2plus3.pdf", new WorshipData("普599", N("一二三四五", "一二三四五", "一二三四五", "一二三四五", "一二三四五"), WorshipTemplate.Five)),
+            ("worship_base_5chars_gap.pdf", new WorshipData("普600", N("王大明闔家", "林小華闔家", "張三豐闔家", "李四端闔家", "王五福闔家", "趙六順闔家"), WorshipTemplate.Base)),
+        };
+        foreach (var (name, data) in cases)
+        {
+            var pdf = r.Render(data);
+            ShouldBePdf(pdf);
+            DumpIfRequested(pdf, name);
+        }
+    }
+
     [Fact]
     public void Skia_VerticalAddress_ProducesPng()
     {

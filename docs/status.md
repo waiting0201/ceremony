@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-04 (報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-04 (普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
@@ -75,14 +75,9 @@ last_updated: 2026-07-04 (報名編號「插入並順移」新功能：列表右
   - `audit_logs` / `login_attempts` 表、`Admins.Role`（RBAC）— 見 [security.md](design/security.md)
   - Why P1: 解凍主因多半是想做這些；但需逐項評估效益/相容性後才實作
 
-- [ ] **普桌（Worship）陽上姓名不顯示** — 同薦牌的「全形 CJK 窄欄被 QuestPDF 靜默丟字」（陽上字級 2–3cm 在 2.2cm 欄寬）
-  - Why P1: 普桌是目前 dev 主要資料型別，姓名完全沒印出來
-  - Fix 方向: WorshipRenderer 比照 TabletRenderer 套 `StackVertical` + 不約束寬度；並以 worship RDLC 重新核對欄距/字級（3cm 字在 2.2cm 欄距是否重疊需確認）
-  - 連帶: SkiaImageHelpers（文牒垂直地址）仍 `SKTypeface.FromFamilyName("BiauKai")`，建議改讀 `ReportFonts.ResolvedPath` 避免同類 fallback
-
 - [ ] **列印精修：剩餘 variant 座標 + 實機驗收**（**2026-05-29 完成 4 項，見 Recently Done**）
   - ✅ 已完成：(a) Tablet 9 variant 各自 layout（座標權威抽自 9 個 .rdlc XML）(b) Text 2 variant 切換 + DeadName 座標 (c) worship2.png 背景嵌入（EmbeddedResource）(d) Text PhotoAddress 25×605px PNG（`SkiaImageHelpers.VerticalAddress`，移植 Library.cs）(e) DataCard dashed line（`SkiaImageHelpers.DashedLine`，SkiaSharp 自繪）
-  - 仍待補：**Worship 6 variant 各自座標 layout**（本輪只做字級切換 + 背景，選定 4 項不含 worship 變體座標）
+  - ✅ **(2026-07-04 完成) Worship 6 variant 各自座標 layout**（見 Recently Done「普桌列印修正」）→ 本項僅剩實機驗收（下方獨立項）
 
 - [ ] **客戶實機列印驗收**（需印表機環境）— 客戶實際印 1 張 datacard / tablet / text / worship 對位後決定 Worship variant 精修優先序
 
@@ -162,6 +157,12 @@ last_updated: 2026-07-04 (報名編號「插入並順移」新功能：列表右
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **普桌（Worship）列印修正 — 丟字修復 + 6 變體各自座標 + 每格 5 字 + 同欄上下排空格** — Done 2026-07-04
+  - 需求來源：使用者要求檢視舊程式普桌列印並對照新程式 → 稽核發現 One/Two/Three 變體姓名被 QuestPDF 靜默丟字（3cm 字塞 2.2cm 欄寬）、6 變體全共用 Base 矩陣座標；客戶樣張 [reference/普桌.jpg](../reference/普桌.jpg)（紅筆標註普595–600）確認舊 RDLC 排版即驗收標準，並定案兩需求：「各容納5個字」與「同欄上下排名字間要有空格」
+  - 做法：`WorshipRenderer` 全面改寫——姓名改 `VerticalText.Stack` 顯式直書（免丟字）；6 變體各自座標依 [printing-reports-positions.md](blueprints/printing-reports-positions.md) §14–19（One 單欄置中 / Two 雙欄 / Three 三角 / Four 2×2 / Five 上 2 下 3 / Base 2×3 矩陣）；`GroupFontPt` 整組統一字級守 RDLC 格高（涵蓋 5 字容量）；有上下排的變體套 `WithBottomGap` 全形空格（Base 0↔3/1↔4/2↔5、Four 0↔2/1↔3、Five 取 X 重疊欄），5 字＋空格＝6 列由縮字吸收（≈1.70cm）
+  - 驗證：新增回歸鎖 `Worship_LivingNames_AreNotSilentlyDropped`（6 變體有/無姓名 PDF 位元組差）+ `Worship_CustomerSampleScenarios_DumpCalibrationPdfs`（樣張六情境）；**全套 340 測試綠**（189+87+64）；6 張 PDF 轉圖目視與客戶樣張逐一比對排版一致，存於 `reference/output/worship_*.pdf`
+  - 文件同步：[printing-reports.md](blueprints/printing-reports.md)（known issue 結案 + 修法記錄）、[signup-form.md](blueprints/legacy-coverage/signup-form.md) row 13/32 過時註記更新、本檔 P1 兩項收斂（順帶清掉過時的 SkiaImageHelpers「連帶」註記——實際早於 2026-05-29 已改 `FromFile(ReportFonts.ResolvedPath)`）
 
 - [x] **報名編號「插入並順移」— 列表右鍵「在此前插入」（新版增強，legacy 無）** — Done 2026-07-04
   - 需求：預繳載入後常需在既有連號序列中間補插一筆，並讓插入點其後的既有報名編號自動 +1 順移。舊 NewSignupForm 只能自動 MAX+1 或手動指定空號（指定已佔用號被擋）→ 全新功能。使用者定案觸發方式＝**報名維護列表右鍵「在此前插入」**

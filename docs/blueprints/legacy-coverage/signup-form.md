@@ -7,7 +7,7 @@ legacy_path: reference/old/Ceremony/SignupForm.cs
 legacy_lines: 1944
 audit_status: complete
 coverage_percentage: 100
-last_audited: 2026-06-02
+last_audited: 2026-07-04
 baseline_completed: 2026-05-27
 total_methods: 43
 related_agents:
@@ -56,7 +56,7 @@ last_updated: 2026-06-02
 | 10 | `tsmiPrintReceipt_Click` | 242-271 | 列印收據 (含格式選擇) | ✅ 已實作 (核心 PDF) | `GET /api/v1/reports/receipt?signupId=` | QuestPDF 路徑；UI 格式對話由前端處理 |
 | 11 | `tsmiPrintTablet_Click` | 273-321 | 列印薦牌 (含大廳名分割) | ✅ 已實作 (核心 PDF, base variant) | `GET /api/v1/reports/tablet?signupId=` | 9 變體選擇邏輯入 `Domain.Services.PrintTemplateSelector.ChooseTablet`；目前 Renderer 使用 base 座標，variant-specific 座標 TODO |
 | 12 | `tsmiPrintText_Click` | 323-378 | 列印文牒 (含大廳名+地址合成) | ✅ 已實作 (核心 PDF, base variant) | `GET /api/v1/reports/text?signupId=` | 2 變體 `ChooseText`；PhotoAddress 25×605px 圖檔 TODO |
-| 13 | `tsmiPrintWorship_Click` | 380-403 | 列印普桌 (含格式選擇) | ✅ 已實作 (核心 PDF, base variant) | `GET /api/v1/reports/worship?signupId=` | 6 變體 `ChooseWorship`；僅 SignupType=4 開放（其他 422 WORSHIP_ONLY_TYPE_4）；worship2.png 背景 TODO |
+| 13 | `tsmiPrintWorship_Click` | 380-403 | 列印普桌 (含格式選擇) | ✅ 已實作 | `GET /api/v1/reports/worship?signupId=` | 6 變體 `ChooseWorship`；僅 SignupType=4 開放（其他 422 WORSHIP_ONLY_TYPE_4）；worship2.png 背景已嵌入；2026-07-04 六變體各自座標 + 直書 Stack + GroupFontPt 縮字（每格 5 字）+ 同欄上下排全形空格 |
 | 14 | `tsmiDelete_Click` | 405-426 | 刪除報名紀錄 (確認對話) | ✅ 已實作 | `DELETE /api/v1/signups/:id` | `DeleteSignupHandler` 硬刪除（沿用舊行為）；SignupLog 保留作審計 |
 | 15 | `tsmiLog_Click` | 428-445 | 顯示報名修改日誌 | ✅ 已實作 | 前端 nav `/signups/:id/logs` + `GET /api/v1/signups/:id/logs` | 選單「瀏覽歷程」`actionLogs(item)` → `navigateByUrl('/signups/:id/logs')` → `signup-logs-page` + `ListSignupLogsHandler` |
 | 16 | `btnPrint_Click` | 447-653 | **複合邏輯：編號範圍查詢 + 5 種列印類型**（206 行；含 1148-1228 RDLC 薦牌 9 變體選擇、1335-1357 文牒 2 變體、1554-1593 普桌動態字級） | ✅ 已實作 | `POST /api/v1/reports/batch` | `BatchReportHandler` + `SignupRepository.SearchByNumberRangeAsync`（編號範圍 + year/yearGte/ceremony/signupType 篩選）+ 5 種 reportType（reuse `ReportModelBuilders` 共享單筆 handler 邏輯）+ `PdfSharpMerger` 合併；worship 強制 SignupType=4；錯誤碼 `編號錯誤` / `報表類型錯誤` / `BATCH_NO_SIGNUPS` |
@@ -75,7 +75,7 @@ last_updated: 2026-06-02
 | 29 | `PrintReceipt()` helper | 1052-1146 | 列印收據 (預覽/PDF 輸出) | ✅ 已實作 | `GET /api/v1/reports/receipt` | `ReceiptRenderer` (QuestPDF) + `GenerateReceiptHandler`；A4 直 21×29.7cm 上+下聯；14pt 主資訊 + 16pt 郵寄；產 11KB PDF |
 | 30 | `PrintTablet()` helper | **1148-1333** | **RDLC 薦牌 9 變體選擇邏輯**（動態 RDLC 檔案選擇 + 字級調整） | ✅ 已實作 (selector + base render) | `GET /api/v1/reports/tablet` | `Domain.Services.PrintTemplateSelector.ChooseTablet` 純函式 9 變體（含 0.6/0.8cm para 字級邏輯）+ `TabletRenderer` 11.5×25.4cm；單元測試 9 變體 100% 通過；**variant-specific 座標** TODO（目前全 variants 都用 base 座標）。**⚠️ 刻意偏離 legacy（2026-06-02）**：原 1179/1203 字級門檻用 `DeadName.Trim().Length > 7`（計入中間空格）；新版改用 `RealCharCount`（排除半/全形空格）。原因：使用者用姓名中間空格作刻意排版間隙，不應污染字級門檻（直書渲染仍保留間隙）。詳見 [gotchas.md](../../gotchas.md)「姓名中間空格」 |
 | 31 | `PrintText()` helper | **1335-1552** | **RDLC 文牒 2 變體邏輯**（陽上亡名判定） | ✅ 已實作 (selector + base render) | `GET /api/v1/reports/text` | `ChooseText` (2 dead → Two；其他 Base) + `TextRenderer` 36.5×26.2cm 橫；Number 1cm Bold；PhotoAddress 區塊以文字暫繪（25×605px PNG TODO） |
-| 32 | `PrintWorship()` helper | **1554-1696** | **RDLC 普桌 5 變體邏輯**（動態字級調整） | ✅ 已實作 (selector + base render) | `GET /api/v1/reports/worship` | `ChooseWorship` 6 變體（按 LivingName 最高位）+ `WorshipRenderer` 21×29.6cm 直；One/Two/Three 字級 3cm、其餘 2cm；2×3 矩陣（右至左）；**worship2.png 背景圖** TODO |
+| 32 | `PrintWorship()` helper | **1554-1696** | **RDLC 普桌 5 變體邏輯**（動態字級調整） | ✅ 已實作 | `GET /api/v1/reports/worship` | `ChooseWorship` 6 變體（按 LivingName 最高位）+ `WorshipRenderer` 21×29.6cm 直；One/Two/Three 字級 3cm、其餘 2cm；**各變體各自座標**（One 單欄置中 / Two 雙欄 / Three 三角 / Four 2×2 / Five 上2下3 / Base 2×3 矩陣，右至左）；worship2.png 背景已嵌入 |
 | 33 | `CombinePDFs()` helper | 1698-1722 | 合併多個 PDF 流 (PdfSharp) | ✅ 已實作 | `Infrastructure.Reporting.PdfSharpMerger` | PdfSharp 6.2.4（.NET 10 cross-platform，等價舊 .NET Framework PdfSharp）；介面在 `Application.Reports.IPdfMerger`；行為對齊舊 CombinePDFs 逐頁 AddPage |
 | 34 | `CreateStream()` helper | 1725-1730 | 建立列印用記憶流 | ❌ 故意捨棄 | – | WinForms RDLC/printDocument 內部；Web 改 QuestPDF → PDF 串流路徑，不重用 RDLC |
 | 35 | `printDocument_BeginPrint` event | 1732-1735 | 初始化列印頁面索引 | ❌ 故意捨棄 | – | 桌面 printDocument 生命週期；Web 改 PDF（無實體印表機分頁狀態）|
