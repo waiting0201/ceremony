@@ -138,3 +138,24 @@ public sealed class GenerateWorshipHandler(ISignupRepository repo, IReportRender
                 $"worship-{s.Year}-{s.NumberTitle}-{s.Number}.pdf");
     }
 }
+
+/// <summary>
+/// 普桌資料卡 PDF（預印卡紙套印；葫蘆內 6 變體同普桌；僅 SignupType=4 可用）。
+/// </summary>
+/// <remarks>
+/// 全新報表（舊系統無對應）。Blueprint: docs/blueprints/printing-reports.md「普桌資料卡」
+/// </remarks>
+public sealed class GenerateWorshipCardHandler(ISignupRepository repo, IReportRenderer renderer)
+{
+    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, bool debugOverlay = false, CancellationToken ct = default)
+    {
+        var s = await repo.GetByIdAsync(signupId, ct)
+            ?? throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名");
+
+        if (s.SignupType != 4)
+            throw new DomainException("WORSHIP_ONLY_TYPE_4", "普桌資料卡僅限報名類型為普桌");
+
+        return (renderer.RenderWorshipCard(ReportModelBuilders.WorshipCard(s), debugOverlay),
+                $"worshipcard-{s.Year}-{s.NumberTitle}-{s.Number}.pdf");
+    }
+}

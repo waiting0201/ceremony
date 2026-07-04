@@ -12,6 +12,7 @@ public interface IReportRenderer
     byte[] RenderTablet(TabletModel model, bool debugOverlay = false);
     byte[] RenderText(TextModel model, bool debugOverlay = false);
     byte[] RenderWorship(WorshipModel model);
+    byte[] RenderWorshipCard(WorshipCardModel model, bool debugOverlay = false);
 }
 
 public sealed record DataCardModel(
@@ -54,3 +55,10 @@ public sealed record WorshipModel(
     string Number,
     string?[] LivingNames,
     WorshipTemplate Template);
+
+public sealed record WorshipCardModel(
+    string Number,
+    string?[] LivingNames,
+    WorshipTemplate Template,
+    string? Phone,
+    string? Remark);

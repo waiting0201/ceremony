@@ -93,6 +93,7 @@ last_updated: 2026-05-27.4
 | `GET /api/v1/reports/tablet` | — | **`SignupForm.cs:1148-1333`** (PrintTablet 9 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 11,30 ✅ | **shipped (selector + base render)** |
 | `GET /api/v1/reports/text` | — | **`SignupForm.cs:1335-1552`** (PrintText 2 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 12,31 ✅ | **shipped (selector + base render)** |
 | `GET /api/v1/reports/worship` | — | **`SignupForm.cs:1554-1696`** (PrintWorship 5 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 13,32 ✅ | **shipped (selector + base render; only SignupType=4)** |
+| `GET /api/v1/reports/worshipcard` | [get-reports-worshipcard.md](get-reports-worshipcard.md) | N/A（全新複合報表，舊系統無對應） | N/A | **shipped（待實體卡紙驗收）** |
 | `POST /api/v1/reports/batch` | [post-reports-batch.md](post-reports-batch.md) | `SignupForm.cs:447-653` (btnPrint_Click 編號範圍) + `CombinePDFs` 1698-1722 | [signup-form.md](../legacy-coverage/signup-form.md) rows 16, 33 ✅ | **shipped** |
 
 > 列印變體選擇邏輯（薦牌 9 / 文牒 2 / 普桌 6）已收斂到 `Domain.Services.PrintTemplateSelector` 純函式 + xUnit 測試覆蓋。Renderer 目前以「base variant 座標」實作，variant-specific 細部偏移（薦牌 9 個位置 / 文牒 2 個版型 / 普桌字級切換）已預留 TODO；最終 ground truth 仍是 [printing-reports-positions.md](../printing-reports-positions.md)。客端實機印表測試後再決定是否進一步精修。

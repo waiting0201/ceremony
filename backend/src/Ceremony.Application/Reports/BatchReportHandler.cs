@@ -22,7 +22,7 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
             throw new DomainException("VALIDATION_INVALID", "編號錯誤");
 
         var reportType = (req.ReportType ?? string.Empty).Trim().ToLowerInvariant();
-        if (reportType is not ("datacard" or "receipt" or "tablet" or "text" or "worship"))
+        if (reportType is not ("datacard" or "receipt" or "tablet" or "text" or "worship" or "worshipcard"))
             throw new DomainException("VALIDATION_INVALID", "報表類型錯誤");
 
         IReadOnlyList<SignupListItem> signups;
@@ -31,15 +31,15 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
         if (useIds)
         {
             signups = await repo.SearchByIdsAsync(req.SignupIds!, ct);
-            // Worship 防呆：跟編號區間模式一致，混選時只印其中 SignupType=4 的部分
-            if (reportType == "worship")
+            // Worship／普桌資料卡防呆：跟編號區間模式一致，混選時只印其中 SignupType=4 的部分
+            if (reportType is "worship" or "worshipcard")
                 signups = signups.Where(s => s.SignupType == 4).ToList();
             fileName = $"batch-{reportType}-selected-{signups.Count}.pdf";
         }
         else
         {
-            // Worship 防呆：限定 SignupType=4，若呼叫端沒給就強制加（比舊系統嚴格）
-            var signupTypeFilter = reportType == "worship" ? 4 : req.SignupType;
+            // Worship／普桌資料卡防呆：限定 SignupType=4，若呼叫端沒給就強制加（比舊系統嚴格）
+            var signupTypeFilter = reportType is "worship" or "worshipcard" ? 4 : req.SignupType;
 
             var query = new SignupRangeQuery(
                 NumberStart: req.NumberStart!.Value,
@@ -67,6 +67,7 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
                 "tablet" => renderer.RenderTablet(ReportModelBuilders.Tablet(s)),
                 "text" => renderer.RenderText(ReportModelBuilders.Text(s)),
                 "worship" => renderer.RenderWorship(ReportModelBuilders.Worship(s)),
+                "worshipcard" => renderer.RenderWorshipCard(ReportModelBuilders.WorshipCard(s)),
                 _ => throw new InvalidOperationException(),
             });
         }

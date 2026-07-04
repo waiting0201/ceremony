@@ -78,6 +78,18 @@ internal static class ReportModelBuilders
             Template: template);
     }
 
+    public static WorshipCardModel WorshipCard(SignupListItem s)
+    {
+        var (livingNames, _) = SignupReportContext.Extract(s);
+        var template = PrintTemplateSelector.ChooseWorship(livingNames);
+        return new WorshipCardModel(
+            Number: SignupReportContext.WorshipNumber(s),
+            LivingNames: livingNames,
+            Template: template,
+            Phone: s.Phone,
+            Remark: s.Remark);
+    }
+
     /// <summary>
     /// 開發用固定測試資料：5 位亡者 + 5 位陽上（3+ 亡 3+ 陽 → 落在 TabletTemplate.Base fallback，
     /// 也就是最擁擠的 2×3 矩陣排版），供 <c>GenerateTabletSampleHandler</c> 搭配 debugOverlay 樣板疊圖

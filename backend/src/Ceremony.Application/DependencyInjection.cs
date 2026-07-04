@@ -55,6 +55,7 @@ public static class DependencyInjection
         services.AddScoped<GenerateTabletSampleHandler>();
         services.AddScoped<GenerateTextHandler>();
         services.AddScoped<GenerateWorshipHandler>();
+        services.AddScoped<GenerateWorshipCardHandler>();
         services.AddScoped<BatchReportHandler>();
         services.AddScoped<BackupHandler>();
         services.AddScoped<ListZipcodeCitiesHandler>();

@@ -32,6 +32,7 @@ const REPORT_TYPES: readonly ReportTypeOption[] = [
   { value: 'tablet', label: '薦牌' },
   { value: 'text', label: '文牒' },
   { value: 'worship', label: '普桌（限類型 4）' },
+  { value: 'worshipcard', label: '普桌資料卡（限類型 4）' },
 ];
 
 @Component({

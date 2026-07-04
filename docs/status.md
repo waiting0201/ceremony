@@ -7,14 +7,14 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-04 (新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-04 (列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
 
 > 本檔由 Claude **自動維護**。任務開始/完成/卡住都必須更新。新增項目也要寫入。詳細規則見 [../CLAUDE.md](../CLAUDE.md) 「狀態追蹤規則」。
 
-**Current Version**: `v2.1.2`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
+**Current Version**: `v2.2.0`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
 
 ## 🔄 In Progress
 
@@ -79,7 +79,7 @@ last_updated: 2026-07-04 (新增信眾表單改雙欄密集排版節省空間、
   - ✅ 已完成：(a) Tablet 9 variant 各自 layout（座標權威抽自 9 個 .rdlc XML）(b) Text 2 variant 切換 + DeadName 座標 (c) worship2.png 背景嵌入（EmbeddedResource）(d) Text PhotoAddress 25×605px PNG（`SkiaImageHelpers.VerticalAddress`，移植 Library.cs）(e) DataCard dashed line（`SkiaImageHelpers.DashedLine`，SkiaSharp 自繪）
   - ✅ **(2026-07-04 完成) Worship 6 variant 各自座標 layout**（見 Recently Done「普桌列印修正」）→ 本項僅剩實機驗收（下方獨立項）
 
-- [ ] **客戶實機列印驗收**（需印表機環境）— 客戶實際印 1 張 datacard / tablet / text / worship 對位後決定 Worship variant 精修優先序
+- [ ] **客戶實機列印驗收**（需印表機環境）— 客戶實際印 1 張 datacard / tablet / text / worship / **worshipcard（普桌資料卡，2026-07-04 新增，預印卡紙套印）** 對位後決定 variant 精修優先序
 
 - [ ] **列印對位 CI 自動量測（±0.05cm）**：把 PDF 渲染出的欄位座標自動量測比對 RDLC ground truth，避免人工目視驗收
 
@@ -157,6 +157,12 @@ last_updated: 2026-07-04 (新增信眾表單改雙欄密集排版節省空間、
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **列印新增「普桌資料卡」（worshipcard）— 全新報表，A5 橫預印卡紙套印** — Done 2026-07-04，發版 **v2.2.0**（MINOR：新 endpoint + 新列印入口，向後相容）
+  - 需求：使用者提供新樣板 [reference/template/普桌資料卡.jpg](../reference/template/普桌資料卡.jpg)（左葫蘆輪廓＋右側「電話／備註／確認無誤請簽名」預印），定案規格：葫蘆內印編號＋陽上姓名**依人數套普桌 6 變體**（＝牌位縮小預覽供信眾核對簽名）、右側套印 Phone/Remark、A5 橫 21×14.8、預印紙程式只印內容、限 SignupType=4。舊系統無此報表
+  - 做法：新 [WorshipCardRenderer.cs](../backend/src/Ceremony.Infrastructure/Reporting/WorshipCardRenderer.cs)——6 變體座標**不重新設計**，用「墨跡對墨跡」仿射映射從 `WorshipRenderer` 搬（worship2.png 葫蘆 ink bbox ↔ 卡片葫蘆 ink bbox，X 錨用 Number 中軸 10.039 繞過 FitArea 歧義；Sy≈0.4694、Sx≈0.4609，長寬比差 1.8%），renderer 保留原座標字面值統一過 `MapTop`/`MapLeft`；字級 ×Sf（2cm→0.92）、`GroupFontPt` 格高 ×Sy；電話/備註對齊樣板量測 label 上緣（4.4704/5.6515）與冒號右緣＋0.2（Left 13.662）。全鏈路接線：`RenderWorshipCard`＋`WorshipCardModel`／`ReportModelBuilders.WorshipCard`／`GenerateWorshipCardHandler`（非 type-4 丟 `WORSHIP_ONLY_TYPE_4`）／`GET /reports/worshipcard`（dev-only debugOverlay）／batch 白名單＋type-4 防呆泛化／前端 `SingleReportType`＋右鍵選單＋列印預覽頁。樣板 jpg 烘焙 EXIF 旋轉（Orientation 6→1，1653×1165）作 debug 疊圖底圖（EmbeddedResource），生產 PDF 不嵌圖
+  - 驗證：新增 14 個 `WorshipCard_*` 測試（6 變體渲染、丟字回歸鎖、Phone/Remark 有渲染、6 情境 dump）；**全套 354 測試綠**（189+101+64）；前端 tsc 0 err；`reference/output/worshipcard_*{,_overlay}.pdf` 12 張落地、6 變體疊圖轉圖目視全部在葫蘆輪廓內、編號置中葫蘆中軸、長備註換行不壓簽名區。**待實體卡紙套印驗收**（見 Backlog 實機驗收項）
+  - 文件同步：[printing-reports.md](blueprints/printing-reports.md) §6、[printing-reports-positions.md](blueprints/printing-reports-positions.md) §20（錨值＋公式權威）、[api-design.md](design/api-design.md) endpoint 表、[get-reports-worshipcard.md](blueprints/api-endpoints/get-reports-worshipcard.md)（新）、[post-reports-batch.md](blueprints/api-endpoints/post-reports-batch.md)、api-endpoints README
 
 - [x] **普桌（Worship）列印修正 — 丟字修復 + 6 變體各自座標 + 每格 5 字 + 同欄上下排空格** — Done 2026-07-04
   - 需求來源：使用者要求檢視舊程式普桌列印並對照新程式 → 稽核發現 One/Two/Three 變體姓名被 QuestPDF 靜默丟字（3cm 字塞 2.2cm 欄寬）、6 變體全共用 Base 矩陣座標；客戶樣張 [reference/普桌.jpg](../reference/普桌.jpg)（紅筆標註普595–600）確認舊 RDLC 排版即驗收標準，並定案兩需求：「各容納5個字」與「同欄上下排名字間要有空格」

@@ -10,7 +10,8 @@ public sealed class QuestPdfReportRenderer(
     ReceiptRenderer receipt,
     TabletRenderer tablet,
     TextRenderer text,
-    WorshipRenderer worship) : IReportRenderer
+    WorshipRenderer worship,
+    WorshipCardRenderer worshipCard) : IReportRenderer
 {
     public byte[] RenderDataCard(DataCardModel model, bool debugOverlay = false)
         => dataCard.Render(new DataCardData(
@@ -37,4 +38,9 @@ public sealed class QuestPdfReportRenderer(
 
     public byte[] RenderWorship(WorshipModel model)
         => worship.Render(new WorshipData(model.Number, model.LivingNames, model.Template));
+
+    public byte[] RenderWorshipCard(WorshipCardModel model, bool debugOverlay = false)
+        => worshipCard.Render(new WorshipCardData(
+            model.Number, model.LivingNames, model.Template,
+            model.Phone, model.Remark), debugOverlay);
 }

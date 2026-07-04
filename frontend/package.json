@@ -1,6 +1,6 @@
 {
   "name": "frontend",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "description": "寶覺寺法會報名系統",
   "author": "寶覺寺",
   "main": "electron/dist/main.js",

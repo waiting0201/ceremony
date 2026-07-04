@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddSingleton<TabletRenderer>();
         services.AddSingleton<TextRenderer>();
         services.AddSingleton<WorshipRenderer>();
+        services.AddSingleton<WorshipCardRenderer>();
         services.AddSingleton<IReportRenderer, QuestPdfReportRenderer>();
         services.AddSingleton<IPdfMerger, PdfSharpMerger>();
         services.AddScoped<IBackupService, SqlBackupService>();

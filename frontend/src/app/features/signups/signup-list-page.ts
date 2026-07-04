@@ -52,6 +52,7 @@ const REPORT_TYPES: { value: SingleReportType; label: string }[] = [
   { value: 'tablet', label: '薦牌' },
   { value: 'text', label: '文牒' },
   { value: 'worship', label: '普桌' },
+  { value: 'worshipcard', label: '普桌資料卡' },
 ];
 
 const ROW_HEIGHT = 26;
@@ -711,9 +712,9 @@ function buildPrintItem(
       if (ctx.selectedRows.length === 0) {
         return { enabled: false, reason: '請先選擇報名資料' };
       }
-      // 普桌只能套用在 SignupType=4 的資料上（後端對單筆 by-id 驗證、批次強制 type=4）。
+      // 普桌／普桌資料卡只能套用在 SignupType=4 的資料上（後端對單筆 by-id 驗證、批次強制 type=4）。
       // 不再看搜尋篩選，改驗證實際選取的每一列都是普桌；夾雜非普桌就擋下，避免印出錯位 PDF。
-      if (spec.value === 'worship') {
+      if (spec.value === 'worship' || spec.value === 'worshipcard') {
         const nonWorship = ctx.selectedRows.filter((r) => r.signupType !== 4);
         if (nonWorship.length > 0) {
           return {

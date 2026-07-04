@@ -519,6 +519,84 @@ public sealed class RendererSmokeTests
         }
     }
 
+    [Theory]
+    [InlineData(WorshipTemplate.One)]
+    [InlineData(WorshipTemplate.Two)]
+    [InlineData(WorshipTemplate.Three)]
+    [InlineData(WorshipTemplate.Four)]
+    [InlineData(WorshipTemplate.Five)]
+    [InlineData(WorshipTemplate.Base)]
+    public void WorshipCard_AllVariants_RenderPdf(WorshipTemplate template)
+    {
+        var pdf = new WorshipCardRenderer().Render(new WorshipCardData(
+            Number: "普1", LivingNames: N("陽一", "陽二", "陽三", "陽四", "陽五", "陽六"),
+            Template: template, Phone: "02-12345678", Remark: "素食一桌"));
+        ShouldBePdf(pdf);
+    }
+
+    // 普桌資料卡的直書姓名沿用 WorshipRenderer 的 VerticalText.Stack 慣例；比照普桌
+    // Worship_LivingNames_AreNotSilentlyDropped 的回歸鎖，防 QuestPDF 靜默丟字（見該測試注解）。
+    [Theory]
+    [InlineData(WorshipTemplate.One)]
+    [InlineData(WorshipTemplate.Two)]
+    [InlineData(WorshipTemplate.Three)]
+    [InlineData(WorshipTemplate.Four)]
+    [InlineData(WorshipTemplate.Five)]
+    [InlineData(WorshipTemplate.Base)]
+    public void WorshipCard_LivingNames_AreNotSilentlyDropped(WorshipTemplate template)
+    {
+        var withNames = new WorshipCardRenderer().Render(new WorshipCardData(
+            Number: "普1", LivingNames: N("陳大明", "林小華", "張三豐", "李四端", "王五福", "趙六順"),
+            Template: template, Phone: null, Remark: null));
+        var withoutNames = new WorshipCardRenderer().Render(new WorshipCardData(
+            Number: "普1", LivingNames: N(), Template: template, Phone: null, Remark: null));
+
+        ShouldBePdf(withNames);
+        withNames.Length.Should().BeGreaterThan(withoutNames.Length,
+            "陽上姓名必須真的渲染出來（若被 QuestPDF 靜默丟字，PDF 會跟無姓名版一樣大）");
+    }
+
+    [Fact]
+    public void WorshipCard_PhoneAndRemark_AreRendered()
+    {
+        var bare = new WorshipCardRenderer().Render(new WorshipCardData(
+            Number: "普1", LivingNames: N("陳大明"), Template: WorshipTemplate.One, Phone: null, Remark: null));
+        var full = new WorshipCardRenderer().Render(new WorshipCardData(
+            Number: "普1", LivingNames: N("陳大明"), Template: WorshipTemplate.One,
+            Phone: "0912-345678", Remark: "備註內容刻意寫得比較長，驗證換行不裁字也不噴例外"));
+
+        ShouldBePdf(full);
+        full.Length.Should().BeGreaterThan(bare.Length, "電話/備註必須真的渲染出來");
+    }
+
+    // 普桌 6 變體全情境（比照 Worship_CustomerSampleScenarios），含 debugOverlay 樣板疊圖版，
+    // 用 CEREMONY_PDF_DUMP 落地到 reference/output/ 供開發者/使用者對位檢視。
+    [Fact]
+    public void WorshipCard_CustomerScenarios_DumpCalibrationPdfs()
+    {
+        var r = new WorshipCardRenderer();
+        var cases = new (string Name, WorshipCardData Data)[]
+        {
+            ("worshipcard_one_7chars", new WorshipCardData("普595", N("一二三四五六七"), WorshipTemplate.One, "02-12345678", "素食一桌")),
+            ("worshipcard_two_7chars", new WorshipCardData("普596", N("一二三四五六七", "一二三四五六七"), WorshipTemplate.Two, "0912-345678", null)),
+            ("worshipcard_three_triangle", new WorshipCardData("普597", N("一二三四五六", "一二三四", "一二三四"), WorshipTemplate.Three, "02-2345678", "備註測試")),
+            ("worshipcard_four_2x2", new WorshipCardData("普598", N("一二三四五", "一二三四五", "一二三四五", "一二三四五"), WorshipTemplate.Four, null, null)),
+            ("worshipcard_five_2plus3", new WorshipCardData("普599", N("一二三四五", "一二三四五", "一二三四五", "一二三四五", "一二三四五"), WorshipTemplate.Five, "02-12345678", "備註內容刻意寫得比較長，驗證右側欄位換行後不會壓到簽名區")),
+            ("worshipcard_base_5chars_gap", new WorshipCardData("普600", N("王大明闔家", "林小華闔家", "張三豐闔家", "李四端闔家", "王五福闔家", "趙六順闔家"), WorshipTemplate.Base, "02-12345678", "全素")),
+        };
+        foreach (var (name, data) in cases)
+        {
+            var plain = r.Render(data);
+            ShouldBePdf(plain);
+            DumpIfRequested(plain, $"{name}.pdf");
+
+            var overlay = r.Render(data, debugOverlay: true);
+            ShouldBePdf(overlay);
+            overlay.Length.Should().BeGreaterThan(plain.Length, "樣板疊圖必須真的畫出來，不是被忽略的參數");
+            DumpIfRequested(overlay, $"{name}_overlay.pdf");
+        }
+    }
+
     [Fact]
     public void Skia_VerticalAddress_ProducesPng()
     {

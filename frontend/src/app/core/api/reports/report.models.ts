@@ -1,4 +1,4 @@
-export type SingleReportType = 'datacard' | 'receipt' | 'tablet' | 'text' | 'worship';
+export type SingleReportType = 'datacard' | 'receipt' | 'tablet' | 'text' | 'worship' | 'worshipcard';
 
 export interface BatchReportRequest {
   reportType: SingleReportType;
