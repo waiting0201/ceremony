@@ -16,15 +16,23 @@ public interface IPrepayRepository
         int targetSort,
         CancellationToken ct = default);
 
-    /// <summary>找目標 (Year, Ceremony, SignupType) 的最大 Number；無資料回 0。</summary>
-    Task<int> GetMaxNumberAsync(int targetYear, Guid targetCeremonyId, int signupType, CancellationToken ct = default);
-
-    /// <summary>查指定信眾在目標年度法會是否已有報名（idempotency check）。</summary>
-    Task<bool> SignupExistsAsync(int targetYear, Guid targetCeremonyId, int signupType, Guid believerId, CancellationToken ct = default);
-
     /// <summary>
-    /// 批次插入。每筆 (Signup, SignupLog) 同交易；整個批次同交易；UPDLOCK 避免並發 Number 碰撞。
-    /// 呼叫者需準備好 Number 已分配的 model。
+    /// 在<b>單一 transaction</b> 內完成整個載入：取得群組互斥鎖（<c>sp_getapplock</c>）→
+    /// 讀已存在信眾（idempotency）→ <c>SELECT MAX(Number) WITH (UPDLOCK, HOLDLOCK)</c> →
+    /// 用 <c>PrepayNumberAllocator</c> 配號 → 逐筆 insert Signup + SignupLog → commit。
     /// </summary>
-    Task InsertBatchAsync(IReadOnlyList<(SignupWriteModel Signup, SignupLogWriteModel Log, int Number)> batch, CancellationToken ct = default);
+    /// <remarks>
+    /// 配號（讀 MAX）與 insert 必須同交易、且 MAX 讀取加 UPDLOCK/HOLDLOCK 範圍鎖，才能同時擋住
+    /// 另一個預繳載入與一般報名（<c>SignupRepository.InsertWithLogAsync</c>）的並發插入，杜絕重號。
+    /// 已存在的信眾（同 Year×Ceremony×SignupType×Believer）計入 <c>Skipped</c>、不 insert。
+    /// </remarks>
+    /// <param name="fixedCandidates">固定編號候選，需依 PreservedNumber 升冪。</param>
+    /// <param name="nonFixedCandidates">非固定編號候選，需依來源 Number 升冪。</param>
+    Task<PrepayLoadResponse> InsertPrepayBatchAsync(
+        int targetYear,
+        Guid targetCeremonyId,
+        int signupType,
+        IReadOnlyList<PrepayCandidate> fixedCandidates,
+        IReadOnlyList<PrepayCandidate> nonFixedCandidates,
+        CancellationToken ct = default);
 }

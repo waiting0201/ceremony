@@ -34,11 +34,7 @@ public sealed class PrepayLoadHandler(IPrepayRepository repo)
         var targetTitle = targetCategory.Title;
         var targetSort = targetCategory.Sort;
 
-        // 3. 起始號
-        var maxNumber = await repo.GetMaxNumberAsync(req.TargetYear, req.TargetCeremonyId, group.SignupType, ct);
-        var nextNo = maxNumber + 1;
-
-        // 4. 查源資料（已 join Believer + PrepayCeremonyCategorys；ORDER BY IsFixedNumber DESC, Number）
+        // 3. 查源資料（已 join Believer + PrepayCeremonyCategorys；ORDER BY IsFixedNumber DESC, Number）
         var sources = await repo.GetPrepaySourcesAsync(
             req.SourceYear,
             req.SourceCeremonyId,
@@ -48,91 +44,40 @@ public sealed class PrepayLoadHandler(IPrepayRepository repo)
             targetSort,
             ct);
 
-        // 5. 兩階段配號 + idempotency dedup
-        var batch = new List<(SignupWriteModel, SignupLogWriteModel, int)>();
-        var gaps = new List<int>();
-        var fixedLoaded = 0;
-        var nonFixedLoaded = 0;
-        var carriedForwardPrepay = 0;
-        var skipped = 0;
+        // 4. 建候選（欄位映射 + PrepayYear 結轉判斷；尚未配 Number）。
+        //    分兩批：固定編號（保留原號、升冪）、非固定編號（升冪）。
+        var fixedCandidates = sources
+            .Where(s => s.IsFixedNumber)
+            .OrderBy(s => s.Number)
+            .Select(s => BuildCandidate(s, req, group, caller, targetTitle, targetSort))
+            .ToList();
 
-        var fixedSources = sources.Where(s => s.IsFixedNumber).OrderBy(s => s.Number).ToList();
-        var nonFixedSources = sources.Where(s => !s.IsFixedNumber).OrderBy(s => s.Number).ToList();
+        var nonFixedCandidates = sources
+            .Where(s => !s.IsFixedNumber)
+            .OrderBy(s => s.Number)
+            .Select(s => BuildCandidate(s, req, group, caller, targetTitle, targetSort))
+            .ToList();
 
-        // 第一批：fixed (preserve number)
-        foreach (var s in fixedSources)
-        {
-            if (await repo.SignupExistsAsync(req.TargetYear, req.TargetCeremonyId, group.SignupType, s.BelieverId, ct))
-            {
-                skipped++;
-                continue;
-            }
-            var (signup, log, didCarry) = BuildModels(s, req, group, caller, targetTitle, targetSort, preservedNumber: s.Number);
-            var actualNumber = s.Number ?? nextNo;
-            batch.Add((signup, log, actualNumber));
-            fixedLoaded++;
-            if (didCarry) carriedForwardPrepay++;
-
-            // 收集 gaps（對齊舊 line 125-136）
-            if (s.Number is { } n)
-            {
-                if (nextNo != n)
-                {
-                    for (var x = nextNo; x < n; x++) gaps.Add(x);
-                }
-                nextNo = Math.Max(nextNo, n + 1);
-            }
-        }
-
-        // 第二批：non-fixed (allocate from gaps then nextNo)
-        var gapIdx = 0;
-        foreach (var s in nonFixedSources)
-        {
-            if (await repo.SignupExistsAsync(req.TargetYear, req.TargetCeremonyId, group.SignupType, s.BelieverId, ct))
-            {
-                skipped++;
-                continue;
-            }
-            int number;
-            if (gapIdx < gaps.Count)
-            {
-                number = gaps[gapIdx];
-                gapIdx++;
-            }
-            else
-            {
-                number = nextNo;
-                nextNo++;
-            }
-            var (signup, log, didCarry) = BuildModels(s, req, group, caller, targetTitle, targetSort, preservedNumber: null);
-            batch.Add((signup, log, number));
-            nonFixedLoaded++;
-            if (didCarry) carriedForwardPrepay++;
-        }
-
-        // 6. 批次寫入（一個 transaction）
-        if (batch.Count > 0)
-            await repo.InsertBatchAsync(batch, ct);
-
-        return new PrepayLoadResponse(
-            Loaded: fixedLoaded + nonFixedLoaded,
-            Skipped: skipped,
-            Details: new PrepayLoadDetails(
-                FixedLoaded: fixedLoaded,
-                NonFixedLoaded: nonFixedLoaded,
-                CarriedForwardPrepay: carriedForwardPrepay,
-                FilledGaps: gaps.Take(gapIdx).ToList()));
+        // 5. 配號 + insert 全在單一 transaction 內完成（上鎖讀 MAX、idempotency dedup、配號、寫入）。
+        return await repo.InsertPrepayBatchAsync(
+            req.TargetYear,
+            req.TargetCeremonyId,
+            group.SignupType,
+            fixedCandidates,
+            nonFixedCandidates,
+            ct);
     }
 
-    /// <summary>把源資料轉成 SignupWriteModel + SignupLogWriteModel。Number 由批次 insert 端套上。</summary>
-    private static (SignupWriteModel Signup, SignupLogWriteModel Log, bool CarriedForward) BuildModels(
+    /// <summary>
+    /// 把源資料轉成待載入候選（SignupWriteModel + SignupLogWriteModel）。Number 由 repo 在交易內配號。
+    /// </summary>
+    private static PrepayCandidate BuildCandidate(
         PrepaySourceRow s,
         PrepayLoadRequest req,
         PrepayGroup group,
         CallerContext caller,
         string targetCeremonyTitle,
-        int targetSort,
-        int? preservedNumber)
+        int targetSort)
     {
         // PrepayYear 結轉條件（對齊舊 line 113-120, 187-194）：
         // 仍在未來 (PrepayYear > targetYear)，或同年但更後的 ceremony (PrepayYear == targetYear AND prepay.Sort > target.Sort)
@@ -154,8 +99,9 @@ public sealed class PrepayLoadHandler(IPrepayRepository repo)
             BelieverId: s.BelieverId,
             NumberTitle: numberTitle,
             Fee: s.Fee,
-            Name: s.Name ?? string.Empty,
-            Phone: s.Phone,
+            // 對齊舊 LoadPrepayForm：預繳建立的 Signup 不帶 Name/Phone（留 null），列印時姓名從 Believer 取。
+            Name: null!,
+            Phone: null,
             LivingNames: s.LivingNames,
             DeadNames: s.DeadNames,
             MailZipcodeId: s.MailZipcodeId,
@@ -175,8 +121,9 @@ public sealed class PrepayLoadHandler(IPrepayRepository repo)
             CeremonyCategoryTitle: targetCeremonyTitle,
             SignupType: group.SignupType,
             HallName: null,
-            Name: s.Name ?? string.Empty,
-            Phone: s.Phone,
+            // 同上：SignupLog 快照亦不帶 Name/Phone，與 Signup 記錄一致。
+            Name: null!,
+            Phone: null,
             NumberTitle: numberTitle,
             Fee: s.Fee,
             LivingNames: s.LivingNames,
@@ -193,6 +140,12 @@ public sealed class PrepayLoadHandler(IPrepayRepository repo)
             Admin: caller.AdminName,
             CreateDate: createDate);
 
-        return (signup, log, carryForward);
+        return new PrepayCandidate(
+            BelieverId: s.BelieverId,
+            IsFixedNumber: s.IsFixedNumber,
+            PreservedNumber: s.IsFixedNumber ? s.Number : null,
+            CarriedForward: carryForward,
+            Signup: signup,
+            Log: log);
     }
 }

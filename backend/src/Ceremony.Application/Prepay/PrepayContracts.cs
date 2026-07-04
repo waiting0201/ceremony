@@ -30,6 +30,19 @@ public sealed record PrepayLoadDetails(
     IReadOnlyList<int> FilledGaps);
 
 /// <summary>
+/// 一筆待載入的候選（已完成欄位映射與 PrepayYear 結轉判斷，但 <b>尚未配 Number</b>）。
+/// Number 由 <c>InsertPrepayBatchAsync</c> 在 transaction 內、上鎖讀取 MAX 後才分配，
+/// 以杜絕「讀 MAX 與 insert 之間」的並發配號碰撞。
+/// </summary>
+public sealed record PrepayCandidate(
+    Guid BelieverId,
+    bool IsFixedNumber,
+    int? PreservedNumber,
+    bool CarriedForward,
+    Signups.SignupWriteModel Signup,
+    Signups.SignupLogWriteModel Log);
+
+/// <summary>
 /// Repository 內部 — 一筆預繳源資料（已 join Believer + PrepayCeremonyCategory）。
 /// </summary>
 public sealed record PrepaySourceRow(

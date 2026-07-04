@@ -12,7 +12,6 @@ import type { PrepayLoadResponse } from '../../core/api/prepay/prepay.models';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
 import { ApiError } from '../../core/http/api-error';
-import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { PREPAY_GROUPS } from '../../shared/util/prepay-groups';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 
@@ -30,9 +29,14 @@ export class PrepayPage implements OnInit {
 
   protected readonly prepayGroups = PREPAY_GROUPS;
   protected readonly categories = signal<CategoryNode[]>([]);
-  protected readonly flatCategories = computed<FlatCategory[]>(() =>
-    flattenCategories(this.categories()),
+  // 對齊舊 LoadPrepayForm.LoadSelectCeremony / LoadCeremony：只列根法會（ParentID==null）依 Sort，不含子法會。
+  protected readonly rootCategories = computed(() =>
+    [...this.categories()].sort((a, b) => a.sort - b.sort),
   );
+
+  // 對齊舊 LoadSelectYear（來源：本年起往前 5 年）與 LoadYear（目標：本年 + 明年）。
+  protected readonly sourceYears = Array.from({ length: 5 }, (_, i) => currentTaiwanYear() - i);
+  protected readonly targetYears = [currentTaiwanYear(), currentTaiwanYear() + 1];
 
   protected readonly result = signal<PrepayLoadResponse | null>(null);
   protected readonly loading = signal(false);
@@ -61,6 +65,14 @@ export class PrepayPage implements OnInit {
 
   protected async load(): Promise<void> {
     if (this.form.invalid || this.loading()) return;
+
+    // 對齊舊 LoadPrepayForm.btnConfirm_Click：載入前二次確認。
+    const v = this.form.getRawValue();
+    const groupLabel = PREPAY_GROUPS.find((g) => g.code === Number(v.believerGroup))?.label ?? '';
+    const ceremonyTitle =
+      this.rootCategories().find((c) => c.id === v.sourceCeremonyId)?.title ?? '';
+    if (!confirm(`是否載入${groupLabel}${v.sourceYear}年${ceremonyTitle}法會預繳資料？`)) return;
+
     this.loading.set(true);
     this.errorMessage.set(null);
     this.result.set(null);

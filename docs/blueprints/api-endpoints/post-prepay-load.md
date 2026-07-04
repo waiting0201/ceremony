@@ -17,7 +17,7 @@ related_docs:
   - ../legacy-coverage/load-prepay-form.md
   - post-signups.md
 keywords: [prepay, load, batch, strategy, idempotent, 6 case]
-last_updated: 2026-05-27
+last_updated: 2026-07-04
 ---
 
 ## 規格
@@ -87,12 +87,15 @@ last_updated: 2026-05-27
 SELECT Sort FROM dbo.CeremonyCategorys WHERE CeremonyCategoryID = @TargetCeremonyId
 ```
 
-### Step 3: 查目標年度法會的最大編號（決定起始號）
+### Step 3: 查目標年度法會的最大編號（決定起始號）— **交易內、上鎖**
 
 ```sql
-SELECT ISNULL(MAX(Number), 0) FROM dbo.Signups
+SELECT ISNULL(MAX(Number), 0) FROM dbo.Signups WITH (UPDLOCK, HOLDLOCK)
 WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId AND SignupType=@SignupType
 ```
+
+> MAX 讀取與後續 insert 同一 transaction，`UPDLOCK, HOLDLOCK` 範圍鎖持有到 commit，
+> 擋住並發的一般報名/預繳插入，杜絕重號。整段另以 `sp_getapplock`（同 year×ceremony×signupType）序列化。
 
 ### Step 4: 查源信眾（含 fixed 與 non-fixed 兩批）
 
@@ -121,24 +124,23 @@ ORDER BY b.IsFixedNumber DESC, s.Number
 gaps = []
 nextNo = maxNumber + 1
 
-# 第一批：fixed
-for source in fixed_sources ordered by Number:
-  if already_loaded(targetYear, targetCeremonyId, source.BelieverID, signupType):
-    skipped++
-    continue
-  insert_clone(source, preserve_number=source.Number)
-  if nextNo != source.Number:
-    gaps.extend(range(nextNo, source.Number))
-  nextNo = max(nextNo, source.Number + 1)
+# 先剔除已存在的信眾（idempotency，交易內比對 BelieverID）→ skipped
+# 第一批：fixed（保留原號、收集跳號）
+for n in fixed_preserved_numbers ordered asc:
+  fixed_number = n                       # 保留原號
+  if nextNo < n:
+    gaps.extend(range(nextNo, n))
+  nextNo = n + 1                          # 一律 n+1（含往回設，對齊舊 line 132/136；不用 max()）
 
-# 第二批：non-fixed
+# 第二批：non-fixed（先填 gaps，取完續 nextNo）
 gapIdx = 0
-for source in nonFixed_sources ordered by Number:
-  if already_loaded(...): skipped++; continue
+for _ in nonFixed:
   if gapIdx < len(gaps): number = gaps[gapIdx]; gapIdx++
   else: number = nextNo; nextNo++
-  insert_clone(source, number=number)
 ```
+
+> 配號抽為純函式 `Domain.Services.PrepayNumberAllocator`（可單元測試）。
+> `nextNo = n + 1`（非 `max`）刻意對齊舊系統：固定號小於計數器時會往回設，僅在「目標已有既存資料」邊界發生。
 
 ### Step 6: PrepayYear 結轉邏輯（舊 line 113-120）
 
@@ -152,13 +154,12 @@ else:
 
 ### Step 7: Idempotency（**新版補強，舊系統無**）
 
-每筆 source 插入前先 check：
+交易內一次撈出目標 `(Year, Ceremony, SignupType)` 已存在的 BelieverID：
 ```sql
-SELECT COUNT(1) FROM dbo.Signups
-WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId
-  AND SignupType=@SignupType AND BelieverID=@BelieverId
+SELECT BelieverID FROM dbo.Signups
+WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId AND SignupType=@SignupType
 ```
-若已存在 → 計入 `skipped`，不重複 insert。
+候選中 BelieverID 已存在者 → 計入 `skipped`、不 insert（配號只在剩餘候選上進行）。
 
 **設計理由**：業務上每信眾於某年某法會某類型只能有 1 筆 signup，這是自然唯一鍵。re-run 變成 no-op + report skipped，比 idempotency token 更貼合語意。
 
@@ -177,11 +178,14 @@ WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId
 | 舊行為 | 行 | 對應新版 |
 |---|---|---|
 | 6 個 case switch | `LoadPrepayForm.cs:70-818` | 1 個 strategy + `PrepayGroups` table |
-| `Library.GetSignupNumber` 取最大 | (per case 重複) | 1 次 `SELECT MAX + UPDLOCK` |
-| Fixed 跳號→gaps 收集 | line 125-136 | 演算法 step 5 同邏輯 |
-| Non-fixed 從 gaps 取號 | line 187-196 | 同 |
-| PrepayYear 結轉 | line 113-120 | step 6 同條件 |
+| 每 case 各自取最大編號 | line 75/200/324… | 1 次 `SELECT MAX WITH (UPDLOCK,HOLDLOCK)`（交易內） |
+| Fixed 跳號→gaps 收集、`oneno = Number+1` | line 125-136 | `PrepayNumberAllocator`（含往回設，`nextNo = n+1`） |
+| Non-fixed 從 gaps 取號 | line 184-193 | 同 |
+| PrepayYear 結轉 | line 117 | step 6 同條件 |
+| **Name/Phone 留 null** | line 84-115（未設） | ✅ 對齊：`BuildCandidate` Name/Phone = null |
 | 無 idempotency | – | **新版 step 7 補強** |
+| 無並行鎖（單機 WinForms） | – | **新版補** UPDLOCK/HOLDLOCK + `sp_getapplock` |
+| 無顯式 transaction（EF SaveChanges） | line 820 | **新版**單一 SqlTransaction，失敗全 rollback |
 | 無 SignupLog | – | **新版 step 8 補強**（對齊 POST /signups 一致性） |
 
 ## 邊界 case
@@ -200,7 +204,9 @@ WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId
 
 - [x] 6 strategy cases 用 table-driven，不重複 switch
 - [x] Idempotency 自然 dedup（per believer）
-- [x] Fixed/non-fixed gap-fill 對齊舊行為
+- [x] Fixed/non-fixed gap-fill 對齊舊行為（含 `nextNo = n+1` 往回設）
+- [x] Name/Phone 留 null（對齊舊系統）
+- [x] 並行鎖：UPDLOCK/HOLDLOCK + `sp_getapplock`（交易內配號）
 - [x] PrepayYear 結轉條件對齊舊行為
 - [x] SignupLog 同步寫入（補強）
 - [x] 對應 [load-prepay-form.md](../legacy-coverage/load-prepay-form.md) rows 2, 3 ✅
@@ -209,6 +215,7 @@ WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId
 
 ## 風險與未解問題
 
-- **並發兩個 admin 同時 load 同一組**：UPDLOCK 編號分配保證 Number 不重；但兩人都會跑完且 idempotency check 會讓第二人全 skip
-- **大批次 transaction 太長**：500+ 筆同 transaction 可能 lock 太久；目前單一 transaction，未來可改 chunked commit
+- ✅ **並發兩個 admin 同時 load 同一組**：`sp_getapplock` 序列化 → 後者等前者 commit 後再跑，其插入的信眾已存在 → 全 skip；MAX 的 UPDLOCK/HOLDLOCK 另擋一般報名的並發插入
+- **大批次 transaction 太長**：500+ 筆同 transaction 且持有範圍鎖，可能 lock 較久；目前單一 transaction，未來可評估 chunked commit（但會犧牲整批原子性）
 - **PrepayCeremonyCategorys 在源年度已不存在**：query 用 LEFT JOIN 避免崩；Sort=null 視為 0
+- **re-run 的 gap 計算**：以 `MAX(Number)` 為基準續號，不回填目標既有序列中的任意歷史空洞（舊系統亦然）

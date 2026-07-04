@@ -12,7 +12,7 @@ related_docs:
   - signup-management.md
   - ceremony-category.md
 keywords: [prepay, 預繳, 載入預繳, LoadPrepayForm, 固定編號, 空號填補]
-last_updated: 2026-05-26
+last_updated: 2026-07-04
 ---
 
 ## 背景與動機
@@ -40,10 +40,23 @@ last_updated: 2026-05-26
 2. 選來源年 + 來源法會
 3. 選目標年 + 目標法會
 4. 選 dlBeliever（6 個 case 之一）
-5. 「預覽」→ 顯示預期建立筆數與編號分配
-6. 「載入」→ 後端執行 → 「載入完成，共建立 N 筆」
-7. 自動跳回 SignupForm 顯示新建紀錄
+5. 「載入」→ 後端執行 → 顯示「載入 N 筆、跳過 M 筆」摘要
 ```
+
+> **預覽模式未實作（對齊舊系統）**：舊 LoadPrepayForm 僅有一個 Yes/No 確認框、無預覽，直接載入。新版對齊此行為，只在載入後回傳筆數/跳過/填補空號摘要，不做「預覽不寫入」的獨立步驟。
+
+### 前端控件對齊（2026-07-04，對齊舊 LoadPrepayForm 畫面）
+
+| 控件 | 對齊做法 |
+|---|---|
+| 來源/目標法會下拉 | **只列根法會**（`ParentID==null` 依 Sort），不攤平子法會 — 舊 `LoadSelectCeremony`/`LoadCeremony` |
+| 來源年下拉 | 本年往前 5 年（`LoadSelectYear`）|
+| 目標年下拉 | 本年 + 明年（`LoadYear`）|
+| 信眾分組 | 6 項標籤用舊詞序（一般非員工／一般地藏殿員工／寺方／觀音會／郵撥大殿員工／郵撥非員工，`LoadBeliever`）|
+| 載入前 | `confirm("是否載入…?")` 二次確認（舊 `btnConfirm_Click` MessageBox）|
+| 載入結果 | **保留新版 KPI 卡**（loaded/skipped/固定/非固定/延展/補號）— 刻意的增強，不退回舊 MessageBox |
+
+年份下拉在前端用 `[ngValue]` 綁定以保留 number 型別（避免變字串送到後端 int 欄位）。
 
 ## 六 Case 完整邏輯
 
@@ -91,6 +104,8 @@ foreach nonFixedSignup in nonFixedSignups:
 
 例：固定編號 [1, 2, 5, 6]（空號 [3, 4]）+ 2 筆非固定 → 非固定編號 [3, 4]；下一筆續為 7。
 
+> **計數器一律 `nextNo = 固定號 + 1`（含往回設，對齊舊系統）**：舊 LoadPrepayForm 每處理一個固定號後一律把計數器設為 `固定號 + 1`（[LoadPrepayForm.cs:132](../../reference/old/Ceremony/LoadPrepayForm.cs#L132)/136）。當固定號**小於**當前計數器（僅在「目標年/法會已有既存資料且固定號落在既存範圍」的邊界才發生）時，舊系統會把計數器「往回設」。新版 `PrepayNumberAllocator` **刻意保留同一行為**（不用 `Math.Max`），以完全對齊舊輸出；此邊界的取捨記於 [gotchas.md](../gotchas.md)。
+
 ### 預繳條件 Predicate（全 case 共用）
 
 ```sql
@@ -110,7 +125,9 @@ WHERE prepay_year IS NOT NULL
 
 **複製**：SignupType / BelieverID / NumberTitle / Fee / 6×LivingName / 6×DeadName / Mail{Zipcode/Address} / Text{Zipcode/Address} / Remark / 符合條件的 prepay info
 
-**不複製**：Name / Phone（新建 Signup 此兩欄為 null；列印時若需姓名則從 Believer 取）
+**不複製**：Name / Phone（新建 Signup 此兩欄為 **null**；列印時若需姓名則從 Believer 取）
+
+> ✅ **已對齊（2026-07-04）**：舊 LoadPrepayForm 建立的 Signup 完全不設 Name/Phone（[LoadPrepayForm.cs:84-115](../../reference/old/Ceremony/LoadPrepayForm.cs#L84-L115)），而一般報名 NewSignupForm **有**設（[NewSignupForm.cs:253-254](../../reference/old/Ceremony/NewSignupForm.cs#L253)）。新版 `PrepayLoadHandler.BuildCandidate` 曾誤從來源複製 Name/Phone，已改為 `null`（Signup 與 SignupLog 快照皆是），與舊系統一致。
 
 ## 設計決策
 
@@ -122,39 +139,41 @@ WHERE prepay_year IS NOT NULL
   - 舊：6 case Create 完一次 SaveChanges
   - 新：用 IDbTransaction 明確包覆
 - **新增 idempotency 檢查**（**舊系統無**，重要安全網）
-  - 載入前 SELECT 目標 `(year, ceremony_id, signup_type 範圍)` 是否已有 Signup
-  - 若已有 → 回 409 Conflict，要求確認後加 `--force` 才能重跑
-  - 用 `sp_getapplock` 防止並行載入
-- **新增「預覽」模式**
-  - 舊系統無；新版讓使用者先看清預期結果
-- **gap list 維持 stateful in-memory**
+  - 載入時於交易內 SELECT 目標 `(year, ceremony, signup_type)` 已存在的 BelieverID
+  - 已存在的信眾 → 不重複 insert，計入 `skipped`（re-run 變 no-op，比 409 更貼合語意）
+- **並行鎖已實作**（[PrepayRepository.InsertPrepayBatchAsync](../../backend/src/Ceremony.Infrastructure/Repositories/PrepayRepository.cs)）
+  - 整個「讀 MAX → 配號 → insert」收在**單一 transaction**
+  - `SELECT MAX(Number) WITH (UPDLOCK, HOLDLOCK)`：範圍鎖擋住並發的一般報名/預繳插入，杜絕重號（與 `SignupRepository.InsertWithLogAsync` 同一套機制）
+  - `sp_getapplock`（Exclusive / Transaction / 30s）：序列化「同 year×ceremony×signupType」的並發載入；逾時回 `PREPAY_BUSY`
+- **不實作「預覽」模式**（對齊舊系統，見上方使用者流程說明）
+- **gap list 維持 stateful in-memory**（抽為純函式 `PrepayNumberAllocator`，可單元測試）
 - **CeremonyCategorys 用 sort 排序**
 
 ### 取捨
 
-- 取了：可預覽、可審計、單一 transaction
-- 捨了：使用者可能不適應「預覽」多一步；提供「直接載入」快速鈕
+- 取了：可審計（loaded/skipped/filledGaps 摘要）、單一 transaction、並行安全、演算法可單元測試
+- 捨了：不做「預覽」步驟（對齊舊系統的單鍵載入，避免多一步操作）
 
 ## 跨層影響
 
 | 層級 | 是否影響 | 變動摘要 |
 |---|---|---|
 | 視覺 | 是 | LoadPrepayForm 對應頁，固定小窗 modal |
-| 前端 | 是 | prepay feature |
-| 後端 | 是 | LoadPrepayHandler / PrepayPreviewHandler |
-| API | 是 | `/prepay/load`、`/prepay/preview` |
+| 前端 | 是 | prepay feature（單一「載入」動作，無預覽） |
+| 後端 | 是 | PrepayLoadHandler + PrepayNumberAllocator（純函式配號） |
+| API | 是 | `POST /prepay/load`（無 `/preview`） |
 | 資料庫 | 是 | 用 signups 表既有 schema；補 prepay 查詢 index |
 | 安全 | 部分 | Admin role only |
 
 ## 驗收標準
 
-- [ ] 6 case 全部測試（每 case 含 fixed/non-fixed 子情境）
-- [ ] gap-filling 演算法與舊系統輸出 1:1 比對
-- [ ] 預繳條件 predicate 完整支援同年/跨年情境
-- [ ] 不複製 Name / Phone（驗證新 Signup 兩欄為 null）
-- [ ] 載入失敗整個 rollback
-- [ ] 預覽不寫入 DB
-- [ ] 通過 [qa-testing](../workflows/qa-testing.md)
+- [x] 6 case 用 `PrepayGroups` 表驅動（SignupType × EmployeeType）
+- [x] gap-filling 演算法與舊系統輸出對齊（含 `nextNo = 固定號+1` 往回設；`PrepayNumberAllocatorTests`）
+- [x] 預繳條件 predicate 完整支援同年/跨年情境
+- [x] 不複製 Name / Phone（新 Signup 與 SignupLog 兩欄為 null；`PrepayLoadHandlerTests`）
+- [x] 載入失敗整個 rollback（單一 transaction）
+- [x] 並行安全：UPDLOCK/HOLDLOCK 讀 MAX + `sp_getapplock`（真實 MSSQL 整合測試）
+- [ ] 通過 [qa-testing](../workflows/qa-testing.md)（實機多筆載入驗收待印表機/現場）
 
 ## ⚠️ 舊系統無 idempotency（**新版必修**）
 
@@ -171,10 +190,11 @@ WHERE prepay_year IS NOT NULL
 
 ## 風險與未解問題
 
-- gap-filling 演算法易誤解 — 建議 unit test 用真實案例驅動
-- 同 case 內信眾排序對結果影響 — 確認舊系統用何順序（推測：BelieverID 或 Number）；測試前需驗證
-- 預覽 vs 載入結果是否完全一致 — 兩者用同一 handler，分支只在 SaveChanges
-- ~~舊系統無 idempotency~~ ✅ **新版已標準化** idempotency 檢查（見上）
+- 同 case 內信眾排序：來源查詢 `ORDER BY IsFixedNumber DESC, Number`，fixed/non-fixed 再各自 `OrderBy(Number)` — 對齊舊系統的 `OrderBy(o => o.Number)`
+- ~~gap-filling 演算法易誤解~~ ✅ 抽為純函式 `PrepayNumberAllocator` + 專屬單元測試（含往回設邊界）
+- ~~舊系統無 idempotency~~ ✅ **新版已標準化** idempotency 檢查（交易內比對已存在 BelieverID）
+- ~~舊系統無並行鎖~~ ✅ **新版已補** UPDLOCK/HOLDLOCK + `sp_getapplock`
+- **re-run 邊界**：idempotency 以「已存在 BelieverID」跳過；配號的 gap 計算仍以 `MAX(Number)` 為基準，不回填目標既有編號序列中的任意歷史空洞（舊系統亦然，屬正常年初空法會載入以外的邊界，不特別處理）
 
 ## 參考資料
 

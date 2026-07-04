@@ -18,11 +18,12 @@ related_docs:
   - ../prepay-loading.md
   - README.md
 keywords: [legacy, coverage, load-prepay, 預繳載入]
-last_updated: 2026-05-27
+last_updated: 2026-07-04
 ---
 
 > ✅ **完成 (2026-05-27)**：8 個方法全對應實作或前端化；100% 覆蓋。**第 2 個 complete form**。
 > 🎯 已 ship POST /api/v1/prepay/load — 780 行 switch 重構成 data-driven `PrepayGroups` strategy table（6 → 1 個 case），並補強 idempotency（per-believer dedup）+ SignupLog 同步寫入。
+> 🔧 **2026-07-04 對齊稽核修正**：(1) Name/Phone 曾誤從來源複製 → 改回 null（舊 LoadPrepayForm 不設此兩欄）；(2) 配號往回設 `nextNo = 固定號+1` 完全對齊舊系統（原 `Math.Max` 偏離）；(3) **並行鎖真正落地**——舊文件/註解聲稱有 UPDLOCK/applock 但實作缺，已重構為「讀 MAX（UPDLOCK/HOLDLOCK）→ 配號 → insert」單一 transaction + `sp_getapplock`；(4) 預覽模式確認**不實作**（對齊舊系統單鍵載入）。配號抽為純函式 `PrepayNumberAllocator`。詳見 [prepay-loading.md](../prepay-loading.md)、[gotchas.md](../../gotchas.md)。
 
 ## 稽核總覽
 

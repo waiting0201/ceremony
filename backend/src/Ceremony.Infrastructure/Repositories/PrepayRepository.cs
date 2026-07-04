@@ -1,5 +1,7 @@
 using Ceremony.Application.Prepay;
 using Ceremony.Application.Signups;
+using Ceremony.Domain.Exceptions;
+using Ceremony.Domain.Services;
 using Ceremony.Infrastructure.Persistence;
 using Dapper;
 using Microsoft.Data.SqlClient;
@@ -22,30 +24,6 @@ public sealed class PrepayRepository(IDbConnectionFactory factory) : IPrepayRepo
         if (row is null) return null;
         var d = (IDictionary<string, object?>)row;
         return (Title: (string)d["Title"]!, Sort: (int)d["Sort"]!);
-    }
-
-    public async Task<int> GetMaxNumberAsync(int targetYear, Guid targetCeremonyId, int signupType, CancellationToken ct = default)
-    {
-        const string sql = """
-            SELECT ISNULL(MAX(Number), 0) FROM dbo.Signups
-            WHERE Year = @Year AND CeremonyCategoryID = @Cat AND SignupType = @Type
-            """;
-        await using var conn = await factory.CreateOpenAsync(ct);
-        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            sql, new { Year = targetYear, Cat = targetCeremonyId, Type = signupType }, cancellationToken: ct));
-    }
-
-    public async Task<bool> SignupExistsAsync(int targetYear, Guid targetCeremonyId, int signupType, Guid believerId, CancellationToken ct = default)
-    {
-        const string sql = """
-            SELECT COUNT(1) FROM dbo.Signups
-            WHERE Year = @Year AND CeremonyCategoryID = @Cat
-              AND SignupType = @Type AND BelieverID = @BelieverId
-            """;
-        await using var conn = await factory.CreateOpenAsync(ct);
-        var n = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            sql, new { Year = targetYear, Cat = targetCeremonyId, Type = signupType, BelieverId = believerId }, cancellationToken: ct));
-        return n > 0;
     }
 
     public async Task<IReadOnlyList<PrepaySourceRow>> GetPrepaySourcesAsync(
@@ -140,17 +118,68 @@ public sealed class PrepayRepository(IDbConnectionFactory factory) : IPrepayRepo
         return list;
     }
 
-    public async Task InsertBatchAsync(
-        IReadOnlyList<(SignupWriteModel Signup, SignupLogWriteModel Log, int Number)> batch,
+    public async Task<PrepayLoadResponse> InsertPrepayBatchAsync(
+        int targetYear,
+        Guid targetCeremonyId,
+        int signupType,
+        IReadOnlyList<PrepayCandidate> fixedCandidates,
+        IReadOnlyList<PrepayCandidate> nonFixedCandidates,
         CancellationToken ct = default)
     {
-        if (batch.Count == 0) return;
-
         await using var conn = await factory.CreateOpenAsync(ct);
         using var tx = await ((SqlConnection)conn).BeginTransactionAsync(ct);
 
         try
         {
+            // 群組互斥鎖：序列化「同 (Year, Ceremony, SignupType)」的並發預繳載入，避免兩人同時跑整段。
+            // Transaction owner → commit/rollback 時自動釋放。逾時 30s 回 -1，視為忙碌中。
+            var lockRc = await conn.ExecuteScalarAsync<int>(new CommandDefinition("""
+                DECLARE @rc int;
+                EXEC @rc = sp_getapplock @Resource = @Resource, @LockMode = 'Exclusive',
+                     @LockOwner = 'Transaction', @LockTimeout = 30000;
+                SELECT @rc;
+                """,
+                new { Resource = $"prepay:{targetYear}:{targetCeremonyId}:{signupType}" },
+                transaction: tx, cancellationToken: ct));
+            if (lockRc < 0)
+                throw new DomainException("PREPAY_BUSY", "另一筆預繳載入進行中，請稍後再試");
+
+            // 已存在信眾（idempotency）：同交易內讀，配合下方 MAX 的範圍鎖。
+            const string existingSql = """
+                SELECT BelieverID FROM dbo.Signups
+                WHERE Year = @Year AND CeremonyCategoryID = @Cat AND SignupType = @Type
+                """;
+            var existing = (await conn.QueryAsync<Guid>(new CommandDefinition(
+                existingSql, new { Year = targetYear, Cat = targetCeremonyId, Type = signupType },
+                transaction: tx, cancellationToken: ct))).ToHashSet();
+
+            var loadedFixed = fixedCandidates.Where(c => !existing.Contains(c.BelieverId)).ToList();
+            var loadedNonFixed = nonFixedCandidates.Where(c => !existing.Contains(c.BelieverId)).ToList();
+            var skipped = (fixedCandidates.Count - loadedFixed.Count)
+                        + (nonFixedCandidates.Count - loadedNonFixed.Count);
+
+            // UPDLOCK + HOLDLOCK 範圍鎖：擋住並發的一般報名/預繳插入，讀到的 MAX 到 commit 前不會被搶號。
+            const string maxSql = """
+                SELECT ISNULL(MAX(Number), 0) FROM dbo.Signups WITH (UPDLOCK, HOLDLOCK)
+                WHERE Year = @Year AND CeremonyCategoryID = @Cat AND SignupType = @Type
+                """;
+            var maxNumber = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+                maxSql, new { Year = targetYear, Cat = targetCeremonyId, Type = signupType },
+                transaction: tx, cancellationToken: ct));
+
+            // 配號（純函式，對齊舊 LoadPrepayForm 演算法）。
+            var alloc = PrepayNumberAllocator.Allocate(
+                maxNumber,
+                loadedFixed.Select(c => c.PreservedNumber).ToList(),
+                loadedNonFixed.Count);
+
+            var batch = new List<(SignupWriteModel Signup, SignupLogWriteModel Log, int Number)>(
+                loadedFixed.Count + loadedNonFixed.Count);
+            for (var i = 0; i < loadedFixed.Count; i++)
+                batch.Add((loadedFixed[i].Signup, loadedFixed[i].Log, alloc.FixedNumbers[i]));
+            for (var i = 0; i < loadedNonFixed.Count; i++)
+                batch.Add((loadedNonFixed[i].Signup, loadedNonFixed[i].Log, alloc.NonFixedNumbers[i]));
+
             const string insertSignup = """
                 INSERT INTO dbo.Signups (
                   SignupID, Year, CeremonyCategoryID, SignupType, BelieverID,
@@ -215,6 +244,18 @@ public sealed class PrepayRepository(IDbConnectionFactory factory) : IPrepayRepo
             }
 
             await tx.CommitAsync(ct);
+
+            var carried = loadedFixed.Count(c => c.CarriedForward)
+                        + loadedNonFixed.Count(c => c.CarriedForward);
+
+            return new PrepayLoadResponse(
+                Loaded: loadedFixed.Count + loadedNonFixed.Count,
+                Skipped: skipped,
+                Details: new PrepayLoadDetails(
+                    FixedLoaded: loadedFixed.Count,
+                    NonFixedLoaded: loadedNonFixed.Count,
+                    CarriedForwardPrepay: carried,
+                    FilledGaps: alloc.FilledGaps));
         }
         catch
         {

@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-04 (新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-04 (載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
@@ -166,6 +166,17 @@ last_updated: 2026-07-04 (新增報名表單改雙欄密集排版節省空間、
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **載入預繳（LoadPrepayForm）對齊稽核 + 修正 4 項落差** — Done 2026-07-04
+  - 需求來源：使用者要「研究舊系統載入預繳、比較新系統是否對齊」，稽核後「修正好並對齊舊系統」
+  - 稽核發現（新 code vs 舊 `LoadPrepayForm.cs`）：(1) **Name/Phone** 新版誤從來源複製，舊系統留 null；(2) **配號往回設** 新版用 `Math.Max` 偏離舊 `nextNo = 固定號+1`；(3) **並行鎖** 藍圖/介面註解聲稱有 UPDLOCK/`sp_getapplock` 但實作根本沒做（讀 MAX 在交易外、與 insert 分離 → 並發重號風險）；(4) **預覽模式** 藍圖列為功能但未實作（舊系統本無）
+  - 修正（全部對齊舊系統）：
+    - Name/Phone → `null`（Signup 與 SignupLog 快照皆是）
+    - 配號抽為純函式 `Domain.Services.PrepayNumberAllocator`，`nextNo = n+1` 完全對齊（含往回設 latent bug，記入 [gotchas.md](gotchas.md)）
+    - 重構 `PrepayRepository.InsertPrepayBatchAsync`：「讀 `MAX(Number) WITH (UPDLOCK,HOLDLOCK)` → 配號 → insert Signup+Log」收進**單一 transaction** + `sp_getapplock`（Exclusive/Transaction/30s，逾時回 `PREPAY_BUSY`）；idempotency 改為交易內比對已存在 BelieverID
+    - 預覽模式確認不做（對齊舊系統單鍵載入）；handler 只建候選，配號/dedup 移到 repo 交易內
+  - 驗證：`dotnet build` 0 warning；新增 `PrepayNumberAllocatorTests`（6，含 `LegacyBackwardSet`）、改寫 `PrepayLoadHandlerTests`（8，含 Name/Phone null + 結轉）；**全套 326 測試綠**（183 unit + 80 infra + 63 integration，含真實 MSSQL 跑 sp_getapplock/UPDLOCK 路徑）
+  - 文件同步：[prepay-loading.md](blueprints/prepay-loading.md)、[post-prepay-load.md](blueprints/api-endpoints/post-prepay-load.md)、[load-prepay-form.md](blueprints/legacy-coverage/load-prepay-form.md)、[gotchas.md](gotchas.md)
 
 - [x] **新增報名表單（signup-edit-form）改雙欄密集排版節省空間，避免整頁垂直捲動** — Done 2026-07-04
   - 需求來源：使用者反映新增報名表單「要節省空間，不要有垂直的 scroll」

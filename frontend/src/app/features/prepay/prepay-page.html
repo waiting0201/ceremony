@@ -16,13 +16,17 @@
     <form [formGroup]="form" (ngSubmit)="load()" class="grid">
       <label class="field">
         <span>來源民國年 *</span>
-        <input type="number" formControlName="sourceYear" min="1" max="999" />
+        <select formControlName="sourceYear">
+          @for (y of sourceYears; track y) {
+            <option [ngValue]="y">{{ y }}</option>
+          }
+        </select>
       </label>
       <label class="field">
         <span>來源法會分類 *</span>
         <select formControlName="sourceCeremonyId">
           <option value="">請選擇</option>
-          @for (cat of flatCategories(); track cat.id) {
+          @for (cat of rootCategories(); track cat.id) {
             <option [value]="cat.id">{{ cat.title }}</option>
           }
         </select>
@@ -30,13 +34,17 @@
 
       <label class="field">
         <span>目標民國年 *</span>
-        <input type="number" formControlName="targetYear" min="1" max="999" />
+        <select formControlName="targetYear">
+          @for (y of targetYears; track y) {
+            <option [ngValue]="y">{{ y }}</option>
+          }
+        </select>
       </label>
       <label class="field">
         <span>目標法會分類 *</span>
         <select formControlName="targetCeremonyId">
           <option value="">請選擇</option>
-          @for (cat of flatCategories(); track cat.id) {
+          @for (cat of rootCategories(); track cat.id) {
             <option [value]="cat.id">{{ cat.title }}</option>
           }
         </select>
