@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-04 (載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-04 (薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
@@ -133,11 +133,7 @@ last_updated: 2026-07-04 (載入預繳對齊稽核修正 4 項：Name/Phone 留 
 
 > 卡住中，需要外部資訊或決策才能繼續
 
-- [ ] **薦牌（TabletRenderer）實體對位修正 — 主欄溢出已修正、亡者欄位改用中心線動態置中，仍待實機確認** — `reference/薦牌問題.pdf`
-  - Blocker（已縮小範圍）: 客戶反映實際列印紙條插入蓮花瓶牌位座後文字對不準視窗；已排除座標搬移手誤、PDF 內部重疊/超出頁面邊界、往生字級疊字舊 bug 三種可能。2026-07-03 用新的 `debugOverlay` 疊 `reference/template/薦牌.jpg` 樣板照片量測，發現並修正了 Base 變體主欄可用高度（`deadFull`）確實比窗框內緣多出約 2.5cm 的 porting 落差；2026-07-05 使用者反映「亡者列印沒有很正」，改用「故／靈位」字符中心線為基準全面重寫亡者定位邏輯（動態算置中座標，取代編譯期固定常數）（見下方 Detail）——但樣板照片是否等於客戶目前實際使用的牌位座尚未確認，仍需實體量測才能結案
-  - Waiting on: 使用者/現場人員印出修正後版本（可搭配 `TabletRenderer.Render(data, debugGrid:true)`）並插入同一個牌位座，回報視窗上緣/下緣對到第幾條 1cm 刻度線，確認這次修正方向正確或算出更精確的修正量
-  - Since: 2026-07-02（2026-07-03、2026-07-05 部分修正）
-  - Detail: [gotchas.md](gotchas.md)「薦牌實體對位」條、[printing-reports.md](blueprints/printing-reports.md)「薦牌實體對位開放問題」
+- （目前無阻塞項）
 
 ## 📍 目前文件化進度（會話開始先讀這份）
 
@@ -166,6 +162,11 @@ last_updated: 2026-07-04 (載入預繳對齊稽核修正 4 項：Name/Phone 留 
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **薦牌（TabletRenderer）實體對位 — 使用者確認 OK，結案（原 Blocked 項解除）** — Done 2026-07-04
+  - 沿革：2026-07-02 客戶反映列印紙條插入蓮花瓶牌位座後對不準視窗（`reference/薦牌問題.pdf`）→ 2026-07-03 `debugOverlay` 樣板照片量測修正 Base 主欄 `deadFull` 多出 2.5cm 的 porting 落差 → 2026-07-05 亡者改「故／靈位」字符中心線動態置中、頁高改 25.5cm、OneOne 變體 2cm Margin 錯位補償等多輪修正（過程詳見下方各條與 [gotchas.md](gotchas.md)）
+  - 結案依據：使用者確認「薦牌目前 OK」——先前「樣板照片是否等於客戶實際牌位座」的疑慮由使用者驗收結果解除，不再需要 debugGrid 刻度回報
+  - 文件同步：[printing-reports.md](blueprints/printing-reports.md)「薦牌實體對位」段改結案、[gotchas.md](gotchas.md)「薦牌實體對位」條補結案註記
 
 - [x] **載入預繳（LoadPrepayForm）對齊稽核 + 修正 4 項落差** — Done 2026-07-04
   - 需求來源：使用者要「研究舊系統載入預繳、比較新系統是否對齊」，稽核後「修正好並對齊舊系統」

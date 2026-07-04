@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-07-03 (記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
+last_updated: 2026-07-04 (薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 ---
 
 ## 背景與動機
@@ -140,7 +140,7 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 > **「郵1」考據**：舊系統 `SignupType` 共 5 類（1=No、2=寺、3=觀、4=普、**5=郵＝郵撥**），列印 Number 欄為 `NumberTitle+號`（見下方「報表『編號欄』字串格式」段），故「郵1」= 郵撥類第 1 號，用同一套 `tmpText`/`tmpTextTwo` 模板列印，**不是**額外的郵寄專用列印格式（已查證舊 19 個 RDLC 無第三種文牒變體）。
 
-### 薦牌實體對位開放問題（2026-07-02 發現，2026-07-03 部分修正，**仍待實機確認**）
+### 薦牌實體對位（2026-07-02 發現，2026-07-03～07-05 多輪修正，**✅ 2026-07-04 使用者確認 OK，結案**）
 
 跟上面文牒的同一個蔡家測試資料，但這次客戶反映的是**薦牌**（[TabletRenderer](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs)）：實際列印紙條插入蓮花瓶牌位座後，文字位置對不準視窗（跑到視窗外、蓋到雕花邊框）。
 
@@ -173,7 +173,7 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 **2026-07-05 再追加、後又修正：1 位亡者的垂直位置**。使用者指出「只有一位時，亡者位置沒在故靈位正中間」——當時把它理解成「整體垂直置中在故～靈位的空隙裡」，改成 `topY = 故下緣 + (空隙高度 − 實際文字高度) / 2`。使用者驗收後糾正：**「還是不對，要在故的正下方」**——「正中間」指的是水平方向在中心線上，不是把文字整塊漂浮置中在故跟靈位中間的空白處；垂直方向應該緊接在「故」正下方起排。改回 `topY = DeadGapTop`（故下緣 Y=7.5946cm，跟改版前的舊值 `7.5825`幾乎相同，等於保留原本的垂直起點、只套用水平置中）。`GroupFontPt` 的 avail 仍保留收緊到「故～靈位空隙 5.8674cm − 0.1 安全邊界」，避免長名字縮字上限跟實測空隙脫節（這部分改動是對的，沒有被這次糾正推翻）。**只有 1 位亡者這個情境需要水平置中**——2 位與 3+ 位矩陣都是明確的「上排/下排」列位，維持故下緣起排不變。
 
-**仍待辦**：見 [status.md](../status.md) Blocked 清單 / [gotchas.md](../gotchas.md)「薦牌實體對位」條——需要使用者/現場人員拿修正後版本（可搭配 `debugGrid:true`）實測回報視窗上下緣對到第幾條刻度線，確認這次修正方向正確或算出更精確的修正量。
+**✅ 結案（2026-07-04）**：使用者確認薦牌目前列印結果 OK。先前「樣板照片是否 100% 對應客戶實際牌位座」的疑慮由使用者驗收解除，不再需要 debugGrid 刻度回報。`debugGrid` / `debugOverlay` 工具保留（dev-only），日後客戶更換牌位座樣式或再出現對位客訴時，依同一套「疊圖量測 → 修正 → 實體驗收」流程處理。
 
 ### 開發用列印位置檢視工具（樣板疊圖，2026-07-03）
 
