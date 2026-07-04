@@ -417,6 +417,7 @@ a {
   box-sizing: border-box;
 
   &.is-selected { background: var(--c-row-selected); }
+  &.row-clickable { cursor: pointer; }
 }
 .vgrid-td {
   padding: 4px 6px;

@@ -43,8 +43,10 @@
             <option [value]="t.value">{{ t.label }}</option>
           }
         </select>
-        <label class="lbl r3c4-l">編號</label>
-        <input type="number" class="r3c4-i" formControlName="number" min="0" />
+        <div class="r3c4 number-field">
+          <label class="lbl">編號</label>
+          <input type="number" formControlName="number" min="0" />
+        </div>
         <button type="button" class="btn r3c5" (click)="exportExcel()" [disabled]="exporting() || loading()">
           {{ exporting() ? '匯出中…' : '匯出 Excel' }}
         </button>
@@ -152,12 +154,13 @@
         >
           <div
             *cdkVirtualFor="let item of results(); let i = index; trackBy: trackRow"
-            class="vgrid-row"
+            class="vgrid-row row-clickable"
             role="row"
             [class.is-selected]="isSelected(item.id)"
             [style.width.px]="totalGridWidth()"
             [style.grid-template-columns]="gridTemplateColumns()"
             [style.height.px]="rowHeight"
+            (click)="toggleRow(item, $event, i)"
             (contextmenu)="openRowMenu($event, item, i)"
           >
             @for (col of visibleColumns(); track col.id) {

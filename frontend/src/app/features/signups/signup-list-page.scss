@@ -46,8 +46,9 @@
   .r2c5 { grid-column: 5; grid-row: 2; }
   .r3c2 { grid-column: 2; grid-row: 3; }
   .r3c3 { grid-column: 3; grid-row: 3; }
-  .r3c4-l { grid-column: 4; grid-row: 3; justify-self: end; padding-right: 4px; }
-  .r3c4-i { grid-column: 4; grid-row: 3; justify-self: end; width: 90px; }
+  .r3c4 { grid-column: 4; grid-row: 3; justify-self: end; }
+  .number-field { display: flex; align-items: center; gap: 4px; }
+  .number-field input { width: 90px; }
   .r3c5 { grid-column: 5; grid-row: 3; height: var(--control-height); padding: 0 8px; }
   .search-btn { grid-column: 6; grid-row: 1 / 4; height: auto; padding: 0 var(--space-md); min-width: 64px; }
 }
