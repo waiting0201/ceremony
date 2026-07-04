@@ -21,11 +21,13 @@ html {
   --c-border: #D9D2C2;
   --c-border-soft: #E8E2D3;
   --c-text-primary: #2C2A26;
-  --c-text-secondary: #7A7466;
+  --c-text-secondary: #6E685C;
   --c-text-disabled: #B3AC9C;
   --c-primary: #CC785C;
   --c-primary-hover: #B86847;
   --c-primary-soft: #F5E5DC;
+  --c-primary-strong: #B35738;
+  --c-primary-strong-hover: #9C4B31;
   --c-danger: #C84A3A;
   --c-warning: #E5A53D;
   --c-success: #6B8E5A;
@@ -33,12 +35,12 @@ html {
   --c-row-selected: #F5E5DC;
   --c-row-alt: #FAF8F2;
 
-  --font-size-xs: 12px;
-  --font-size-sm: 13px;
-  --font-size-base: 14px;
-  --font-size-md: 15px;
-  --font-size-lg: 17px;
-  --font-size-xl: 21px;
+  --font-size-xs: 13px;
+  --font-size-sm: 14px;
+  --font-size-base: 15px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 22px;
 
   --space-xs: 4px;
   --space-sm: 8px;
@@ -100,15 +102,17 @@ a {
 }
 
 .btn-primary {
-  background: var(--c-primary);
-  border-color: var(--c-primary);
+  // 用 --c-primary-strong 而非 --c-primary：白字疊在 --c-primary(#CC785C) 上對比僅 3.28:1，未達 WCAG AA
+  // 一般文字門檻 4.5:1；--c-primary 本身保留給 icon/連結/邊框等只需 3:1（UI 元件）的場合
+  background: var(--c-primary-strong);
+  border-color: var(--c-primary-strong);
   color: #fff;
 
   // ⚠ hover 必須顯式重設 background / border-color / color
   // 因為基底 .btn:hover 會把 background 換成 --c-bg-darker；只設 filter 蓋不掉，會造成「淺底白字」失明
   &:hover:not(:disabled) {
-    background: var(--c-primary-hover);
-    border-color: var(--c-primary-hover);
+    background: var(--c-primary-strong-hover);
+    border-color: var(--c-primary-strong-hover);
     color: #fff;
   }
   &:disabled { background: var(--c-text-disabled); border-color: var(--c-text-disabled); color: #fff; }

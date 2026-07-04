@@ -10,8 +10,8 @@ related_docs:
   - ../blueprints/auth-and-admin.md
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
-keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘]
-last_updated: 2026-07-02 (往生欄底色 --c-dead-name-bg 改深，避免跟 hover/選取色混淆)
+keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
+last_updated: 2026-07-04 (使用者反映文字太小/顏色不清楚：字級再 +1px、--c-text-secondary 調深、新增 --c-primary-strong 修按鈕文字對比)
 ---
 
 ## 設計原則
@@ -29,18 +29,20 @@ last_updated: 2026-07-02 (往生欄底色 --c-dead-name-bg 改深，避免跟 ho
 | 報表 / 列印 | `'BiauKai', '標楷體', 'DFKai-SB', serif` |
 | 等寬（log/code） | `'Cascadia Code', 'Consolas', monospace` |
 
-字級（CSS 變數，**2026-07-02 決策：全面 +1px**）：
+字級（CSS 變數，**2026-07-04 決策：在 2026-07-02 +1px 基礎上再 +1px**）：
 
 ```css
---font-size-xs: 12px;    /* 小標注 (例：(不須填符號，例：0987654321)) */
---font-size-sm: 13px;    /* 表單欄位 */
---font-size-base: 14px;  /* 主要內容 */
---font-size-md: 15px;    /* 按鈕、強調 */
---font-size-lg: 17px;    /* 區塊標題 */
---font-size-xl: 21px;    /* 頁面標題 */
+--font-size-xs: 13px;    /* 小標注 (例：(不須填符號，例：0987654321)) */
+--font-size-sm: 14px;    /* 表單欄位 */
+--font-size-base: 15px;  /* 主要內容 */
+--font-size-md: 16px;    /* 按鈕、強調 */
+--font-size-lg: 18px;    /* 區塊標題 */
+--font-size-xl: 22px;    /* 頁面標題 */
 ```
 
-對應舊 WinForms 9pt~12pt（96 DPI 下 9pt ≈ 12px）；**+1px 理由**：實測比對舊系統後，使用者反映新系統文字整體偏小，故全部字級一律加 1px 拉近觀感（單一來源：[frontend/src/styles.scss](../../../frontend/src/styles.scss)，改此處全站生效，無需逐頁調整）。
+對應舊 WinForms 9pt~12pt（96 DPI 下 9pt ≈ 12px）；**再 +1px 理由**：2026-07-02 已加過 1px，使用者仍反映「文字太小、顏色不清楚」，複測發現主要瓶頸其實是對比度（見下方色彩段），但字級本身也再拉近一階觀感。單一來源：[frontend/src/styles.scss](../../../frontend/src/styles.scss)，改此處全站生效，無需逐頁調整。
+
+**已知例外（未跟上 token）**：登入頁品牌標題（34px/28px/24px，[login-page.scss](../../../frontend/src/app/features/login/login-page.scss)）與各處純裝飾用大型 icon glyph（如 `.close-btn` 24px、空狀態插圖 48px）刻意不用字級 token，因為它們是品牌/圖示尺寸而非內容字級，見「登入頁設計」段說明。
 
 ## 色彩（Claude 配色 — 暖米/珊瑚橘）
 
@@ -51,14 +53,16 @@ last_updated: 2026-07-02 (往生欄底色 --c-dead-name-bg 改深，避免跟 ho
 | `--c-bg` | `#FAF9F5` | 視窗背景（暖米色） |
 | `--c-bg-darker` | `#F0EBE0` | 側邊欄 / panel header（深一階米色） |
 | `--c-surface` | `#FFFFFF` | 卡片 / panel 內容區 |
-| `--c-border` | `#D9D2C2` | 主框線（暖灰） |
+| `--c-border` | `#D9D2C2` | 主框線（暖灰）；**已知問題**：對白底對比僅 1.51:1，遠低於 WCAG 非文字元件建議的 3:1，欄位/grid 分隔線偏弱（見下方「已知待處理」） |
 | `--c-border-soft` | `#E8E2D3` | 次要框線 / 分隔 |
 | `--c-text-primary` | `#2C2A26` | 主文字（深暖黑） |
-| `--c-text-secondary` | `#7A7466` | 次要文字（暖灰） |
-| `--c-text-disabled` | `#B3AC9C` | 禁用文字 |
-| `--c-primary` | `#CC785C` | 主動作按鈕（Claude 珊瑚橘） |
-| `--c-primary-hover` | `#B86847` | hover 加深 |
+| `--c-text-secondary` | `#6E685C` | 次要文字（暖灰）（**2026-07-04 改深**：原 `#7A7466` 對主背景/grid 偶數列對比僅 4.41:1 / 4.38:1，未達 WCAG AA 一般文字門檻 4.5:1，且此 token 遍布全站 hint/meta/breadcrumb/legend，是「文字顏色不清楚」抱怨的主因；改深後對比 5.2-5.5:1） |
+| `--c-text-disabled` | `#B3AC9C` | 禁用文字（僅用於 disabled 控制項/placeholder，WCAG 對此類元件無強制對比要求，維持不動） |
+| `--c-primary` | `#CC785C` | 連結、icon、邊框、選中態等只需 3:1（UI 元件/大字）門檻的場合（Claude 珊瑚橘） |
+| `--c-primary-hover` | `#B86847` | `--c-primary` 用途的 hover 加深 |
 | `--c-primary-soft` | `#F5E5DC` | 「新增報名」按鈕軟珊瑚底 + 選取列 |
+| `--c-primary-strong` | `#B35738` | **2026-07-04 新增**：實心按鈕背景（白字），取代 `.btn-primary`/`.login-btn` 原本的 `--c-primary`——白字疊在 `#CC785C` 上對比僅 3.28:1，未達 WCAG AA 一般文字門檻 4.5:1；`--c-primary-strong` 對白字對比 4.84:1 |
+| `--c-primary-strong-hover` | `#9C4B31` | `--c-primary-strong` 按鈕 hover 加深（對白字對比 6.06:1） |
 | `--c-danger` | `#C84A3A` | 刪除 / 錯誤（深紅橘） |
 | `--c-warning` | `#E5A53D` | 警告（暖琥珀） |
 | `--c-success` | `#6B8E5A` | 成功（暖綠） |
@@ -67,6 +71,13 @@ last_updated: 2026-07-02 (往生欄底色 --c-dead-name-bg 改深，避免跟 ho
 | `--c-row-alt` | `#FAF8F2` | DataGrid 偶數列 |
 
 > 「新增報名」按鈕舊系統用 light blue 強調，新版改用 `--c-primary-soft`（軟珊瑚）保持視覺重點，符合 Claude 配色。
+
+> **元件選色規則（2026-07-04 明確化）**：`--c-primary` 只用在「非實心填色」場合（連結、icon、邊框、tab 底線等），這些屬於 WCAG 的 UI 元件/大字級，3:1 門檻即可；任何「實心底色 + 白字」的按鈕一律改用 `--c-primary-strong`，因為一般文字門檻是 4.5:1，`--c-primary` 本身對白字只有 3.28:1 不夠。
+
+### 已知待處理（未在本次修復範圍）
+
+- **`--c-border` 對比僅 1.51:1**：要達到 WCAG 非文字元件建議的 3:1，需把色值加深到 `#A4936D` 等級，但這會讓全站欄位框線/grid 分隔線的視覺重量明顯變重，屬於較大的視覺性格改動，本次（2026-07-04）先不動，留待下次視覺設計討論再決定是否要做、要做到多深。
+- **DPI 縮放 100/125/150% 切換**：本節「響應式（DPI / 縮放）」長期寫著要提供這個功能，但目前程式碼完全沒有實作。使用者若期待這個選項卻找不到，也可能造成「文字太小」的感受。是否要做（需要全站改用 rem + 根字級切換機制）待後續排入 backlog 再評估。
 
 ## 版面尺寸與間距
 
@@ -285,7 +296,7 @@ Row 2: [報表類型 ▼]                  │ [列印]
 **列順序**：年份 → 法會 → 類型 → 編號 → [費用 → 員工] → 姓名 → 備註 → [堂號] → 往生 6 欄 → 陽上 6 欄 → 預繳 → 電話 → 寄件 3 → 文牒 3 → 編輯者 → 編輯日期 → 列尾 ⋮
 
 **樣式**：
-- font-size 12px (`--font-size-sm`)
+- font-size `--font-size-sm`（值隨全域字級 token 調整，見「字級」段，勿寫死 px）
 - 列高 ≈ 26px (`padding: 4px 6px`)
 - 往生欄背景 `--c-dead-name-bg` (#E3B274)（對齊舊 DataGridView DefaultCellStyle；2026-07-02 從 #EFDCC4 改深，避免跟 hover/選取色系混淆）
 - 選取列覆蓋層 `--c-row-selected` (#F5E5DC)；選取列且往生欄走 mix

@@ -180,7 +180,8 @@
 .login-btn {
   margin-top: 4px;
   height: 44px;
-  background: var(--c-primary);
+  // 用 --c-primary-strong：白字疊在 --c-primary 上對比僅 3.28:1，未達 WCAG AA 4.5:1（見 styles.scss .btn-primary 註解）
+  background: var(--c-primary-strong);
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -191,7 +192,7 @@
   cursor: pointer;
   transition: background 160ms ease, box-shadow 160ms ease, transform 80ms ease;
 
-  &:hover:not(:disabled) { background: var(--c-primary-hover); box-shadow: 0 4px 14px rgba(184, 104, 71, 0.28); }
+  &:hover:not(:disabled) { background: var(--c-primary-strong-hover); box-shadow: 0 4px 14px rgba(184, 104, 71, 0.28); }
   &:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 2px 6px rgba(184, 104, 71, 0.2); }
   &:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.38); }
   &:disabled { opacity: 0.48; cursor: not-allowed; }

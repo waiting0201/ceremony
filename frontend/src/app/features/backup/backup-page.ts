@@ -45,7 +45,7 @@ import { IconComponent } from '../../shared/icon/icon.component';
       max-width: 640px;
     }
     .lead { margin: 0 0 8px; line-height: 1.6; }
-    .hint { margin: 0 0 var(--space-lg, 16px); color: var(--c-text-secondary, #777); font-size: 13px; }
+    .hint { margin: 0 0 var(--space-lg, 16px); color: var(--c-text-secondary, #777); font-size: var(--font-size-sm); }
     code {
       background: var(--c-bg, #f4f1e9);
       padding: 1px 5px;
@@ -59,7 +59,7 @@ import { IconComponent } from '../../shared/icon/icon.component';
       gap: 8px;
       margin: 0 0 4px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: var(--font-size-base);
       input { cursor: pointer; }
     }
   `,

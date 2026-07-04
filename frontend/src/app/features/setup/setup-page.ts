@@ -70,18 +70,18 @@ import { ceremony, DbConfigInput } from '../../core/platform/electron';
   styles: `
     .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--c-bg); }
     .card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 8px; padding: 28px 32px; max-width: 600px; width: 100%; }
-    h1 { font-size: 22px; margin: 0 0 8px; }
+    h1 { font-size: var(--font-size-xl); margin: 0 0 8px; }
     .lead { margin: 0 0 16px; color: var(--c-text-secondary); line-height: 1.6; }
-    code { background: var(--c-bg); padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono, monospace); font-size: 12px; }
-    .existing { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--c-bg); border: 1px solid var(--c-border-soft); border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: 14px; }
+    code { background: var(--c-bg); padding: 1px 5px; border-radius: 3px; font-family: var(--font-mono, monospace); font-size: var(--font-size-xs); }
+    .existing { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--c-bg); border: 1px solid var(--c-border-soft); border-radius: 6px; padding: 10px 12px; margin-bottom: 16px; font-size: var(--font-size-base); }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
-    .field { display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+    .field { display: flex; flex-direction: column; gap: 6px; font-size: var(--font-size-base); }
     .field.span2 { grid-column: 1 / -1; }
     .field span { color: var(--c-text-secondary); }
-    input { border: 1px solid var(--c-border); border-radius: 5px; padding: 8px 10px; font-size: 14px; background: var(--c-surface); color: var(--c-text-primary); }
+    input { border: 1px solid var(--c-border); border-radius: 5px; padding: 8px 10px; font-size: var(--font-size-base); background: var(--c-surface); color: var(--c-text-primary); }
     input:focus { outline: none; border-color: var(--c-primary); }
     .actions { display: flex; gap: 10px; }
-    .msg { margin: 14px 0 0; font-size: 14px; color: var(--c-success); }
+    .msg { margin: 14px 0 0; font-size: var(--font-size-base); color: var(--c-success); }
     .msg.error { color: var(--c-danger); }
   `,
 })

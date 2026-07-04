@@ -57,22 +57,22 @@ import { ceremony, PrereqItem, PrereqReport } from '../../core/platform/electron
   styles: `
     .wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--c-bg); }
     .card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 8px; padding: 28px 32px; max-width: 640px; width: 100%; }
-    h1 { font-size: 22px; margin: 0 0 8px; }
+    h1 { font-size: var(--font-size-xl); margin: 0 0 8px; }
     .lead { margin: 0 0 20px; color: var(--c-text-secondary); line-height: 1.6; }
     .items { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
     .item { display: flex; align-items: center; gap: 12px; border: 1px solid var(--c-border-soft); border-radius: 6px; padding: 12px 14px; }
     .item.ok { border-color: var(--c-success); }
     .item.bad { border-color: var(--c-danger); }
-    .status { font-size: 18px; font-weight: 700; width: 20px; text-align: center; }
+    .status { font-size: var(--font-size-lg); font-weight: 700; width: 20px; text-align: center; }
     .item.ok .status { color: var(--c-success); }
     .item.bad .status { color: var(--c-danger); }
     .info { flex: 1; }
     .name { font-weight: 600; }
-    .detail { font-size: 13px; color: var(--c-text-secondary); margin-top: 2px; }
+    .detail { font-size: var(--font-size-sm); color: var(--c-text-secondary); margin-top: 2px; }
     .actions { display: flex; gap: 8px; }
     .footer { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
-    .msg { color: var(--c-text-secondary); font-size: 14px; }
-    .hint { color: var(--c-text-secondary); font-size: 13px; margin: 0 0 12px; }
+    .msg { color: var(--c-text-secondary); font-size: var(--font-size-base); }
+    .hint { color: var(--c-text-secondary); font-size: var(--font-size-sm); margin: 0 0 12px; }
   `,
 })
 export class PrereqPage {
