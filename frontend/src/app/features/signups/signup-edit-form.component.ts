@@ -36,6 +36,8 @@ import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-s
  *
  * 表單編排對齊舊 NewSignupForm.cs（單頁呈現，非兩步驟；mockup v4 決議單頁）：
  * 法會資料 → 信眾 → 基本資料 → 地址（城市/區域連動下拉 + 同寄件地址）→ 陽上/往生名單 → 編號/費用 → 備註/預繳。
+ * 2026-07-04：視覺上改雙欄密集排版節省高度、避免整頁垂直捲動（見 signup-edit-form.component.html/scss），
+ * 邏輯順序不變，僅分左欄（法會資料/信眾/基本資料）、右欄（地址/名單/編號-費用-備註-預繳）呈現。
  *
  * - signupId 有值 → 編輯模式
  * - fromSignupId 有值 → 代入新增模式（不帶 year/ceremony/type）

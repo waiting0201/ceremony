@@ -2,21 +2,38 @@
 
 .form-card {
   display: grid;
-  gap: var(--space-lg);
+  gap: var(--space-sm);
+}
+
+// 雙欄密集排版：左右欄各自堆疊 fieldset，避免單欄長表單造成整頁垂直捲動（2026-07-04）
+.form-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-sm);
+  align-items: start;
+
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.col {
+  display: grid;
+  gap: var(--space-sm);
+  align-content: start;
 }
 
 .block {
   margin: 0;
   border: 1px solid var(--c-border-soft);
   border-radius: 2px;
-  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  padding: 6px var(--space-sm) var(--space-sm);
 
   legend { padding: 0 var(--space-xs); font-size: var(--font-size-sm); color: var(--c-text-secondary); }
 }
 
 .grid {
   display: grid;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 
   // 防溢出：grid 子項預設 min-width:auto 會被 input 的固有寬度撐爆，導致郵遞區號等欄位超出 overlay
   > * { min-width: 0; }
@@ -64,7 +81,7 @@
 
 .believer-card {
   background: var(--c-row-alt);
-  padding: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
   border-radius: 2px;
   border: 1px solid var(--c-border-soft);
 
@@ -72,8 +89,38 @@
   .row1 strong { font-size: var(--font-size-md); }
   .hall { font-size: var(--font-size-xs); background: var(--c-primary-soft); padding: 1px var(--space-xs); border-radius: 2px; }
   .meta { color: var(--c-text-secondary); font-size: var(--font-size-sm); margin-left: auto; }
-  .row2 { color: var(--c-text-secondary); font-size: var(--font-size-sm); margin-top: var(--space-xs); }
-  .btn { margin-top: var(--space-sm); }
+  .row2 { color: var(--c-text-secondary); font-size: var(--font-size-sm); margin-top: 2px; }
+  .btn { margin-top: var(--space-xs); }
+}
+
+// 重複報名警示：改窄欄後單行呈現（文案已縮短），比一般 .alert 再緊湊一點
+.dup-alert {
+  margin-top: var(--space-xs);
+  padding: 6px var(--space-sm);
+
+  strong { font-size: var(--font-size-sm); font-weight: 600; }
+}
+
+// 地址：寄件／文牒並排半欄，取代原本上下兩段堆疊（省約一半高度）
+.addr-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-sm);
+
+  @media (max-width: 560px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// 陽上／往生名單並排，取代原本上下兩個全寬 fieldset
+.names-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-sm);
+
+  @media (max-width: 560px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .names {
@@ -81,7 +128,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-xs);
-    @media (max-width: 700px) { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 480px) { grid-template-columns: repeat(2, 1fr); }
 
     input {
       height: var(--control-height);

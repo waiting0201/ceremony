@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-04 (修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；先前 2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-04 (新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
@@ -166,6 +166,12 @@ last_updated: 2026-07-04 (修正全站文字太小/顏色不清楚：WCAG 對比
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **新增報名表單（signup-edit-form）改雙欄密集排版節省空間，避免整頁垂直捲動** — Done 2026-07-04
+  - 需求來源：使用者反映新增報名表單「要節省空間，不要有垂直的 scroll」
+  - 做法：`.form-cols` 拆左欄（法會資料→信眾→基本資料）／右欄（地址→陽上/往生名單→編號/費用/備註/預繳合併一個 fieldset）；地址寄件/文牒並排半欄、陽上/往生名單並排（原本各自全寬堆疊）；整體 padding/gap 收緊；重複報名警示文案縮短避免窄欄換行。邏輯欄位順序與驗證邏輯不變，純視覺重排（DOM 順序＝tab 順序：左欄再右欄）
+  - 驗證：`ng build --configuration development` 0 error；用 Playwright（`sa@system.local` SuperAdmin 帳號登入）實測 `/signups` 列表頁 overlay 與 `/signups/new` 獨立頁兩個入口，涵蓋空表單、已選信眾、已選信眾+重複報名警示三種情境 × 1280×720/1366×768/1440×900/1920×1080 視窗：**1366×768 以上完全無垂直捲動**；僅 1280×720 且同時出現重複報名警示時有 ~20px 輕微捲動（極端邊界情境，可接受）
+  - 文件同步：[frontend-design.md](design/frontend-design.md) 對齊本規範 feature 段 + signup-edit-form.component.ts 內部排版註解
 
 - [x] **修正全站文字太小/顏色不清楚（WCAG AA 對比實測 + 字級再 +1px）** — Done 2026-07-04
   - 需求來源：使用者反映「文字太小」「文字顏色不清楚」；2026-07-02 已因同樣抱怨做過一次 +1px，這次先用 WCAG 對比公式實測而非憑感覺調整

@@ -6,221 +6,229 @@
 }
 
 <form [formGroup]="form" (ngSubmit)="onSubmitFromForm()" class="form-card">
-  <!-- 法會資料（對齊舊 Step1：年份 / 法會 / 類型） -->
-  <fieldset class="block">
-    <legend>法會資料</legend>
-    <div class="grid three">
-      <label class="field">
-        <span>民國年 *</span>
-        <input type="number" formControlName="year" min="1" max="999" />
-      </label>
-      <label class="field">
-        <span>法會分類 *</span>
-        <select formControlName="ceremonyCategoryId">
-          <option value="">請選擇</option>
-          @for (cat of flatCategories(); track cat.id) {
-            <option [value]="cat.id">{{ cat.title }}</option>
-          }
-        </select>
-      </label>
-      <label class="field">
-        <span>報名類型 *</span>
-        <select formControlName="signupType">
-          @for (t of signupTypes; track t.value) {
-            <option [value]="t.value">{{ t.label }} ({{ t.numberTitle }})</option>
-          }
-        </select>
-      </label>
-    </div>
-  </fieldset>
+  <!-- 雙欄密集排版節省高度（2026-07-04，避免整頁垂直捲動）：左欄 法會資料→信眾→基本資料→編號/費用，
+       右欄 地址→陽上/往生名單→備註/預繳。Tab 順序＝DOM 順序＝左欄由上到下再右欄由上到下。 -->
+  <div class="form-cols">
+    <div class="col">
+      <!-- 法會資料（對齊舊 Step1：年份 / 法會 / 類型） -->
+      <fieldset class="block">
+        <legend>法會資料</legend>
+        <div class="grid three">
+          <label class="field">
+            <span>民國年 *</span>
+            <input type="number" formControlName="year" min="1" max="999" />
+          </label>
+          <label class="field">
+            <span>法會分類 *</span>
+            <select formControlName="ceremonyCategoryId">
+              <option value="">請選擇</option>
+              @for (cat of flatCategories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.title }}</option>
+              }
+            </select>
+          </label>
+          <label class="field">
+            <span>報名類型 *</span>
+            <select formControlName="signupType">
+              @for (t of signupTypes; track t.value) {
+                <option [value]="t.value">{{ t.label }} ({{ t.numberTitle }})</option>
+              }
+            </select>
+          </label>
+        </div>
+      </fieldset>
 
-  <!-- 信眾搜尋 / 選擇（對齊舊 txtQ + dgvBelievers；新版以 modal picker 取代 in-form grid） -->
-  <fieldset class="block">
-    <legend>信眾</legend>
-    @if (selectedBeliever(); as b) {
-      <div class="believer-card">
-        <div class="row1">
-          <strong>{{ b.name }}</strong>
-          @if (b.hallName) { <span class="hall">{{ b.hallName }}</span> }
-          <span class="meta">{{ b.phone ?? '—' }}</span>
-        </div>
-        <div class="row2">
-          {{ b.mailCity ?? '' }}{{ b.mailArea ?? '' }}{{ b.mailAddress ?? '' }}
-        </div>
-        @if (mode() === 'create') {
-          <button type="button" class="btn btn-sm" (click)="openBelieverPicker()">變更信眾</button>
+      <!-- 信眾搜尋 / 選擇（對齊舊 txtQ + dgvBelievers；新版以 modal picker 取代 in-form grid） -->
+      <fieldset class="block">
+        <legend>信眾</legend>
+        @if (selectedBeliever(); as b) {
+          <div class="believer-card">
+            <div class="row1">
+              <strong>{{ b.name }}</strong>
+              @if (b.hallName) { <span class="hall">{{ b.hallName }}</span> }
+              <span class="meta">{{ b.phone ?? '—' }}</span>
+            </div>
+            <div class="row2">
+              {{ b.mailCity ?? '' }}{{ b.mailArea ?? '' }}{{ b.mailAddress ?? '' }}
+            </div>
+            @if (mode() === 'create') {
+              <button type="button" class="btn btn-sm" (click)="openBelieverPicker()">變更信眾</button>
+            }
+          </div>
+        } @else {
+          <button type="button" class="btn btn-primary" (click)="openBelieverPicker()">選擇信眾</button>
         }
+
+        <!-- 重複報名警示：同信眾同年同法會（忽略報名類型）已有報名。僅提醒，不阻擋。 -->
+        @if (duplicates().length) {
+          <div class="alert alert-warn dup-alert" role="alert">
+            <strong>⚠️ {{ form.controls.year.value }}年「{{ selectedCeremonyTitle() }}」已有 {{ duplicates().length }} 筆：</strong>
+            <ul class="dup-list">
+              @for (d of duplicates(); track d.signupId) {
+                <li>{{ d.numberTitle }}{{ d.number }} · {{ signupTypeLabel(d.signupType) }}</li>
+              }
+            </ul>
+          </div>
+        }
+      </fieldset>
+
+      <!-- 基本資料（對齊舊 dlEmployeeType / txtHallName / txtName / txtPhone） -->
+      <fieldset class="block">
+        <legend>基本資料</legend>
+        <div class="grid three">
+          <label class="field">
+            <span>員工類型</span>
+            <input type="text" [value]="employeeTypeTitle() || '—'" readonly title="信眾屬性，請於信眾維護調整" />
+          </label>
+          <label class="field">
+            <span>固定編號</span>
+            <input type="text" [value]="isFixedNumber() ? '是' : '否'" readonly title="信眾屬性，請於信眾維護調整" />
+          </label>
+          <label class="field">
+            <span>堂號</span>
+            <input type="text" [value]="hallNameDisplay() || '—'" readonly title="信眾屬性，請於信眾維護調整" />
+          </label>
+          <label class="field">
+            <span>姓名 *</span>
+            <input type="text" formControlName="name" maxlength="50" />
+          </label>
+          <label class="field">
+            <span>聯絡電話</span>
+            <input type="text" formControlName="phone" />
+          </label>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="col">
+      <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 dlMailCity/dlMailZone/cbSameMailAddress；
+           寄件／文牒並排半欄節省高度 -->
+      <fieldset class="block">
+        <legend>地址</legend>
+        <div class="addr-cols">
+          <div class="addr-col">
+            <div class="grid addr">
+              <label class="field">
+                <span>寄件城市</span>
+                <select formControlName="mailCity" (change)="onCityChange('mail')">
+                  <option value="">請選擇城市</option>
+                  @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
+                </select>
+              </label>
+              <label class="field">
+                <span>寄件區域</span>
+                <select formControlName="mailZipcodeId" (change)="onAreaChange('mail')">
+                  <option value="">請選擇區域</option>
+                  @for (a of mailAreas(); track a.zipcodeId) {
+                    <option [value]="a.zipcodeId">{{ a.area }}</option>
+                  }
+                </select>
+              </label>
+              <label class="field zip">
+                <span>郵遞區號</span>
+                <input type="text" [value]="mailZipcode()" readonly placeholder="—" />
+              </label>
+              <label class="field span-row">
+                <span>寄件地址 *</span>
+                <input type="text" formControlName="mailAddress" maxlength="200" />
+              </label>
+              <label class="field-check span-row">
+                <input type="checkbox" formControlName="sameMailAddress" (change)="onSameMailAddressChange()" />
+                <span>同寄件地址</span>
+              </label>
+            </div>
+          </div>
+          <div class="addr-col">
+            <div class="grid addr">
+              <label class="field">
+                <span>文牒城市</span>
+                <select formControlName="textCity" (change)="onCityChange('text')">
+                  <option value="">請選擇城市</option>
+                  @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
+                </select>
+              </label>
+              <label class="field">
+                <span>文牒區域</span>
+                <select formControlName="textZipcodeId" (change)="onAreaChange('text')">
+                  <option value="">請選擇區域</option>
+                  @for (a of textAreas(); track a.zipcodeId) {
+                    <option [value]="a.zipcodeId">{{ a.area }}</option>
+                  }
+                </select>
+              </label>
+              <label class="field zip">
+                <span>郵遞區號</span>
+                <input type="text" [value]="textZipcode()" readonly placeholder="—" />
+              </label>
+              <label class="field span-row">
+                <span>文牒地址</span>
+                <input type="text" formControlName="textAddress" maxlength="200" />
+              </label>
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- 陽上 / 往生名單 ×6 並排節省高度 -->
+      <div class="names-row">
+        <fieldset class="block names" formArrayName="livingNames">
+          <legend>陽上名單（最多 6 位）</legend>
+          <div class="name-grid">
+            @for (ctrl of livingArray.controls; track $index) {
+              <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />
+            }
+          </div>
+        </fieldset>
+
+        <fieldset class="block names dead" formArrayName="deadNames">
+          <legend>往生名單（最多 6 位）</legend>
+          <div class="name-grid">
+            @for (ctrl of deadArray.controls; track $index) {
+              <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
+            }
+          </div>
+        </fieldset>
       </div>
-    } @else {
-      <button type="button" class="btn btn-primary" (click)="openBelieverPicker()">選擇信眾</button>
-    }
 
-    <!-- 重複報名警示：同信眾同年同法會（忽略報名類型）已有報名。僅提醒，不阻擋。 -->
-    @if (duplicates().length) {
-      <div class="alert alert-warn" role="alert">
-        <strong>⚠️ 此信眾在 {{ form.controls.year.value }} 年「{{ selectedCeremonyTitle() }}」已有
-          {{ duplicates().length }} 筆報名（仍可繼續報名）：</strong>
-        <ul class="dup-list">
-          @for (d of duplicates(); track d.signupId) {
-            <li>{{ d.numberTitle }}{{ d.number }} · {{ signupTypeLabel(d.signupType) }}</li>
+      <!-- 編號 / 費用 / 備註 / 預繳 合併一個 fieldset 節省一組 padding+legend（對齊舊 cbKeepNumber+txtNumber/txtFee、txtRemark/txtPrepayYear/dlPrepayCeremony） -->
+      <fieldset class="block">
+        <legend>編號 / 費用 / 備註 / 預繳</legend>
+        <div class="grid two">
+          <label class="field-check span-row">
+            <input type="checkbox" formControlName="keepNumber" />
+            <span>指定編號（不由系統自動分配）</span>
+          </label>
+          @if (form.controls.keepNumber.value) {
+            <label class="field">
+              <span>編號</span>
+              <input type="number" formControlName="customNumber" min="0" />
+            </label>
           }
-        </ul>
-      </div>
-    }
-  </fieldset>
-
-  <!-- 基本資料（對齊舊 dlEmployeeType / txtHallName / txtName / txtPhone） -->
-  <fieldset class="block">
-    <legend>基本資料</legend>
-    <div class="grid two">
-      <label class="field">
-        <span>員工類型</span>
-        <input type="text" [value]="employeeTypeTitle() || '—'" readonly title="信眾屬性，請於信眾維護調整" />
-      </label>
-      <label class="field">
-        <span>固定編號</span>
-        <input type="text" [value]="isFixedNumber() ? '是' : '否'" readonly title="信眾屬性，請於信眾維護調整" />
-      </label>
-      <label class="field">
-        <span>堂號</span>
-        <input type="text" [value]="hallNameDisplay() || '—'" readonly title="信眾屬性，請於信眾維護調整" />
-      </label>
-      <label class="field">
-        <span>姓名 *</span>
-        <input type="text" formControlName="name" maxlength="50" />
-      </label>
-      <label class="field">
-        <span>聯絡電話</span>
-        <input type="text" formControlName="phone" />
-      </label>
+          <label class="field">
+            <span>費用</span>
+            <input type="number" formControlName="fee" min="0" />
+          </label>
+          <label class="field span-row">
+            <span>備註</span>
+            <textarea formControlName="remark" rows="2"></textarea>
+          </label>
+          <label class="field">
+            <span>預繳民國年</span>
+            <input type="number" formControlName="prepayYear" min="0" />
+          </label>
+          <label class="field">
+            <span>預繳法會</span>
+            <select formControlName="prepayCeremonyCategoryId">
+              <option value="">無</option>
+              @for (cat of flatCategories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.title }}</option>
+              }
+            </select>
+          </label>
+        </div>
+      </fieldset>
     </div>
-  </fieldset>
-
-  <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 dlMailCity/dlMailZone/cbSameMailAddress） -->
-  <fieldset class="block">
-    <legend>地址</legend>
-    <div class="grid addr">
-      <label class="field">
-        <span>寄件城市</span>
-        <select formControlName="mailCity" (change)="onCityChange('mail')">
-          <option value="">請選擇城市</option>
-          @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
-        </select>
-      </label>
-      <label class="field">
-        <span>寄件區域</span>
-        <select formControlName="mailZipcodeId" (change)="onAreaChange('mail')">
-          <option value="">請選擇區域</option>
-          @for (a of mailAreas(); track a.zipcodeId) {
-            <option [value]="a.zipcodeId">{{ a.area }}</option>
-          }
-        </select>
-      </label>
-      <label class="field zip">
-        <span>郵遞區號</span>
-        <input type="text" [value]="mailZipcode()" readonly placeholder="—" />
-      </label>
-      <label class="field span-row">
-        <span>寄件地址 *</span>
-        <input type="text" formControlName="mailAddress" maxlength="200" />
-      </label>
-
-      <label class="field-check span-row">
-        <input type="checkbox" formControlName="sameMailAddress" (change)="onSameMailAddressChange()" />
-        <span>同寄件地址</span>
-      </label>
-
-      <label class="field">
-        <span>文牒城市</span>
-        <select formControlName="textCity" (change)="onCityChange('text')">
-          <option value="">請選擇城市</option>
-          @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
-        </select>
-      </label>
-      <label class="field">
-        <span>文牒區域</span>
-        <select formControlName="textZipcodeId" (change)="onAreaChange('text')">
-          <option value="">請選擇區域</option>
-          @for (a of textAreas(); track a.zipcodeId) {
-            <option [value]="a.zipcodeId">{{ a.area }}</option>
-          }
-        </select>
-      </label>
-      <label class="field zip">
-        <span>郵遞區號</span>
-        <input type="text" [value]="textZipcode()" readonly placeholder="—" />
-      </label>
-      <label class="field span-row">
-        <span>文牒地址</span>
-        <input type="text" formControlName="textAddress" maxlength="200" />
-      </label>
-    </div>
-  </fieldset>
-
-  <!-- 陽上名單 ×6 -->
-  <fieldset class="block names" formArrayName="livingNames">
-    <legend>陽上名單（最多 6 位）</legend>
-    <div class="name-grid">
-      @for (ctrl of livingArray.controls; track $index) {
-        <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />
-      }
-    </div>
-  </fieldset>
-
-  <!-- 往生名單 ×6 -->
-  <fieldset class="block names dead" formArrayName="deadNames">
-    <legend>往生名單（最多 6 位）</legend>
-    <div class="name-grid">
-      @for (ctrl of deadArray.controls; track $index) {
-        <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
-      }
-    </div>
-  </fieldset>
-
-  <!-- 編號 / 費用（對齊舊 cbKeepNumber + txtNumber / txtFee） -->
-  <fieldset class="block">
-    <legend>編號 / 費用</legend>
-    <div class="grid two">
-      <label class="field-check span-row">
-        <input type="checkbox" formControlName="keepNumber" />
-        <span>指定編號（不由系統自動分配）</span>
-      </label>
-      @if (form.controls.keepNumber.value) {
-        <label class="field">
-          <span>編號</span>
-          <input type="number" formControlName="customNumber" min="0" />
-        </label>
-      }
-      <label class="field">
-        <span>費用</span>
-        <input type="number" formControlName="fee" min="0" />
-      </label>
-    </div>
-  </fieldset>
-
-  <!-- 備註 / 預繳（對齊舊 txtRemark / txtPrepayYear / dlPrepayCeremony） -->
-  <fieldset class="block">
-    <legend>備註 / 預繳</legend>
-    <div class="grid two">
-      <label class="field span-row">
-        <span>備註</span>
-        <textarea formControlName="remark" rows="2"></textarea>
-      </label>
-      <label class="field">
-        <span>預繳民國年</span>
-        <input type="number" formControlName="prepayYear" min="0" />
-      </label>
-      <label class="field">
-        <span>預繳法會</span>
-        <select formControlName="prepayCeremonyCategoryId">
-          <option value="">無</option>
-          @for (cat of flatCategories(); track cat.id) {
-            <option [value]="cat.id">{{ cat.title }}</option>
-          }
-        </select>
-      </label>
-    </div>
-  </fieldset>
+  </div>
   <button type="submit" hidden></button>
 </form>
 
