@@ -2,51 +2,74 @@
 
 .believer-form {
   display: grid;
-  gap: var(--space-lg);
+  gap: var(--space-sm);
 }
 
-.form-grid {
+// 雙欄密集排版：左右欄各自堆疊 fieldset，避免 overlay 內單欄長表單造成垂直捲動（2026-07-04，比照 signup-edit-form）
+.form-cols {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-md);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-sm);
+  align-items: start;
 
-  > * { min-width: 0; }
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
+.col {
+  display: grid;
+  gap: var(--space-sm);
+  align-content: start;
+}
 
-// 地址區塊（城市/區域連動）
-.addr-block {
+.block {
   margin: 0;
   border: 1px solid var(--c-border-soft);
   border-radius: 2px;
-  padding: var(--space-md) var(--space-lg) var(--space-lg);
+  padding: 6px var(--space-sm) var(--space-sm);
 
   legend { padding: 0 var(--space-xs); font-size: var(--font-size-sm); color: var(--c-text-secondary); }
 }
 
-.addr-grid {
+.grid {
   display: grid;
-  // 城市 / 區域 / 郵遞區號（窄）三欄一列；地址另起整列
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 
+  // 防溢出：grid 子項預設 min-width:auto 會被 input 的固有寬度撐爆，導致郵遞區號等欄位超出 overlay
   > * { min-width: 0; }
+
+  // minmax(0, 1fr)：1fr 預設下限是內容寬，改 0 才能真正收縮
+  &.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  // 地址：城市 / 區域 / 郵遞區號（窄）三欄一列；地址另起整列
+  &.addr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px; }
   .span-row { grid-column: 1 / -1; }
 
   @media (max-width: 760px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    &.addr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 480px) {
+    &.two, &.addr { grid-template-columns: minmax(0, 1fr); }
+  }
+}
+
+// 地址：寄件／文牒並排半欄，取代原本上下兩段堆疊（省約一半高度）
+.addr-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-sm);
+
+  // 文牒側少一列（無「同寄件地址」checkbox）：不設 start 會被 stretch 均分列高，
+  // 導致文牒地址往下漂、對不齊左側寄件地址
+  > .grid { align-content: start; }
+
+  @media (max-width: 560px) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
-// 所有地址控件填滿欄寬
-.addr-block input,
-.addr-block select {
+// 表單內所有控件填滿欄寬且含 border 不溢出（全域 .field 未設 box-sizing/width）
+.believer-form input,
+.believer-form select {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
@@ -68,29 +91,20 @@
   input { width: 16px; height: 16px; }
 }
 
-.names-block {
-  margin: 0;
-  border: 1px solid var(--c-border-soft);
-  border-radius: 2px;
-  padding: var(--space-sm) var(--space-md);
+.names {
+  .name-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-xs);
+    @media (max-width: 480px) { grid-template-columns: repeat(2, 1fr); }
 
-  legend { padding: 0 var(--space-xs); font-size: var(--font-size-sm); color: var(--c-text-secondary); }
-}
-
-.names-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-xs);
-
-  input {
-    height: var(--control-height);
-    padding: 0 var(--space-sm);
-    border: 1px solid var(--c-border);
-    border-radius: 2px;
-    font-family: inherit;
+    input {
+      height: var(--control-height);
+      padding: 0 var(--space-sm);
+      border: 1px solid var(--c-border);
+      border-radius: 2px;
+      font-family: inherit;
+    }
   }
-
-  @media (max-width: 600px) { grid-template-columns: repeat(2, 1fr); }
+  &.dead .name-grid input { background: var(--c-dead-name-bg); }
 }
-
-.names-block.dead .names-grid input { background: var(--c-dead-name-bg); }

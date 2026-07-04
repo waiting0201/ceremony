@@ -3,110 +3,124 @@
 }
 
 <form [formGroup]="form" (ngSubmit)="onSubmitFromForm()" class="believer-form">
-  <div class="form-grid">
-    <label class="field">
-      <span>類型 *</span>
-      <select formControlName="employeeType">
-        <option [value]="1">非員工</option>
-        <option [value]="2">大殿員工</option>
-        <option [value]="3">地藏殿員工</option>
-      </select>
-    </label>
-    <label class="field">
-      <span>姓名 *</span>
-      <input type="text" formControlName="name" maxlength="50" autocomplete="off" />
-    </label>
-    <label class="field">
-      <span>堂號</span>
-      <input type="text" formControlName="hallName" autocomplete="off" />
-    </label>
-    <label class="field">
-      <span>電話</span>
-      <input type="text" formControlName="phone" autocomplete="off" />
-    </label>
-    <label class="field-check">
-      <input type="checkbox" formControlName="isFixedNumber" />
-      <span>固定編號</span>
-    </label>
+  <!-- 雙欄密集排版節省高度（2026-07-04，比照 signup-edit-form，避免 overlay 垂直捲動）：
+       左欄 基本資料→地址（寄件／文牒並排半欄），右欄 陽上→往生名單。
+       Tab 順序＝DOM 順序＝左欄由上到下再右欄由上到下。 -->
+  <div class="form-cols">
+    <div class="col">
+      <fieldset class="block">
+        <legend>基本資料</legend>
+        <div class="grid two">
+          <label class="field">
+            <span>類型 *</span>
+            <select formControlName="employeeType">
+              <option [value]="1">非員工</option>
+              <option [value]="2">大殿員工</option>
+              <option [value]="3">地藏殿員工</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>姓名 *</span>
+            <input type="text" formControlName="name" maxlength="50" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>堂號</span>
+            <input type="text" formControlName="hallName" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>電話</span>
+            <input type="text" formControlName="phone" autocomplete="off" />
+          </label>
+          <label class="field-check span-row">
+            <input type="checkbox" formControlName="isFixedNumber" />
+            <span>固定編號</span>
+          </label>
+        </div>
+      </fieldset>
+
+      <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 WinForms 信眾表單）；寄件／文牒並排半欄節省高度 -->
+      <fieldset class="block">
+        <legend>地址</legend>
+        <div class="addr-cols">
+          <div class="grid addr">
+            <label class="field">
+              <span>寄件城市</span>
+              <select formControlName="mailCity" (change)="onCityChange('mail')">
+                <option value="">請選擇城市</option>
+                @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            </label>
+            <label class="field">
+              <span>寄件區域</span>
+              <select formControlName="mailZipcodeId" (change)="onAreaChange('mail')">
+                <option value="">請選擇區域</option>
+                @for (a of mailAreas(); track a.zipcodeId) {
+                  <option [value]="a.zipcodeId">{{ a.area }}</option>
+                }
+              </select>
+            </label>
+            <label class="field zip">
+              <span>郵遞區號</span>
+              <input type="text" [value]="mailZipcode()" readonly placeholder="—" />
+            </label>
+            <label class="field span-row">
+              <span>寄件地址 *</span>
+              <input type="text" formControlName="mailAddress" maxlength="200" />
+            </label>
+            <label class="field-check span-row">
+              <input type="checkbox" formControlName="sameMailAddress" (change)="onSameMailAddressChange()" />
+              <span>同寄件地址</span>
+            </label>
+          </div>
+          <div class="grid addr">
+            <label class="field">
+              <span>文牒城市</span>
+              <select formControlName="textCity" (change)="onCityChange('text')">
+                <option value="">請選擇城市</option>
+                @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
+              </select>
+            </label>
+            <label class="field">
+              <span>文牒區域</span>
+              <select formControlName="textZipcodeId" (change)="onAreaChange('text')">
+                <option value="">請選擇區域</option>
+                @for (a of textAreas(); track a.zipcodeId) {
+                  <option [value]="a.zipcodeId">{{ a.area }}</option>
+                }
+              </select>
+            </label>
+            <label class="field zip">
+              <span>郵遞區號</span>
+              <input type="text" [value]="textZipcode()" readonly placeholder="—" />
+            </label>
+            <label class="field span-row">
+              <span>文牒地址</span>
+              <input type="text" formControlName="textAddress" maxlength="200" />
+            </label>
+          </div>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="col">
+      <fieldset class="block names" formArrayName="livingNames">
+        <legend>陽上名單（最多 6 位）</legend>
+        <div class="name-grid">
+          @for (ctrl of livingArray.controls; track $index) {
+            <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />
+          }
+        </div>
+      </fieldset>
+
+      <fieldset class="block names dead" formArrayName="deadNames">
+        <legend>往生名單（最多 6 位）</legend>
+        <div class="name-grid">
+          @for (ctrl of deadArray.controls; track $index) {
+            <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
+          }
+        </div>
+      </fieldset>
+    </div>
   </div>
-
-  <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 WinForms 信眾表單） -->
-  <fieldset class="addr-block">
-    <legend>地址</legend>
-    <div class="addr-grid">
-      <label class="field">
-        <span>寄件城市</span>
-        <select formControlName="mailCity" (change)="onCityChange('mail')">
-          <option value="">請選擇城市</option>
-          @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
-        </select>
-      </label>
-      <label class="field">
-        <span>寄件區域</span>
-        <select formControlName="mailZipcodeId" (change)="onAreaChange('mail')">
-          <option value="">請選擇區域</option>
-          @for (a of mailAreas(); track a.zipcodeId) {
-            <option [value]="a.zipcodeId">{{ a.area }}</option>
-          }
-        </select>
-      </label>
-      <label class="field zip">
-        <span>郵遞區號</span>
-        <input type="text" [value]="mailZipcode()" readonly placeholder="—" />
-      </label>
-      <label class="field span-row">
-        <span>寄件地址 *</span>
-        <input type="text" formControlName="mailAddress" maxlength="200" />
-      </label>
-
-      <label class="field-check span-row">
-        <input type="checkbox" formControlName="sameMailAddress" (change)="onSameMailAddressChange()" />
-        <span>同寄件地址</span>
-      </label>
-
-      <label class="field">
-        <span>文牒城市</span>
-        <select formControlName="textCity" (change)="onCityChange('text')">
-          <option value="">請選擇城市</option>
-          @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
-        </select>
-      </label>
-      <label class="field">
-        <span>文牒區域</span>
-        <select formControlName="textZipcodeId" (change)="onAreaChange('text')">
-          <option value="">請選擇區域</option>
-          @for (a of textAreas(); track a.zipcodeId) {
-            <option [value]="a.zipcodeId">{{ a.area }}</option>
-          }
-        </select>
-      </label>
-      <label class="field zip">
-        <span>郵遞區號</span>
-        <input type="text" [value]="textZipcode()" readonly placeholder="—" />
-      </label>
-      <label class="field span-row">
-        <span>文牒地址</span>
-        <input type="text" formControlName="textAddress" maxlength="200" />
-      </label>
-    </div>
-  </fieldset>
-
-  <fieldset class="names-block" formArrayName="livingNames">
-    <legend>陽上名單（最多 6 位）</legend>
-    <div class="names-grid">
-      @for (ctrl of livingArray.controls; track $index) {
-        <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />
-      }
-    </div>
-  </fieldset>
-
-  <fieldset class="names-block dead" formArrayName="deadNames">
-    <legend>往生名單（最多 6 位）</legend>
-    <div class="names-grid">
-      @for (ctrl of deadArray.controls; track $index) {
-        <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
-      }
-    </div>
-  </fieldset>
   <button type="submit" hidden></button>
 </form>
