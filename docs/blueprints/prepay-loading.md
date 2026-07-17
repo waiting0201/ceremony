@@ -123,7 +123,9 @@ WHERE prepay_year IS NOT NULL
 
 ## 複製欄位 vs 不複製
 
-**複製**：SignupType / BelieverID / NumberTitle / Fee / 6×LivingName / 6×DeadName / Mail{Zipcode/Address} / Text{Zipcode/Address} / Remark / 符合條件的 prepay info
+**複製**：SignupType / BelieverID / NumberTitle / Fee / 6×LivingName / 6×DeadName / MailZipcodeID+MailAddress / TextZipcodeID+TextAddress / Remark / 符合條件的 prepay info
+
+> 註：舊系統另會複製 `MailZipcode`/`TextZipcode` 非正規化**字串**欄；新版（含一般報名 POST /signups）一律不寫這兩欄——顯示端（SignupView 城市/區域、表單區號、列印）皆由 `MailZipcodeID` join Zipcodes 推導，該字串欄無讀取方，屬無實質影響的系統性差異（2026-07-17 對齊核對確認）。
 
 **不複製**：Name / Phone（新建 Signup 此兩欄為 **null**；列印時若需姓名則從 Believer 取）
 
