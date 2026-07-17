@@ -28,12 +28,14 @@
         autocomplete="username"
         spellcheck="false"
         placeholder="請輸入帳號"
+        (keydown.enter)="$event.preventDefault(); passwordInput.focus()"
       />
     </label>
 
     <label class="lf">
       <span class="lf__label">密碼</span>
       <input
+        #passwordInput
         class="lf__input"
         type="password"
         formControlName="password"
