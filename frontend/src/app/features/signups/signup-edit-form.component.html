@@ -246,11 +246,13 @@
               ，該群組內編號 ≥ 此值的既有報名會自動 +1 順移（年／法會／類型已鎖定）。
             </p>
           }
-          <label class="field-check span-row">
-            <input type="checkbox" formControlName="keepNumber" />
-            <span>指定編號（不由系統自動分配）</span>
-          </label>
-          @if (form.controls.keepNumber.value) {
+          @if (mode() !== 'edit') {
+            <label class="field-check span-row">
+              <input type="checkbox" formControlName="keepNumber" />
+              <span>指定編號（不由系統自動分配）</span>
+            </label>
+          }
+          @if (form.controls.keepNumber.value || mode() === 'edit') {
             <label class="field">
               <span>編號</span>
               <input type="number" formControlName="customNumber" min="0" />

@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-17 (載入預繳 500 修復：SignupLogs.Name NOT NULL 被 7/4 稽核的「log 快照留 null」踩中→log Name 改信眾姓名快照，補真實 insert 整合測試，357 測試綠；同日稍早：薦牌列印 3 項客訴修復：5位字太小/陽上超出列印範圍/編號被裁，MatrixLayout 方框內動態排版＋陽上左界 0.5＋編號 Left 0.5，88 測試綠、疊圖 OK 待實體驗收；同日稍早：新增報名表單對齊舊系統四項 v2.2.1：信眾搜尋改常駐 in-form 結果列表（截斷 200 列防卡頓）、地址寄件上/文牒下、名單往生上/陽上下且輸入框無底色、未選信眾送出自動先 POST /believers 建新信眾再報名（修復「沒選信眾無法新增」）；同日追加：結果列表配色/列高對齊報名維護 grid、法會資料提到表單最上方且空表單無捲動，Playwright 實測全過；先前：列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-17 (報名編輯 overlay 按確認必 400 修復：編輯模式編號欄恆顯示＋form invalid 不再靜默；同日：載入預繳 500 修復：SignupLogs.Name NOT NULL 被 7/4 稽核的「log 快照留 null」踩中→log Name 改信眾姓名快照，補真實 insert 整合測試，357 測試綠；同日稍早：薦牌列印 3 項客訴修復：5位字太小/陽上超出列印範圍/編號被裁，MatrixLayout 方框內動態排版＋陽上左界 0.5＋編號 Left 0.5，88 測試綠、疊圖 OK 待實體驗收；同日稍早：新增報名表單對齊舊系統四項 v2.2.1：信眾搜尋改常駐 in-form 結果列表（截斷 200 列防卡頓）、地址寄件上/文牒下、名單往生上/陽上下且輸入框無底色、未選信眾送出自動先 POST /believers 建新信眾再報名（修復「沒選信眾無法新增」）；同日追加：結果列表配色/列高對齊報名維護 grid、法會資料提到表單最上方且空表單無捲動，Playwright 實測全過；先前：列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
@@ -157,6 +157,13 @@ last_updated: 2026-07-17 (載入預繳 500 修復：SignupLogs.Name NOT NULL 被
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **報名編輯 overlay「按確認沒反應」修復（編號欄藏在 checkbox 後 → 所有編輯必 400）** — Done 2026-07-17
+  - 症狀：使用者反映「載入（預繳）後資料修改按確認沒反應」。Playwright 重現：確認鈕其實有發 `PUT /signups/:id` 但必回 400「請輸入編號」→ overlay 不關、紅條在最上方易忽略；影響**所有**編輯不只預繳載入筆
+  - 根因：後端 PUT 編號必填（排除自己的重複檢查需要），但前端編號欄藏在「指定編號」checkbox 後（語意只屬新增模式自動配號），編輯模式未勾 → `customNumber: null`。次因：`submit()` 對 form.invalid 靜默 return，真正無效時完全沒反應
+  - 修法（[signup-edit-form](../frontend/src/app/features/signups/signup-edit-form.component.ts)，純前端）：編輯模式編號欄恆顯示＋預填（對齊 legacy `txtNumber` 恆可改）、checkbox 僅新增/插入模式顯示；form invalid 改 markAllAsTouched＋顯示「必填欄位未完成，請檢查標紅的欄位」
+  - 驗證：`ng build`/`ng test` 綠；Playwright 實測 4 情境（編輯預繳載入筆儲存成功 PUT 200＋overlay 關閉＋列表刷新／編號欄預填且 checkbox 隱藏／清空必填按確認 → 顯示提示且 0 API call／新增模式 checkbox 照舊、編號欄預設隱藏）
+  - 文件：[edit-signup-form.md](blueprints/legacy-coverage/edit-signup-form.md) 修正註記＋row 12、[gotchas.md](gotchas.md)「必填欄位藏在 checkbox 後」條（含 3 條預防原則）
 
 - [x] **載入預繳 500「未預期的伺服器錯誤」修復（7/4 對齊稽核引入的 regression）** — Done 2026-07-17
   - 症狀：載入預繳一律 500。實機重現 + stack trace 定位：SqlException 515 `Cannot insert NULL into 'Name', table 'SignupLogs'` → 單一 transaction 整批 rollback

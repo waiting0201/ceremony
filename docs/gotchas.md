@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-17 (追加：SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
+last_updated: 2026-07-17 (追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
 ---
 
 ## 通用陷阱
@@ -24,6 +24,13 @@ last_updated: 2026-07-17 (追加：SignupLogs.Name NOT NULL——載入預繳 50
 - **特例**：qa-test-engineer **絕不**修改 code，只審查；要求其改 code 應改用 code-review-optimizer 或 backend/frontend agent
 
 ## 專案層級陷阱
+
+### 前端把後端「必填」欄位藏在 checkbox 後 → 按確認永遠失敗（2026-07-17）
+- **症狀**：報名維護編輯 overlay「按確認沒反應」——overlay 不關、資料沒存。實測其實有發 `PUT /signups/:id` 但必回 400「請輸入編號」（紅條在 overlay 最上方，易被忽略成「沒反應」）
+- **真因**：`PUT /signups/:id` 編號**必填**（編輯必過排除自己的重複檢查），但前端編號欄藏在「指定編號（不由系統自動分配）」checkbox 後——該 checkbox 語意只屬新增模式的自動配號，編輯模式沿用同一 template，未勾就送 `customNumber: null` → **所有編輯儲存必失敗**（不只預繳載入的）
+- **另一半**：`submit()` 開頭 `if (form.invalid) return;` 純靜默——任一必填欄位無效時按確認真的「什麼都不發生」，比 400 更難察覺
+- **修法**：編輯模式編號欄恆顯示＋預填（對齊 legacy `txtNumber`）、checkbox 僅非編輯模式顯示；form invalid 改 markAllAsTouched + 顯示「必填欄位未完成」
+- **預防**：(1) 前端送出 payload 的欄位條件（`x ? v : null`）必須跟後端該欄位的必填規則逐一對過，特別是同一表單元件被 create/edit/insert 多模式共用時；(2) `submit()` 不可有靜默 early-return——任何「按了沒反應」都是 UX bug；(3) 表單類功能的 Playwright 驗收要包含「按確認到儲存成功」的完整回路，不能停在 overlay 開啟/預填正確
 
 ### SignupLogs.Name 是 NOT NULL，「對齊舊系統留 null」不能套到 log 快照（2026-07-17）
 - **症狀**：載入預繳按下去一律「未預期的伺服器錯誤」（500）。SqlException 515：`Cannot insert the value NULL into column 'Name', table 'Ceremony.dbo.SignupLogs'`

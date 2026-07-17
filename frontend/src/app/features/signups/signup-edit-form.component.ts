@@ -535,7 +535,13 @@ export class SignupEditFormComponent {
 
   /** 對外暴露：由 overlay / route page 觸發儲存 */
   async submit(): Promise<void> {
-    if (this.form.invalid || this.saving()) return;
+    if (this.saving()) return;
+    // 不靜默返回：標出未完成欄位並顯示訊息（對齊舊系統驗證必有 MessageBox 提示）
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.errorMessage.set('必填欄位未完成，請檢查標紅的欄位');
+      return;
+    }
     const v = this.form.getRawValue();
     this.saving.set(true);
     this.errorMessage.set(null);
@@ -577,7 +583,9 @@ export class SignupEditFormComponent {
       name: v.name,
       mailAddress: v.mailAddress,
       keepNumber: v.keepNumber,
-      customNumber: v.keepNumber ? v.customNumber : null,
+      // 編輯模式編號必送（後端 PUT 編號必填、對齊舊 EditSignupForm 編號恆可改）；
+      // 新增模式僅在勾「指定編號」時送，否則由系統自動配號。
+      customNumber: this.mode() === 'edit' || v.keepNumber ? v.customNumber : null,
       fee: v.fee,
       phone: v.phone || null,
       // 堂號為信眾屬性，取自選定信眾（後端僅用於 SignupLog 快照，不回寫 Believer）
