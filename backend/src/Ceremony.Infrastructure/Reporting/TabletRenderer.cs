@@ -80,7 +80,9 @@ public sealed class TabletRenderer
                     // 實際印在 true-page-Y≈2.3cm，不是預期的 0.1cm 附近）。試著扣掉 margin 補償看是否會被
                     // QuestPDF 裁掉（見下方 DrawDeadNames/DrawLivingNames 同一輪修正的實測結果）。
                     var marginCompensation = data.Template == TabletTemplate.OneOne ? 2.0 : 0.0;
-                    DrawText(layers, 0.1 - marginCompensation, 0.1, 4.29646, 1.13229, 0.8 * PointsPerCm, data.Number, bold: true, vMiddle: true);
+                    // 2026-07-17 使用者反映編號超出列印範圍（reference/薦牌.jpg「郵27」的「郵」左半被
+                    // 印表機不可列印邊界裁掉）：Left 0.1 → 0.5 內縮到可列印區；Top 維持 0.1（照片上緣未被裁）。
+                    DrawText(layers, 0.1 - marginCompensation, 0.5, 4.29646, 1.13229, 0.8 * PointsPerCm, data.Number, bold: true, vMiddle: true);
                     DrawText(layers, 6.1 - marginCompensation, 3.9, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameSecond, vMiddle: true);
                     DrawText(layers, 6.1 - marginCompensation, 5.9, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameFirst, vMiddle: true);
 
@@ -131,10 +133,19 @@ public sealed class TabletRenderer
     // 位置在算出 GroupFontPt 的共用字級「之後」才動態算，而非像之前用編譯期常數——因為要置中的是
     // 「實際渲染寬度」（＝字級，直書 CJK 字寬≈字級），縮字後置中位置也要跟著變，否則會偏一邊。
     private const double DeadCenterX = 5.685;
-    private const double DeadColumnGap = 0.1; // 相鄰欄位之間的留白，避免緊貼
+    private const double DeadColumnGap = 0.1; // 相鄰欄位之間的留白，避免緊貼（1-2 位亡者變體用）
     // 「故」字下緣 Y=7.5946cm、「靈」字上緣 Y=13.462cm（同一次像素量測），中間空隙 5.8674cm。
     private const double DeadGapTop = 7.5946;
     private const double DeadGapHeight = 13.462 - 7.5946; // 5.8674
+
+    // 2026-07-17 使用者指定（reference/薦牌.jpg 手寫量測）：3+ 位亡者的 2×3 矩陣改在
+    // 「故」下緣 +0.2cm 起、寬 2.8cm × 高 5.4cm 的方框內排（框底 13.1946，離「靈」上緣 13.462
+    // 還有 0.27cm）；欄距取 2.8/3=0.9333cm（與舊 RDLC Rectangle 內 Left 0.1/1.0/1.9 的 0.9cm
+    // 欄距幾乎一致），中間欄置中在故/靈位中心線上。下排起點與字級由 VerticalText.MatrixLayout
+    // 動態決定（取代固定列距 1.8639 + WithBottomGap——那組合會把 3 字名縮到 0.47cm，客訴「字太小」）。
+    private const double DeadMatrixTop = DeadGapTop + 0.2;   // 7.7946
+    private const double DeadMatrixHeight = 5.4;
+    private const double DeadMatrixColPitch = 2.8 / 3.0;     // 0.9333
 
     private static void DrawDeadNames(LayersDescriptor layers, TabletData data, double paraPt)
     {
@@ -179,53 +190,51 @@ public sealed class TabletRenderer
             default:
             {
                 // Base / UnderscoreOne / UnderscoreTwo — 3+ 位亡者，2×3 矩陣：
-                // 1st 中間上、2nd 右邊上、3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下，
-                // 中間欄置中在「故／靈位」中心線上，左右欄各以 DeadColumnGap 留白對稱分居兩側。
-                // 統一字級：起點 ParaFontSize，只有當某格名字塞不下其可用高才把整組一起縮（全組同大小、不重疊）。
-                // 可用高：次要格(Two/Three)取「到下一格的列距」且僅當下方有名字才限制；主欄/末排用全高。
-                const double deadRowPitch = 9.4464 - 7.5825; // 1.8639
-                // 2026-07-03 對位修正：原 11.0331（RDLC 抽出）從 top=7.5825 算到 18.6156cm，比實體薦牌
-                // 樣板照片（reference/template/薦牌.jpg，200 DPI 量測）雕花窗框內緣底部 16.0782cm 多出
-                // 2.5cm，長名字（觸發 GroupFontPt 縮字，約 14 字以上）會被印到窗框外——對應
-                // docs/gotchas.md「薦牌實體對位」客訴。改用量測值（窗內緣底 16.0782 − top 7.5825），
-                // 使主欄縮字時不再超出窗框。degugOverlay 疊圖驗證見 Tablet_DebugOverlay_DumpsCalibrationPdf。
-                const double deadFull = 8.4957;
-                // 第 6 位（d[5]）補在下排正中央（主欄 d[0] 正下方），使 2×3 矩陣對稱（座標確認見 business-rules-implicit §18）。
-                // d[0] 之前下方為空可用整欄高；現 d[5] 在其正下方 → 改用列距為界（有第 6 位才縮，無則 Avail 回整欄高＝向後相容）。
-                // 2026-07-06：同欄上/下排姓名（d[0]/d[5]、d[1]/d[3]、d[2]/d[4]）之間要留一個全形空白，
-                // 見 VerticalText.WithBottomGap——只影響字級/顯示內容，不動任何 Top/Left 座標。
-                var d0Gap = VerticalText.WithBottomGap(d[0], d[5]);
-                var d1Gap = VerticalText.WithBottomGap(d[1], d[3]);
-                var d2Gap = VerticalText.WithBottomGap(d[2], d[4]);
-                var f = VerticalText.GroupFontPt(paraPt,
-                    (d0Gap, VerticalText.Avail(d[5], deadRowPitch, deadFull)),
-                    (d1Gap, VerticalText.Avail(d[3], deadRowPitch, deadFull)),
-                    (d2Gap, VerticalText.Avail(d[4], deadRowPitch, deadFull)),
-                    (d[3], 5.5298),
-                    (d[4], 5.5298),
-                    (d[5], 5.5298));
-                var fontCm = f / PointsPerCm;
-                var centerX = DeadCenterX - fontCm / 2;
-                var rightX = DeadCenterX + fontCm / 2 + DeadColumnGap;
-                var leftX = DeadCenterX - fontCm / 2 - DeadColumnGap - fontCm;
-                DrawText(layers, 7.5825, centerX, 0.6, deadFull, f, d0Gap, vertical: true);   // One（主，中間上）
-                DrawText(layers, 7.5825, rightX, 0.6, deadFull, f, d1Gap, vertical: true);   // Two（右邊上）
-                DrawText(layers, 7.5825, leftX, 0.6, deadFull, f, d2Gap, vertical: true);   // Three（左邊上）
-                DrawText(layers, 9.4464, rightX, 0.6, deadFull, f, d[3], vertical: true);   // Four（右邊下）
-                DrawText(layers, 9.4464, leftX, 0.6, deadFull, f, d[4], vertical: true);   // Five（左邊下）
-                DrawText(layers, 9.4464, centerX, 0.6, deadFull, f, d[5], vertical: true);   // Six（中間下，主欄正下方）
+                // 1st 中間上、2nd 右邊上、3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下。
+                // 2026-07-17 使用者指定改版（reference/薦牌.jpg 手寫量測，取代固定列距 1.8639 +
+                // WithBottomGap 的做法——上下排都有名字時那會把 3 字名縮到 0.47cm、4 字名 0.37cm，
+                // 客訴「五位時字太小」）：整個矩陣排在「故」下 0.2cm 起的 2.8×5.4cm 方框內，
+                // 字級以 ParaFontSize（3+ 亡固定 0.6cm）起算，塞不下整欄鏈才整組等比縮；
+                // 下排起點動態＝上排（有配對者）最長字數 +1 個字高間距，不再是固定 9.4464。
+                var (fontCm, bottomOffset) = VerticalText.MatrixLayout(
+                    data.ParaFontSizeCm, DeadMatrixHeight,
+                    (d[0], d[5]), (d[1], d[3]), (d[2], d[4]));
+                var f = fontCm * PointsPerCm;
+                var centerX = DeadCenterX - fontCm / 2;                       // 中間欄置中在故/靈位中心線
+                var rightX = DeadCenterX + DeadMatrixColPitch - fontCm / 2;  // 右欄＝中心線 + 欄距
+                var leftX = DeadCenterX - DeadMatrixColPitch - fontCm / 2;   // 左欄＝中心線 − 欄距
+                var bottomTop = DeadMatrixTop + bottomOffset;
+                DrawText(layers, DeadMatrixTop, centerX, 0.6, DeadMatrixHeight, f, d[0], vertical: true); // One（主，中間上）
+                DrawText(layers, DeadMatrixTop, rightX, 0.6, DeadMatrixHeight, f, d[1], vertical: true);  // Two（右邊上）
+                DrawText(layers, DeadMatrixTop, leftX, 0.6, DeadMatrixHeight, f, d[2], vertical: true);   // Three（左邊上）
+                DrawText(layers, bottomTop, rightX, 0.6, DeadMatrixHeight, f, d[3], vertical: true);      // Four（右邊下）
+                DrawText(layers, bottomTop, leftX, 0.6, DeadMatrixHeight, f, d[4], vertical: true);       // Five（左邊下）
+                DrawText(layers, bottomTop, centerX, 0.6, DeadMatrixHeight, f, d[5], vertical: true);     // Six（中間下，主欄正下方）
                 break;
             }
         }
     }
 
+    // 2026-07-17 使用者指定（reference/薦牌.jpg 手寫量測「1cm」註記 + 客訴「陽上間距太寬、超出
+    // 列印範圍」）：3-6 位陽上矩陣改版。
+    // - 起點：樣板預印「陽上」標籤下緣（reference/template/薦牌.jpg 量測 y=13.579cm）再往下 1cm
+    //   ＝14.579（舊值 14.00389 只離標籤 0.43cm，太貼）。
+    // - 左界：0.5cm——舊 RDLC 最左欄 Left=0.1 落在印表機不可列印邊界內，實印時整欄消失
+    //   （客訴照片 5 位陽上只印出 3 位），全部欄位往右移到可列印區內。
+    // - 欄距維持 RDLC 的 0.727cm；右欄右緣 0.5+2×0.727+0.6=2.554，仍在標籤帶左側雕花內緣
+    //   （量測最窄 2.70cm @y14-14.5）之內。
+    // - 下界：維持原 14.00389+5.5=19.504（拜薦 預印字上緣 20.49 之上）→ 方框高 4.925cm。
+    // - 字級/下排起點：VerticalText.MatrixLayout 動態決定（同亡者矩陣；舊固定列距 1.43785 +
+    //   WithBottomGap 會把 3 字名縮到 0.36cm——客訴「字太小」「間距（相對）太寬」的根因）。
+    private const double LivingMatrixTop = 14.579;
+    private const double LivingMatrixHeight = 19.504 - LivingMatrixTop; // 4.925
+    private const double LivingMatrixColLeft = 0.5;    // 最左欄（Three/Five）
+    private const double LivingMatrixColPitch = 0.727; // 欄距（沿用 RDLC 1.56167/0.83528/0.1 的間距）
+
     private static void DrawLivingNames(LayersDescriptor layers, TabletData data)
     {
         var l = data.LivingNames;
-        var pt06 = 0.6 * PointsPerCm;
         var pt08 = 0.8 * PointsPerCm;
-        const double LivingRowPitch = 15.44174 - 14.00389; // 1.43785cm 上下排列距
-        const double LivingFull = 5.5;
         switch (data.Template)
         {
             case TabletTemplate.OneOne:
@@ -254,68 +263,26 @@ public sealed class TabletRenderer
                 break;
             }
 
-            // 3-6 位陽上（0.6cm）矩陣：上排 l[1]/l[2](Top14.00389) 到下排 l[3]/l[4](Top15.44174)
-            // 列距 1.43785cm。統一字級（整組同大小，最擠的塞得下才不重疊）；主欄 l[0] 全高不限。
-            case TabletTemplate.Two:
-            {
-                // Two 變體 L 微調
-                // 2026-07-06：同欄上/下排姓名之間留一個全形空白，見 VerticalText.WithBottomGap。
-                var l0GapTwo = VerticalText.WithBottomGap(l[0], l[5]);
-                var l1GapTwo = VerticalText.WithBottomGap(l[1], l[3]);
-                var l2GapTwo = VerticalText.WithBottomGap(l[2], l[4]);
-                var f = VerticalText.GroupFontPt(pt06,
-                    (l0GapTwo, VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
-                    (l1GapTwo, VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
-                    (l2GapTwo, VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
-                    (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
-                DrawText(layers, 14.00389, 1.52639, 0.7, LivingFull, f, l0GapTwo, vertical: true);
-                DrawText(layers, 14.00389, 0.8, 0.7, LivingFull, f, l1GapTwo, vertical: true);
-                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l2GapTwo, vertical: true);
-                DrawText(layers, 15.44174, 0.8, 0.7, LivingFull, f, l[3], vertical: true);
-                DrawText(layers, 15.44174, 0.1, 0.7, LivingFull, f, l[4], vertical: true);
-                DrawText(layers, 15.44174, 1.52639, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
-                break;
-            }
-
-            case TabletTemplate.One:
-            {
-                // One 變體
-                // 2026-07-06：同欄上/下排姓名之間留一個全形空白，見 VerticalText.WithBottomGap。
-                var l0GapOne = VerticalText.WithBottomGap(l[0], l[5]);
-                var l1GapOne = VerticalText.WithBottomGap(l[1], l[3]);
-                var l2GapOne = VerticalText.WithBottomGap(l[2], l[4]);
-                var f = VerticalText.GroupFontPt(pt06,
-                    (l0GapOne, VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
-                    (l1GapOne, VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
-                    (l2GapOne, VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
-                    (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
-                DrawText(layers, 14.00389, 1.56167, 0.7, LivingFull, f, l0GapOne, vertical: true);
-                DrawText(layers, 14.00389, 0.83528, 0.7, LivingFull, f, l1GapOne, vertical: true);
-                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l2GapOne, vertical: true);
-                DrawText(layers, 15.44174, 0.83528, 0.7, LivingFull, f, l[3], vertical: true);
-                DrawText(layers, 15.44174, 0.1, 0.7, LivingFull, f, l[4], vertical: true);
-                DrawText(layers, 15.44174, 1.56167, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
-                break;
-            }
-
+            // 3-6 位陽上（0.6cm 起算）2×3 矩陣：One 右欄、Two 中欄、Three 左欄；下排 Four 中、
+            // Five 左、Six 右（主欄正下方）。Two/One/Base 三個變體舊 RDLC 只差 l[0] 的 Left 微調
+            // （1.52639/1.56167），2026-07-17 改版後統一為同一組欄位座標（見 LivingMatrix* 常數註解），
+            // 變體「選擇」邏輯不變（PrintTemplateSelector），僅繪製座標統一。
             default:
             {
-                // Base
-                // 2026-07-06：同欄上/下排姓名之間留一個全形空白，見 VerticalText.WithBottomGap。
-                var l0Gap = VerticalText.WithBottomGap(l[0], l[5]);
-                var l1Gap = VerticalText.WithBottomGap(l[1], l[3]);
-                var l2Gap = VerticalText.WithBottomGap(l[2], l[4]);
-                var f = VerticalText.GroupFontPt(pt06,
-                    (l0Gap, VerticalText.Avail(l[5], LivingRowPitch, LivingFull)),
-                    (l1Gap, VerticalText.Avail(l[3], LivingRowPitch, LivingFull)),
-                    (l2Gap, VerticalText.Avail(l[4], LivingRowPitch, LivingFull)),
-                    (l[3], LivingFull), (l[4], LivingFull), (l[5], LivingFull));
-                DrawText(layers, 14.00389, 1.56167, 0.7, LivingFull, f, l0Gap, vertical: true);
-                DrawText(layers, 14.00389, 0.83528, 0.7, LivingFull, f, l1Gap, vertical: true);
-                DrawText(layers, 14.0, 0.1, 0.7, LivingFull, f, l2Gap, vertical: true);
-                DrawText(layers, 15.44174, 0.83528, 0.7, LivingFull, f, l[3], vertical: true);
-                DrawText(layers, 15.44174, 0.13528, 0.7, LivingFull, f, l[4], vertical: true);
-                DrawText(layers, 15.44174, 1.56167, 0.7, LivingFull, f, l[5], vertical: true); // Six（補：下排右欄，主欄正下方）
+                var (fontCm, bottomOffset) = VerticalText.MatrixLayout(
+                    0.6, LivingMatrixHeight,
+                    (l[0], l[5]), (l[1], l[3]), (l[2], l[4]));
+                var f = fontCm * PointsPerCm;
+                var leftX = LivingMatrixColLeft;                              // Three/Five
+                var midX = LivingMatrixColLeft + LivingMatrixColPitch;        // Two/Four
+                var rightX = LivingMatrixColLeft + 2 * LivingMatrixColPitch;  // One/Six（主欄）
+                var bottomTop = LivingMatrixTop + bottomOffset;
+                DrawText(layers, LivingMatrixTop, rightX, 0.7, LivingMatrixHeight, f, l[0], vertical: true);
+                DrawText(layers, LivingMatrixTop, midX, 0.7, LivingMatrixHeight, f, l[1], vertical: true);
+                DrawText(layers, LivingMatrixTop, leftX, 0.7, LivingMatrixHeight, f, l[2], vertical: true);
+                DrawText(layers, bottomTop, midX, 0.7, LivingMatrixHeight, f, l[3], vertical: true);
+                DrawText(layers, bottomTop, leftX, 0.7, LivingMatrixHeight, f, l[4], vertical: true);
+                DrawText(layers, bottomTop, rightX, 0.7, LivingMatrixHeight, f, l[5], vertical: true);
                 break;
             }
         }

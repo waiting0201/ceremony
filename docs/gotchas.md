@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-04 (追加：插入並順移用 set-based UPDATE 因無 unique index、與預繳共用 applock；薦牌實體對位條結案；色彩 token 對比度要實測；--c-border 對比不足、DPI 縮放未實作)
+last_updated: 2026-07-17 (追加：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
 ---
 
 ## 通用陷阱
@@ -24,6 +24,12 @@ last_updated: 2026-07-04 (追加：插入並順移用 set-based UPDATE 因無 un
 - **特例**：qa-test-engineer **絕不**修改 code，只審查；要求其改 code 應改用 code-review-optimizer 或 backend/frontend agent
 
 ## 專案層級陷阱
+
+### 印表機不可列印邊界會「整欄吃掉」Left < 0.5cm 的欄位（2026-07-17）
+- **症狀**：薦牌 5 位陽上實印只出現 3 位（`reference/薦牌.jpg` 郵27）；編號「郵」字左半被裁。PDF 本身完全正常——只有實體列印才看得出來
+- **真因**：RDLC 沿襲的座標把最左欄放在 Left=0.1cm、編號放在 0.1cm，落在使用者印表機的不可列印邊界（估 ≥0.4-0.5cm）內；QuestPDF/PDF 檢視器不會警告
+- **預防**：**滿版（Margin 0）報表的任何欄位離紙緣至少 0.5cm**；驗收不能只看 PDF，要實機列印。薦牌已把陽上矩陣左界改 0.5、編號 Left 改 0.5（見 [printing-reports-positions.md](blueprints/printing-reports-positions.md) §3 2026-07-17 條）
+- **殘留風險**：薦牌 2 位陽上變體（OneTwo/TwoTwo/UnderscoreTwo）l[1] Left=0.30611 也在風險區，尚未接獲客訴、未改；若再有「少印一欄」回報先查這裡
 
 ### 「文字顏色不清楚」抱怨要先算對比度，不要憑感覺調色（2026-07-04）
 - **症狀**：使用者反映「文字太小、顏色不清楚」，2026-07-02 已單純把全部字級 +1px 處理過一次，這次同樣抱怨又出現

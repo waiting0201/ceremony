@@ -376,11 +376,10 @@ public sealed class RendererSmokeTests
         DumpIfRequested(overlay, "tablet_one_dead_centered_overlay.pdf");
     }
 
-    // 2026-07-03：Base 變體主欄（One）若無第 6 位搭配，原本 Avail 回退到 deadFull=11.0331cm
-    // （top=7.5825 起算到 18.6156cm），比 reference/template/薦牌.jpg 量測到的雕花窗框內緣底部
-    // （16.0782cm）多出約 2.5cm——14 字以上的長名字會被印到窗框外，對應「薦牌實體對位」客訴。
-    // 已改用量測值收緊 deadFull=8.4957（見 TabletRenderer.DrawDeadNames default 分支）。回歸鎖：
-    // 14 字長名字（觸發 GroupFontPt 縮字）算出的實際字高，不得超出窗框量測底線。
+    // 2026-07-03：Base 變體長名字曾被印到窗框外（對應「薦牌實體對位」客訴）。
+    // 2026-07-17 改版後，3+ 位亡者矩陣排在「故」下 0.2cm 起的 2.8×5.4cm 方框內
+    // （MatrixLayout 動態排版，見 TabletRenderer.DeadMatrix* 常數），框底 13.1946cm 在
+    // 「靈」字上緣（13.462cm）之上。回歸鎖：14 字長名字縮字後不得超出方框、更不得壓到「靈」。
     [Fact]
     public void Tablet_Base_LongDeadName_StaysWithinMeasuredWindow()
     {
@@ -388,7 +387,7 @@ public sealed class RendererSmokeTests
         var data = new TabletData(
             Number: "郵1", HallNameFirst: null, HallNameSecond: null,
             DeadNames: N(longName), LivingNames: N("蔡渭水"),
-            ParaFontSizeCm: 0.8, Template: TabletTemplate.Base);
+            ParaFontSizeCm: 0.6, Template: TabletTemplate.Base);
 
         var pdf = new TabletRenderer().Render(data);
         ShouldBePdf(pdf);
@@ -396,15 +395,72 @@ public sealed class RendererSmokeTests
         DumpIfRequested(new TabletRenderer().Render(data, debugOverlay: true), "tablet_base_long_dead_name_overlay.pdf");
 
         const double windowInnerTopCm = 6.2294;
-        const double windowInnerBottomCm = 16.0782;
-        const double textTopCm = 7.5825;
+        const double lingTopCm = 13.462;      // 「靈」字上緣（樣板量測），硬邊界
+        const double textTopCm = 7.7946;      // 故下緣 7.5946 + 0.2（使用者指定）
+        const double boxHeightCm = 5.4;       // 使用者指定方框高
 
-        var font = VerticalText.GroupFontPt(0.8 * PtPerCm, (longName, 8.4957));
-        var textBottomCm = textTopCm + longName.Length * (font / PtPerCm);
+        var (fontCm, _) = VerticalText.MatrixLayout(0.6, boxHeightCm, (longName, null));
+        var textBottomCm = textTopCm + longName.Length * fontCm;
 
         textTopCm.Should().BeGreaterThanOrEqualTo(windowInnerTopCm, "主欄起點不應在窗框內緣之上");
-        textBottomCm.Should().BeLessThanOrEqualTo(windowInnerBottomCm + 1e-6,
-            "14 字長名字縮字後的實際高度不應超出樣板窗框內緣底部（量測值 16.0782cm）");
+        textBottomCm.Should().BeLessThanOrEqualTo(textTopCm + boxHeightCm + 1e-6,
+            "14 字長名字縮字後不應超出使用者指定的 5.4cm 方框");
+        textBottomCm.Should().BeLessThanOrEqualTo(lingTopCm + 1e-6, "不應壓到樣板預印的「靈」字");
+    }
+
+    // 2026-07-17 客訴回歸鎖（reference/薦牌.jpg 郵27）：5 位亡者 + 5 位陽上時
+    // (1) 字級被舊「固定列距 + WithBottomGap」機制縮到 0.37~0.47cm（字太小）；
+    // (2) 陽上最左欄 Left=0.1 落在印表機不可列印邊界內，整欄消失（5 位只印出 3 位）；
+    // (3) 編號 Left=0.1 的「郵」左半被裁。
+    // 改版後：典型 3-4 字姓名必須保住 0.6cm 基準字級；所有陽上欄位 Left ≥ 0.5cm；
+    // 下排起點動態＝上排最長字數 +1 個字高間距。
+    [Fact]
+    public void Tablet_Base_FiveDeadFiveLiving_KeepsBaseFontSize()
+    {
+        // 對齊客訴照片場景：5 位亡者（含 4 字複姓）+ 5 位陽上（3 字）
+        var dead = N("黃毓沛", "歐陽亞麗", "黃放夷", "黃國強", "黃國華");
+        var living = N("黃平山", "黃名鳳", "黃志恆", "黃志明", "黃志成");
+
+        // 亡者：最長鏈 = 上排「歐陽亞麗」4 字 + 1 間距 + 下排 3 字 = 8 單位 × 0.6 = 4.8 ≤ 5.4 → 不縮
+        var (deadFont, deadBottomOffset) = VerticalText.MatrixLayout(0.6, 5.4,
+            (dead[0], dead[5]), (dead[1], dead[3]), (dead[2], dead[4]));
+        deadFont.Should().BeApproximately(0.6, 1e-9, "典型 3-4 字亡者姓名必須保住 0.6cm 字級");
+        deadBottomOffset.Should().BeApproximately((4 + 1) * 0.6, 1e-9, "下排起點＝最長上排(4字)+1 字高間距");
+
+        // 陽上：最長鏈 = 3 + 1 + 3 = 7 單位 × 0.6 = 4.2 ≤ 4.925 → 不縮
+        var (livingFont, livingBottomOffset) = VerticalText.MatrixLayout(0.6, 19.504 - 14.579,
+            (living[0], living[5]), (living[1], living[3]), (living[2], living[4]));
+        livingFont.Should().BeApproximately(0.6, 1e-9, "典型 3 字陽上姓名必須保住 0.6cm 字級");
+        livingBottomOffset.Should().BeApproximately((3 + 1) * 0.6, 1e-9);
+
+        var data = new TabletData(
+            Number: "郵27", HallNameFirst: null, HallNameSecond: null,
+            DeadNames: dead, LivingNames: living,
+            ParaFontSizeCm: 0.6, Template: TabletTemplate.Base);
+        var pdf = new TabletRenderer().Render(data);
+        ShouldBePdf(pdf);
+        DumpIfRequested(pdf, "tablet_5dead_5living_plain.pdf");
+        DumpIfRequested(new TabletRenderer().Render(data, debugOverlay: true), "tablet_5dead_5living_overlay.pdf");
+    }
+
+    // MatrixLayout 單元行為鎖：塞不下時整組等比縮、單欄超長也不超框、空欄不影響。
+    [Fact]
+    public void MatrixLayout_ShrinksUniformly_OnlyWhenChainOverflows()
+    {
+        // 上排 6 字 + 間距 + 下排 3 字 = 10 單位 > 5.4/0.6=9 → 縮到 5.4/10
+        var (f1, off1) = VerticalText.MatrixLayout(0.6, 5.4, ("蔡姓歷代祖先", "蔡黃氏"));
+        f1.Should().BeApproximately(5.4 / 10, 1e-9);
+        off1.Should().BeApproximately((6 + 1) * (5.4 / 10), 1e-9);
+
+        // 沒有下排 → 不受鏈限制，單欄 3 字塞得下 → 保持 0.6，且無下排位移
+        var (f2, off2) = VerticalText.MatrixLayout(0.6, 5.4, ("蔡渭水", null), ("蔡慧明", ""));
+        f2.Should().BeApproximately(0.6, 1e-9);
+        off2.Should().Be(0);
+
+        // 「無下排配對的超長單欄」不把下排推低：下排位移只看有配對的欄
+        var (f3, off3) = VerticalText.MatrixLayout(0.6, 5.4, ("蔡姓歷代祖先七八", null), ("蔡大", "蔡二"));
+        f3.Should().BeApproximately(0.6, 1e-9, "8 字單欄 4.8 ≤ 5.4、配對鏈 2+1+2=5 也塞得下 → 不縮");
+        off3.Should().BeApproximately((2 + 1) * 0.6, 1e-9, "下排位移以「有下排配對的上排最長字數」計，不受無配對長欄影響");
     }
 
     // 開發用列印位置檢視工具：debugOverlay 疊薦牌樣板照片（reference/template/薦牌.jpg），可與

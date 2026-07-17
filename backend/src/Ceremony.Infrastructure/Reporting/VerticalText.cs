@@ -61,6 +61,44 @@ internal static class VerticalText
         => string.IsNullOrWhiteSpace(below) ? fullHeightCm : rowPitchCm;
 
     /// <summary>
+    /// 2026-07-17 使用者指定（reference/薦牌.jpg 手寫量測）：薦牌亡者/陽上矩陣改為「固定方框內動態排版」。
+    /// 舊做法（固定列距 + WithBottomGap 補空格 + GroupFontPt 以列距當可用高）在上下排都有名字時，
+    /// 上排名字被限制在 1.4~1.9cm 的列距內，3 字名+間隔空格會把整組字級縮到 0.36~0.47cm（字太小、
+    /// 欄距相對變寬——正是使用者客訴）。改為：字級以 baseFont 起算，只有「整欄鏈（上排字數+1 格間距
+    /// +下排字數）」或「單獨一欄」塞不下方框高度才整組等比縮；下排起點不再是固定座標，而是
+    /// 「上排（有下排配對者）最長字數+1 個字高間距」之後動態決定 → 名字之間永遠恰好一個字高間距，
+    /// 字級能保住舊系統的 0.6cm。
+    /// </summary>
+    /// <param name="baseFontCm">起始字級（cm），只縮不放大。</param>
+    /// <param name="boxHeightCm">方框可用高（cm）。</param>
+    /// <param name="columns">每欄 (上排名字, 下排名字)；下排為空表示該欄只有一列。</param>
+    /// <returns>統一字級（cm）與「下排相對方框頂的位移」（cm；無任何下排名字時為 0）。</returns>
+    public static (double FontCm, double BottomRowOffsetCm) MatrixLayout(
+        double baseFontCm, double boxHeightCm, params (string? top, string? bottom)[] columns)
+    {
+        var maxTopAny = 0;        // 所有上排名字的最長列數（單欄也不能超框）
+        var maxTopWithBottom = 0; // 有下排配對的上排最長列數（決定統一的下排起點）
+        var maxBottom = 0;
+        foreach (var (top, bottom) in columns)
+        {
+            // 與 Stack/GroupFontPt 一致：不 trim，空格也算一列
+            var t = string.IsNullOrWhiteSpace(top) ? 0 : top!.Length;
+            var b = string.IsNullOrWhiteSpace(bottom) ? 0 : bottom!.Length;
+            if (t > maxTopAny) maxTopAny = t;
+            if (b > 0)
+            {
+                if (t > maxTopWithBottom) maxTopWithBottom = t;
+                if (b > maxBottom) maxBottom = b;
+            }
+        }
+        // 最擠的「垂直單位數」：單欄 = 字數；上下排欄 = 上排最長 + 1（間距）+ 下排最長
+        var units = Math.Max(maxTopAny, maxBottom > 0 ? maxTopWithBottom + 1 + maxBottom : 0);
+        var fontCm = units == 0 ? baseFontCm : Math.Min(baseFontCm, boxHeightCm / units);
+        var bottomOffsetCm = maxBottom > 0 ? (maxTopWithBottom + 1) * fontCm : 0;
+        return (fontCm, bottomOffsetCm);
+    }
+
+    /// <summary>
     /// 2026-07-06 使用者指定：同一欄「上排」與「下排」姓名（不同人）之間要留一個全形空白間距，
     /// 不能緊貼。正下方有名字時在姓名尾端補一個全形空格（U+3000）——<see cref="Stack"/> 會把它
     /// 渲染成多一列空白，<see cref="GroupFontPt"/> 因此多算一列而統一縮字，天然在「上排文字尾端」
