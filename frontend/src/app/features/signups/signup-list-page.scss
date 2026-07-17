@@ -110,6 +110,12 @@
   .hint { flex: 0 0 auto; }
 }
 
+/* 2026-07-17 使用者要求：list 欄位字級對齊左側欄 nav-label（--font-size-md），僅限本頁 */
+.vgrid-header,
+.vgrid-row {
+  font-size: var(--font-size-md);
+}
+
 @media (max-width: 1100px) {
   .toolbar { grid-template-columns: minmax(0, 1fr); }
   .search-grid { grid-template-columns: auto auto 100px minmax(120px, 1fr) auto auto; }

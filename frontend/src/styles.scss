@@ -31,8 +31,8 @@ html {
   --c-danger: #C84A3A;
   --c-warning: #E5A53D;
   --c-success: #6B8E5A;
-  --c-dead-name-bg: #E3B274;
-  --c-row-selected: #F5E5DC;
+  --c-dead-name-bg: var(--c-primary-soft); /* 往生欄底色：2026-07-17 使用者指定跟左側選單 active 同色 */
+  --c-row-selected: #E9C79C; /* 選取列底色：2026-07-17 改深一階橘，與往生欄（--c-primary-soft）拉開層次 */
   --c-row-alt: #FAF8F2;
 
   --font-size-xs: 13px;
@@ -205,6 +205,8 @@ a {
   tbody tr:hover { background: var(--c-row-alt); }
   tbody tr.is-selected { background: var(--c-row-selected); }
 
+  // dense＝與報名/信眾維護 vgrid 同一套「清單配色規範」（見 docs/design/visual-design.md「清單/資料格配色規範」；
+  // 表頭/格線/往生欄/選取列 token 與 .vgrid-* 一一對應，新清單一律參照該規範）
   &.dense {
     width: max-content;
     min-width: 100%;
@@ -214,10 +216,24 @@ a {
       white-space: nowrap;
       vertical-align: middle;
     }
-    th { background: var(--c-bg-darker); font-weight: 600; position: sticky; top: 0; z-index: 1; }
-    td.dead { background: var(--c-dead-name-bg); }
+    th {
+      background: var(--c-bg-darker);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      border-right: 1px solid var(--c-border);  // 直向格線（＝.vgrid-th）
+      border-bottom: 1px solid var(--c-border); // 表頭底線（＝.vgrid-header-clip）
+    }
+    td { border-right: 1px solid var(--c-border-soft); } // 直向格線（＝.vgrid-td）
+    td.dead {
+      background: var(--c-dead-name-bg);
+      border-right-color: var(--c-text-disabled); // ＝.vgrid-td.dead
+    }
     tr.is-selected td { background: var(--c-row-selected); }
     tr.is-selected td.dead { background: color-mix(in srgb, var(--c-row-selected) 60%, var(--c-dead-name-bg)); }
+    // 規範：清單一律無 hover 變色（vgrid 亦無）；蓋掉基底 .data-table 的 row-alt hover
+    tbody tr:hover { background: transparent; }
   }
 }
 

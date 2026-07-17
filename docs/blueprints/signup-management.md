@@ -16,7 +16,7 @@ related_docs:
   - prepay-loading.md
   - printing-reports.md
 keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印, 勾選列印, signupIds]
-last_updated: 2026-07-04 (新增「在此前插入」右鍵：插入報名於指定編號並順移後續 +1，POST /signups/insert-shift；勾選多筆列印改用 signupIds 精準模式)
+last_updated: 2026-07-17 (新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
 ---
 
 ## 背景與動機
@@ -122,27 +122,32 @@ last_updated: 2026-07-04 (新增「在此前插入」右鍵：插入報名於指
 **結構決策**：舊 NewSignupForm 為兩步驟（先選年份/法會/類型 → 再選信眾並填詳細）；新版維持 mockup v4 的**單頁表單**（不重做兩步驟，無「下一步」），但**欄位編排對齊舊 NewSignupForm.cs**，單頁由上到下：
 
 ```
-法會資料   民國年(預設 TaiwanCalendar.GetYear) / 法會分類 / 報名類型
-信眾       modal picker 搜尋既有信眾 → 選定後預填
-基本資料   員工類型(唯讀) / 堂號 / 姓名 / 聯絡電話
-地址       寄件城市→區域(連動下拉)→郵遞區號(唯讀) / 寄件地址
-           ☑ 同寄件地址（複製 mail→text；mail 空 → 「請先輸入寄件地址」）
-           文牒城市→區域→郵遞區號 / 文牒地址
-名單       陽上 ×6 / 往生 ×6
+法會資料   民國年(預設 TaiwanCalendar.GetYear) / 法會分類 / 報名類型（2026-07-17 使用者指定提到表單最上方）
+信眾       常駐搜尋列 + 結果列表直接顯示（2026-07-17 改，對齊舊常駐 dgvBelievers；
+           選定後列表保留、可隨時點別筆改選覆蓋欄位；未選信眾也可送出 → 自動建新信眾）
+基本資料   員工類型(唯讀) / 堂號(唯讀) / 姓名 / 聯絡電話
+地址       寄件在上：寄件城市→區域(連動下拉)→郵遞區號(唯讀) / 寄件地址
+           文牒在下：文牒城市→區域→郵遞區號 / 文牒地址 + ☑ 同寄件地址（同列；
+           複製 mail→text；mail 空 → 「請先輸入寄件地址」）
+           （2026-07-17 改回上下堆疊，對齊舊 Designer 寄件 Y≈222 / 文牒 Y≈311）
+名單       往生 ×6 在上、陽上 ×6 在下（2026-07-17 對齊舊 Designer 往生 Y≈401 / 陽上 Y≈517）；
+           往生輸入框不加底色（舊系統兩組皆無 BackColor，使用者指定）
 編號/費用  ☑ 指定編號 + 編號 / 費用
 備註/預繳  備註 / 預繳民國年 / 預繳法會
 ```
 
 - **法會分類依當月自動帶季別（新版加值，2026-06-23）**：新增模式下載完分類樹後，依當前月份自動把「法會分類」預設為對應季別 root（1-4月→春季 / 5-8月→中元 / 9-12月→秋季，見 [business-rules-implicit.md](../business-rules-implicit.md) §月→季）。為**可編輯的預設**：使用者仍可改選任何季別或子法會（子法會仍人工挑選，月份只決定季別）。僅在 create 模式且使用者尚未選值時帶入；編輯模式不覆蓋既有 ceremony。實作：`util/ceremony-season.ts`（`currentSeason` / `resolveSeasonRootId`，GUID 優先、title 退場）+ `signup-edit-form` `applySeasonDefault()`
 - 城市/區域連動下拉資料源：`GET /zipcodes/cities`、`GET /zipcodes?city=`（見 [get-zipcodes.md](api-endpoints/get-zipcodes.md)）；對齊舊 `LoadCity` / `dlMailCity_SelectedIndexChanged`
-- **員工類型 + 固定編號唯讀顯示**：新流程不於報名建立時改信眾屬性（inline 新建/編輯 Believer 故意捨棄，於信眾維護調整）。`BelieverListItem` 已含 `IsFixedNumber`（2026-06-02），報名表單唯讀顯示「固定編號 是/否」
+- **員工類型 + 固定編號唯讀顯示**：新流程不於報名建立時**編輯**既有信眾屬性（inline 編輯 Believer 捨棄，於信眾維護調整）。`BelieverListItem` 已含 `IsFixedNumber`（2026-06-02），報名表單唯讀顯示「固定編號 是/否」
+- **未選信眾 → 自動建立新信眾（2026-07-17 補齊，對齊舊 `btnConfirm_Click:186-223`）**：舊系統 `dgvBelievers.SelectedRows.Count == 0` 時當場 `Guid.NewGuid()` INSERT Believers 再建報名；新版 API 層維持不做 inline 建立（`CreateSignupRequest.BelieverId` 必填），由**前端 orchestration**：`submit()` 發現 create 模式且無 believerId → 先 `POST /believers`（employeeType=1 非員工、isFixedNumber=false，同舊表單下拉/checkbox 預設；姓名/電話/兩組地址/陽上/往生取自表單）→ 拿到 id 綁回表單再 `POST /signups`。信眾建立成功但報名失敗時 believerId 已綁回表單，重送不會重複建信眾。此前前端漏做這條路（believerId 掛 required），導致「沒選信眾就完全無法新增」——已修
 - **選信眾自動帶入預繳歷史**：`pickBeliever` 呼叫 `GET /prepay?believerId&year`，最新報名有預繳則帶入預繳年/法會（對齊舊 `BelieverSelected:1102-1115`；見 [get-prepay-believer-latest.md](api-endpoints/get-prepay-believer-latest.md)）
-- **信眾 picker 1:1 對齊舊 `dgvBelievers`（2026-07-02 決策，取代先前簡化卡片式設計）**：
+- **信眾搜尋 1:1 對齊舊 `dgvBelievers`（2026-07-02 決策，取代先前簡化卡片式設計；2026-07-17 由 modal picker 改為常駐 in-form 列表，完全回到舊系統型態）**：
+  - **常駐列表（2026-07-17）**：搜尋框/搜尋鈕/結果表格直接放在表單頂部「信眾」fieldset（全寬），非彈窗——對齊舊 `plStep2` 上常駐的 `txtQ + dgvBelievers`。點列選定後**列表保留**、可隨時再點別筆（每次改選重新覆蓋整份表單欄位，同舊 `dgvBelievers_CellClick`）；選定列高亮 + 「已選信眾」摘要（**僅選定後顯示**；未選時不顯示任何提示文字，「符合 N 筆僅顯示前 200」截斷提示也不顯示——2026-07-17 使用者指定拿掉，截斷本身保留）。結果表格 `max-height: 140px` 內部捲動（舊 dgv 高 117px 同精神），**靜默截斷最多 render 前 200 列**（模糊字如「陳」可命中 2 萬+ 列，全塞 DOM 會卡死；舊 WinForms grid 有虛擬化沒此問題）。**無 row hover 變色**（對齊 vgrid，見配色規範）。**配色/列高對齊報名維護 grid（2026-07-17 使用者指定）**：走全站唯一權威 [visual-design.md「清單/資料格配色規範」](../design/visual-design.md)——`.data-table.dense` 已補直向格線/表頭底線/往生欄右框線與 vgrid 一一對應（Playwright computed-style 9 項比對全同值），cell padding 收為 2px 6px（列高 25px ≈ 報名維護 26px）。編輯模式不顯示搜尋區（不換信眾），僅顯示信眾摘要卡
   - **搜尋**：單一輸入框 + 「搜尋」按鈕觸發（**2026-07-02 改**：原本 `(input)` 即時查詢，即使加 debounce 仍是「打字就打 API」；改回對齊舊 `btnBelieverSearch_Click` 的按鈕觸發語意——文字先落地在框內，按鈕或 Enter 才真正查詢），OR 比對 Name/Phone/6組陽上/6組往生共 14 欄（對齊舊 `NewSignupForm.cs:715-722` `txtQ`/`LoadBelievers`）。**不新增 endpoint**——沿用既有 `GET /api/v1/signups`（`SignupApi.search`）帶 `searchKey` + `scopeName/scopePhone/scopeLivingName/scopeDeadName=true`（`scopeRemark` 不開，舊系統不搜備註），該端點語意與舊 14 欄 OR 搜尋完全對應
   - **清單粒度/欄位**：每筆「報名紀錄」一列（非每信眾一列，同信眾過去報過多次會重複出現多列），16 欄：堂號/姓名/聯絡電話/編號標題/編號/年份/法會/往生1~6/陽上1~6（欄位順序對齊 `NewSignupForm.Designer.cs:1017-1355`）；資料直接來自 `SignupListItem`（`/signups` 既有回應，本已含全部所需欄位，未新增後端 DTO）
   - **選定回填**：點列後用該列 `believerId` 呼叫既有 `GET /believers/{id}`（`BelieverApi.getById`）取完整信眾明細（含 zipcode ID）再走原本 `pickBeliever` 預填邏輯
   - **已知落差**：`/signups` 現有排序為 `Year, CeremonySort, NumberTitle, Number`（ascending，服務主列表用途），未暴露 `CeremonySort` 供前端精確重現舊排序（`Year desc, CeremonySort desc, NumberTitle asc, Number desc`）；前端改用整體反轉近似「新的在前」，未新增後端排序參數
-  - 實作：[signup-edit-form.component](../../frontend/src/app/features/signups/signup-edit-form.component.ts) `searchBelievers` / `pickBeliever`
+  - 實作：[signup-edit-form.component](../../frontend/src/app/features/signups/signup-edit-form.component.ts) `triggerBelieverSearch` / `runBelieverSearch` / `pickBeliever`
 - **重複報名警示（新版加值，2026-06-30）**：選定信眾後（或改年份/法會時）即時查該信眾在同一 `(Year, CeremonyCategoryID)`（**忽略報名類型**）是否已有報名；有則於信眾區塊下方跳 `.alert-warn` 警示並逐筆列「編號 · 報名類型」。**僅提醒、不阻擋**，使用者仍可照常儲存。判定走唯讀 `GET /signups/duplicates`（`SignupApi.checkDuplicates`），前端以 `combineLatest`（year/ceremony/believer 三 control，debounce 300ms）觸發。編輯模式帶 `excludeSignupId` 排除自身。詳見 [get-signup-duplicates.md](api-endpoints/get-signup-duplicates.md)、[business-rules-implicit.md](../business-rules-implicit.md) §1.4
 - 「確認」→ `POST /api/v1/signups`（`CreateSignupHandler`，atomic：Insert Signups 自動 Number/NumberTitle + Insert SignupLogs 快照）；成功訊息「編號{number}，新增報名成功」
 - 「列印資料卡」路徑仍待列印模組 PoC

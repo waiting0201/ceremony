@@ -7,14 +7,14 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-04 (列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-17 (新增報名表單對齊舊系統四項 v2.2.1：信眾搜尋改常駐 in-form 結果列表（截斷 200 列防卡頓）、地址寄件上/文牒下、名單往生上/陽上下且輸入框無底色、未選信眾送出自動先 POST /believers 建新信眾再報名（修復「沒選信眾無法新增」）；同日追加：結果列表配色/列高對齊報名維護 grid、法會資料提到表單最上方且空表單無捲動，Playwright 實測全過；先前：列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
 
 > 本檔由 Claude **自動維護**。任務開始/完成/卡住都必須更新。新增項目也要寫入。詳細規則見 [../CLAUDE.md](../CLAUDE.md) 「狀態追蹤規則」。
 
-**Current Version**: `v2.2.0`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
+**Current Version**: `v2.2.1`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
 
 ## 🔄 In Progress
 
@@ -157,6 +157,16 @@ last_updated: 2026-07-04 (列印新增「普桌資料卡」worshipcard 全新報
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **新增報名表單對齊舊系統四項（信眾常駐搜尋列表／地址上下排／往生上陽上下無底色／未選信眾自動建信眾）** — Done 2026-07-17，發版 **v2.2.1**（PATCH：沿用既有 endpoint，前端行為/版面對齊＋缺陷修復）
+  - 需求（使用者四項指定）：(1) 信眾搜尋比照舊系統，結果 list 直接顯示、可隨時改選；(2) 地址寄件在上、文牒在下；(3) 往生者在上、陽上在下，往生欄位不要背景色；(4) 查明「沒選信眾就無法新增報名」的舊系統做法並修復
+  - 稽核（舊 `NewSignupForm.cs`/`Designer.cs`）：搜尋是**常駐 DataGridView**（`txtQ`+`dgvBelievers` 在面板上，選後列表仍在可再選）；寄件 Y≈222/文牒 Y≈311；往生 Y≈401/陽上 Y≈517 且兩組 textbox 皆無 BackColor；`btnConfirm_Click:186-223` 未選信眾時**自動 `Guid.NewGuid()` INSERT Believers** 再建報名——新版 API 刻意改「前端先 POST /believers」（[CreateSignupContract.cs](../backend/src/Ceremony.Application/Signups/CreateSignupContract.cs) remark）但前端從未實作且 `believerId` 掛 required → 這就是 (4) 的根因
+  - 做法（[signup-edit-form](../frontend/src/app/features/signups/signup-edit-form.component.ts)，純前端）：信眾 fieldset 移表單頂部全寬、搜尋列+結果表格常駐（取代 modal picker；選定列高亮、列表保留可改選、「已選信眾」摘要；**最多 render 前 200 列＋總筆數提示**——實測「陳」命中 21,607 列全塞 DOM 會卡死，表格 `max-height:158px` 內捲）；地址改上下堆疊、「同寄件地址」checkbox 併入文牒地址同列省高；名單往生上/陽上下、移除 `--c-dead-name-bg` 底色（僅此表單輸入框，列表往生欄不動）；`submit()` create 模式無 believerId 時先 `BelieverApi.create`（employeeType=1/isFixedNumber=false 同舊預設）取得 id 綁回表單再建報名（報名失敗重送不重複建信眾）；`believerId` 解除 required；雙欄重配平衡（左：法會/基本/地址、右：往生/陽上/編號費用）
+  - 驗證：`ng build` 0 error；**Playwright 實機 17 項全過**（常駐列表/截斷提示/改選覆蓋/高亮/地址與名單座標比對/往生欄 bg=white/空表單無明顯垂直捲動(7px)/未選信眾送出 → `POST /believers` 201 + `POST /signups` 201 且 believerId 正確綁定）；測試建立的 2 筆報名+2 筆信眾已用 API DELETE 清除；展開結果列表+重複警示時 overlay 內可捲動（常駐列表固有代價，使用者指定列表要直接顯示）
+  - **同日第四輪（使用者追加 3 項）**：(a) **hover 也不對**——vgrid 根本沒有 row hover 變色，結果表原本的 `--c-row-alt` hover 移除，並在 `.data-table.dense` 顯式蓋掉基底 `.data-table` 的 hover（規範表 hover 條目改為「一律無 hover 變色，可點選列以 cursor:pointer 表示」）；(b) 移除「未選信眾——直接填表送出將自動建立新信眾」提示行（自動建信眾**行為保留**）；(c) 移除「符合 N 筆，僅顯示前 200 筆」提示行（200 列**靜默截斷保留**）。Playwright：hover 前後 computed bg 不變、兩行提示消失、200 列上限與選取高亮回歸、9 項配色比對仍全同值
+  - **同日第三輪（使用者指出兩清單配色仍不同）**：實查差異在**框線**（第二輪只比背景色沒抓到）——`.data-table.dense` 缺直向格線、表頭底線用 `--c-border-soft`（vgrid 用 `--c-border`）、往生欄右框線缺 `--c-text-disabled`。修法＝把 `.data-table.dense`（styles.scss）補齊與 `.vgrid-*` 一一對應的框線 token；並把整套清單配色**寫進 [visual-design.md](design/visual-design.md)「清單/資料格配色規範」成為全站唯一權威**（改寫過時的 DataGrid 段，廢棄 24px 列高/奇偶斑馬紋等舊 mockup 敘述；使用者指定之後所有清單都參照）。Playwright computed-style 9 項（表頭背景/表頭直線/表頭底線/資料格直線/橫線/往生欄背景/往生欄右框線/選取列/選取×往生混色）兩清單逐項同值
+  - **同日第二輪（使用者追加 2 項）**：(a) 結果列表**配色/列高對齊報名維護 grid**——移除先前 `--c-primary-soft` 選取色 override，沿用全域 `.data-table.dense` token（選取 `--c-row-selected`/往生 `--c-dead-name-bg`/混色與 vgrid 同值，Playwright computed-color 逐項比對相同）；cell padding 2px 6px（列高 25px≈vgrid 26px）、表格 max-height 140px。(b) **法會資料提到表單最上方**（全寬 fieldset，高於信眾搜尋）；為補回高度：表單 gap/padding 收緊 6px 系、備註 rows=1、費用/預繳年/預繳法會併一列 → 1366×768 空表單**完全無垂直捲動**（582=582）。回歸：round-1 17 項+round-2 5 項全過、`ng build`/`ng test` 綠、測試資料已清
+  - 文件同步：[signup-management.md](blueprints/signup-management.md) 新增段、[legacy-coverage/new-signup-form.md](blueprints/legacy-coverage/new-signup-form.md) rows 3/4/6/24+頂部註記（inline 新建 Believer ❌→✅）、[frontend-design.md](design/frontend-design.md)、[visual-design.md](design/visual-design.md) `--c-dead-name-bg` 例外註記
 
 - [x] **列印新增「普桌資料卡」（worshipcard）— 全新報表，A5 橫預印卡紙套印** — Done 2026-07-04，發版 **v2.2.0**（MINOR：新 endpoint + 新列印入口，向後相容）
   - 需求：使用者提供新樣板 [reference/template/普桌資料卡.jpg](../reference/template/普桌資料卡.jpg)（左葫蘆輪廓＋右側「電話／備註／確認無誤請簽名」預印），定案規格：葫蘆內印編號＋陽上姓名**依人數套普桌 6 變體**（＝牌位縮小預覽供信眾核對簽名）、右側套印 Phone/Remark、A5 橫 21×14.8、預印紙程式只印內容、限 SignupType=4。舊系統無此報表

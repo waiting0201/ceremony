@@ -35,9 +35,10 @@ import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-s
  * 報名 create/edit 表單（不含 page layout / overlay shell）。
  *
  * 表單編排對齊舊 NewSignupForm.cs（單頁呈現，非兩步驟；mockup v4 決議單頁）：
- * 法會資料 → 信眾 → 基本資料 → 地址（城市/區域連動下拉 + 同寄件地址）→ 陽上/往生名單 → 編號/費用 → 備註/預繳。
- * 2026-07-04：視覺上改雙欄密集排版節省高度、避免整頁垂直捲動（見 signup-edit-form.component.html/scss），
- * 邏輯順序不變，僅分左欄（法會資料/信眾/基本資料）、右欄（地址/名單/編號-費用-備註-預繳）呈現。
+ * 信眾搜尋（常駐結果列表）→ 法會資料 → 基本資料 → 地址（寄件上/文牒下）→ 名單（往生上/陽上下）→ 編號/費用 → 備註/預繳。
+ * 2026-07-04：視覺上改雙欄密集排版節省高度、避免整頁垂直捲動（見 signup-edit-form.component.html/scss）。
+ * 2026-07-17：信眾搜尋由 modal picker 改回舊系統式常駐 in-form 列表（頂部全寬），
+ * 地址/名單改上下堆疊對齊舊 Designer 版面，未選信眾送出自動先建新信眾（同舊 btnConfirm）。
  *
  * - signupId 有值 → 編輯模式
  * - fromSignupId 有值 → 代入新增模式（不帶 year/ceremony/type）
@@ -118,7 +119,8 @@ export class SignupEditFormComponent {
   protected readonly believerSearchResults = signal<SignupListItem[]>([]);
   protected readonly believerSearching = signal(false);
   protected readonly believerHasSearched = signal(false);
-  protected readonly believerPickerOpen = signal(false);
+  /** 常駐結果列表中目前選定的列（高亮用；選定後列表保留，可隨時改選，對齊舊 dgvBelievers）。 */
+  protected readonly pickedRowId = signal<string | null>(null);
 
   protected readonly mode = computed<'create' | 'edit'>(() =>
     this.signupId() ? 'edit' : 'create',
@@ -131,8 +133,8 @@ export class SignupEditFormComponent {
     year: [currentTaiwanYear(), [Validators.required, Validators.min(1)]],
     ceremonyCategoryId: ['', [Validators.required]],
     signupType: [1, [Validators.required]],
-    // 信眾
-    believerId: ['', [Validators.required]],
+    // 信眾（非必填：未選信眾時送出會自動建立新信眾，對齊舊 btnConfirm_Click:186-223）
+    believerId: [''],
     // 基本資料（堂號為信眾屬性，不在報名表單持有；唯讀顯示自 selectedBeliever）
     name: ['', [Validators.required, Validators.maxLength(50)]],
     phone: [''],
@@ -419,21 +421,9 @@ export class SignupEditFormComponent {
     }
   }
 
-  // ── 信眾搜尋 picker ───────────────────────────────────────────────
+  // ── 信眾搜尋（常駐 in-form 列表，對齊舊 txtQ + dgvBelievers）──────────
 
   private believerSearchToken = 0;
-
-  protected openBelieverPicker(): void {
-    this.believerPickerOpen.set(true);
-    this.believerSearchTerm.set('');
-    this.believerSearchResults.set([]);
-    this.believerHasSearched.set(false);
-  }
-
-  protected closeBelieverPicker(): void {
-    this.believerPickerOpen.set(false);
-    this.believerSearchToken++; // 讓任何仍在飛行中的查詢回應失效
-  }
 
   /** 輸入只更新框內文字，不打 API；對齊舊 NewSignupForm 按「搜尋」鍵才查詢 */
   protected onBelieverSearchInput(term: string): void {
@@ -473,8 +463,12 @@ export class SignupEditFormComponent {
         scopeDeadName: true,
       });
       if (token !== this.believerSearchToken) return; // 舊查詢的回應，畫面已經換了輸入內容
-      // /signups 依 Year/CeremonySort/NumberTitle/Number 全部 ascending 排序；反轉近似舊系統「新的在前」
-      this.believerSearchResults.set(resp.items.slice().reverse());
+      // /signups 依 Year/CeremonySort/NumberTitle/Number 全部 ascending 排序；反轉近似舊系統「新的在前」。
+      // 常駐列表只 render 前 N 列（不顯示截斷提示，2026-07-17 使用者指定拿掉）：
+      // 模糊字（如單字「陳」）可命中 2 萬+ 列，全部塞進 DOM 會卡死頁面
+      this.believerSearchResults.set(
+        resp.items.slice().reverse().slice(0, MAX_BELIEVER_RESULT_ROWS),
+      );
     } catch (err) {
       if (token !== this.believerSearchToken) return;
       this.errorMessage.set(toMessage(err));
@@ -483,10 +477,15 @@ export class SignupEditFormComponent {
     }
   }
 
+  /**
+   * 點選結果列 → 以該信眾覆蓋整張表單（對齊舊 dgvBelievers_CellClick + BelieverSelected）。
+   * 列表保留不關閉，可隨時再點別筆改選（每次改選都重新覆蓋欄位，同舊系統）。
+   */
   protected async pickBeliever(row: SignupListItem): Promise<void> {
     if (!row.believerId) return;
     const b = await this.believerApi.getById(row.believerId);
     this.selectedBeliever.set(b);
+    this.pickedRowId.set(row.id);
     this.form.patchValue({
       believerId: b.id,
       name: b.name,
@@ -498,7 +497,6 @@ export class SignupEditFormComponent {
     this.livingArray.setValue(pad6(b.livingNames));
     this.deadArray.setValue(pad6(b.deadNames));
     await this.prefillPrepayHistory(b.id);
-    this.closeBelieverPicker();
   }
 
   /**
@@ -539,11 +537,43 @@ export class SignupEditFormComponent {
   async submit(): Promise<void> {
     if (this.form.invalid || this.saving()) return;
     const v = this.form.getRawValue();
+    this.saving.set(true);
+    this.errorMessage.set(null);
+
+    // 未選信眾 → 先自動建立新信眾再報名（對齊舊 btnConfirm_Click:186-223 selectedcount==0 分支；
+    // API 層故意不做 inline 建立，由前端 orchestration：POST /believers → POST /signups）。
+    // employeeType=1(非員工)/isFixedNumber=false 同舊表單下拉/checkbox 預設值。
+    let believerId = v.believerId || this.selectedBeliever()?.id || '';
+    if (!believerId && this.mode() === 'create') {
+      try {
+        const created = await this.believerApi.create({
+          employeeType: 1,
+          name: v.name,
+          mailAddress: v.mailAddress,
+          phone: v.phone || null,
+          isFixedNumber: false,
+          mailZipcodeId: v.mailZipcodeId ? Number(v.mailZipcodeId) : null,
+          textZipcodeId: v.textZipcodeId ? Number(v.textZipcodeId) : null,
+          textAddress: v.textAddress || null,
+          livingNames: (v.livingNames as string[]).map((s) => (s && s.trim() ? s : null)),
+          deadNames: (v.deadNames as string[]).map((s) => (s && s.trim() ? s : null)),
+        });
+        believerId = created.id;
+        // 綁回表單：報名若失敗重送不會重複建信眾
+        this.form.controls.believerId.setValue(believerId);
+        this.selectedBeliever.set(created);
+      } catch (err) {
+        this.errorMessage.set(toMessage(err));
+        this.saving.set(false);
+        return;
+      }
+    }
+
     const body: CreateSignupRequest = {
       year: v.year,
       ceremonyCategoryId: v.ceremonyCategoryId,
       signupType: v.signupType,
-      believerId: v.believerId || this.selectedBeliever()?.id || '',
+      believerId,
       name: v.name,
       mailAddress: v.mailAddress,
       keepNumber: v.keepNumber,
@@ -563,8 +593,6 @@ export class SignupEditFormComponent {
       prepayYear: v.prepayYear,
       prepayCeremonyCategoryId: v.prepayCeremonyCategoryId || null,
     };
-    this.saving.set(true);
-    this.errorMessage.set(null);
     try {
       const editing = this.signupId();
       if (this.isInsert()) await this.api.insertShift(body);
@@ -583,6 +611,9 @@ export class SignupEditFormComponent {
     void this.submit();
   }
 }
+
+/** 信眾搜尋常駐列表最多 render 的列數（超過只顯示前 N 列 + 總數提示，請使用者縮小條件）。 */
+const MAX_BELIEVER_RESULT_ROWS = 200;
 
 function pad6(arr: (string | null)[]): string[] {
   const out = [...arr];

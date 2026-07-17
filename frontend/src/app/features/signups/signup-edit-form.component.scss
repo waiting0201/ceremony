@@ -1,8 +1,9 @@
 :host { display: block; }
 
+// 法會資料提到最上後全高變高（2026-07-17），區塊間距/區塊內距全面再收緊補回高度
 .form-card {
   display: grid;
-  gap: var(--space-sm);
+  gap: 6px;
 }
 
 // 雙欄密集排版：左右欄各自堆疊 fieldset，避免單欄長表單造成整頁垂直捲動（2026-07-04）
@@ -18,7 +19,7 @@
 }
 .col {
   display: grid;
-  gap: var(--space-sm);
+  gap: 6px;
   align-content: start;
 }
 
@@ -26,14 +27,14 @@
   margin: 0;
   border: 1px solid var(--c-border-soft);
   border-radius: 2px;
-  padding: 6px var(--space-sm) var(--space-sm);
+  padding: 4px var(--space-sm) 6px;
 
   legend { padding: 0 var(--space-xs); font-size: var(--font-size-sm); color: var(--c-text-secondary); }
 }
 
 .grid {
   display: grid;
-  gap: var(--space-sm);
+  gap: 6px var(--space-sm);
 
   // 防溢出：grid 子項預設 min-width:auto 會被 input 的固有寬度撐爆，導致郵遞區號等欄位超出 overlay
   > * { min-width: 0; }
@@ -45,6 +46,7 @@
   // 地址：城市 / 區域 / 郵遞區號（窄）三欄一列；地址另起整列
   &.addr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px; }
   .span-row { grid-column: 1 / -1; }
+  .span-2 { grid-column: span 2; }
 
   @media (max-width: 760px) {
     &.three, &.four, &.addr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -77,6 +79,13 @@
   user-select: none;
   cursor: pointer;
   input { width: 16px; height: 16px; }
+
+  // 「同寄件地址」與文牒地址同列（省一列高度）：對齊該列輸入框的底部
+  &.addr-check {
+    align-self: end;
+    height: var(--control-height);
+    white-space: nowrap;
+  }
 }
 
 .believer-card {
@@ -101,28 +110,11 @@
   strong { font-size: var(--font-size-sm); font-weight: 600; }
 }
 
-// 地址：寄件／文牒並排半欄，取代原本上下兩段堆疊（省約一半高度）
-.addr-cols {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-sm);
+// 地址：寄件在上、文牒在下（對齊舊 Designer 版面 Y=222/311）；文牒段與寄件段留一點間距
+.addr-text { margin-top: 6px; }
 
-  @media (max-width: 560px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-// 陽上／往生名單並排，取代原本上下兩個全寬 fieldset
-.names-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-sm);
-
-  @media (max-width: 560px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
+// 陽上／往生名單：往生在上、陽上在下（對齊舊 Designer 版面 Y=401/517）；
+// 兩者輸入框皆不加背景色（舊系統無 BackColor，2026-07-17 使用者指定）
 .names {
   .name-grid {
     display: grid;
@@ -138,47 +130,27 @@
       font-family: inherit;
     }
   }
-  &.dead .name-grid input { background: var(--c-dead-name-bg); }
 }
 
-.picker-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-.picker-modal {
-  background: var(--c-surface);
-  border-radius: 4px;
-  width: min(1200px, calc(100vw - var(--space-xl)));
-  max-width: calc(100vw - var(--space-xl));
-  max-height: calc(100vh - var(--space-xl));
-  display: flex;
-  flex-direction: column;
-}
-.picker-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-md);
-  border-bottom: 1px solid var(--c-border-soft);
-  h2 { margin: 0; font-size: var(--font-size-lg); }
-}
-.picker-body {
-  padding: var(--space-md);
+// 信眾搜尋（常駐 in-form，對齊舊 txtQ + dgvBelievers 常駐面板；2026-07-17 取代 modal picker）
+.believer-block {
   display: grid;
-  gap: var(--space-sm);
-  overflow: auto;
+  gap: 6px;
 }
-.picker-search-row {
+.believer-search-row {
   display: flex;
+  align-items: center;
   gap: var(--space-sm);
 
-  .search-input { flex: 1; }
+  .search-input { flex: 0 1 320px; }
   .btn { height: var(--control-height); } // 對齊 search-input 高度，而非 .btn/.btn-sm 預設值
+
+  .picked {
+    font-size: var(--font-size-sm);
+    color: var(--c-text-secondary);
+    strong { color: var(--c-text-primary); }
+    .meta { margin-left: var(--space-xs); }
+  }
 }
 .search-input {
   height: var(--control-height);
@@ -187,15 +159,15 @@
   border-radius: 2px;
   font-family: inherit;
 }
-.picker-results { display: grid; gap: var(--space-xs); }
-.picker-table-wrap {
-  max-height: 400px;
+.believer-results {
+  max-height: 140px; // 常駐於表單頂部，限制高度避免把下方表單推出視窗（舊 dgvBelievers 高 117px 同精神）
   overflow: auto;
 
-  // .dead 自己有底色，hover 只設 tr 背景蓋不到它，整列會看起來「少一格沒反應」——比照 is-selected + dead 的 color-mix 手法讓整列一起變色
+  // 配色完全沿用全域 .data-table.dense（＝「清單/資料格配色規範」，與報名維護 vgrid 同 token；
+  // 含「無 hover 變色」——vgrid 沒有 row hover，此表也不加），此處只收更緊的列高與 cursor
+  // 對齊報名維護 26px 列高（specificity 蓋過全域 .data-table.dense 的 4px 6px）
+  table.data-table th, table.data-table td { padding: 2px 6px; }
   tbody tr { cursor: pointer; }
-  tbody tr:hover { background: var(--c-row-alt); }
-  tbody tr:hover td.dead { background: color-mix(in srgb, var(--c-row-alt) 55%, var(--c-dead-name-bg)); }
 }
 
 // 重複報名警示清單（.alert-warn 內）
