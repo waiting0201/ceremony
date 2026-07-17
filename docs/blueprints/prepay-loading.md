@@ -12,7 +12,7 @@ related_docs:
   - signup-management.md
   - ceremony-category.md
 keywords: [prepay, 預繳, 載入預繳, LoadPrepayForm, 固定編號, 空號填補]
-last_updated: 2026-07-04
+last_updated: 2026-07-17
 ---
 
 ## 背景與動機
@@ -127,7 +127,9 @@ WHERE prepay_year IS NOT NULL
 
 **不複製**：Name / Phone（新建 Signup 此兩欄為 **null**；列印時若需姓名則從 Believer 取）
 
-> ✅ **已對齊（2026-07-04）**：舊 LoadPrepayForm 建立的 Signup 完全不設 Name/Phone（[LoadPrepayForm.cs:84-115](../../reference/old/Ceremony/LoadPrepayForm.cs#L84-L115)），而一般報名 NewSignupForm **有**設（[NewSignupForm.cs:253-254](../../reference/old/Ceremony/NewSignupForm.cs#L253)）。新版 `PrepayLoadHandler.BuildCandidate` 曾誤從來源複製 Name/Phone，已改為 `null`（Signup 與 SignupLog 快照皆是），與舊系統一致。
+> ✅ **已對齊（2026-07-04）**：舊 LoadPrepayForm 建立的 Signup 完全不設 Name/Phone（[LoadPrepayForm.cs:84-115](../../reference/old/Ceremony/LoadPrepayForm.cs#L84-L115)），而一般報名 NewSignupForm **有**設（[NewSignupForm.cs:253-254](../../reference/old/Ceremony/NewSignupForm.cs#L253)）。新版 `PrepayLoadHandler.BuildCandidate` 曾誤從來源複製 Name/Phone，已改為 `null`，與舊系統一致。
+>
+> 🔧 **修正（2026-07-17）**：7/4 版把 **SignupLog 快照的 Name 也設成 null**，但 `dbo.SignupLogs.Name` 是 **NOT NULL**（`dbo.Signups.Name` 才是 nullable）→ 每次真實載入必觸發 SqlException 515、整批 rollback、前端顯示「未預期的伺服器錯誤」。SignupLog 是新版補強（舊系統載入預繳**不寫 log**），不受「對齊舊系統」約束——改為比照 POST /signups 的 log 語意寫入**信眾姓名快照**（`Believers.Name`，NOT NULL 保證有值）；Signup.Name 維持 null 不變、兩者 Phone 皆 null。當時 326 測試全綠仍漏掉的原因見 [gotchas.md](../gotchas.md)「SignupLogs.Name NOT NULL」條。
 
 ## 設計決策
 
@@ -170,7 +172,7 @@ WHERE prepay_year IS NOT NULL
 - [x] 6 case 用 `PrepayGroups` 表驅動（SignupType × EmployeeType）
 - [x] gap-filling 演算法與舊系統輸出對齊（含 `nextNo = 固定號+1` 往回設；`PrepayNumberAllocatorTests`）
 - [x] 預繳條件 predicate 完整支援同年/跨年情境
-- [x] 不複製 Name / Phone（新 Signup 與 SignupLog 兩欄為 null；`PrepayLoadHandlerTests`）
+- [x] 不複製 Name / Phone（新 Signup 兩欄為 null；SignupLog 快照 Name＝信眾姓名（DB NOT NULL）、Phone＝null；`PrepayLoadHandlerTests` + 整合測試真實載入回歸鎖）
 - [x] 載入失敗整個 rollback（單一 transaction）
 - [x] 並行安全：UPDLOCK/HOLDLOCK 讀 MAX + `sp_getapplock`（真實 MSSQL 整合測試）
 - [ ] 通過 [qa-testing](../workflows/qa-testing.md)（實機多筆載入驗收待印表機/現場）

@@ -18,12 +18,13 @@ related_docs:
   - ../prepay-loading.md
   - README.md
 keywords: [legacy, coverage, load-prepay, 預繳載入]
-last_updated: 2026-07-04
+last_updated: 2026-07-17
 ---
 
 > ✅ **完成 (2026-05-27)**：8 個方法全對應實作或前端化；100% 覆蓋。**第 2 個 complete form**。
 > 🎯 已 ship POST /api/v1/prepay/load — 780 行 switch 重構成 data-driven `PrepayGroups` strategy table（6 → 1 個 case），並補強 idempotency（per-believer dedup）+ SignupLog 同步寫入。
 > 🔧 **2026-07-04 對齊稽核修正**：(1) Name/Phone 曾誤從來源複製 → 改回 null（舊 LoadPrepayForm 不設此兩欄）；(2) 配號往回設 `nextNo = 固定號+1` 完全對齊舊系統（原 `Math.Max` 偏離）；(3) **並行鎖真正落地**——舊文件/註解聲稱有 UPDLOCK/applock 但實作缺，已重構為「讀 MAX（UPDLOCK/HOLDLOCK）→ 配號 → insert」單一 transaction + `sp_getapplock`；(4) 預覽模式確認**不實作**（對齊舊系統單鍵載入）。配號抽為純函式 `PrepayNumberAllocator`。詳見 [prepay-loading.md](../prepay-loading.md)、[gotchas.md](../../gotchas.md)。
+> 🔧 **2026-07-17 修正 7/4 稽核引入的 regression**：(1) 的「Name 留 null」被過度套到 SignupLog 快照，但 `dbo.SignupLogs.Name` 為 NOT NULL（舊系統載入預繳根本不寫 log，此欄無「對齊」問題）→ 真實載入必 500。已改 log Name＝`Believers.Name` 快照；Signup.Name 維持 null。整合測試補上真實 source 的載入回歸鎖。
 
 ## 稽核總覽
 

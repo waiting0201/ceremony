@@ -48,7 +48,7 @@ public sealed class PrepayRepository(IDbConnectionFactory factory) : IPrepayRepo
               s.Remark,
               s.PrepayYear, s.PrepayCeremonyCategoryID,
               pc.Sort AS PrepayCeremonySort, pc.Title AS PrepayCeremonyTitle,
-              b.IsFixedNumber, b.EmployeeType
+              b.IsFixedNumber, b.EmployeeType, b.Name AS BelieverName
             FROM dbo.Signups s
             INNER JOIN dbo.Believers b ON b.BelieverID = s.BelieverID
             LEFT JOIN dbo.CeremonyCategorys pc ON pc.CeremonyCategoryID = s.PrepayCeremonyCategoryID
@@ -113,7 +113,8 @@ public sealed class PrepayRepository(IDbConnectionFactory factory) : IPrepayRepo
                 PrepayCeremonySort: d["PrepayCeremonySort"] as int?,
                 PrepayCeremonyTitle: d["PrepayCeremonyTitle"] as string,
                 IsFixedNumber: d["IsFixedNumber"] is bool b && b,
-                EmployeeType: d["EmployeeType"] as int?));
+                EmployeeType: d["EmployeeType"] as int?,
+                BelieverName: (string)d["BelieverName"]!));
         }
         return list;
     }

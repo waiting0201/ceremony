@@ -121,8 +121,9 @@ public sealed class PrepayLoadHandler(IPrepayRepository repo)
             CeremonyCategoryTitle: targetCeremonyTitle,
             SignupType: group.SignupType,
             HallName: null,
-            // 同上：SignupLog 快照亦不帶 Name/Phone，與 Signup 記錄一致。
-            Name: null!,
+            // SignupLog 是新版補強（舊系統載入預繳不寫 log），且 dbo.SignupLogs.Name 為 NOT NULL，
+            // 不能沿用 Signup 的 null——比照 POST /signups 的 log 語意寫入信眾姓名快照。
+            Name: s.BelieverName,
             Phone: null,
             NumberTitle: numberTitle,
             Fee: s.Fee,

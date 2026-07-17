@@ -68,4 +68,5 @@ public sealed record PrepaySourceRow(
     int? PrepayCeremonySort,
     string? PrepayCeremonyTitle,
     bool IsFixedNumber,
-    int? EmployeeType);
+    int? EmployeeType,
+    string BelieverName);

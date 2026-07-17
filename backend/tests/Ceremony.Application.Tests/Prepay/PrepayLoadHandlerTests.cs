@@ -36,7 +36,8 @@ public sealed class PrepayLoadHandlerTests
             Remark: null,
             PrepayYear: prepayYear, PrepayCeremonyCategoryId: prepayCat,
             PrepayCeremonySort: prepaySort, PrepayCeremonyTitle: prepayTitle,
-            IsFixedNumber: fixedNum, EmployeeType: 1);
+            IsFixedNumber: fixedNum, EmployeeType: 1,
+            BelieverName: "信眾姓名");
 
     /// <summary>攔截傳給 repo 的候選清單並回傳 canned 結果。</summary>
     private (List<PrepayCandidate> fixedC, List<PrepayCandidate> nonFixedC) CaptureBatch(PrepayLoadResponse canned)
@@ -120,13 +121,15 @@ public sealed class PrepayLoadHandlerTests
         fixedC[0].PreservedNumber.Should().Be(5, because: "固定候選帶原號");
         nonFixedC[0].PreservedNumber.Should().BeNull(because: "非固定候選不保留來源號");
 
-        // 對齊舊系統：預繳建立的 Signup / SignupLog 皆不帶 Name / Phone
+        // 對齊舊系統：預繳建立的 Signup 不帶 Name / Phone；
+        // 但 SignupLog（新版補強，DB Name 欄 NOT NULL）寫入信眾姓名快照、Phone 留 null。
         fixedC[0].Signup.Name.Should().BeNull();
         fixedC[0].Signup.Phone.Should().BeNull();
-        fixedC[0].Log.Name.Should().BeNull();
+        fixedC[0].Log.Name.Should().Be("信眾姓名");
         fixedC[0].Log.Phone.Should().BeNull();
         nonFixedC[0].Signup.Name.Should().BeNull();
         nonFixedC[0].Signup.Phone.Should().BeNull();
+        nonFixedC[0].Log.Name.Should().Be("信眾姓名");
     }
 
     [Fact]

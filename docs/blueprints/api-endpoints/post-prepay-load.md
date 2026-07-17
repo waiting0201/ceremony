@@ -17,7 +17,7 @@ related_docs:
   - ../legacy-coverage/load-prepay-form.md
   - post-signups.md
 keywords: [prepay, load, batch, strategy, idempotent, 6 case]
-last_updated: 2026-07-04
+last_updated: 2026-07-17
 ---
 
 ## 規格
@@ -167,6 +167,8 @@ WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId AND SignupType=@
 
 每筆新建的 Signup 同交易插入對應的 SignupLog（與 [post-signups.md](post-signups.md) 同 pattern）。
 
+> ⚠️ **Log 的 Name 不能沿用 Signup 的 null（2026-07-17 修正）**：`dbo.SignupLogs.Name` 是 **NOT NULL**（`dbo.Signups.Name` 才 nullable）。SignupLog 是新版補強、舊系統載入預繳不寫 log，故不受「對齊舊系統留 null」約束——寫入 `Believers.Name` 快照（source 查詢已 join Believers，`PrepaySourceRow.BelieverName`）。Phone 留 null（該欄 nullable）。
+
 ## 業務規則
 
 - **每信眾 × 年 × 法會 × SignupType 唯一**：應用層 enforce（DB 無 unique constraint）
@@ -182,7 +184,7 @@ WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId AND SignupType=@
 | Fixed 跳號→gaps 收集、`oneno = Number+1` | line 125-136 | `PrepayNumberAllocator`（含往回設，`nextNo = n+1`） |
 | Non-fixed 從 gaps 取號 | line 184-193 | 同 |
 | PrepayYear 結轉 | line 117 | step 6 同條件 |
-| **Name/Phone 留 null** | line 84-115（未設） | ✅ 對齊：`BuildCandidate` Name/Phone = null |
+| **Name/Phone 留 null** | line 84-115（未設） | ✅ 對齊：`BuildCandidate` Signup.Name/Phone = null（SignupLog 快照 Name＝信眾姓名，見 step 8） |
 | 無 idempotency | – | **新版 step 7 補強** |
 | 無並行鎖（單機 WinForms） | – | **新版補** UPDLOCK/HOLDLOCK + `sp_getapplock` |
 | 無顯式 transaction（EF SaveChanges） | line 820 | **新版**單一 SqlTransaction，失敗全 rollback |
@@ -205,7 +207,7 @@ WHERE Year=@TargetYear AND CeremonyCategoryID=@TargetCeremonyId AND SignupType=@
 - [x] 6 strategy cases 用 table-driven，不重複 switch
 - [x] Idempotency 自然 dedup（per believer）
 - [x] Fixed/non-fixed gap-fill 對齊舊行為（含 `nextNo = n+1` 往回設）
-- [x] Name/Phone 留 null（對齊舊系統）
+- [x] Signup.Name/Phone 留 null（對齊舊系統）；SignupLog.Name＝信眾姓名快照（DB NOT NULL，2026-07-17 修正）
 - [x] 並行鎖：UPDLOCK/HOLDLOCK + `sp_getapplock`（交易內配號）
 - [x] PrepayYear 結轉條件對齊舊行為
 - [x] SignupLog 同步寫入（補強）

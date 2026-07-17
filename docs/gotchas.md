@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-17 (追加：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
+last_updated: 2026-07-17 (追加：SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
 ---
 
 ## 通用陷阱
@@ -24,6 +24,13 @@ last_updated: 2026-07-17 (追加：印表機不可列印邊界會整欄吃掉 Le
 - **特例**：qa-test-engineer **絕不**修改 code，只審查；要求其改 code 應改用 code-review-optimizer 或 backend/frontend agent
 
 ## 專案層級陷阱
+
+### SignupLogs.Name 是 NOT NULL，「對齊舊系統留 null」不能套到 log 快照（2026-07-17）
+- **症狀**：載入預繳按下去一律「未預期的伺服器錯誤」（500）。SqlException 515：`Cannot insert the value NULL into column 'Name', table 'Ceremony.dbo.SignupLogs'`
+- **真因**：7/4 對齊稽核把 Name/Phone 改 null 時**連 SignupLog 快照一起改**。但兩張表 nullability 不同——`Signups.Name` nullable、`SignupLogs.Name` **NOT NULL**；且 SignupLog 本來就是新版補強（舊系統載入預繳不寫 log），沒有「對齊」問題。單一 transaction → 整批 rollback → 一筆都載不進去
+- **當時 326 測試全綠為何沒抓到**：unit tests 用 mock repo（DB 約束不存在）；整合測試唯一的「成功」案例用不存在的年份（0 筆來源）→ **從未真正走到 insert**。「整合測試有過」≠「insert 路徑被測過」，成功路徑必須真的寫入資料才算覆蓋
+- **修法**：SignupLog.Name 改寫 `Believers.Name` 快照（source 查詢本來就 join Believers；比照 POST /signups 的 log 語意）；Signup.Name 維持 null。整合測試補 `POST_load_withRealSource_inserts_signup_and_log_then_rerun_skips`（專用年份 880/881，真實 insert + 冪等 re-run）
+- **預防**：宣稱「對齊舊系統」的欄位變更，先確認該欄在**所有會寫入的表**的 NOT NULL 約束；新增「寫入路徑」時整合測試至少要有一筆真實資料走完 insert
 
 ### 印表機不可列印邊界會「整欄吃掉」Left < 0.5cm 的欄位（2026-07-17）
 - **症狀**：薦牌 5 位陽上實印只出現 3 位（`reference/薦牌.jpg` 郵27）；編號「郵」字左半被裁。PDF 本身完全正常——只有實體列印才看得出來
