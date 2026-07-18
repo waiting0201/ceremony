@@ -12,7 +12,7 @@ related_docs:
   - ../design/visual-design.md
   - ../workflows/qa-testing.md
 keywords: [rdlc, 位置, position, layout, 座標, 列印, 套印, tablet, worship, datacard, receipt, text, 嚴格, strict, 1:1]
-last_updated: 2026-07-18 (§14 普桌六位客訴置中：6 欄 Left 統一 +0.1786cm 對齊葫蘆中軸 10.039；先前 §3 薦牌 3+ 亡/3-6 陽矩陣改「方框內動態排版」＋編號 Left 0.5、§20 普桌資料卡 worshipcard)
+last_updated: 2026-07-18 (§2 收據客戶樣張校正覆蓋：Name+0.2/Number+0.8右+1.0/Prepay+0.3/年月日+0.5cm 上下聯同步（reference/收據.jpg 手寫註記），待實體複驗；同日盲點 10「Fee 無千分位」更正為寫反——舊收據實為 ToString("N0") 有千分位，新版已對齊；同日 §14 普桌六位客訴置中：6 欄 Left 統一 +0.1786cm 對齊葫蘆中軸 10.039；先前 §3 薦牌 3+ 亡/3-6 陽矩陣改「方框內動態排版」＋編號 Left 0.5、§20 普桌資料卡 worshipcard)
 ---
 
 ## 📌 適用範圍（2026-05-27 補充）
@@ -165,6 +165,14 @@ last_updated: 2026-07-18 (§14 普桌六位客訴置中：6 欄 Left 統一 +0.1
 | Year1 | =Fields!Year.Value | 17.50 | 8.00 | 2.50 | 0.653 | 14pt |
 | Month1 | =Fields!Month.Value | 17.50 | 11.50 | 2.50 | 0.653 | 14pt |
 | Day1 | =Fields!Day.Value | 17.50 | 15.00 | 2.50 | 0.653 | 14pt |
+
+> ⚠️ **2026-07-18 客戶樣張校正覆蓋（取代上表 RDLC 原始座標；上表保留供歷史追溯）**：客戶以新系統實印套版後在 `reference/收據.jpg` 手寫標註四項位移，[ReceiptRenderer.cs](../../backend/src/Ceremony.Infrastructure/Reporting/ReceiptRenderer.cs) 已套用（上下聯同步）：
+> - **Name** 下移 0.2cm → 上聯 Top 2.50、下聯 12.30
+> - **Number** 下移 0.8cm、右移 1.0cm → 上聯 Top 4.30 / Left 16.00、下聯 Top 14.40 / Left 16.00（原壓到預印「為」字，移進「為 ___ 號」空格）
+> - **Prepay** 下移 0.3cm → 上聯 Top 5.00、下聯 14.80
+> - **Year/Month/Day** 下移 0.5cm → 上聯 Top 8.10、下聯 18.00
+>
+> 樣張上的大字「郵」為手工蓋章（郵撥戳），非系統列印。樣張同時圈出「2026」（西元年應為民國年）與預繳字樣補「至」「年」——這兩項屬資料層，已同日在 `ReportModelBuilders.Receipt()` 修正。**待客戶實體套印複驗。**
 
 ### 郵寄標籤區（第二頁/續頁）
 
@@ -774,4 +782,4 @@ else if (LivingNameOne 有值)         → tmpWorshipOne.rdlc           // 1 位
 7. **避 4 顯示是 application 層處理**：DB 仍存 `Number=4`，但 ViewModel 的 `Number` 字串已是「3-1」。RDLC 看到的就是字串，不要再做轉換
 8. **薦牌的「點」是排版佔位字符**：HallNameSecond / HallNameFirst 在無堂號時填「．」全形句點，**不是空字串**。新版若改成空字串，整段排版會位移
 9. **CanGrow 在 RDLC 預設 true**：但因 Height 已給定，文字超出時會自動撐高 → 推擠下方欄位 → 套印錯位。**新版必須 disable CanGrow**，文字超出寧可截斷也不要撐版
-10. **Fee 欄位數字格式**：舊版直接 `Fee.ToString()`（無千分位），新版若用 `Fee:N0`（`1,200`）會與舊版差一個逗號 — 兩版並排會被看出。**保留無千分位格式**
+10. **Fee 欄位數字格式**：~~舊版直接 `Fee.ToString()`（無千分位）~~ **2026-07-18 更正：此條先前寫反了**——Fee 只出現在收據，舊版收據是 `Convert.ToInt32(Fee).ToString("N0")`（SignupForm.cs:261/522，**有**千分位，印 `1,200`）。新版 `ReportModelBuilders.Receipt()` 已改 `ToString("N0")` 對齊；回歸鎖 `Receipt_formats_fee_with_thousand_separator`

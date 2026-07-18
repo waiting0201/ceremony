@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-18 (批次列印起迄客訴「沒辦法手動輸入」：Playwright 全路徑無法重現→根因鎖定 input[type=number] 丟棄中文輸入法組字且無回饋，新增 appNumericInput directive（CVA、全形轉半形、值維持 number|null）加固全站 12 個數字欄，build+Playwright 驗證過，規則入 coding-style/gotchas；報名維護備註搜尋沒反應：前端 signup.api.ts search() 漏送 scopeRemark 參數補上，後端 LIKE 邏輯本正確；同日右鍵列印普桌/普桌資料卡完全解鎖：前端恆啟用＋後端撤回全部 type-4 限制（422/批次過濾），對齊舊系統選什麼印什麼，357 測試綠＋實測 200；同日稍早普桌六位客訴置中：Base 變體 6 欄 Left +0.1786cm 對齊葫蘆中軸，普桌資料卡同步；先前 2026-07-17 報名編輯 overlay 按確認必 400 修復：編輯模式編號欄恆顯示＋form invalid 不再靜默；同日：載入預繳 500 修復：SignupLogs.Name NOT NULL 被 7/4 稽核的「log 快照留 null」踩中→log Name 改信眾姓名快照，補真實 insert 整合測試，357 測試綠；同日稍早：薦牌列印 3 項客訴修復：5位字太小/陽上超出列印範圍/編號被裁，MatrixLayout 方框內動態排版＋陽上左界 0.5＋編號 Left 0.5，88 測試綠、疊圖 OK 待實體驗收；同日稍早：新增報名表單對齊舊系統四項 v2.2.1：信眾搜尋改常駐 in-form 結果列表（截斷 200 列防卡頓）、地址寄件上/文牒下、名單往生上/陽上下且輸入框無底色、未選信眾送出自動先 POST /believers 建新信眾再報名（修復「沒選信眾無法新增」）；同日追加：結果列表配色/列高對齊報名維護 grid、法會資料提到表單最上方且空表單無捲動，Playwright 實測全過；先前：列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-18 (收據套印座標依客戶樣張 reference/收據.jpg 校正：Name+0.2/Number+0.8右+1.0/Prepay+0.3/年月日+0.5cm 上下聯同步，待實體複驗；同日報表對齊追加：收據 Fee 千分位 N0、Prepay 改「預繳至X年Y」、資料卡/文牒地址改文牒地址（新版誤用郵寄地址，收據封面維持郵寄）＋更正 positions 盲點 10 寫反的 Fee 敘述，365 測試綠；同日收據列印兩項修正：封面頁沒印（客訴）——ReceiptRenderer 補第 2 頁郵寄封面 Zipcode/Address/Name 16pt、空地址也輸出維持頁數，＋年份誤印西元改民國年（-1911 對齊舊 taiwanCalendar.GetYear），360 測試綠＋目視兩頁 OK；批次列印起迄客訴「沒辦法手動輸入」：Playwright 全路徑無法重現→根因鎖定 input[type=number] 丟棄中文輸入法組字且無回饋，新增 appNumericInput directive（CVA、全形轉半形、值維持 number|null）加固全站 12 個數字欄，build+Playwright 驗證過，規則入 coding-style/gotchas；報名維護備註搜尋沒反應：前端 signup.api.ts search() 漏送 scopeRemark 參數補上，後端 LIKE 邏輯本正確；同日右鍵列印普桌/普桌資料卡完全解鎖：前端恆啟用＋後端撤回全部 type-4 限制（422/批次過濾），對齊舊系統選什麼印什麼，357 測試綠＋實測 200；同日稍早普桌六位客訴置中：Base 變體 6 欄 Left +0.1786cm 對齊葫蘆中軸，普桌資料卡同步；先前 2026-07-17 報名編輯 overlay 按確認必 400 修復：編輯模式編號欄恆顯示＋form invalid 不再靜默；同日：載入預繳 500 修復：SignupLogs.Name NOT NULL 被 7/4 稽核的「log 快照留 null」踩中→log Name 改信眾姓名快照，補真實 insert 整合測試，357 測試綠；同日稍早：薦牌列印 3 項客訴修復：5位字太小/陽上超出列印範圍/編號被裁，MatrixLayout 方框內動態排版＋陽上左界 0.5＋編號 Left 0.5，88 測試綠、疊圖 OK 待實體驗收；同日稍早：新增報名表單對齊舊系統四項 v2.2.1：信眾搜尋改常駐 in-form 結果列表（截斷 200 列防卡頓）、地址寄件上/文牒下、名單往生上/陽上下且輸入框無底色、未選信眾送出自動先 POST /believers 建新信眾再報名（修復「沒選信眾無法新增」）；同日追加：結果列表配色/列高對齊報名維護 grid、法會資料提到表單最上方且空表單無捲動，Playwright 實測全過；先前：列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
@@ -157,6 +157,25 @@ last_updated: 2026-07-18 (批次列印起迄客訴「沒辦法手動輸入」：
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **收據套印座標依客戶樣張校正（reference/收據.jpg 手寫註記）** — Done 2026-07-18（待客戶實體複驗）
+  - 客戶實印套版的手寫標註四項位移，[ReceiptRenderer.cs](../backend/src/Ceremony.Infrastructure/Reporting/ReceiptRenderer.cs) 上下聯同步套用：Name 下移 0.2、Number 下移 0.8＋右移 1.0（原壓到預印「為」字，移進「為 ___ 號」空格）、Prepay 下移 0.3、年月日列下移 0.5（cm）
+  - 樣張另圈「2026」（民國年）與預繳補「至」「年」——同日稍早已修；大字「郵」為手工郵撥戳非系統列印
+  - 驗證：365 測試綠；pdftoppm 目視位移方向/量值正確，PDF 更新至 `reference/output/receipt_with_cover.pdf`
+  - 文件：[printing-reports-positions.md](blueprints/printing-reports-positions.md) §2 改版覆蓋註記、[printing-reports.md](blueprints/printing-reports.md) §2
+
+- [x] **報表對齊舊系統追加三項：收據 Fee 千分位＋Prepay 字樣＋資料卡/文牒地址來源** — Done 2026-07-18
+  - 使用者確認「都要改」後實施：(1) 收據 Fee 補 `ToString("N0")` 千分位（舊 SignupForm.cs:522）；(2) 資料卡＋收據 Prepay 字樣改「預繳至X年Y」（舊 220/489/527，先前為「預繳 X Y」）；(3) **順帶稽核發現並修正**：資料卡與文牒的地址舊系統兩條路徑都取文牒地址（Text\*，SignupForm.cs:233/502/350-352/608），新版誤用郵寄地址——新增 `SignupReportContext.TextAddressOf`，收據封面維持郵寄地址（唯一用 Mail\* 的報表）
+  - 同步更正 [printing-reports-positions.md](blueprints/printing-reports-positions.md) 盲點 10：「Fee 無千分位」寫反了，舊收據實為 N0
+  - 驗證：全套 365 測試綠（新增 Fee/Prepay/地址來源 5 個 builder 測試，Make() 測資 Text 地址改為與 Mail 不同值以具鑑別力）
+  - 文件：[printing-reports.md](blueprints/printing-reports.md) §1/§2/§4、[signup-form.md](blueprints/legacy-coverage/signup-form.md) rows 28/29/31
+
+- [x] **收據列印兩項修正：封面頁沒印（客訴）＋年份改民國年** — Done 2026-07-18
+  - 封面：舊 RDLC `tmpReceipt` Tablix 高 59.4cm＝每筆固定 2 頁——第 1 頁上下聯、第 2 頁郵寄封面（Textbox22-24：Zipcode/Address/Name，16pt，Left 4.756、第二頁 Top 3.90/4.671/5.441cm）；新版 [ReceiptRenderer.cs](../backend/src/Ceremony.Infrastructure/Reporting/ReceiptRenderer.cs) 只畫了第 1 頁
+  - 修法：`ReceiptModel`/`ReceiptData` 加 `Zipcode`（`MailZipcode`）/`Address`（`AddressOf`＝MailCity+MailZone+MailAddress，同舊 SignupForm.cs:520-521），renderer 補第 2 頁；**地址空白也照樣輸出封面頁**（RDLC 行為，維持送紙順序）
+  - 年份：`Receipt()` 誤用 `now.Year`（西元），改 `now.Year - 1911` 對齊舊 `taiwanCalendar.GetYear`（SignupForm.cs:524）；月/日照印公曆數字
+  - 驗證：全套 360 測試綠（新增 `Receipt_EmptyAddress_StillTwoPages`、頁數=2 斷言、`Receipt_prints_roc_year_month_day`、`Receipt_fills_mailing_cover_fields`）；pdftoppm 目視兩頁 OK，PDF 存 `reference/output/receipt_with_cover.pdf`
+  - 文件：[printing-reports.md](blueprints/printing-reports.md) §2、[signup-form.md](blueprints/legacy-coverage/signup-form.md) row 29
 
 - [x] **批次列印起迄「沒辦法手動輸入」（客訴）：全站數字欄改 appNumericInput 加固** — Done 2026-07-18
   - 調查：Playwright（Chromium）實測 dev build 全路徑——點擊聚焦、打字、貼上（全形自動轉半形）、CDP 模擬 IME commit/組字、1100–1400px 視窗——**全部正常、無法重現**；欄位無 disabled/readonly/覆蓋、Electron main 無鍵盤攔截

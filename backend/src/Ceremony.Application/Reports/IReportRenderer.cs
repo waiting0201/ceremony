@@ -26,6 +26,8 @@ public sealed record DataCardModel(
 
 public sealed record ReceiptModel(
     string Name,
+    string Zipcode,
+    string Address,
     string Fee,
     string Number,
     string Prepay,

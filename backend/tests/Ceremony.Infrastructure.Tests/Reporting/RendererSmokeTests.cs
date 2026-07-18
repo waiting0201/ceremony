@@ -223,8 +223,26 @@ public sealed class RendererSmokeTests
     public void Receipt_RendersPdf()
     {
         var pdf = new ReceiptRenderer().Render(new ReceiptData(
-            Name: "陳大明", Fee: "1200", Number: "信1", Prepay: "", Year: "115", Month: "5", Day: "29"));
+            Name: "陳大明", Zipcode: "110", Address: "台北市信義區市府路 1 號",
+            Fee: "1200", Number: "信1", Prepay: "", Year: "115", Month: "5", Day: "29"));
         ShouldBePdf(pdf);
+        CountPages(pdf).Should().Be(2, "收據每筆固定兩頁：上下聯 + 郵寄封面（RDLC Tablix 59.4cm）");
+    }
+
+    [Fact]
+    public void Receipt_EmptyAddress_StillTwoPages()
+    {
+        var pdf = new ReceiptRenderer().Render(new ReceiptData(
+            Name: "陳大明", Zipcode: "", Address: "",
+            Fee: "1200", Number: "信1", Prepay: "", Year: "115", Month: "5", Day: "29"));
+        ShouldBePdf(pdf);
+        CountPages(pdf).Should().Be(2, "地址空白也要輸出封面頁，維持舊系統送紙順序");
+    }
+
+    private static int CountPages(byte[] pdf)
+    {
+        var text = System.Text.Encoding.Latin1.GetString(pdf);
+        return System.Text.RegularExpressions.Regex.Matches(text, @"/Type\s*/Page\b(?!s)").Count;
     }
 
     [Theory]

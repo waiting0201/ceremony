@@ -12,15 +12,16 @@ internal static class ReportModelBuilders
     public static DataCardModel DataCard(SignupListItem s)
     {
         var (livingNames, deadNames) = SignupReportContext.Extract(s);
+        // 「預繳至X年Y」字樣與文牒地址皆對齊舊 SignupForm.cs:220/233（右鍵）與 489/502（批次）
         var prepay = s.PrepayYear.HasValue
-            ? $"預繳 {s.PrepayYear} {s.PrepayCeremonyTitle ?? string.Empty}"
+            ? $"預繳至{s.PrepayYear}年{s.PrepayCeremonyTitle}"
             : string.Empty;
         return new DataCardModel(
             Number: SignupReportContext.DataCardNumber(s),
             Prepay: prepay,
             DeadNames: deadNames,
             LivingNames: livingNames,
-            Address: SignupReportContext.AddressOf(s),
+            Address: SignupReportContext.TextAddressOf(s),
             Phone: s.Phone,
             Remark: s.Remark);
     }
@@ -29,10 +30,12 @@ internal static class ReportModelBuilders
     {
         return new ReceiptModel(
             Name: s.Name ?? string.Empty,
-            Fee: s.Fee?.ToString() ?? string.Empty,
+            Zipcode: s.MailZipcode ?? string.Empty,  // 封面頁；舊 SignupForm.cs:520-521
+            Address: SignupReportContext.AddressOf(s),
+            Fee: s.Fee?.ToString("N0") ?? string.Empty,  // 千分位；舊 SignupForm.cs:522 ToString("N0")
             Number: SignupReportContext.ReceiptNumber(s),
-            Prepay: s.PrepayYear.HasValue ? $"預繳 {s.PrepayYear} {s.PrepayCeremonyTitle}" : string.Empty,
-            Year: now.Year.ToString(),
+            Prepay: s.PrepayYear.HasValue ? $"預繳至{s.PrepayYear}年{s.PrepayCeremonyTitle}" : string.Empty,
+            Year: (now.Year - 1911).ToString(),  // 民國年，對齊舊 SignupForm taiwanCalendar.GetYear (SignupForm.cs:524)
             Month: now.Month.ToString(),
             Day: now.Day.ToString());
     }
@@ -64,7 +67,7 @@ internal static class ReportModelBuilders
             HallNameSecond: hallSecond,
             DeadNames: deadNames,
             LivingNames: livingNames,
-            Address: SignupReportContext.AddressOf(s),
+            Address: SignupReportContext.TextAddressOf(s),  // 文牒用文牒地址；舊 SignupForm.cs:350-352/608
             Template: template);
     }
 

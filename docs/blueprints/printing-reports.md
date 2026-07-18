@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-07-18 (普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
+last_updated: 2026-07-18 (收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 ---
 
 ## 背景與動機
@@ -281,6 +281,8 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 欄位（2026-07-03 改版後）：Number / Prepay / 5×LivingName / 5×DeadName（印進右側樣板窗框）/ Address / Phone / Remark。**HallName 已移除**（樣板無堂號欄，見下方「資料卡改版」）
 
+> ✅ **2026-07-18 對齊舊系統兩項**：(1) Address 改用**文牒地址**（`TextCity+TextZone+TextAddress`）——舊系統右鍵與批次兩路徑都取 Text\*（SignupForm.cs:233/502），新版先前誤用郵寄地址；(2) Prepay 字樣改「預繳至X年Y」（SignupForm.cs:220/489），先前為「預繳 X Y」。回歸鎖 `DataCard_uses_text_address` / `DataCard_prepay_uses_legacy_wording`。
+
 ### 2. 收據（tmpReceipt）
 
 | 屬性 | 值 |
@@ -289,9 +291,13 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 | 方向 | Portrait |
 | 邊界 | 0cm |
 | 字型 | 標楷體 |
-| 特殊 | 雙聯（收據聯 + 存根聯），上下兩半 A4 |
+| 特殊 | 雙聯（收據聯 + 存根聯），上下兩半 A4；**每筆固定 2 頁**：第 2 頁為郵寄封面（Zipcode / Address / Name，16pt），地址空白也照樣輸出（維持舊系統頁數與送紙順序） |
 
 欄位：Name / Zipcode / Address / Fee / Number / Year / Month / Day（民國年月日）/ Prepay
+
+> ✅ **2026-07-18 客戶樣張座標校正**：客戶實印套版後在 `reference/收據.jpg` 手寫標註，第 1 頁四項位移已套用（上下聯同步）：Name 下移 0.2cm、Number 下移 0.8cm＋右移 1.0cm（原壓到預印「為」字）、Prepay 下移 0.3cm、年月日列下移 0.5cm。新座標值見 [printing-reports-positions.md §2 改版覆蓋註記](printing-reports-positions.md)；**待客戶實體套印複驗**。樣張大字「郵」為手工郵撥戳，非系統列印。
+>
+> ✅ **2026-07-18 四項修正**：(1) 客訴收據沒印封面——`ReceiptRenderer` 原本只畫第 1 頁上下聯，漏了 RDLC Tablix 59.4cm 的第二半（郵寄封面頁 Textbox22-24），已補第 2 頁（座標見 [printing-reports-positions.md §2 郵寄標籤區](printing-reports-positions.md)，Top 取原始值 −29.7cm）；Zipcode 用 `MailZipcode`、Address 用 `MailCity+MailZone+MailAddress`（同舊 SignupForm.cs:520-521，**收據是唯一用郵寄地址的報表**，資料卡/文牒用文牒地址）。(2) Year 原誤印西元年，已改民國年（`now.Year - 1911`，對齊舊 `taiwanCalendar.GetYear`）。(3) Fee 補千分位 `ToString("N0")`（舊 SignupForm.cs:522；印 `1,200`）。(4) Prepay 字樣改「預繳至X年Y」（舊 SignupForm.cs:527；先前為「預繳 X Y」）。回歸鎖 `RendererSmokeTests.Receipt_RendersPdf`（驗 2 頁）/ `Receipt_EmptyAddress_StillTwoPages` / `ReportNumberFormatTests.Receipt_prints_roc_year_month_day` / `Receipt_fills_mailing_cover_fields` / `Receipt_formats_fee_with_thousand_separator` / `Receipt_prepay_uses_legacy_wording`；目視 PDF 已存 `reference/output/receipt_with_cover.pdf`。
 
 ### 3. 薦牌（tmpTablet × 9 變體）
 
@@ -322,6 +328,8 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 舊系統用 Library.DrawText 生成 25×605 PNG 嵌入 RDLC。**新版同樣產 25×605 PNG**（`SkiaImageHelpers.VerticalAddress`，1:1 移植 Library.cs：中文直排、`[a-zA-Z0-9\-\(\)]` 旋轉 90°）再 embed — 因 QuestPDF 2026 收回 SkiaSharp Canvas API，無法直接畫旋轉文字。
 
 欄位：HallNameFirst / HallNameSecond / Number / 6×LivingName / 6×DeadName / 垂直地址圖
+
+> ✅ **2026-07-18 地址來源修正**：垂直地址改用**文牒地址**（`TextCity+TextZone+TextAddress`，舊 SignupForm.cs:350-352/608 兩路徑皆同）——新版先前誤用郵寄地址。回歸鎖 `Text_uses_text_address`。
 
 > **往生/陽上欄位的逐格絕對列印座標、列距、主欄**見 [printing-reports-positions.md § 12（tmpText）/ § 13（tmpTextTwo）](printing-reports-positions.md)：tmpText 往生 5 格矩陣列距 **2.06375cm**、陽上 **1.98436cm**；tmpTextTwo 恰 2 亡皆整欄高。此表為對位驗收與排查重疊的 single source of truth。
 

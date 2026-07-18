@@ -21,7 +21,8 @@ public sealed class QuestPdfReportRenderer(
 
     public byte[] RenderReceipt(ReceiptModel model)
         => receipt.Render(new ReceiptData(
-            model.Name, model.Fee, model.Number, model.Prepay,
+            model.Name, model.Zipcode, model.Address,
+            model.Fee, model.Number, model.Prepay,
             model.Year, model.Month, model.Day));
 
     public byte[] RenderTablet(TabletModel model, bool debugOverlay = false)

@@ -47,8 +47,13 @@ internal static class SignupReportContext
         };
     }
 
+    /// <summary>郵寄地址 — 僅收據封面用（SignupForm.cs:520-521）。</summary>
     public static string AddressOf(SignupListItem s)
         => string.Concat(s.MailCity ?? string.Empty, s.MailZone ?? string.Empty, s.MailAddress ?? string.Empty);
+
+    /// <summary>文牒地址 — 資料卡與文牒用（SignupForm.cs:233/350-352/502/608 兩報表皆取 Text*）。</summary>
+    public static string TextAddressOf(SignupListItem s)
+        => string.Concat(s.TextCity ?? string.Empty, s.TextZone ?? string.Empty, s.TextAddress ?? string.Empty);
 }
 
 /// <summary>
