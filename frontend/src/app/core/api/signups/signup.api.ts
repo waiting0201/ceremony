@@ -28,6 +28,7 @@ export class SignupApi {
     if (query.scopeLivingName) params = params.set('scopeLivingName', 'true');
     if (query.scopeDeadName) params = params.set('scopeDeadName', 'true');
     if (query.scopePhone) params = params.set('scopePhone', 'true');
+    if (query.scopeRemark) params = params.set('scopeRemark', 'true');
     if (query.isFixedNumber) params = params.set('isFixedNumber', 'true');
     return firstValueFrom(this.http.get<SignupListResponse>(this.base, { params }));
   }
