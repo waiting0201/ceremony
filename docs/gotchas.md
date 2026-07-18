@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-18 (追加：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
+last_updated: 2026-07-18 (追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
 ---
 
 ## 通用陷阱
@@ -24,6 +24,12 @@ last_updated: 2026-07-18 (追加：input[type=number] 丟棄 IME 組字無回饋
 - **特例**：qa-test-engineer **絕不**修改 code，只審查；要求其改 code 應改用 code-review-optimizer 或 backend/frontend agent
 
 ## 專案層級陷阱
+
+### 舊系統「只有 N 位」是 slot-based 逐槽判定，count-based 重寫會讓空洞資料整組消失（2026-07-18）
+- **症狀**：客訴「文牒往生者的部分沒有印出來」。常見資料（名字從第 1 格連續填）完全正常，開發自測不會踩到
+- **真因**：舊 SignupForm 模板選擇的「只有 2 位」實際是 `slot2 有值 && slot3~6 全空`（**不看 slot1、不數總數**）。新版 `PrintTemplateSelector` 曾「合理化」成 `Count(IsPresent)==2`——語意只在**無空洞**資料等價。名字只填第 3、4 格時 count=2 誤選 Two 變體，而 Two 變體只綁 slot 1/2 → 往生者整組沒印（薦牌同款邏輯一併中招，已同步修）
+- **修法**：`SlotTier` 逐槽判定復刻舊三段 if/else；回歸鎖 `PrintTemplateSelectorTests` slot-based 區塊
+- **預防**：復刻 legacy 條件時**逐字對照原 if 條件**，不可改寫成「等價的」聚合式（count/any/max）——等價性只對你想到的資料形狀成立。凡陣列欄位（名單 6 格）都要用「空洞資料」（只填中後段格）當測試 case
 
 ### `input[type=number]` 會把中文輸入法組字整段丟棄且無回饋 → 「沒辦法手動輸入」客訴（2026-07-18）
 - **症狀**：客訴報名維護批次列印起/迄「沒辦法手動輸入」。本機 Playwright 實測打字/貼上/全形/窄視窗全部正常、無法重現

@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-07-18 (收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
+last_updated: 2026-07-18 (文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 ---
 
 ## 背景與動機
@@ -127,6 +127,16 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 ### 測試
 
 `backend/tests/Ceremony.Infrastructure.Tests/Reporting/RendererSmokeTests.cs` — 9 Tablet 變體 + 2 Text 變體 + DataCard/Receipt/Worship + `VerticalText.Stack`（直書）+ `VerticalText.GroupFontPt`（整組統一字級，4 case）helper + `debugGrid` 校正格線 等；Infrastructure 全套 **69 綠**。
+
+### 文牒三項客訴修正（2026-07-18）
+
+客訴：「文牒往生者的部分沒有印出來；地址右移 0.4cm、字體加大；陽上跟往生者名字也加大，要比地址大」。
+
+1. **往生者沒印出來（根因）**：[PrintTemplateSelector](../../backend/src/Ceremony.Domain/Services/PrintTemplateSelector.cs) 的 `ChooseText`/`ChooseTablet` 曾誤實作成 **count-based**（`Count(IsPresent)==2` → Two），但舊系統是 **slot-based**（「只有 2 位」＝ slot 2 有值且 slot 3~6 全空，不看 slot 1、不數總數；SignupForm.cs:1164/1190/1350）。名字填在後面欄位（空洞資料，如只填第 3、4 格）時被誤判 2 位 → 選 Two 變體 → Two 變體只畫 slot 1/2 → **往生者整組消失**。修正：抽 `SlotTier` 逐槽判定（1＝slot1 有且後全空；2＝slot2 有且後全空；其餘 fallback），文牒/薦牌同步修（薦牌同款潛在雷）；緊湊資料（無空洞）行為不變。回歸鎖：`PrintTemplateSelectorTests` slot-based 區塊 5 case。
+2. **地址印在預印「臺灣」正下方＋加大**：三輪定位收斂——首輪依客訴右移 0.4cm（Left 25.8），二輪「蓋到臺灣」下移（Top 4.1 → **4.9**；「臺灣」PPM 逐像素量測 y 3.30~4.64cm，下緣 +0.26cm），三輪「向左移 0.4 在臺灣兩字下」移回 Left **25.4**（「臺灣」x 25.51~26.04 中心 25.775，帶 25.4~26.15 恰好水平置中；該欄 4.7cm 以下至頁底全空）；嵌入帶 W 0.66 → **0.75cm**、H 16.8 → **18.13cm**；`SkiaImageHelpers.VerticalAddress` canvas 25×605/字級 25px → **27×653/字級 27px**（整張 ×27/25 等比 → 每字約 0.75cm，原 0.66cm；容量維持 ~23 字——曾只放大字級不放大高度，24 字長地址尾端被裁）。四輪追加**兩欄折行**：超過單欄 ~23 字時平均拆兩欄（右欄先讀、多的字給右欄），canvas 63px／帶 1.75cm 往左擴、右欄固定「臺灣」正下方；回歸鎖 `Skia_VerticalAddress_LongAddress_WrapsToSecondColumnOnLeft`。
+3. **亡/陽姓名加大且比地址大**：`TextRenderer.NameBaseFontCm` 0.8 → **0.9cm**（起始基準，縮字邏輯不變；上限受欄距 0.91251cm 制約）。0.9 > 0.75 滿足「姓名比地址大」；姓名擁擠被 GroupFontPt 縮小時例外（版面物理限制，同 2026-07-02 修正的既有結論）。
+
+檢視 PDF（`reference/output/`，樣板疊圖）：`text_review_3d3l_overlay.pdf`（3 亡 3 陽常見情境）、`text_review_2d_overlay.pdf`（恰 2 亡 Two 變體）、`text_review_holes_overlay.pdf`（只填第 3、4 格——修正前整組消失的重現資料）、`text_review_longaddr_overlay.pdf`（24 字長地址容量驗證）。**待客戶實體套印複驗。**
 
 ### 文牒兩項客戶回饋修正（2026-07-02，源自 `reference/文牒問題.pdf` 手寫註記）
 

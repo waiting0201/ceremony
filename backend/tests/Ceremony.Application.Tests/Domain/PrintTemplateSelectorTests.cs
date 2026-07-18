@@ -132,6 +132,48 @@ public sealed class PrintTemplateSelectorTests
         t.ToString().Should().Be(expected);
     }
 
+    // === Slot-based（非 count-based）判定：名字填在後面欄位（有空洞）必落 fallback ===
+    // 2026-07-18 客訴根因回歸鎖：舊系統逐槽判定（slot 2 有且 3-6 空 → Two），曾誤實作成
+    // Count(IsPresent)==2 —— 只填第 3、4 格時誤選 Two 變體，而 Two 只畫 slot 1/2 → 往生者整組沒印。
+
+    [Fact]
+    public void Text_2dead_inSlots3And4_picks_Base_notTwo()
+    {
+        var t = PrintTemplateSelector.ChooseText(N(null, null, "亡丙", "亡丁"));
+        t.Should().Be(TextTemplate.Base, "Two 變體只畫 slot 1/2，空洞資料必須落 Base 逐槽全畫");
+    }
+
+    [Fact]
+    public void Text_slot2Filled_slot1Empty_picks_Two_likeLegacy()
+    {
+        // 舊 SignupForm.cs:1350 不看 slot 1：slot 2 有、3-6 空 → tmpTextTwo
+        PrintTemplateSelector.ChooseText(N(null, "亡乙")).Should().Be(TextTemplate.Two);
+    }
+
+    [Fact]
+    public void Tablet_2dead_inSlots3And4_picks_BaseFamily_notTwoFamily()
+    {
+        var (t, p) = PrintTemplateSelector.ChooseTablet(N(null, null, "亡丙", "亡丁"), N("子甲"));
+        t.Should().Be(TabletTemplate.UnderscoreOne, "空洞資料落 fallback 系列（逐槽全畫）");
+        p.Should().Be("0.6cm");
+    }
+
+    [Fact]
+    public void Tablet_1dead_inSlot2_picks_TwoFamily_likeLegacy()
+    {
+        // 舊系統第二段 else if 不看 slot 1：slot 2 有、3-6 空 → Two 系列
+        var (t, _) = PrintTemplateSelector.ChooseTablet(N(null, "亡乙"), N("子甲"));
+        t.Should().Be(TabletTemplate.TwoOne);
+    }
+
+    [Fact]
+    public void Tablet_livingInSlots2And3_fallsBackToUnsuffixed()
+    {
+        // 陽上同樣 slot-based：只填第 2、3 格 → 不是「2 位」→ 無後綴變體
+        var (t, _) = PrintTemplateSelector.ChooseTablet(N("陳大明"), N(null, "子乙", "子丙"));
+        t.Should().Be(TabletTemplate.One);
+    }
+
     // === Worship 6 variants ===
 
     [Fact]

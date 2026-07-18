@@ -681,6 +681,27 @@ public sealed class RendererSmokeTests
         Encoding.ASCII.GetString(png, 1, 3).Should().Be("PNG");
     }
 
+    // 2026-07-18 使用者指定：地址超過單欄容量（~23 字）折兩欄，第二欄接左邊（直書右欄先讀）。
+    // 鎖 canvas 寬度：短地址單欄（27px）、長地址兩欄（27*2+9px）；並驗證兩欄時左半邊真的有墨
+    // （避免「canvas 加寬了但字全擠在右欄」的靜默退化）。
+    [Fact]
+    public void Skia_VerticalAddress_LongAddress_WrapsToSecondColumnOnLeft()
+    {
+        using var one = SkiaSharp.SKBitmap.Decode(SkiaImageHelpers.VerticalAddress("台北市中山區民族東路161號5樓"));
+        one.Width.Should().Be(SkiaImageHelpers.AddressColWidthPx, "短地址維持單欄");
+
+        var longAddr = "南投縣竹山鎮延平里集山路三段1234巷56號7樓之2第五公寓"; // 29 字 > 單欄容量
+        longAddr.Length.Should().BeGreaterThan(SkiaImageHelpers.AddressCharsPerColumn);
+        using var two = SkiaSharp.SKBitmap.Decode(SkiaImageHelpers.VerticalAddress(longAddr));
+        two.Width.Should().Be(SkiaImageHelpers.AddressColWidthPx * 2 + SkiaImageHelpers.AddressColGapPx);
+
+        var leftInk = false;
+        for (var x = 0; x < SkiaImageHelpers.AddressColWidthPx && !leftInk; x++)
+            for (var y = 0; y < two.Height; y++)
+                if (two.GetPixel(x, y).Alpha != 0) { leftInk = true; break; }
+        leftInk.Should().BeTrue("折行的後半段字必須畫在左欄");
+    }
+
     // 客戶反映（reference/文牒問題.pdf 手寫註記）文牒垂直地址列印偏灰，要求「再黑一點」。
     // 根因：抗鋸齒邊緣像素在 25px 窄欄小字級下佔比高，視覺變淡灰。改 Edging=Alias +
     // IsAntialias=false 後，每個有畫到的像素理應為純黑（alpha=255 的像素其 RGB 必為 0,0,0），

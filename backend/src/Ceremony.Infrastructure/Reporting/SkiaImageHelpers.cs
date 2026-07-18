@@ -8,7 +8,7 @@ namespace Ceremony.Infrastructure.Reporting;
 /// <remarks>
 /// 兩個用途：
 /// (1) <see cref="VerticalAddress"/> — 1:1 移植舊系統 reference/old/Ceremony/Commons/Library.cs:34-124
-///     （原 System.Drawing，非跨平台）；文牒 PhotoAddress 垂直地址 25×605px 透明 PNG。
+///     （原 System.Drawing，非跨平台）；文牒 PhotoAddress 垂直地址 27×653px 透明 PNG。
 /// (2) <see cref="DashedLine"/> — DataCard Line2 虛線；QuestPDF 2026 已收回 SkiaSharp 公開 Canvas API，
 ///     故改以小張虛線 PNG 嵌入。
 ///
@@ -38,25 +38,54 @@ internal static class SkiaImageHelpers
         return SKTypeface.FromFamilyName(FontFamily) ?? SKTypeface.Default;
     }
 
+    // 文牒垂直地址 canvas 規格。欄寬 = 字級；欄距 9px（0.25cm）在兩欄折行時使用。
+    // 與文牒嵌入帶等比：27px ↔ 0.75cm（見 TextRenderer PhotoAddress 段）。
+    internal const int AddressColWidthPx = 27;
+    internal const int AddressColGapPx = 9;
+    internal const int AddressColHeightPx = 653;
+    private const float AddressFontSize = 27f;
+
+    /// <summary>單欄可容納字數（步進 = 行高 ≈ 1.02 字級 → 23 字）。TextRenderer 判斷帶寬也用它。</summary>
+    internal static int AddressCharsPerColumn
+    {
+        get
+        {
+            using var font = new SKFont(KaiTypeface, AddressFontSize);
+            var m = font.Metrics;
+            return Math.Max(1, (int)(AddressColHeightPx / (m.Descent - m.Ascent)));
+        }
+    }
+
+    /// <summary>超過單欄容量折兩欄（2026-07-18 使用者指定「太長的到左邊二行」）；再長仍兩欄（尾端裁切，46+ 字才會發生）。</summary>
+    internal static int AddressColumns(string? text)
+        => string.IsNullOrEmpty(text) || text.Length <= AddressCharsPerColumn ? 1 : 2;
+
     /// <summary>
-    /// 產垂直地址 PNG（25×605px 透明）。中文直排；英數 / dash / 括號旋轉 90°。
+    /// 產垂直地址 PNG（透明底）。中文直排；英數 / dash / 括號旋轉 90°。
     /// 對齊 Library.cs：判定 <c>^[a-zA-Z0-9\-\(\)]$</c> 旋轉、其餘直排；逐字往下堆疊。
+    /// 2026-07-18 客訴「文牒地址字要加大」：canvas 25×605/字級 25 → 27×653/字級 27（整張等比
+    /// ×27/25）——與文牒嵌入帶等比，FitArea 後每字約 0.75cm（原 0.66cm）；
+    /// 高度跟著字級放大，可容納字數維持 ~23（曾只放大字級不放大高度 → 24 字長地址尾端被裁）。
+    /// 同日追加兩欄折行（使用者指定）：超過單欄容量時平均拆兩欄（多的字給先讀的右欄），直書閱讀
+    /// 順序右欄→左欄，canvas 寬變 2 欄＋欄距（63px），由 <see cref="AddressColumns"/> 告知
+    /// TextRenderer 同步加寬嵌入帶、往左擴（右欄固定在預印「臺灣」正下方）。
     /// </summary>
     public static byte[] VerticalAddress(string? text)
     {
-        const int width = 25;
-        const int height = 605;
-        const float fontSize = 25f;
         text ??= string.Empty;
+
+        var columns = AddressColumns(text);
+        var width = columns == 1 ? AddressColWidthPx : AddressColWidthPx * 2 + AddressColGapPx;
+        var height = AddressColHeightPx;
 
         using var bitmap = new SKBitmap(width, height, SKColorType.Rgba8888, SKAlphaType.Premul);
         using var canvas = new SKCanvas(bitmap);
         canvas.Clear(SKColors.Transparent);
 
-        // Edging=Alias（不抗鋸齒）：抗鋸齒的邊緣半透明像素在這種窄欄（25px 寬）小字級下佔比高，
+        // Edging=Alias（不抗鋸齒）：抗鋸齒的邊緣半透明像素在這種窄欄（27px 寬）小字級下佔比高，
         // 疊加印表機網點後視覺上明顯偏灰，客戶反映「地址字要再黑一點」。改無鋸齒後每個像素非黑即透明，
         // 列印出來才是實黑（同 DashedLine 既有的 IsAntialias=false 選擇）。
-        using var font = new SKFont(KaiTypeface, fontSize) { Edging = SKFontEdging.Alias };
+        using var font = new SKFont(KaiTypeface, AddressFontSize) { Edging = SKFontEdging.Alias };
         using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = false };
 
         var metrics = font.Metrics;
@@ -69,25 +98,29 @@ internal static class SkiaImageHelpers
         // 若再照搬「−9」會變 16.6px < 字面 23px → 字會疊在一起（黏住）。故直接用行高當步進。
         var step = glyphHeight;
 
-        float y = 0f;
-        foreach (var c in text)
+        // 平均拆欄（單欄時全給右欄）：右欄先讀、多的字給右欄，兩欄頂端對齊。
+        var rightCount = columns == 1 ? text.Length : (text.Length + 1) / 2;
+
+        for (var i = 0; i < text.Length; i++)
         {
-            if (y > height) break;
+            var inRight = i < rightCount;
+            var colCenterX = inRight ? width - AddressColWidthPx / 2f : AddressColWidthPx / 2f;
+            var y = (inRight ? i : i - rightCount) * step;
+            if (y > height) continue; // 超出欄高的字略過（46+ 字才會發生），不可 break——右欄溢出時左欄還要畫
+            var c = text[i];
             var s = c.ToString();
 
             if (IsRotatedChar(c))
             {
                 canvas.Save();
-                canvas.Translate(width / 2f, y + glyphHeight / 2f);
+                canvas.Translate(colCenterX, y + glyphHeight / 2f);
                 canvas.RotateDegrees(90);
                 canvas.DrawText(s, 0f, midOffset, SKTextAlign.Center, font, paint);
                 canvas.Restore();
-                y += step;
             }
             else
             {
-                canvas.DrawText(s, width / 2f, y - metrics.Ascent, SKTextAlign.Center, font, paint);
-                y += step;
+                canvas.DrawText(s, colCenterX, y - metrics.Ascent, SKTextAlign.Center, font, paint);
             }
         }
 

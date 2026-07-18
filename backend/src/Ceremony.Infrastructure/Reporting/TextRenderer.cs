@@ -12,8 +12,11 @@ namespace Ceremony.Infrastructure.Reporting;
 /// <remarks>
 /// 頁面 36.5×26.2cm 橫向超寬。2 變體：tmpTextTwo（恰好 2 亡）/ tmpText（其他）。
 /// DeadName 在 RDLC 內以 Rectangle2 群組，座標已換算成絕對值（Rect 原點 + 相對位移）。
-/// PhotoAddress 為 25×605px 直書地址 PNG（SkiaSharp 移植自 Library.DrawText），嵌入 0.66×16.8cm 窄帶。
-/// 字型固定 BiauKai；DeadName / LivingName 0.8cm、HallName 0.6cm VAlign=Middle、Number 1cm Bold。
+/// PhotoAddress 為 27×653px 直書地址 PNG（SkiaSharp 移植自 Library.DrawText），嵌入 0.75×18.13cm 窄帶。
+/// 字型固定 BiauKai；DeadName / LivingName 0.9cm、HallName 0.6cm VAlign=Middle、Number 1cm Bold。
+/// 2026-07-18 客訴調整（刻意偏離 RDLC 原 0.8cm/0.66cm）：地址加大（0.66→0.75cm）＋下移 0.8cm
+/// （Top 4.9，印在預印「臺灣」正下方、水平置中）、亡/陽姓名加大（0.8→0.9cm，仍 &lt; 欄距 0.91251
+/// 不重疊），且姓名必須比地址大。
 /// </remarks>
 public sealed class TextRenderer
 {
@@ -21,6 +24,10 @@ public sealed class TextRenderer
     private const double PointsPerCm = 28.3464567;
     private const double PageWidthCm = 36.5;
     private const double PageHeightCm = 26.2;
+
+    // 亡/陽姓名起始字級（cm）。RDLC 原 0.8，2026-07-18 依客訴加大；上限受欄距 0.91251cm 制約
+    // （直書字寬≈字級，再大會蓋到隔壁欄），且必須維持 > 地址字級（0.75cm）。
+    private const double NameBaseFontCm = 0.9;
 
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
@@ -60,9 +67,10 @@ public sealed class TextRenderer
                     DrawText(layers, 2.1, 11.5, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameSecond, vMiddle: true);
                     DrawText(layers, 2.1, 13.53753, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameFirst, vMiddle: true);
 
-                    // LivingNames 5 位（0.8cm）— tmpText.rdlc；矩陣上排(Top15.2748)→下排(Top17.25916)
-                    // 列距 1.98436cm。統一字級（整組同大小、最擠的塞得下才不重疊）；上排僅當下方有名字才以列距為界。
-                    var pt08l = 0.8 * PointsPerCm;
+                    // LivingNames 5 位（0.9cm，2026-07-18 客訴加大）— tmpText.rdlc；矩陣上排(Top15.2748)
+                    // →下排(Top17.25916) 列距 1.98436cm。統一字級（整組同大小、最擠的塞得下才不重疊）；
+                    // 上排僅當下方有名字才以列距為界。
+                    var pt08l = NameBaseFontCm * PointsPerCm;
                     const double livingPitch = 17.25916 - 15.2748; // 1.98436
                     const double livingFull = 6.72806;
                     var lv = data.LivingNames;
@@ -80,20 +88,36 @@ public sealed class TextRenderer
                     DrawText(layers, 17.25916, 20.0488, 0.91251, livingFull, fl, lv[4], vertical: true);
                     DrawText(layers, 17.25916, 21.87382, 0.91251, livingFull, fl, lv[5], vertical: true); // Six（補：下排右欄，主欄正下方）
 
-                    // DeadName（Rectangle2 群組，絕對座標 = Rect 原點 + 相對；0.8cm）。
+                    // DeadName（Rectangle2 群組，絕對座標 = Rect 原點 + 相對；0.9cm）。
                     // 往生／陽上**各自獨立**算安全字級（見 ComputeDeadFontPt 註解）——兩者共用同一個
-                    // 0.8cm 起始基準，姓名不多時自然一樣大；只有當某一組自己排不下時才會各自縮小，
+                    // 0.9cm 起始基準，姓名不多時自然一樣大；只有當某一組自己排不下時才會各自縮小，
                     // 不會因為另一組縮小而連帶被拖小（見 docs/gotchas.md「往生字級被拖累」條）。
                     DrawDeadNames(layers, data, ComputeDeadFontPt(data));
 
-                    // PhotoAddress（垂直地址 PNG，Top 4.1 Left 25.4 W 0.66 H 16.8 FitProportional）
+                    // PhotoAddress（垂直地址 PNG）。RDLC 原 Top 4.1 Left 25.4 W 0.66 H 16.8；
+                    // 2026-07-18 客訴：字加大——帶寬 0.66→0.75cm，搭配 VerticalAddress canvas
+                    // 27×653px（27/653 ≈ 0.75/18.13，等比→FitArea 不再被高度壓小），每字約 0.75cm
+                    // （仍 < 姓名 0.9cm）。
+                    // 同日二、三輪使用者回饋定位：印在預印「臺灣」二字正下方——Top 4.1→4.9（「臺灣」
+                    // 疊圖量測 y 3.30~4.64cm，下緣 +0.26cm 安全距）；Left 維持 25.4（曾右移 0.4 又移回：
+                    // 「臺灣」x 25.51~26.04 中心 25.775，帶 25.4~26.15 恰好置中）。帶高 16.8→18.13
+                    // （canvas 高同步 ×27/25，維持 ~23 字容量；帶尾 23.03cm，該欄 4.7cm 以下至頁底無預印字）。
+                    // 同日四輪：超過單欄容量折兩欄（右欄先讀、平均拆），帶依 canvas 欄數等比加寬並
+                    // **往左擴**——右欄固定在「臺灣」正下方（右緣恆 26.15cm）；左欄區 x 24.4~25.15
+                    // 在 y≈22.5cm 前無預印字（22.8 起是「人氏奉」尾字，45+ 字極端地址才可能碰到）。
                     if (!string.IsNullOrEmpty(data.Address))
                     {
+                        const double pxToCm = 0.75 / SkiaImageHelpers.AddressColWidthPx; // 等比：27px ↔ 0.75cm
+                        var bandW = (SkiaImageHelpers.AddressColumns(data.Address) == 1
+                            ? SkiaImageHelpers.AddressColWidthPx
+                            : SkiaImageHelpers.AddressColWidthPx * 2 + SkiaImageHelpers.AddressColGapPx) * pxToCm;
+                        const double bandRight = 25.4 + 0.75; // 右緣固定（單欄時 Left = 25.4 不變）
+
                         layers.Layer()
-                            .TranslateX(25.4f, Unit.Centimetre)
-                            .TranslateY(4.1f, Unit.Centimetre)
-                            .Width(0.66f, Unit.Centimetre)
-                            .Height(16.8f, Unit.Centimetre)
+                            .TranslateX((float)(bandRight - bandW), Unit.Centimetre)
+                            .TranslateY(4.9f, Unit.Centimetre)
+                            .Width((float)bandW, Unit.Centimetre)
+                            .Height(18.13f, Unit.Centimetre)
                             .Image(SkiaImageHelpers.VerticalAddress(data.Address)).FitArea();
                     }
                 });
@@ -102,13 +126,13 @@ public sealed class TextRenderer
     }
 
     /// <summary>
-    /// DeadName 群組「自己不重疊」的安全上限字級。與 LivingName 各自獨立計算（同一 0.8cm 基準），
+    /// DeadName 群組「自己不重疊」的安全上限字級。與 LivingName 各自獨立計算（同一 0.9cm 基準），
     /// **不跨組對齊**：往生名字多、擠到需要縮小時，只縮往生自己，陽上不會被拖著一起縮小
     /// （曾經加過跨組取最小值對齊、已撤回，見 docs/gotchas.md）。
     /// </summary>
     private static double ComputeDeadFontPt(TextData data)
     {
-        var pt08 = 0.8 * PointsPerCm;
+        var pt08 = NameBaseFontCm * PointsPerCm;
         var d = data.DeadNames;
         if (data.Template == TextTemplate.Two)
         {

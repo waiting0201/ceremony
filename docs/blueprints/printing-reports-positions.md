@@ -12,7 +12,7 @@ related_docs:
   - ../design/visual-design.md
   - ../workflows/qa-testing.md
 keywords: [rdlc, 位置, position, layout, 座標, 列印, 套印, tablet, worship, datacard, receipt, text, 嚴格, strict, 1:1]
-last_updated: 2026-07-18 (§2 收據客戶樣張校正覆蓋：Name+0.2/Number+0.8右+1.0/Prepay+0.3/年月日+0.5cm 上下聯同步（reference/收據.jpg 手寫註記），待實體複驗；同日盲點 10「Fee 無千分位」更正為寫反——舊收據實為 ToString("N0") 有千分位，新版已對齊；同日 §14 普桌六位客訴置中：6 欄 Left 統一 +0.1786cm 對齊葫蘆中軸 10.039；先前 §3 薦牌 3+ 亡/3-6 陽矩陣改「方框內動態排版」＋編號 Left 0.5、§20 普桌資料卡 worshipcard)
+last_updated: 2026-07-18 (§12/§13 文牒客訴三項＋二輪：DeadName/LivingName 0.8→0.9cm、PhotoAddress 置中「臺灣」正下方（Left 25.4/Top 4.9）/帶 0.75×18.13cm/canvas 27×653px、姓名>地址；§模板選擇邏輯補「只有 N 位＝slot-based 非 count-based」釐清——count 誤實作致空洞資料往生者沒印（客訴根因）；同日稍早 §2 收據客戶樣張校正覆蓋：Name+0.2/Number+0.8右+1.0/Prepay+0.3/年月日+0.5cm 上下聯同步（reference/收據.jpg 手寫註記），待實體複驗；同日盲點 10「Fee 無千分位」更正為寫反——舊收據實為 ToString("N0") 有千分位，新版已對齊；同日 §14 普桌六位客訴置中：6 欄 Left 統一 +0.1786cm 對齊葫蘆中軸 10.039；先前 §3 薦牌 3+ 亡/3-6 陽矩陣改「方框內動態排版」＋編號 Left 0.5、§20 普桌資料卡 worshipcard)
 ---
 
 ## 📌 適用範圍（2026-05-27 補充）
@@ -353,6 +353,12 @@ last_updated: 2026-07-18 (§2 收據客戶樣張校正覆蓋：Name+0.2/Number+0
 
 **頁面**：36.5cm × 26.2cm
 
+> **⚠️ 2026-07-18 客訴核可偏差（文牒專屬，覆蓋本節與 §13 的 RDLC 原值）**：
+> 1. **DeadName / LivingName 字級 0.8cm → 0.9cm**（起始基準；縮字邏輯不變）。上限受欄距 0.91251cm 制約，再大直書字寬會蓋到隔壁欄。
+> 2. **PhotoAddress 印在預印「臺灣」正下方＋加大**：Left 維持 **25.40**（曾右移 0.4 又依使用者回饋移回；「臺灣」疊圖量測 x 25.51~26.04 中心 25.775，帶 25.40~26.15 恰好水平置中）、Top 4.10 → **4.90**（原位蓋到「臺灣」y 3.30~4.64cm，下移至下緣 +0.26cm）；嵌入帶 W 0.66 → **0.75cm**、H 16.8 → **18.13cm**，PNG canvas 25×605 → **27×653px**（整張 ×27/25 等比，FitArea 後每字約 0.75cm、容量維持 ~23 字；帶尾 23.03cm，該欄 4.7cm 以下至頁底無預印字）。**超過單欄容量折兩欄**（使用者指定「太長的到左邊二行」）：平均拆、右欄先讀，canvas 寬 27×2+9=63px、帶寬 1.75cm 往左擴（右緣恆 26.15cm、右欄仍在「臺灣」正下方；左欄區 x 24.4~25.15 在 y≈22.5cm 前無預印字）。
+> 3. 客戶指定次序：**姓名必須比地址大**（0.9 > 0.75 ✓；姓名擁擠被縮小時例外，屬版面物理限制）。
+> 下表保留 RDLC 原值不改寫（考據用），實作以本註記為準。
+
 | Name | 綁定 | Top | Left | Width | Height | FontSize |
 |---|---|---|---|---|---|---|
 | Number | =Fields!Number.Value | 3.80 | 31.497 | 4.749 | 1.103 | 1cm Bold |
@@ -535,6 +541,13 @@ Number  寬 = 8.903 × Sx（Bold Center，字級 2cm×Sf）
 **這不是推測 — 是 code ground truth**。新版實作必須完全複製此邏輯，不可優化、不可合併變體。
 
 「N 位」判定條件：`name != null && name.Trim() != ""`。「無第 N+1 位」條件：`name == null || name.Trim() == ""`。
+
+> **⚠️ 「只有 N 位」是 slot-based 速記，不是 count-based（2026-07-18 客訴修正，勿再誤讀）**：
+> 舊 code 的「只有 1 位」＝「slot 1 有值 **且 slot 2~6 全空**」；「只有 2 位」＝「slot 2 有值**且 slot 3~6 全空**」
+> （**不檢查 slot 1**、也不數非空總數）。名字填在後面欄位（有空洞，如只填第 3、4 格）一律落 fallback
+> 分支，由 Base 系列模板逐槽全畫。新版曾誤實作成 `Count(IsPresent)==N`——只填第 3、4 格時被誤判
+> 「2 位」選 Two 變體，而 Two 變體只綁 slot 1/2 → **往生者整組沒印出來**（文牒客訴根因）。
+> 實作見 `PrintTemplateSelector.SlotTier`；回歸鎖在 `PrintTemplateSelectorTests` slot-based 區塊。
 
 ### Tablet 系列（PrintTablet）— 9 個變體選擇
 
