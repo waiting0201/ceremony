@@ -52,19 +52,11 @@
   }
 }
 
-// 地址：寄件／文牒並排半欄，取代原本上下兩段堆疊（省約一半高度）
+// 地址：寄件在上、文牒在下（2026-07-18 客訴，改回上下堆疊）
 .addr-cols {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-sm);
-
-  // 文牒側少一列（無「同寄件地址」checkbox）：不設 start 會被 stretch 均分列高，
-  // 導致文牒地址往下漂、對不齊左側寄件地址
-  > .grid { align-content: start; }
-
-  @media (max-width: 560px) {
-    grid-template-columns: minmax(0, 1fr);
-  }
 }
 
 // 表單內所有控件填滿欄寬且含 border 不溢出（全域 .field 未設 box-sizing/width）
@@ -106,5 +98,4 @@
       font-family: inherit;
     }
   }
-  &.dead .name-grid input { background: var(--c-dead-name-bg); }
 }

@@ -218,7 +218,7 @@
     <div class="col">
       <!-- 名單：往生在上、陽上在下（對齊舊 Designer 版面）；往生欄不加背景色（舊系統兩者皆無 BackColor） -->
       <fieldset class="block names" formArrayName="deadNames">
-        <legend>往生名單（最多 6 位）</legend>
+        <legend>往生名單</legend>
         <div class="name-grid">
           @for (ctrl of deadArray.controls; track $index) {
             <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
@@ -227,7 +227,7 @@
       </fieldset>
 
       <fieldset class="block names" formArrayName="livingNames">
-        <legend>陽上名單（最多 6 位）</legend>
+        <legend>陽上名單</legend>
         <div class="name-grid">
           @for (ctrl of livingArray.controls; track $index) {
             <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />

@@ -4,7 +4,7 @@
 
 <form [formGroup]="form" (ngSubmit)="onSubmitFromForm()" class="believer-form">
   <!-- 雙欄密集排版節省高度（2026-07-04，比照 signup-edit-form，避免 overlay 垂直捲動）：
-       左欄 基本資料→地址（寄件／文牒並排半欄），右欄 陽上→往生名單。
+       左欄 基本資料→地址（寄件在上、文牒在下），右欄 往生→陽上名單（2026-07-18 客訴，對齊報名表單）。
        Tab 順序＝DOM 順序＝左欄由上到下再右欄由上到下。 -->
   <div class="form-cols">
     <div class="col">
@@ -38,7 +38,7 @@
         </div>
       </fieldset>
 
-      <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 WinForms 信眾表單）；寄件／文牒並排半欄節省高度 -->
+      <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 WinForms 信眾表單）；寄件在上、文牒在下（2026-07-18 客訴） -->
       <fieldset class="block">
         <legend>地址</legend>
         <div class="addr-cols">
@@ -103,20 +103,20 @@
     </div>
 
     <div class="col">
-      <fieldset class="block names" formArrayName="livingNames">
-        <legend>陽上名單（最多 6 位）</legend>
+      <fieldset class="block names" formArrayName="deadNames">
+        <legend>往生名單</legend>
         <div class="name-grid">
-          @for (ctrl of livingArray.controls; track $index) {
-            <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />
+          @for (ctrl of deadArray.controls; track $index) {
+            <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
           }
         </div>
       </fieldset>
 
-      <fieldset class="block names dead" formArrayName="deadNames">
-        <legend>往生名單（最多 6 位）</legend>
+      <fieldset class="block names" formArrayName="livingNames">
+        <legend>陽上名單</legend>
         <div class="name-grid">
-          @for (ctrl of deadArray.controls; track $index) {
-            <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
+          @for (ctrl of livingArray.controls; track $index) {
+            <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />
           }
         </div>
       </fieldset>
