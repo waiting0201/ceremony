@@ -12,7 +12,7 @@ related_docs:
   - ../design/visual-design.md
   - ../workflows/qa-testing.md
 keywords: [rdlc, 位置, position, layout, 座標, 列印, 套印, tablet, worship, datacard, receipt, text, 嚴格, strict, 1:1]
-last_updated: 2026-07-18 (§12/§13 文牒客訴三項＋二輪：DeadName/LivingName 0.8→0.9cm、PhotoAddress 置中「臺灣」正下方（Left 25.4/Top 4.9）/帶 0.75×18.13cm/canvas 27×653px、姓名>地址；§模板選擇邏輯補「只有 N 位＝slot-based 非 count-based」釐清——count 誤實作致空洞資料往生者沒印（客訴根因）；同日稍早 §2 收據客戶樣張校正覆蓋：Name+0.2/Number+0.8右+1.0/Prepay+0.3/年月日+0.5cm 上下聯同步（reference/收據.jpg 手寫註記），待實體複驗；同日盲點 10「Fee 無千分位」更正為寫反——舊收據實為 ToString("N0") 有千分位，新版已對齊；同日 §14 普桌六位客訴置中：6 欄 Left 統一 +0.1786cm 對齊葫蘆中軸 10.039；先前 §3 薦牌 3+ 亡/3-6 陽矩陣改「方框內動態排版」＋編號 Left 0.5、§20 普桌資料卡 worshipcard)
+last_updated: 2026-07-18 (§1 資料卡客訴改版：template 由程式全印——新增 DrawTemplate 元素座標表（標題/簽名底線/窗框/故靈位，樣板墨跡量測、誤差≤0.05cm），內容欄位與亡者矩陣硬邊界不變；§12/§13 文牒客訴三項＋二輪：DeadName/LivingName 0.8→0.9cm、PhotoAddress 置中「臺灣」正下方（Left 25.4/Top 4.9）/帶 0.75×18.13cm/canvas 27×653px、姓名>地址；§模板選擇邏輯補「只有 N 位＝slot-based 非 count-based」釐清——count 誤實作致空洞資料往生者沒印（客訴根因）；同日稍早 §2 收據客戶樣張校正覆蓋：Name+0.2/Number+0.8右+1.0/Prepay+0.3/年月日+0.5cm 上下聯同步（reference/收據.jpg 手寫註記），待實體複驗；同日盲點 10「Fee 無千分位」更正為寫反——舊收據實為 ToString("N0") 有千分位，新版已對齊；同日 §14 普桌六位客訴置中：6 欄 Left 統一 +0.1786cm 對齊葫蘆中軸 10.039；先前 §3 薦牌 3+ 亡/3-6 陽矩陣改「方框內動態排版」＋編號 Left 0.5、§20 普桌資料卡 worshipcard)
 ---
 
 ## 📌 適用範圍（2026-05-27 補充）
@@ -130,7 +130,21 @@ last_updated: 2026-07-18 (§12/§13 文牒客訴三項＋二輪：DeadName/Livin
 > - `HallName` / `txtTitleDeadName` / `DeadNameOne~Five`（橫式 5 欄）/ `Line2`：**已移除**，不再繪製
 > - **2026-07-05 改版**：亡者姓名改成跟 [TabletRenderer.DrawDeadNames](../../backend/src/Ceremony.Infrastructure/Reporting/TabletRenderer.cs) default 分支一樣的 2×3 矩陣（取代前一版單欄「、」串接）：1st 中間上、2nd 右邊上、3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下。`topRowY=5.7388`（"故" 下緣 5.6388 再往下 0.1cm）、`rowPitch=2.6`、`bottomRowY=8.3388`、`fullHeight≈2.9039`（到「靈」字上緣 11.4427 扣 0.2 安全邊界）；X 座標 `centerX=16.185`（前一版單欄置中值 16.285 再往左 0.1cm）、`leftX/rightX = centerX∓0.75`；**字級基準降到 0.6cm**（原 0.8cm 在窗框內 3 欄會擠到看起來像連在一起，`GroupFontPt` 只會縮不會放大，故降低 base 才留得出欄距）
 > - `txtPrepay`／`txtPhone`：不變，沿用上表座標（跟樣板量測值誤差 <0.35cm，視為已對齊；電話使用者未要求調整位置，但 2026-07-05 對齊方式仍改為對齊標題上緣，見下）
-> - **2026-07-03 追加**：`txtTitleLivingName`（"陽上："）／`txtTitleAddress`（"地址："）／`txtTitlePhone`（"電話："）／`txtTitleRemark`（"備註："）／`Textbox13`（"確認無誤請簽名："）／`Line1`（簽名底線）：**全部移除，不再繪製**——樣板紙本身已預印這些標題文字與簽名底線，程式重畫會造成肉眼可見的雙重疊字。程式只印欄位「內容」，位置對齊各標題右側原本留給內容的 Left 座標
+> - **2026-07-03 追加**（⚠️ 已被 2026-07-18 客訴改版推翻，見下）：`txtTitleLivingName`（"陽上："）／`txtTitleAddress`（"地址："）／`txtTitlePhone`（"電話："）／`txtTitleRemark`（"備註："）／`Textbox13`（"確認無誤請簽名："）／`Line1`（簽名底線）：**全部移除，不再繪製**——樣板紙本身已預印這些標題文字與簽名底線，程式重畫會造成肉眼可見的雙重疊字。程式只印欄位「內容」，位置對齊各標題右側原本留給內容的 Left 座標
+> - **2026-07-18 客訴：`txtNumber` Top `0.538 → 1.038`（往下 0.5cm，Left/字級不變）**
+> - **2026-07-18 客訴改版：template 由程式全印**（使用者要求「資料卡的列印需要把 template 都印出來」，白紙即可列印，不再假設預印樣板紙）。`DataCardRenderer.DrawTemplate` 在生產路徑繪製下表元素，座標＝`reference/template/資料卡.jpg`（烘焙轉正 1653×1165 @200 DPI）墨跡量測值；渲染後像素量測 vs 樣板掃描逐項誤差 ≤0.05cm。**內容欄位座標與亡者矩陣硬邊界（「故」下緣 5.6388／「靈」上緣 11.4427）完全不變**：
+>
+>   | 元素 | Top | Left | 字級/尺寸 | 備註 |
+>   |---|---|---|---|---|
+>   | "陽上：" | 2.690 | 2.121 | 0.7cm | Top＝內容欄「標題上緣」既有對齊值 |
+>   | "地址：" | 6.4135 | 2.096 | 0.7cm | 同上 |
+>   | "電話：" | 8.8392 | 2.134 | 0.6cm | 同上 |
+>   | "備註：" | 9.8679 | 2.083 | 0.6cm | 同上 |
+>   | "確認無誤請簽名：" | 13.208 | 2.057 | 0.75cm | |
+>   | 簽名底線 | 13.855 | 8.23 | 長 4.06cm、0.8pt | 樣板 x 8.23~12.29 / y≈13.87 |
+>   | 窗框矩形 | 4.394 | 14.973 | 3.010×9.652cm、0.8pt 框線 | 樣板外緣 x 14.973~17.983 / y 4.394~14.046 |
+>   | "故" | 4.585 | 中軸 16.478 置中 | 1.10cm | 墨跡下緣 5.626 ≈ 樣板 5.6388（硬邊界） |
+>   | "靈位"（直書） | 11.33 | 中軸 16.478 置中 | 1.10cm、LineHeight 1.13 | 墨跡「靈」上緣 11.468 ≈ 樣板 11.4427、「位」下緣 13.691 ≈ 樣板 13.7414 |
 > - **2026-07-04 使用者指定版面調整**：
 >   - `LivingNameOne~Five` 改 3 排 × 2 欄（原 2 排較擠）：`LivingNameOne` 第一排 `Top=2.690 Left=4.328`；`LivingNameTwo`／`LivingNameFour` 第二排前/後 `Top=3.643 Left=4.328／9.986`；`LivingNameThree`／`LivingNameFive` 第三排前/後 `Top=4.596 Left=4.328／9.986`；每格 `Width=4.8`（6 字寬，`0.8cm×6`），後欄結束於 14.786，避開窗框（`Left=14.986` 起）
 > - **2026-07-05 改版（取代 2026-07-04 用位移量推算的座標）**：`txtAddress`／`txtPhone`／`txtRemark` 的上下對齊方式改參照陽上——直接對齊樣板量到的標題文字「上緣」：`txtAddress Top=6.4135`、`txtPhone Top=8.8392`、`txtRemark Top=9.8679`。`txtAddress`／`txtRemark` 的 `Width` 收到 `10.4`（避開窗框 `Left=14.986`），不設 `.Height()` 過長自動換行；`txtPhone` 寬度不變（電話通常短，實務上不會碰到窗框）

@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-07-18 (文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
+last_updated: 2026-07-18 (資料卡客訴改版：template 由程式全印——§1 DrawTemplate 畫標題/簽名底線/窗框/故靈位，白紙可印、內容座標不動、亡者矩陣硬邊界不變，回歸鎖 DataCard_EmptyContent_StillPrintsTemplate；同日文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 ---
 
 ## 背景與動機
@@ -218,7 +218,7 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 - 陽上／地址／電話／備註／簽名：陽上整段（含 2 排）依樣板量到的 Top≈2.69cm 上移（其餘列距不變）；地址/電話/備註/簽名原本座標跟樣板量測值已經很接近（誤差 <0.35cm），沿用不動
 - 原本分隔「亡者」跟「陽上」的虛線（Line2）已移除——樣板該位置本來就沒有印線，亡者欄拿掉後這條線也失去意義
 
-**2026-07-03 追加：拿掉重複標題**。疊圖後發現「陽上：」「地址：」「電話：」「備註：」「確認無誤請簽名：」樣板紙本身就已經預印這些欄位標題（跟簽名底線），程式又在幾乎同一位置重畫一次同樣的文字，肉眼看起來是淡淡的疊字/雙重印。使用者確認樣板已有標題，**程式不再印任何標題文字，只印欄位內容**（Left 座標維持在標題右側原本留給內容的位置不變）：拿掉 5 個標題 `DrawText` 呼叫、拿掉整個 `Line1`（簽名底線，樣板已印）；連帶清掉這之後就沒人用的 `DrawLine` method 與 `DrawText` 的 `vAlign`/`VerticalAlign` 參數（原本只有簽名標題那行用 `Bottom`，拿掉後全部呼叫都是預設 `Top`，簡化掉未使用的分支）。
+**2026-07-03 追加：拿掉重複標題**（⚠️ **已被 2026-07-18 client 要求推翻，見 §1 客訴改版**——template 改由程式全印，標題/底線/窗框以樣板量測座標重新畫回 `DrawTemplate`；本段保留供追溯當時決策）。疊圖後發現「陽上：」「地址：」「電話：」「備註：」「確認無誤請簽名：」樣板紙本身就已經預印這些欄位標題（跟簽名底線），程式又在幾乎同一位置重畫一次同樣的文字，肉眼看起來是淡淡的疊字/雙重印。使用者確認樣板已有標題，**程式不再印任何標題文字，只印欄位內容**（Left 座標維持在標題右側原本留給內容的位置不變）：拿掉 5 個標題 `DrawText` 呼叫、拿掉整個 `Line1`（簽名底線，樣板已印）；連帶清掉這之後就沒人用的 `DrawLine` method 與 `DrawText` 的 `vAlign`/`VerticalAlign` 參數（原本只有簽名標題那行用 `Bottom`，拿掉後全部呼叫都是預設 `Top`，簡化掉未使用的分支）。
 
 **回歸測試**：`DataCard_MultipleDeadNames_StayWithinMeasuredWindow`（4 位亡者串接縮字仍需留在窗框內）、`DataCard_DebugOverlay_DumpsCalibrationPdf`。
 
@@ -287,10 +287,12 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 | 邊界 | 0cm 滿版 |
 | 字型 | 標楷體 |
 | 字級 | 0.6cm（小標注）~ 1cm（主內容） |
-| 特殊 | 虛線分隔、簽名底線、所有欄位標題文字（陽上/地址/電話/備註/確認無誤請簽名）皆已於 2026-07-03 改版移除——樣板紙本身已預印，程式只印內容 |
+| 特殊 | **template 由程式全印（2026-07-18 客訴改版）**：欄位標題（陽上/地址/電話/備註/確認無誤請簽名）＋簽名底線＋右側「故◯◯靈位」窗框全部由 `DrawTemplate` 繪製，白紙即可列印，不再假設印在預印樣板紙上（2026-07-03~07-17 期間為套印模式：標題全移除、只印內容） |
 
 欄位（2026-07-03 改版後）：Number / Prepay / 5×LivingName / 5×DeadName（印進右側樣板窗框）/ Address / Phone / Remark。**HallName 已移除**（樣板無堂號欄，見下方「資料卡改版」）
 
+> ✅ **2026-07-18 客訴改版：把 template 都印出來**。使用者要求資料卡列印時連 template 一起印（不再依賴預印樣板紙）。`DataCardRenderer.DrawTemplate` 在生產路徑繪製：5 個欄位標題（字級 0.6~0.75cm）、簽名底線（x 8.23~12.29 / y 13.87）、窗框矩形（x 14.973~17.983 / y 4.394~14.046）、「故」與「靈位」（字級 1.10cm，置中窗框中軸 16.478）；全部座標＝`reference/template/資料卡.jpg` 200 DPI 墨跡量測（詳表見 [printing-reports-positions.md](printing-reports-positions.md) §1）。「故」下緣 5.639 /「靈」上緣 11.443 維持亡者矩陣硬邊界不變，內容欄位座標完全未動。渲染後像素量測 vs 樣板掃描逐項誤差 ≤0.05cm、`debugOverlay` 疊圖目視重合。回歸鎖 `DataCard_EmptyContent_StillPrintsTemplate`（空內容也必須畫 template，防退回套印模式）。
+>
 > ✅ **2026-07-18 對齊舊系統兩項**：(1) Address 改用**文牒地址**（`TextCity+TextZone+TextAddress`）——舊系統右鍵與批次兩路徑都取 Text\*（SignupForm.cs:233/502），新版先前誤用郵寄地址；(2) Prepay 字樣改「預繳至X年Y」（SignupForm.cs:220/489），先前為「預繳 X Y」。回歸鎖 `DataCard_uses_text_address` / `DataCard_prepay_uses_legacy_wording`。
 
 ### 2. 收據（tmpReceipt）

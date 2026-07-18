@@ -219,6 +219,20 @@ public sealed class RendererSmokeTests
         pdfWithName.Length.Should().BeGreaterThan(pdfEmpty.Length, "唯一一位亡者必須真的畫出來");
     }
 
+    // 2026-07-18 客訴改版：資料卡改成連 template 一起印（欄位標題／簽名底線／「故◯◯靈位」窗框），
+    // 白紙即可列印。回歸鎖：內容全空也必須畫出 template（PDF 遠大於一張空白頁），防止未來誤退回
+    // 「假設預印樣板紙、只印內容」的套印模式。
+    [Fact]
+    public void DataCard_EmptyContent_StillPrintsTemplate()
+    {
+        var pdf = new DataCardRenderer().Render(new DataCardData(
+            Number: "", Prepay: "", DeadNames: N(), LivingNames: N(),
+            Address: "", Phone: "", Remark: ""));
+        ShouldBePdf(pdf);
+        pdf.Length.Should().BeGreaterThan(10_000,
+            "template（標題文字/底線/窗框/故靈位）必須在無內容時也被繪製，含内嵌字型的 PDF 不會只有空白頁大小");
+    }
+
     [Fact]
     public void Receipt_RendersPdf()
     {
