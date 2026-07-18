@@ -102,7 +102,7 @@ public sealed class ReportsController(
         return File(pdf, "application/pdf", fileName);
     }
 
-    /// <summary>產生普桌資料卡 PDF (A5 橫 21×14.8cm 預印卡紙套印；葫蘆內 6 變體；僅 SignupType=4)</summary>
+    /// <summary>產生普桌資料卡 PDF (A5 橫 21×14.8cm，template 全印白紙可印；葫蘆內 6 變體；僅 SignupType=4)</summary>
     /// <remarks>
     /// 全新報表（舊系統無對應 RDLC）。Blueprint: docs/blueprints/api-endpoints/get-reports-worshipcard.md
     /// debugOverlay：開發用列印位置檢視工具（樣板疊圖），僅 Development 環境可用，見

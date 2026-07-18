@@ -142,7 +142,7 @@ public sealed class GenerateWorshipHandler(ISignupRepository repo, IReportRender
 }
 
 /// <summary>
-/// 普桌資料卡 PDF（預印卡紙套印；葫蘆內 6 變體同普桌；不限 SignupType，與普桌一致）。
+/// 普桌資料卡 PDF（template 全印，白紙可印；葫蘆內 6 變體同普桌；不限 SignupType，與普桌一致）。
 /// </summary>
 /// <remarks>
 /// 全新報表（舊系統無對應）。Blueprint: docs/blueprints/printing-reports.md「普桌資料卡」

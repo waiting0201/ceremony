@@ -12,7 +12,7 @@ related_docs:
   - ../design/visual-design.md
   - ../workflows/qa-testing.md
 keywords: [rdlc, 位置, position, layout, 座標, 列印, 套印, tablet, worship, datacard, receipt, text, 嚴格, strict, 1:1]
-last_updated: 2026-07-18 (§1 資料卡客訴改版：template 由程式全印——新增 DrawTemplate 元素座標表（標題/簽名底線/窗框/故靈位，樣板墨跡量測、誤差≤0.05cm），內容欄位與亡者矩陣硬邊界不變；§12/§13 文牒客訴三項＋二輪：DeadName/LivingName 0.8→0.9cm、PhotoAddress 置中「臺灣」正下方（Left 25.4/Top 4.9）/帶 0.75×18.13cm/canvas 27×653px、姓名>地址；§模板選擇邏輯補「只有 N 位＝slot-based 非 count-based」釐清——count 誤實作致空洞資料往生者沒印（客訴根因）；同日稍早 §2 收據客戶樣張校正覆蓋：Name+0.2/Number+0.8右+1.0/Prepay+0.3/年月日+0.5cm 上下聯同步（reference/收據.jpg 手寫註記），待實體複驗；同日盲點 10「Fee 無千分位」更正為寫反——舊收據實為 ToString("N0") 有千分位，新版已對齊；同日 §14 普桌六位客訴置中：6 欄 Left 統一 +0.1786cm 對齊葫蘆中軸 10.039；先前 §3 薦牌 3+ 亡/3-6 陽矩陣改「方框內動態排版」＋編號 Left 0.5、§20 普桌資料卡 worshipcard)
+last_updated: 2026-07-18 (§20 普桌資料卡客訴：template 一樣全印——新增 template 元素表（葫蘆重用 worship2.png 墨跡反推圖框/右側三標題含回掃校正/簽名底線），生產字型（非測試 fallback）渲染回掃逐項誤差 ≤0.013cm，內容欄位與映射錨值不變；§1 資料卡客訴改版：template 由程式全印——新增 DrawTemplate 元素座標表（標題/簽名底線/窗框/故靈位，樣板墨跡量測、誤差≤0.05cm），內容欄位與亡者矩陣硬邊界不變；§12/§13 文牒客訴三項＋二輪：DeadName/LivingName 0.8→0.9cm、PhotoAddress 置中「臺灣」正下方（Left 25.4/Top 4.9）/帶 0.75×18.13cm/canvas 27×653px、姓名>地址；§模板選擇邏輯補「只有 N 位＝slot-based 非 count-based」釐清——count 誤實作致空洞資料往生者沒印（客訴根因）；同日稍早 §2 收據客戶樣張校正覆蓋：Name+0.2/Number+0.8右+1.0/Prepay+0.3/年月日+0.5cm 上下聯同步（reference/收據.jpg 手寫註記），待實體複驗；同日盲點 10「Fee 無千分位」更正為寫反——舊收據實為 ToString("N0") 有千分位，新版已對齊；同日 §14 普桌六位客訴置中：6 欄 Left 統一 +0.1786cm 對齊葫蘆中軸 10.039；先前 §3 薦牌 3+ 亡/3-6 陽矩陣改「方框內動態排版」＋編號 Left 0.5、§20 普桌資料卡 worshipcard)
 ---
 
 ## 📌 適用範圍（2026-05-27 補充）
@@ -548,7 +548,22 @@ Number  寬 = 8.903 × Sx（Bold Center，字級 2cm×Sf）
 | Phone | 4.4704 | 13.662（冒號右緣＋0.2 間隙） | 6.8 | 0.6cm | 對齊 label 上緣（同資料卡慣例） |
 | Remark | 5.6515 | 13.662 | 6.8 | 0.6cm | 不設 `.Height()`，過長自動換行；簽名區 label 上緣在 Y 11.39，留約 5.7cm 換行空間 |
 
-標題與簽名底線為樣板預印，程式不畫。疊圖驗證 PDF：`reference/output/worshipcard_*_overlay.pdf`（6 變體，2026-07-04 目視 OK；實體套印待驗收）。
+### template 元素（2026-07-18 客訴改版：template 由程式全印，白紙可印）
+
+> 取代原「標題與簽名底線為樣板預印，程式不畫」假設（與 §1 資料卡同日同款客訴）。
+> `WorshipCardRenderer.DrawTemplate` 生產路徑繪製，樣板 jpg 仍僅 debugOverlay 對位用。
+
+| 元素 | 墨跡目標（樣板量測） | 繪製座標 | 備註 |
+|---|---|---|---|
+| 葫蘆輪廓 | bbox Top 0.7620 / Left 2.4003 / W 8.2804 / H 13.1826（即映射錨值） | 圖框 Left 2.4003−20px×(8.2804/607)≈2.12747、Top 0.7620−13px×(13.1826/949)≈0.58142、W 647px≈8.82606、H 976px≈13.55766 | 重用 `worship2.png`（647×976，墨跡 x 20..626 / y 13..961；與卡片樣板同一款線稿，目視比對確認）`FitUnproportionally`；回掃 Top 差 1px 其餘全中 |
+| 「電話：」 | Top 4.4704 / Left 11.9380（x 940..1060） | Top 4.4323 / Left 11.8618，字級 0.6cm | 繪製座標＝墨跡目標−渲染回掃差值（BiauKai 墨跡相對 em-box 偏右下） |
+| 「備註：」 | Top 5.6388 / Left 11.8872（x 936..1060） | Top 5.6007 / Left 11.8618，字級 0.6cm | 同上 |
+| 「確認無誤請簽名」 | Top 11.3792 / Left 11.9126（y 896..946、x 938..1314，墨跡寬 4.788 ⇒ 字級 0.7cm 回掃寬度吻合） | Top 11.3411 / Left 11.8872，字級 0.7cm | 無冒號（樣板墨跡寬恰 7 字） |
+| 簽名底線 | y 1086..1088（Top 13.792）、x 1075..1462（Left 13.6525、寬 4.9276） | 同墨跡值，`LineHorizontal(1.0f)`（線厚 3px≈1pt） | 回掃全中 |
+
+校正與驗證流程（防再犯）：**用生產字型渲染**（`ReportFonts.EnsureRegistered()` 註冊真 BiauKai——測試路徑不註冊、走 fallback 字型，兩者 em-box 墨跡偏移差 1~4px，fallback 校正值不可直接沿用）→ pymupdf 200 DPI 點陣化 → 暗像素帶掃描 → 與樣板量測逐項比對，全項誤差 ≤0.013cm（1px）。回歸鎖 `WorshipCard_EmptyContent_StillPrintsTemplate`。
+
+疊圖驗證 PDF：`reference/output/worshipcard_*_overlay.pdf`（6 變體，2026-07-04 目視 OK；實體列印待驗收——改版後為白紙直印，不再是套印對位）。
 
 ## 模板選擇邏輯（**直接擷取自 [SignupForm.cs:1148-1228](../../reference/old/Ceremony/SignupForm.cs#L1148-L1228) / :1335-1357 / :1554-1593**）
 

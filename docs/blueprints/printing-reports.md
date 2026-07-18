@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-07-18 (資料卡客訴改版：template 由程式全印——§1 DrawTemplate 畫標題/簽名底線/窗框/故靈位，白紙可印、內容座標不動、亡者矩陣硬邊界不變，回歸鎖 DataCard_EmptyContent_StillPrintsTemplate；同日文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
+last_updated: 2026-07-18 (普桌資料卡客訴：template 一樣要全印——WorshipCardRenderer.DrawTemplate 生產路徑畫葫蘆（重用 worship2.png 墨跡對墨跡縮放）＋右側標題＋簽名底線，白紙可印；生產字型渲染回掃逐項誤差 ≤0.013cm，內容座標不動，回歸鎖 WorshipCard_EmptyContent_StillPrintsTemplate；同日資料卡客訴改版：template 由程式全印——§1 DrawTemplate 畫標題/簽名底線/窗框/故靈位，白紙可印、內容座標不動、亡者矩陣硬邊界不變，回歸鎖 DataCard_EmptyContent_StillPrintsTemplate；同日文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 ---
 
 ## 背景與動機
@@ -363,16 +363,17 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 
 | 屬性 | 值 |
 |---|---|
-| 紙張 | 21cm × 14.8cm（A5 橫），**預印卡紙**（reference/template/普桌資料卡.jpg，200 DPI 掃描） |
+| 紙張 | 21cm × 14.8cm（A5 橫），**白紙可印**（樣板 reference/template/普桌資料卡.jpg 僅量測/對位用） |
 | 方向 | Landscape |
 | 邊界 | 0cm |
 | 字型 | 標楷體 |
-| 特殊 | 預印內容（左葫蘆輪廓＋右側「電話：／備註：／確認無誤請簽名」標題＋簽名底線）**程式不畫**；生產 PDF 不嵌樣板圖，jpg 僅 `debugOverlay` 對位用 |
+| 特殊 | template（左葫蘆輪廓＋右側「電話：／備註：／確認無誤請簽名」標題＋簽名底線）**由程式全印**（2026-07-18 客訴改版，見下）；掃描 jpg 不進生產 PDF，僅 `debugOverlay` 對位用 |
 
 欄位：Number / 6×LivingName（葫蘆內）＋ Phone / Remark（右側橫書）
 
 - **葫蘆內＝普桌牌位縮小版**（使用者 2026-07-04 定案）：編號 Bold 置中＋陽上直書，依人數套與普桌完全相同的 6 變體（`PrintTemplateSelector.ChooseWorship`），等於給信眾核對簽名用的牌位預覽。座標**不重新設計**，用「墨跡對墨跡」仿射映射從 `WorshipRenderer` 搬（錨值與公式見 [printing-reports-positions.md](printing-reports-positions.md) §20）；字級同步縮放（2cm→約 0.92cm、3cm→約 1.38cm），`GroupFontPt` 格高用映射後值守住「各容納 5 字」縮字行為
-- 右側 Phone（`Signup.Phone`）/ Remark（`Signup.Remark`）對齊樣板預印 label 上緣與冒號右緣（量測值見 positions §20），Remark 過長自動換行（不設 `.Height()` 不裁字）
+- 右側 Phone（`Signup.Phone`）/ Remark（`Signup.Remark`）對齊樣板 label 上緣與冒號右緣（量測值見 positions §20），Remark 過長自動換行（不設 `.Height()` 不裁字）
+- ✅ **2026-07-18 客訴改版：template 全印**（與資料卡同日同款客訴「普桌資料卡一樣也是要把 template 印出」）。`WorshipCardRenderer.DrawTemplate` 在生產路徑繪製：**葫蘆輪廓**重用 `worship2.png`（與卡片樣板同一款線稿，目視比對確認）以「墨跡落在樣板量測 bbox」反推圖框後 `FitUnproportionally` 縮放；右側三個標題（電話：／備註：0.6cm、確認無誤請簽名 0.7cm）＋簽名底線（x 13.6525 起、寬 4.9276 / y 13.792）依樣板墨跡量測繪製，繪製座標含渲染回掃校正（詳表見 positions §20）。校正與驗證用**生產字型**（`ReportFonts` 註冊真 BiauKai）渲染回掃，逐項誤差 ≤0.013cm；內容欄位座標完全未動。回歸鎖 `WorshipCard_EmptyContent_StillPrintsTemplate`（空內容也必須畫 template，防退回套印模式）
 - **不限 SignupType**（2026-07-18 解鎖，原「限 type-4 丟 `WORSHIP_ONLY_TYPE_4`」已撤回）：與普桌一致選什麼印什麼，對齊舊系統；前端右鍵選單恆啟用
 - 實作：[WorshipCardRenderer.cs](../../backend/src/Ceremony.Infrastructure/Reporting/WorshipCardRenderer.cs)；endpoint blueprint [get-reports-worshipcard.md](api-endpoints/get-reports-worshipcard.md)
 - 驗證：`RendererSmokeTests.WorshipCard_*`（6 變體、丟字回歸鎖、電話/備註渲染、6 情境 dump 含 overlay 版）；`reference/output/worshipcard_*_overlay.pdf` 疊圖 6 變體目視 OK（2026-07-04）；**實體卡紙套印驗收待使用者確認**

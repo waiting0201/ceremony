@@ -7,7 +7,8 @@ using QuestPDF.Infrastructure;
 namespace Ceremony.Infrastructure.Reporting;
 
 /// <summary>
-/// 普桌資料卡 PDF — 預印卡紙（左葫蘆輪廓 + 右側「電話／備註／確認無誤請簽名」標題）只套印內容。
+/// 普桌資料卡 PDF — template 全印（左葫蘆輪廓 + 右側「電話／備註／確認無誤請簽名」標題 + 簽名底線），
+/// 白紙即可列印，不依賴預印卡紙。
 /// </summary>
 /// <remarks>
 /// 全新報表（舊系統無對應 RDLC）。樣板：reference/template/普桌資料卡.jpg（A5 橫 21×14.8cm，200 DPI）。
@@ -16,8 +17,10 @@ namespace Ceremony.Infrastructure.Reporting;
 ///
 /// 葫蘆內＝普桌牌位（WorshipRenderer）縮小版：Number + 陽上姓名 6 變體排版，座標用「墨跡對墨跡」
 /// 仿射映射從 WorshipRenderer 搬過來（本檔保留 WorshipRenderer 的原始座標字面值，統一過 MapTop/MapLeft，
-/// 映射錨值推導見 positions §20）。右側電話／備註為橫書套印（標題預印，不重畫）。
-/// 生產列印不嵌樣板圖；jpg 僅 debugOverlay:true（Development）時當對位底圖，比照 DataCardRenderer。
+/// 映射錨值推導見 positions §20）。右側電話／備註為橫書。
+/// 2026-07-18 客訴改版（比照 DataCardRenderer 同日修正）：template 改由程式全印——葫蘆輪廓重用
+/// worship2.png（與卡片樣板同一款線稿，目視比對確認）縮放到樣板量測的墨跡 bbox；右側標題與
+/// 簽名底線依樣板墨跡量測座標繪製。樣板 jpg 仍僅 debugOverlay:true（Development）時當對位底圖。
 /// </remarks>
 public sealed class WorshipCardRenderer
 {
@@ -46,12 +49,39 @@ public sealed class WorshipCardRenderer
     private const double TwoColH = 17.56667;
     private const double ThreeLowerH = 10.95208;
 
-    // 右側預印欄位（樣板 200 DPI 量測）：「電話：」label 上緣 4.4704、「備註：」上緣 5.6515、
+    // 右側欄位（樣板 200 DPI 量測）：「電話：」label 上緣 4.4704、「備註：」上緣 5.6515、
     // 冒號右緣 13.462 → 內容 Left 留 0.2cm 間隙；寬度收在頁右緣前（21 − 13.662 − 0.54）。
     private const double PhoneTop = 4.4704;
     private const double RemarkTop = 5.6515;
     private const double FieldLeft = 13.662;
     private const double FieldWidth = 6.8;
+
+    // ── template 元素（2026-07-18 客訴：連 template 一起印）──
+    // 葫蘆輪廓：worship2.png（647×976px，墨跡 bbox x 20..626、y 13..961）縮放到卡片葫蘆墨跡
+    // bbox（Top 0.7620、Left 2.4003、W 8.2804、H 13.1826，§20 量測錨值）。整張圖框座標由
+    // 「墨跡落在量測 bbox」反推：cm/px = 8.2804/607（X）、13.1826/949（Y）。
+    private const double GourdFrameLeft = 2.4003 - 20 * (8.2804 / 607);    // ≈ 2.12747
+    private const double GourdFrameTop = 0.7620 - 13 * (13.1826 / 949);    // ≈ 0.58142
+    private const double GourdFrameWidth = 647 * (8.2804 / 607);           // ≈ 8.82606
+    private const double GourdFrameHeight = 976 * (13.1826 / 949);         // ≈ 13.55766
+    // 右側標題／簽名底線（worshipcard-template.jpg 200 DPI 墨跡量測，px×0.0127）：
+    // 「電話：」墨跡 Top 4.4704、Left 11.9380；「備註：」Top 5.6388、Left 11.8872；
+    // 「確認無誤請簽名」y 896..946、x 938..1314 → Top 11.3792、Left 11.9126（墨跡寬 4.788cm ⇒ 字級 0.7cm，渲染回掃寬度吻合）；
+    // 簽名底線 y 1086..1088、x 1075..1462 → Top 13.792、Left 13.6525、寬 4.9276、線厚 3px≈1pt。
+    // 標題繪製座標＝墨跡目標 − 渲染回掃差值（BiauKai 墨跡相對 em-box 偏右下 0.025~0.05cm）。
+    // 校正用「生產字型」渲染（ReportFonts 註冊真 BiauKai，非測試 fallback）回掃，逐項誤差 ≤0.013cm（1px）。
+    private const double PhoneLabelTop = 4.4323;      // 墨跡落 4.4704
+    private const double PhoneLabelLeft = 11.8618;    // 墨跡落 11.9380
+    private const double RemarkLabelTop = 5.6007;     // 墨跡落 5.6388
+    private const double RemarkLabelLeft = 11.8618;   // 墨跡落 11.8872
+    private const double SignLabelTop = 11.3411;      // 墨跡落 11.3792
+    private const double SignLabelLeft = 11.8872;     // 墨跡落 11.9126
+    private const double SignLineTop = 13.792;
+    private const double SignLineLeft = 13.6525;
+    private const double SignLineWidth = 4.9276;
+
+    // 葫蘆線稿（EmbeddedResource；與 WorshipRenderer 共用同一張 worship2.png）— 生產列印使用
+    private static readonly byte[] GourdImage = LoadTemplate("worship2.png");
 
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
@@ -82,6 +112,10 @@ public sealed class WorshipCardRenderer
                             .Image(TemplateImage).FitUnproportionally();
                     }
 
+                    // 2026-07-18 客訴改版：template（葫蘆輪廓／右側標題／簽名底線）由程式全印，
+                    // 白紙即可列印，不再假設印在預印卡紙上。
+                    DrawTemplate(layers);
+
                     // Number：WorshipRenderer 原座標 (Top 4.474, Left 5.5875, W 8.903)、2cm Bold Center
                     DrawNumber(layers,
                         top: MapTop(4.474), left: MapLeft(5.5875), width: 8.903 * Sx,
@@ -89,13 +123,40 @@ public sealed class WorshipCardRenderer
 
                     DrawLivingNames(layers, data);
 
-                    // 右側橫書欄位：標題「電話：」「備註：」為樣板預印，只套印內容
+                    // 右側橫書欄位內容（標題「電話：」「備註：」由 DrawTemplate 繪製）
                     DrawText(layers, top: PhoneTop, left: FieldLeft, width: FieldWidth, fontCm: 0.6, text: data.Phone);
                     DrawText(layers, top: RemarkTop, left: FieldLeft, width: FieldWidth, fontCm: 0.6, text: data.Remark);
-                    // 「確認無誤請簽名」與簽名底線為樣板預印，不畫
                 });
             });
         }).GeneratePdf();
+    }
+
+    /// <summary>
+    /// 把樣板本身印出來（2026-07-18 客訴：普桌資料卡要連 template 都印，白紙即可列印）：
+    /// 葫蘆輪廓（worship2.png 縮放至樣板墨跡 bbox）＋右側標題（電話／備註／確認無誤請簽名）＋簽名底線。
+    /// 座標＝樣板 jpg 200 DPI 墨跡量測值（常數區塊注解），與既有內容欄位共用同一座標系，內容欄位座標不動。
+    /// </summary>
+    private static void DrawTemplate(LayersDescriptor layers)
+    {
+        // 葫蘆：FitUnproportionally 拉伸到反推的圖框，墨跡即落在量測 bbox（X/Y 縮放差 1.8%，同 Sx/Sy 注解）
+        layers.Layer()
+            .TranslateX((float)GourdFrameLeft, Unit.Centimetre)
+            .TranslateY((float)GourdFrameTop, Unit.Centimetre)
+            .Width((float)GourdFrameWidth, Unit.Centimetre)
+            .Height((float)GourdFrameHeight, Unit.Centimetre)
+            .Image(GourdImage).FitUnproportionally();
+
+        // 標題（座標含回掃校正，見常數注解；電話/備註內容仍以 PhoneTop/RemarkTop 對齊標題墨跡上緣）
+        DrawText(layers, top: PhoneLabelTop, left: PhoneLabelLeft, width: 3.0, fontCm: 0.6, text: "電話：");
+        DrawText(layers, top: RemarkLabelTop, left: RemarkLabelLeft, width: 3.0, fontCm: 0.6, text: "備註：");
+        DrawText(layers, top: SignLabelTop, left: SignLabelLeft, width: 6.0, fontCm: 0.7, text: "確認無誤請簽名");
+
+        // 簽名底線
+        layers.Layer()
+            .TranslateX((float)SignLineLeft, Unit.Centimetre)
+            .TranslateY((float)SignLineTop, Unit.Centimetre)
+            .Width((float)SignLineWidth, Unit.Centimetre)
+            .LineHorizontal(1.0f);
     }
 
     // 6 變體排版逐行對照 WorshipRenderer.DrawLivingNames：座標字面值相同，統一過 MapTop/MapLeft，

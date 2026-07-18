@@ -657,6 +657,19 @@ public sealed class RendererSmokeTests
         full.Length.Should().BeGreaterThan(bare.Length, "電話/備註必須真的渲染出來");
     }
 
+    // 2026-07-18 客訴回歸鎖（比照 DataCard_EmptyContent_StillPrintsTemplate）：普桌資料卡要連
+    // template 一起印（葫蘆輪廓/右側標題/簽名底線），白紙可印，防退回「預印卡紙只套印內容」模式。
+    [Fact]
+    public void WorshipCard_EmptyContent_StillPrintsTemplate()
+    {
+        var pdf = new WorshipCardRenderer().Render(new WorshipCardData(
+            Number: "", LivingNames: N(), Template: WorshipTemplate.Base, Phone: null, Remark: null));
+        ShouldBePdf(pdf);
+        pdf.Length.Should().BeGreaterThan(60_000,
+            "template（worship2 葫蘆線稿 64KB + 標題文字/簽名底線）必須在無內容時也被繪製");
+        DumpIfRequested(pdf, "worshipcard_template_only.pdf");
+    }
+
     // 普桌 6 變體全情境（比照 Worship_CustomerSampleScenarios），含 debugOverlay 樣板疊圖版，
     // 用 CEREMONY_PDF_DUMP 落地到 reference/output/ 供開發者/使用者對位檢視。
     [Fact]
