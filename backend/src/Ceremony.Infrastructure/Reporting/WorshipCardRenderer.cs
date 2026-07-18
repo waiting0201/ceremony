@@ -158,18 +158,19 @@ public sealed class WorshipCardRenderer
             }
             default: // Base 2×3 矩陣：上排右→左①②③、下排右→左④⑤⑥（同欄配對 0↔3、1↔4、2↔5）
             {
+                // 2026-07-18 客訴置中修正：同 WorshipRenderer，6 欄 Left +0.1786 對齊葫蘆中軸（positions §14）
                 var n0 = VerticalText.WithBottomGap(l[0], l[3]);
                 var n1 = VerticalText.WithBottomGap(l[1], l[4]);
                 var n2 = VerticalText.WithBottomGap(l[2], l[5]);
                 var f = VerticalText.GroupFontPt(pt2,
                     (n0, SlotH * Sy), (n1, SlotH * Sy), (n2, SlotH * Sy),
                     (l[3], SlotH * Sy), (l[4], SlotH * Sy), (l[5], SlotH * Sy));
-                DrawName(layers, MapTop(7.31167), MapLeft(11.0925), f, n0);
-                DrawName(layers, MapTop(7.31167), MapLeft(8.82834), f, n1);
-                DrawName(layers, MapTop(7.31167), MapLeft(6.62834), f, n2);
-                DrawName(layers, MapTop(17.69931), MapLeft(11.07715), f, l[3]);
-                DrawName(layers, MapTop(17.69931), MapLeft(8.86362), f, l[4]);
-                DrawName(layers, MapTop(17.69931), MapLeft(6.62834), f, l[5]);
+                DrawName(layers, MapTop(7.31167), MapLeft(11.2711), f, n0);
+                DrawName(layers, MapTop(7.31167), MapLeft(9.00694), f, n1);
+                DrawName(layers, MapTop(7.31167), MapLeft(6.80694), f, n2);
+                DrawName(layers, MapTop(17.69931), MapLeft(11.25575), f, l[3]);
+                DrawName(layers, MapTop(17.69931), MapLeft(9.04222), f, l[4]);
+                DrawName(layers, MapTop(17.69931), MapLeft(6.80694), f, l[5]);
                 break;
             }
         }
