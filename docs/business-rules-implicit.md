@@ -13,7 +13,7 @@ related_docs:
   - blueprints/printing-reports.md
   - design/database-design.md
 keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季]
-last_updated: 2026-06-30 (§1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)
+last_updated: 2026-07-18 (§16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；先前 2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -261,20 +261,20 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 
 ---
 
-## 16. 「列印普桌」啟用條件（2026-06-29 改：改看選取列，不看搜尋篩選）
+## 16. 「列印普桌 / 列印普桌資料卡」完全解鎖（2026-07-18：前端恆啟用＋後端不限型別）
 
-- SignupForm 右鍵 menu「列印普桌」：**只要選取的每一列 `signupType == 4`（普桌）即 enabled，與搜尋篩選 `signupType` 無關**
-- 選取若夾雜任一筆非普桌資料 → grey out + tooltip「選取含 N 筆非普桌資料，僅普桌(類型 4)可列印」
-- 其他四種列印選項恆可用
+- SignupForm 右鍵 menu「列印普桌」「列印普桌資料卡」：**與其他列印選項完全一致——有選取列即 enabled、選什麼印什麼**，前後端都不檢查 `SignupType`
+- 考據（本次解鎖的依據）：舊系統 `tsmiPrintWorship_Click`（SignupForm.cs:380-403）**沒有任何型別檢查**，批次 case 5 也只跟隨搜尋篩選；原新系統的「限 type-4」防呆（單筆 422 `WORSHIP_ONLY_TYPE_4`、批次強制/過濾 type=4）是「比舊系統嚴格」的自加限制，實務上造成客訴（右鍵被鎖、單選非普桌 422），2026-07-18 全數撤回
+- 現行為：
+  - 單選走 `GET /reports/worship(card)?signupId=`：任何型別都回 200 PDF
+  - 多選走 `POST /reports/batch`（signupIds 模式）：勾什麼印什麼，不過濾
+  - 編號區間批次面板：只跟隨呼叫端傳入的 `signupType` 篩選（＝畫面上的搜尋篩選），與舊系統 case 5 相同
+- 非普桌資料印普桌的版面後果由使用者自行判斷（同舊系統）：陽上名單為空時印出只有編號的牌位
 
-> **舊規則（已淘汰）**：原本「僅當搜尋篩選 `signupType == 4` 才 enabled」。改為驗證實際選取列，讓使用者在「全部」篩選下也能直接挑普桌資料列印，不必先切篩選。
->
-> **為何安全（無 bug）**：啟用條件放寬只是 UX 層；真正的防呆在後端且未動 —
-> - 單筆列印走 `GET /reports/worship?signupId=`，by-id 驗證 `SignupType != 4 → 422 WORSHIP_ONLY_TYPE_4`（[GenerateReportHandlers.cs:121](../backend/src/Ceremony.Application/Reports/GenerateReportHandlers.cs)）
-> - 批次列印走編號區間，`BatchReportHandler` **強制 `SignupType=4`**（[BatchReportHandler.cs:25-26](../backend/src/Ceremony.Application/Reports/BatchReportHandler.cs)），區間內非普桌列一律被過濾，不會套錯版型
-> - 前端只放行「選取全為普桌」，混選直接擋下，所以送到後端的一定是合法集合
->
-> 批次走編號區間的既有不精確性（區間內未選的普桌列也會印）維持不變，仍由既有 confirmation dialog 提示。
+> **演進史**：
+> 1. 最初「僅當搜尋篩選 `signupType == 4` 才 enabled」（舊系統原始行為，SignupForm.cs:138-145）
+> 2. 2026-06-29 前端改看實際選取列：`selected.every(signupType === 4)` 才 enable，混選 grey out + tooltip
+> 3. 2026-07-18 客訴「常被鎖」→ 前端恆啟用＋後端撤回全部 type-4 限制，回歸舊系統「選什麼印什麼」
 
 ---
 

@@ -119,10 +119,10 @@ public sealed class GenerateTextHandler(ISignupRepository repo, IReportRenderer 
 }
 
 /// <summary>
-/// 普桌 PDF（6 變體；僅 SignupType=4 可用）。
+/// 普桌 PDF（6 變體；不限 SignupType — 對齊舊系統選什麼印什麼）。
 /// </summary>
 /// <remarks>
-/// Legacy: SignupForm.cs:1554-1696 (PrintWorship) + tmpWorship*.rdlc 6 變體
+/// Legacy: SignupForm.cs:1554-1696 (PrintWorship) + tmpWorship*.rdlc 6 變體（無型別檢查）
 /// </remarks>
 public sealed class GenerateWorshipHandler(ISignupRepository repo, IReportRenderer renderer)
 {
@@ -131,16 +131,13 @@ public sealed class GenerateWorshipHandler(ISignupRepository repo, IReportRender
         var s = await repo.GetByIdAsync(signupId, ct)
             ?? throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名");
 
-        if (s.SignupType != 4)
-            throw new DomainException("WORSHIP_ONLY_TYPE_4", "普桌僅限報名類型為普桌");
-
         return (renderer.RenderWorship(ReportModelBuilders.Worship(s)),
                 $"worship-{s.Year}-{s.NumberTitle}-{s.Number}.pdf");
     }
 }
 
 /// <summary>
-/// 普桌資料卡 PDF（預印卡紙套印；葫蘆內 6 變體同普桌；僅 SignupType=4 可用）。
+/// 普桌資料卡 PDF（預印卡紙套印；葫蘆內 6 變體同普桌；不限 SignupType，與普桌一致）。
 /// </summary>
 /// <remarks>
 /// 全新報表（舊系統無對應）。Blueprint: docs/blueprints/printing-reports.md「普桌資料卡」
@@ -151,9 +148,6 @@ public sealed class GenerateWorshipCardHandler(ISignupRepository repo, IReportRe
     {
         var s = await repo.GetByIdAsync(signupId, ct)
             ?? throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名");
-
-        if (s.SignupType != 4)
-            throw new DomainException("WORSHIP_ONLY_TYPE_4", "普桌資料卡僅限報名類型為普桌");
 
         return (renderer.RenderWorshipCard(ReportModelBuilders.WorshipCard(s), debugOverlay),
                 $"worshipcard-{s.Year}-{s.NumberTitle}-{s.Number}.pdf");

@@ -19,7 +19,7 @@ related_docs:
   - ../printing-reports-positions.md
   - README.md
 keywords: [legacy, coverage, signup, rdlc, variant]
-last_updated: 2026-06-02
+last_updated: 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統)
 ---
 
 > ✅ **完成 (2026-06-02)**：43 個方法中 39 個已實作、4 個故意捨棄（WinForms printDocument 內部 :34-37，改走 Web/PDF 路徑）。查詢 / 列印（5 類 + RDLC 變體）/ 右鍵選單 / 搜尋範圍切換 / 顯示完整欄位 / 歷程 全 ship。
@@ -56,10 +56,10 @@ last_updated: 2026-06-02
 | 10 | `tsmiPrintReceipt_Click` | 242-271 | 列印收據 (含格式選擇) | ✅ 已實作 (核心 PDF) | `GET /api/v1/reports/receipt?signupId=` | QuestPDF 路徑；UI 格式對話由前端處理 |
 | 11 | `tsmiPrintTablet_Click` | 273-321 | 列印薦牌 (含大廳名分割) | ✅ 已實作 (核心 PDF, base variant) | `GET /api/v1/reports/tablet?signupId=` | 9 變體選擇邏輯入 `Domain.Services.PrintTemplateSelector.ChooseTablet`；目前 Renderer 使用 base 座標，variant-specific 座標 TODO |
 | 12 | `tsmiPrintText_Click` | 323-378 | 列印文牒 (含大廳名+地址合成) | ✅ 已實作 (核心 PDF, base variant) | `GET /api/v1/reports/text?signupId=` | 2 變體 `ChooseText`；PhotoAddress 25×605px 圖檔 TODO |
-| 13 | `tsmiPrintWorship_Click` | 380-403 | 列印普桌 (含格式選擇) | ✅ 已實作 | `GET /api/v1/reports/worship?signupId=` | 6 變體 `ChooseWorship`；僅 SignupType=4 開放（其他 422 WORSHIP_ONLY_TYPE_4）；worship2.png 背景已嵌入；2026-07-04 六變體各自座標 + 直書 Stack + GroupFontPt 縮字（每格 5 字）+ 同欄上下排全形空格 |
+| 13 | `tsmiPrintWorship_Click` | 380-403 | 列印普桌 (含格式選擇) | ✅ 已實作 | `GET /api/v1/reports/worship?signupId=` | 6 變體 `ChooseWorship`；**不限 SignupType**（2026-07-18 對齊舊系統選什麼印什麼，撤回原 422 WORSHIP_ONLY_TYPE_4）；worship2.png 背景已嵌入；2026-07-04 六變體各自座標 + 直書 Stack + GroupFontPt 縮字（每格 5 字）+ 同欄上下排全形空格 |
 | 14 | `tsmiDelete_Click` | 405-426 | 刪除報名紀錄 (確認對話) | ✅ 已實作 | `DELETE /api/v1/signups/:id` | `DeleteSignupHandler` 硬刪除（沿用舊行為）；SignupLog 保留作審計 |
 | 15 | `tsmiLog_Click` | 428-445 | 顯示報名修改日誌 | ✅ 已實作 | 前端 nav `/signups/:id/logs` + `GET /api/v1/signups/:id/logs` | 選單「瀏覽歷程」`actionLogs(item)` → `navigateByUrl('/signups/:id/logs')` → `signup-logs-page` + `ListSignupLogsHandler` |
-| 16 | `btnPrint_Click` | 447-653 | **複合邏輯：編號範圍查詢 + 5 種列印類型**（206 行；含 1148-1228 RDLC 薦牌 9 變體選擇、1335-1357 文牒 2 變體、1554-1593 普桌動態字級） | ✅ 已實作 | `POST /api/v1/reports/batch` | `BatchReportHandler` + `SignupRepository.SearchByNumberRangeAsync`（編號範圍 + year/yearGte/ceremony/signupType 篩選）+ 5 種 reportType（reuse `ReportModelBuilders` 共享單筆 handler 邏輯）+ `PdfSharpMerger` 合併；worship 強制 SignupType=4；錯誤碼 `編號錯誤` / `報表類型錯誤` / `BATCH_NO_SIGNUPS` |
+| 16 | `btnPrint_Click` | 447-653 | **複合邏輯：編號範圍查詢 + 5 種列印類型**（206 行；含 1148-1228 RDLC 薦牌 9 變體選擇、1335-1357 文牒 2 變體、1554-1593 普桌動態字級） | ✅ 已實作 | `POST /api/v1/reports/batch` | `BatchReportHandler` + `SignupRepository.SearchByNumberRangeAsync`（編號範圍 + year/yearGte/ceremony/signupType 篩選）+ 5 種 reportType（reuse `ReportModelBuilders` 共享單筆 handler 邏輯）+ `PdfSharpMerger` 合併；worship 不另限 SignupType、只跟隨呼叫端篩選（2026-07-18 解鎖，同舊 case 5）；錯誤碼 `編號錯誤` / `報表類型錯誤` / `BATCH_NO_SIGNUPS` |
 | 17 | `btnExportExcel_Click` | 655-728 | 匯出搜尋結果為 Excel | ✅ 已實作 | `POST /api/v1/signups/export` | `ExportSignupsHandler` 用 ClosedXML (.xlsx)；32 欄對齊舊順序；reuse `SearchSignupsHandler` |
 | 18 | `cbSearchName_CheckedChanged` | 730-741 | 切換姓名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `signup-list-page` `scopeName` checkbox；任一 scope* 勾選 → 啟用 `searchKey` 輸入（見 #43）|
 | 19 | `cbSearchLivingName_CheckedChanged` | 743-754 | 切換陽上名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopeLivingName` checkbox 驅動 searchKey 啟用 |

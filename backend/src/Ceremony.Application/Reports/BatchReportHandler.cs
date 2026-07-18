@@ -31,23 +31,18 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
         if (useIds)
         {
             signups = await repo.SearchByIdsAsync(req.SignupIds!, ct);
-            // Worship／普桌資料卡防呆：跟編號區間模式一致，混選時只印其中 SignupType=4 的部分
-            if (reportType is "worship" or "worshipcard")
-                signups = signups.Where(s => s.SignupType == 4).ToList();
             fileName = $"batch-{reportType}-selected-{signups.Count}.pdf";
         }
         else
         {
-            // Worship／普桌資料卡防呆：限定 SignupType=4，若呼叫端沒給就強制加（比舊系統嚴格）
-            var signupTypeFilter = reportType is "worship" or "worshipcard" ? 4 : req.SignupType;
-
+            // 普桌不另限 SignupType — 對齊舊系統批次 case 5：只跟隨呼叫端的搜尋篩選
             var query = new SignupRangeQuery(
                 NumberStart: req.NumberStart!.Value,
                 NumberEnd: req.NumberEnd!.Value,
                 Year: req.Year,
                 YearGte: req.YearGte,
                 CeremonyCategoryId: req.CeremonyCategoryId,
-                SignupType: signupTypeFilter);
+                SignupType: req.SignupType);
 
             signups = await repo.SearchByNumberRangeAsync(query, ct);
             fileName = $"batch-{reportType}-{req.NumberStart}-{req.NumberEnd}.pdf";

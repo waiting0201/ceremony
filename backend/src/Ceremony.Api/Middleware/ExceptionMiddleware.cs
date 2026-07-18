@@ -57,7 +57,6 @@ public sealed class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionM
         "SIGNUP_NUMBER_CONFLICT" => StatusCodes.Status409Conflict,
         "CATEGORY_HAS_DEPENDENCY" => StatusCodes.Status409Conflict,
         "CATEGORY_DEPTH_LIMIT" => StatusCodes.Status422UnprocessableEntity,
-        "WORSHIP_ONLY_TYPE_4" => StatusCodes.Status422UnprocessableEntity,
         "BATCH_NO_SIGNUPS" => StatusCodes.Status404NotFound,
         "BACKUP_NOT_CONFIGURED" => StatusCodes.Status500InternalServerError,
         "INTERNAL_ERROR" => StatusCodes.Status500InternalServerError,

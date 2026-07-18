@@ -85,21 +85,21 @@ public sealed class BatchReportHandlerTests
     }
 
     [Fact]
-    public async Task Worship_forces_signupType_4_filter()
+    public async Task Worship_passes_caller_signupType_through_unchanged()
     {
         _repo.Setup(r => r.SearchByNumberRangeAsync(
-                It.Is<SignupRangeQuery>(q => q.SignupType == 4),
+                It.Is<SignupRangeQuery>(q => q.SignupType == 1),
                 It.IsAny<CancellationToken>()))
-             .ReturnsAsync([Make(1, signupType: 4)]);
+             .ReturnsAsync([Make(1, signupType: 1)]);
         _renderer.Setup(r => r.RenderWorship(It.IsAny<WorshipModel>())).Returns(new byte[] { 1 });
         _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 1 });
 
-        // 呼叫端傳 SignupType=1 應被 worship 路徑強制覆寫成 4
+        // 2026-07-18 解鎖：普桌不再強制 SignupType=4，跟隨呼叫端篩選（對齊舊系統批次 case 5）
         var (_, _, count) = await Sut().HandleAsync(new BatchReportRequest("worship", 1, 10, SignupType: 1));
         count.Should().Be(1);
 
         _repo.Verify(r => r.SearchByNumberRangeAsync(
-            It.Is<SignupRangeQuery>(q => q.SignupType == 4),
+            It.Is<SignupRangeQuery>(q => q.SignupType == 1),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -184,8 +184,9 @@ public sealed class BatchReportHandlerTests
     }
 
     [Fact]
-    public async Task SignupIds_worship_filters_non_type_4_and_can_end_empty()
+    public async Task SignupIds_worship_prints_all_selected_regardless_of_type()
     {
+        // 2026-07-18 解鎖：混選非普桌不再過濾，選什麼印什麼（對齊舊系統 tsmiPrintWorship）
         var signups = new[] { Make(1, signupType: 1), Make(2, signupType: 4) };
         var ids = signups.Select(s => s.Id).ToList();
         _repo.Setup(r => r.SearchByIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>()))
@@ -195,19 +196,17 @@ public sealed class BatchReportHandlerTests
 
         var (_, _, count) = await Sut().HandleAsync(new BatchReportRequest("worship", SignupIds: ids));
 
-        count.Should().Be(1);
-        _renderer.Verify(r => r.RenderWorship(It.IsAny<WorshipModel>()), Times.Once);
+        count.Should().Be(2);
+        _renderer.Verify(r => r.RenderWorship(It.IsAny<WorshipModel>()), Times.Exactly(2));
     }
 
     [Fact]
-    public async Task SignupIds_worship_all_filtered_out_throws_BATCH_NO_SIGNUPS()
+    public async Task SignupIds_no_match_throws_BATCH_NO_SIGNUPS()
     {
-        var signups = new[] { Make(1, signupType: 1) };
-        var ids = signups.Select(s => s.Id).ToList();
         _repo.Setup(r => r.SearchByIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>()))
-             .ReturnsAsync(signups);
+             .ReturnsAsync([]);
 
-        var act = () => Sut().HandleAsync(new BatchReportRequest("worship", SignupIds: ids));
+        var act = () => Sut().HandleAsync(new BatchReportRequest("worship", SignupIds: [Guid.NewGuid()]));
         await act.Should().ThrowAsync<DomainException>()
             .Where(e => e.ErrorCode == "BATCH_NO_SIGNUPS" && e.Message == "查無符合條件的報名資料");
     }

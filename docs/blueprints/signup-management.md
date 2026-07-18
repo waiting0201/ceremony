@@ -16,7 +16,7 @@ related_docs:
   - prepay-loading.md
   - printing-reports.md
 keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印, 勾選列印, signupIds]
-last_updated: 2026-07-17 (新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
+last_updated: 2026-07-18 (右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；先前 2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
 ---
 
 ## 背景與動機
@@ -71,7 +71,7 @@ last_updated: 2026-07-17 (新增報名表單對齊舊系統四項：信眾搜尋
 | 4 | 列印收據 | `GET /api/v1/reports/receipt?signupId=` | 單 / 多選 | 全部 | `tsmiPrintReceipt_Click` (cs:242) |
 | 5 | 列印薦牌 | `GET /api/v1/reports/tablet?signupId=` | 單 / 多選 | 全部 | `tsmiPrintTablet_Click` (cs:273)；含 HallName 拆字邏輯（前端不重作，後端已處理） |
 | 6 | 列印文牒 | `GET /api/v1/reports/text?signupId=` | 單 / 多選 | 全部 | `tsmiPrintText_Click` (cs:323) |
-| 7 | 列印普桌 | `GET /api/v1/reports/worship?signupId=` | 單 / 多選 | **選取每一列 `signupType == 4` 才啟用**（與搜尋篩選無關）；混選非普桌即 grey out | `tsmiPrintWorship_Click` (cs:380)；backend 已硬擋（單筆非 4 回 422 `WORSHIP_ONLY_TYPE_4`、批次強制 type=4）；前端 2026-06-29 起改驗證選取列而非搜尋篩選 |
+| 7 | 列印普桌 / 普桌資料卡 | `GET /api/v1/reports/worship?signupId=` | 單 / 多選 | **完全不鎖型別**（2026-07-18 客訴改）：前端恆啟用、後端選什麼印什麼 | `tsmiPrintWorship_Click` (cs:380) 本就無型別檢查；原新系統「限 type-4」自加防呆（422 `WORSHIP_ONLY_TYPE_4`／批次過濾）已全數撤回 |
 | 8 | 刪除資料 | `DELETE /api/v1/signups/:id` ×N | 單 / 多選 | 全部 | `tsmiDelete_Click` (cs:405)；多選逐筆呼叫；需二次確認 dialog |
 | 9 | 瀏覽歷程 | navigate `/signups/:id/logs` | **單選** | 全部 | `tsmiLog_Click` (cs:428) |
 
@@ -80,11 +80,9 @@ last_updated: 2026-07-17 (新增報名表單對齊舊系統四項：信眾搜尋
 - 單選 (count == 1)：全部 enable（含 1, 2, 9）；列印走單筆 endpoint
 - 多選 (count > 1)：1, 2, 9 disable；3–7 enable（多筆呼叫 batch endpoint 或前端逐筆）；8 enable
 
-**普桌啟用條件（2026-06-29 改）**：
-- 改看**實際選取列**：`selected.length >= 1 && selected.every(r => r.signupType === 4)` → 「列印普桌」enable
-- 混選含非普桌 → grey out + tooltip「選取含 N 筆非普桌資料，僅普桌(類型 4)可列印」
-- **與搜尋篩選 `signupType` 解耦**：在「全部」篩選下挑出純普桌列也能列印（舊版需先把篩選切成普桌）
-- 安全性未降低：後端單筆 by-id 驗證 type=4、批次 `BatchReportHandler` 強制 type=4，前端只放行純普桌選取（詳見 [business-rules-implicit.md §16](../business-rules-implicit.md)）
+**普桌／普桌資料卡啟用條件（2026-07-18 改：完全解鎖）**：
+- 與其他列印選項完全一致：**有選取列即 enable、選什麼印什麼**，前後端都不檢查 `signupType`（客訴：右鍵選項常被鎖、單選非普桌 422）
+- 考據：舊系統 `tsmiPrintWorship_Click` 本就無型別檢查；原「限 type-4」是新系統自加的嚴格化，已全數撤回（詳見 [business-rules-implicit.md §16](../business-rules-implicit.md)）
 
 **多筆列印實作策略（2026-07-03 更新，取代原 v1 限制）**：
 - 選 1 筆 → 呼叫單筆 endpoint（`GET /reports/{type}?signupId=`）
@@ -246,7 +244,7 @@ last_updated: 2026-07-17 (新增報名表單對齊舊系統四項：信眾搜尋
 - [ ] 40 欄 grid 預設 32 顯示；cbShowAll 控制 5 欄；10 內部欄永遠隱藏
 - [ ] DeadName 1..5 欄背景 `#FFE0C0`
 - [ ] AND/OR 搜尋邏輯與舊系統一致（全空 → 全部、勾選任一才能填 key）
-- [ ] 「列印普桌」僅當選取列全為 SignupType=4 時啟用（與搜尋篩選解耦）
+- [ ] 「列印普桌」「列印普桌資料卡」有選取列即啟用，任何型別皆可印（前後端均不限 type）
 - [ ] 編號重複（含編輯排除自身）回 409 + 訊息 verbatim
 - [ ] 編號 4 顯示為「3-1」
 - [ ] NumberTitle 無法手動覆寫（API 無此參數）
@@ -255,7 +253,7 @@ last_updated: 2026-07-17 (新增報名表單對齊舊系統四項：信眾搜尋
 - [ ] 歷程頁面 Createdate DESC（依舊 schema，無 action 欄位）
 - [ ] **Grid 右鍵 context menu 9 項齊備**（代入新增 / 修改資料 / 列印 5 種 / 刪除 / 瀏覽歷程）
 - [ ] **右鍵啟用規則對齊舊系統**：代入新增 / 修改資料 / 瀏覽歷程 → 單選 only；列印 / 刪除 → 單 + 多選
-- [ ] **「列印普桌」grey-out 規則**：選取列 `every(signupType === 4)` 才 enable；混選非普桌 grey out + tooltip
+- [ ] **「列印普桌／普桌資料卡」不 grey out**：有選取即 enable；選什麼印什麼（對齊舊系統）
 - [ ] **多選 checkbox** + shift / cmd 範圍選取
 - [ ] **批次列印面板**（起編號 / 迄編號 / reportType）獨立於 grid 選取，呼叫 `POST /reports/batch`
 - [ ] 列印結果走新分頁 / iframe 預覽（不再有「PDF / 預覽列印」對話）

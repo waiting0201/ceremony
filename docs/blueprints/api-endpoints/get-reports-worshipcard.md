@@ -1,6 +1,6 @@
 ---
 title: GET /api/v1/reports/worshipcard
-purpose: 產生「普桌資料卡」PDF（A5 橫預印卡紙套印；葫蘆內編號＋陽上 6 變體；僅 SignupType=4）
+purpose: 產生「普桌資料卡」PDF（A5 橫預印卡紙套印；葫蘆內編號＋陽上 6 變體；不限 SignupType）
 status: shipped
 endpoint: get-reports-worshipcard
 http_method: GET
@@ -15,7 +15,7 @@ related_docs:
   - ../printing-reports.md
   - ../printing-reports-positions.md
 keywords: [普桌資料卡, worshipcard, 列印, 報表, 葫蘆, 預印卡紙, debugOverlay]
-last_updated: 2026-07-04
+last_updated: 2026-07-18 (解鎖：移除 SignupType=4 限制與 WORSHIP_ONLY_TYPE_4 錯誤，對齊舊系統選什麼印什麼)
 ---
 
 ## 規格
@@ -40,8 +40,9 @@ last_updated: 2026-07-04
 | HTTP | code | message | 條件 |
 |---|---|---|---|
 | 404 | `SIGNUP_NOT_FOUND` | 找不到報名 | signupId 查無 |
-| 4xx | `WORSHIP_ONLY_TYPE_4` | 普桌資料卡僅限報名類型為普桌 | `SignupType != 4` |
 | 404 | — | — | `debugOverlay=true` 且非 Development 環境 |
+
+> 2026-07-18 解鎖：原 422 `WORSHIP_ONLY_TYPE_4`（`SignupType != 4`）已移除——對齊舊系統「選什麼印什麼」（客訴右鍵選項被鎖／單選非普桌 422）。
 
 ## 內容規格（版面）
 

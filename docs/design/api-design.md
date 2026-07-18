@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-07-04 (新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)
+last_updated: 2026-07-18 (worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)
 ---
 
 ## 通則
@@ -179,8 +179,8 @@ HTTP status 映射：
 | POST | `/reports/receipt` | body: `{signupIds[]}` → application/pdf |
 | POST | `/reports/tablet` | body: `{signupIds[]}` → application/pdf（合併） |
 | POST | `/reports/text` | body: `{signupIds[]}` → application/pdf（含垂直地址 PNG） |
-| POST | `/reports/worship` | body: `{signupIds[]}` → application/pdf（限 signupType=4） |
-| GET | `/reports/worshipcard` | `?signupId=` → application/pdf（普桌資料卡，A5 橫預印卡紙套印；限 signupType=4；支援 dev-only `?debugOverlay=true`）。2026-07-04 新增（全新報表，直接以實際 GET 簽章記載）。Blueprint: [get-reports-worshipcard.md](../blueprints/api-endpoints/get-reports-worshipcard.md) |
+| POST | `/reports/worship` | body: `{signupIds[]}` → application/pdf（不限 signupType，2026-07-18 解鎖） |
+| GET | `/reports/worshipcard` | `?signupId=` → application/pdf（普桌資料卡，A5 橫預印卡紙套印；不限 signupType（2026-07-18 解鎖）；支援 dev-only `?debugOverlay=true`）。2026-07-04 新增（全新報表，直接以實際 GET 簽章記載）。Blueprint: [get-reports-worshipcard.md](../blueprints/api-endpoints/get-reports-worshipcard.md) |
 | POST | `/reports/batch` | body: `{reportType, numberStart?, numberEnd?, signupIds?[], year?, yearGte?, ceremonyCategoryId?, signupType?}` → 統一入口（`signupIds` 有值時精準印該幾筆，優先於 `numberStart`/`numberEnd` 編號區間；兩者皆缺回 400 `編號錯誤`） |
 
 每個 endpoint 支援：

@@ -712,17 +712,8 @@ function buildPrintItem(
       if (ctx.selectedRows.length === 0) {
         return { enabled: false, reason: '請先選擇報名資料' };
       }
-      // 普桌／普桌資料卡只能套用在 SignupType=4 的資料上（後端對單筆 by-id 驗證、批次強制 type=4）。
-      // 不再看搜尋篩選，改驗證實際選取的每一列都是普桌；夾雜非普桌就擋下，避免印出錯位 PDF。
-      if (spec.value === 'worship' || spec.value === 'worshipcard') {
-        const nonWorship = ctx.selectedRows.filter((r) => r.signupType !== 4);
-        if (nonWorship.length > 0) {
-          return {
-            enabled: false,
-            reason: `選取含 ${nonWorship.length} 筆非普桌資料，僅普桌(類型 4)可列印`,
-          };
-        }
-      }
+      // 普桌／普桌資料卡與其他列印選項一致，不檢查 SignupType——
+      // 對齊舊系統 tsmiPrintWorship：選什麼印什麼（2026-07-18 客訴解鎖）。
       return true;
     },
     onClick,

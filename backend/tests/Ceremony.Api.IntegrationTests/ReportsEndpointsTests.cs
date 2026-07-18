@@ -75,17 +75,20 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
     }
 
     [Fact]
-    public async Task GET_worship_nonType4_returns_422()
+    public async Task GET_worship_nonType4_returns_pdf()
     {
+        // 2026-07-18 解鎖：普桌不再限 SignupType=4（對齊舊系統選什麼印什麼），非普桌也回 200 PDF
         var client = await AuthedAsync();
         var listResp = await client.GetAsync("/api/v1/signups?year=115&signupType=1");
         var list = await listResp.Content.ReadFromJsonAsync<SignupListResponse>();
         var signupId = list!.Items[0].Id;
 
         var resp = await client.GetAsync($"/api/v1/reports/worship?signupId={signupId}");
-        resp.StatusCode.Should().Be(HttpStatusCode.UnprocessableEntity);
-        var body = await resp.Content.ReadAsStringAsync();
-        body.Should().Contain("WORSHIP_ONLY_TYPE_4");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        resp.Content.Headers.ContentType?.MediaType.Should().Be("application/pdf");
+        var bytes = await resp.Content.ReadAsByteArrayAsync();
+        bytes.Length.Should().BeGreaterThan(1000);
+        bytes[0].Should().Be(0x25);  // %PDF magic
     }
 
     [Fact]

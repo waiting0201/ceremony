@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-18 (普桌六位客訴置中：Base 變體 6 欄 Left +0.1786cm 對齊葫蘆中軸，普桌資料卡同步；先前 2026-07-17 報名編輯 overlay 按確認必 400 修復：編輯模式編號欄恆顯示＋form invalid 不再靜默；同日：載入預繳 500 修復：SignupLogs.Name NOT NULL 被 7/4 稽核的「log 快照留 null」踩中→log Name 改信眾姓名快照，補真實 insert 整合測試，357 測試綠；同日稍早：薦牌列印 3 項客訴修復：5位字太小/陽上超出列印範圍/編號被裁，MatrixLayout 方框內動態排版＋陽上左界 0.5＋編號 Left 0.5，88 測試綠、疊圖 OK 待實體驗收；同日稍早：新增報名表單對齊舊系統四項 v2.2.1：信眾搜尋改常駐 in-form 結果列表（截斷 200 列防卡頓）、地址寄件上/文牒下、名單往生上/陽上下且輸入框無底色、未選信眾送出自動先 POST /believers 建新信眾再報名（修復「沒選信眾無法新增」）；同日追加：結果列表配色/列高對齊報名維護 grid、法會資料提到表單最上方且空表單無捲動，Playwright 實測全過；先前：列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
+last_updated: 2026-07-18 (右鍵列印普桌/普桌資料卡完全解鎖：前端恆啟用＋後端撤回全部 type-4 限制（422/批次過濾），對齊舊系統選什麼印什麼，357 測試綠＋實測 200；同日稍早普桌六位客訴置中：Base 變體 6 欄 Left +0.1786cm 對齊葫蘆中軸，普桌資料卡同步；先前 2026-07-17 報名編輯 overlay 按確認必 400 修復：編輯模式編號欄恆顯示＋form invalid 不再靜默；同日：載入預繳 500 修復：SignupLogs.Name NOT NULL 被 7/4 稽核的「log 快照留 null」踩中→log Name 改信眾姓名快照，補真實 insert 整合測試，357 測試綠；同日稍早：薦牌列印 3 項客訴修復：5位字太小/陽上超出列印範圍/編號被裁，MatrixLayout 方框內動態排版＋陽上左界 0.5＋編號 Left 0.5，88 測試綠、疊圖 OK 待實體驗收；同日稍早：新增報名表單對齊舊系統四項 v2.2.1：信眾搜尋改常駐 in-form 結果列表（截斷 200 列防卡頓）、地址寄件上/文牒下、名單往生上/陽上下且輸入框無底色、未選信眾送出自動先 POST /believers 建新信眾再報名（修復「沒選信眾無法新增」）；同日追加：結果列表配色/列高對齊報名維護 grid、法會資料提到表單最上方且空表單無捲動，Playwright 實測全過；先前：列印新增「普桌資料卡」worshipcard 全新報表：葫蘆內編號+陽上 6 變體墨跡仿射映射、右側 Phone/Remark 套印、限 type-4、354 測試綠、疊圖 6 變體目視 OK 待實體驗收；新增信眾表單改雙欄密集排版節省空間、四種視窗實測無垂直捲動；普桌列印修正完成：丟字修復+6變體各自座標+每格5字+上下排空格，340 測試綠；先前稽核：實測確認丟字僅 One/Two/Three 變體、Base/Four/Five 有印但座標沿用 Base 矩陣，P1 項精確化；報名編號「插入並順移」新功能：列表右鍵「在此前插入」→ POST /signups/insert-shift，set-based UPDATE +1 順移 + sp_getapplock 與預繳共用，333 測試綠 + Playwright 實機；薦牌實體對位使用者確認 OK，Blocked 項結案；載入預繳對齊稽核修正 4 項：Name/Phone 留 null、配號 nextNo=n+1 對齊舊系統、並行鎖 UPDLOCK+sp_getapplock 真正落地、確認不做預覽；配號抽為 PrepayNumberAllocator 純函式，326 測試綠；新增報名表單改雙欄密集排版節省空間、避免垂直捲動；先前修正全站文字太小/顏色不清楚：WCAG 對比實測 + --c-text-secondary 改深 + 新增 --c-primary-strong 修按鈕文字對比 + 字級再 +1px；2026-07-06 薦牌亡者/陽上矩陣同欄上下排姓名間補全形空白間距；新增 GET /reports/tablet/sample dev-only 端點；2026-07-05 薦牌 OneOne 變體 Y 座標修正)
 
 
 ---
@@ -157,6 +157,14 @@ last_updated: 2026-07-18 (普桌六位客訴置中：Base 變體 6 欄 Left +0.1
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **右鍵「列印普桌／列印普桌資料卡」完全解鎖（客訴：常被鎖；前端＋後端）** — Done 2026-07-18
+  - 客訴：報名維護右鍵這兩項常灰色不可按；第一階段只解前端後，單選非普桌又踩後端 422 `WORSHIP_ONLY_TYPE_4`
+  - 考據：舊系統 `tsmiPrintWorship_Click`（SignupForm.cs:380-403）與批次 case 5 **均無型別檢查**——「限 type-4」是新系統自加的嚴格化，正是被鎖根因
+  - 修法：前端 `buildPrintItem` 移除選取列型別檢查（[signup-list-page.ts](../frontend/src/app/features/signups/signup-list-page.ts)）；後端撤回全部 type-4 限制：`GenerateWorshipHandler`/`GenerateWorshipCardHandler` 移除 422、`BatchReportHandler` 移除 signupIds 過濾與編號區間強制 type=4（改跟隨呼叫端篩選）、`ExceptionMiddleware` 移除死碼 error code
+  - 驗證：357 測試綠（改寫 3 個防呆測試為解鎖語意）；以新版 API 實測原 422 的 signupId → worship/worshipcard 均 200 PDF
+  - 順手修：`PrepayEndpointsTests.POST_load_withRealSource…` 測試隔離缺陷（880/881 專用年份殘留使 Skipped 計數失真、第二次跑必失敗）→ 測試開頭先清殘留
+  - 文件：[business-rules-implicit.md](business-rules-implicit.md) §16、[signup-management.md](blueprints/signup-management.md) row 7＋啟用條件＋驗收、[printing-reports.md](blueprints/printing-reports.md)、[api-design.md](design/api-design.md) endpoint 表、[post-reports-batch.md](blueprints/api-endpoints/post-reports-batch.md)、[get-reports-worshipcard.md](blueprints/api-endpoints/get-reports-worshipcard.md)、[signup-form.md](blueprints/legacy-coverage/signup-form.md) row 13
 
 - [x] **普桌六位客訴置中修正（六位的要靠右一點）** — Done 2026-07-18
   - 客訴：普桌列印六位（Base 2×3）變體整組偏左，「要靠右一點，比較置中」
