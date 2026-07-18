@@ -132,6 +132,16 @@ public sealed class PrepayEndpointsTests(CeremonyApiFactory factory) : IClassFix
         const int sourceYear = 880;   // 專用年份，避開真實資料
         const int targetYear = 881;
 
+        // 0. 清掉先前跑測試留下的 880/881 殘留（本測試不 rollback；殘留會讓 Skipped 計數失真）
+        foreach (var year in new[] { sourceYear, targetYear })
+        {
+            var leftoverResp = await client.GetAsync(
+                $"/api/v1/signups?year={year}&ceremonyCategoryId={spring}&signupType=1");
+            var leftover = await leftoverResp.Content.ReadFromJsonAsync<SignupListResponse>();
+            foreach (var item in leftover!.Items)
+                (await client.DeleteAsync($"/api/v1/signups/{item.Id}")).EnsureSuccessStatusCode();
+        }
+
         // 1. 臨時 Believer（employeeType=1 → 對應 believerGroup=1「非員工一般」）
         var believerName = $"itest_prepay_{DateTime.UtcNow:yyMMddHHmmssfff}";
         var believerResp = await client.PostAsJsonAsync("/api/v1/believers", new
