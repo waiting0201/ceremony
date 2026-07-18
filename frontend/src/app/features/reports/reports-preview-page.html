@@ -72,7 +72,7 @@
         </label>
         <label class="field w-100">
           <span>民國年</span>
-          <input type="number" formControlName="year" min="1" max="999" />
+          <input type="text" inputmode="numeric" appNumericInput formControlName="year" />
         </label>
         <label class="field-check inline">
           <input type="checkbox" formControlName="yearGte" />
@@ -98,11 +98,11 @@
         </label>
         <label class="field w-100">
           <span>編號起 *</span>
-          <input type="number" formControlName="numberStart" min="0" />
+          <input type="text" inputmode="numeric" appNumericInput formControlName="numberStart" />
         </label>
         <label class="field w-100">
           <span>編號迄 *</span>
-          <input type="number" formControlName="numberEnd" min="0" />
+          <input type="text" inputmode="numeric" appNumericInput formControlName="numberEnd" />
         </label>
         <button
           type="submit"

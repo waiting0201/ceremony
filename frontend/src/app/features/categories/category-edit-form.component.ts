@@ -14,6 +14,7 @@ import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
 import { ApiError } from '../../core/http/api-error';
+import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
 
 export type CategoryEditMode = 'create-root' | 'create-child' | 'edit';
 
@@ -28,7 +29,7 @@ export interface CategoryEditTarget {
 
 @Component({
   selector: 'app-category-edit-form',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, NumericInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './category-edit-form.component.html',
   styleUrl: './category-edit-form.component.scss',

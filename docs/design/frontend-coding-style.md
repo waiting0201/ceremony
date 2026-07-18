@@ -12,7 +12,7 @@ related_docs:
   - ../conventions.md
   - security.md
 keywords: [coding-style, frontend, typescript, javascript, dart, style-guide, lint]
-last_updated: 2026-05-07
+last_updated: 2026-07-18 (新增：純數字欄禁 type=number、一律 appNumericInput——IME 組字被丟棄客訴根因)
 ---
 
 ## 0. 元規則
@@ -139,6 +139,7 @@ last_updated: 2026-05-07
 - **禁** inline style（動態值或 CSP nonce 例外）
 - 響應式：mobile-first，breakpoint 與 [frontend-design.md](frontend-design.md) 對齊
 - 對比度通過 WCAG AA（一般 4.5:1、大字 3:1）
+- **純數字欄禁用 `type="number"`**，一律 `type="text" inputmode="numeric"` + `appNumericInput`（shared/directives/numeric-input.directive.ts）：Chromium number input 會把中文輸入法組字整段丟棄且無回饋（見 [../gotchas.md](../gotchas.md) 2026-07-18 條）；directive 的 CVA 讓 control 值維持 `number | null`，元件端邏輯不變
 
 ## 5. 與其他文件的關係
 

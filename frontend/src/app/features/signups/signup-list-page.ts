@@ -31,6 +31,7 @@ import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog
 import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { FormOverlayComponent } from '../../shared/form-overlay/form-overlay.component';
+import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
 import { SignupEditFormComponent, type InsertAtContext } from './signup-edit-form.component';
 import { SignupSearchState, type SignupSearchFormSnapshot } from './signup-search-state';
 import {
@@ -74,6 +75,7 @@ interface EditOverlayState {
     IconComponent,
     FormOverlayComponent,
     SignupEditFormComponent,
+    NumericInputDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './signup-list-page.html',

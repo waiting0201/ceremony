@@ -16,7 +16,7 @@
       <form class="search-grid dense-controls" [formGroup]="form" (ngSubmit)="search()">
         <label class="chk r1c1"><input type="checkbox" formControlName="isScope" /><span>範圍</span></label>
         <label class="lbl r1c2">年份</label>
-        <input type="number" class="r1c3" formControlName="year" min="1" max="999" />
+        <input type="text" inputmode="numeric" appNumericInput class="r1c3" formControlName="year" />
         <div class="scope-row r1c4">
           <label class="chk"><input type="checkbox" formControlName="scopeName" /><span>姓名</span></label>
           <label class="chk"><input type="checkbox" formControlName="scopeLivingName" /><span>陽上</span></label>
@@ -45,7 +45,7 @@
         </select>
         <div class="r3c4 number-field">
           <label class="lbl">編號</label>
-          <input type="number" formControlName="number" min="0" />
+          <input type="text" inputmode="numeric" appNumericInput formControlName="number" />
         </div>
         <button type="button" class="btn r3c5" (click)="exportExcel()" [disabled]="exporting() || loading()">
           {{ exporting() ? '匯出中…' : '匯出 Excel' }}
@@ -59,9 +59,9 @@
     <fieldset class="pane print-pane">
       <legend>批次列印</legend>
       <form class="print-grid dense-controls" [formGroup]="batchForm" (ngSubmit)="submitBatchPrint()">
-        <input type="number" class="num" formControlName="numberStart" min="1" placeholder="起" />
+        <input type="text" inputmode="numeric" appNumericInput class="num" formControlName="numberStart" placeholder="起" />
         <span class="tilde">～</span>
-        <input type="number" class="num" formControlName="numberEnd" min="1" placeholder="迄" />
+        <input type="text" inputmode="numeric" appNumericInput class="num" formControlName="numberEnd" placeholder="迄" />
         <select class="r2c1-3" formControlName="reportType">
           @for (r of reportTypes; track r.value) {
             <option [value]="r.value">{{ r.label }}</option>

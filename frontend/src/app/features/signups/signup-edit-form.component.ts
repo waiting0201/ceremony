@@ -30,6 +30,7 @@ import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-season';
+import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
 
 /**
  * 報名 create/edit 表單（不含 page layout / overlay shell）。
@@ -56,7 +57,7 @@ export interface InsertAtContext {
 
 @Component({
   selector: 'app-signup-edit-form',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, NumericInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './signup-edit-form.component.html',
   styleUrl: './signup-edit-form.component.scss',

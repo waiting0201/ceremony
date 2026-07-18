@@ -18,6 +18,7 @@ import { ApiError } from '../../core/http/api-error';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { SIGNUP_TYPES } from '../../shared/util/signup-type';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
+import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
 
 type Mode = 'single' | 'batch';
 
@@ -37,7 +38,7 @@ const REPORT_TYPES: readonly ReportTypeOption[] = [
 
 @Component({
   selector: 'app-reports-preview-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, NumericInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './reports-preview-page.html',
   styleUrl: './reports-preview-page.scss',
