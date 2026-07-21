@@ -6,6 +6,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>Ceremony.Migrations</RootNamespace>
+    <!-- Api 以 framework-dependent（SelfContained=false）＋ RID 發佈，RID 會傳遞到本被參考專案；
+         Exe＋RID 預設 SelfContained=true，會觸發 NETSDK1151（self-contained 不可被 non-self-contained 參考）。
+         明確固定為 framework-dependent 與 Api 對齊，本專案獨立執行亦走 shared runtime。見 docs/gotchas.md。 -->
+    <SelfContained>false</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>
