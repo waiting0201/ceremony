@@ -82,7 +82,8 @@ public sealed class TabletRenderer
                     var marginCompensation = data.Template == TabletTemplate.OneOne ? 2.0 : 0.0;
                     // 2026-07-17 使用者反映編號超出列印範圍（reference/薦牌.jpg「郵27」的「郵」左半被
                     // 印表機不可列印邊界裁掉）：Left 0.1 → 0.5 內縮到可列印區；Top 維持 0.1（照片上緣未被裁）。
-                    DrawText(layers, 0.1 - marginCompensation, 0.5, 4.29646, 1.13229, 0.8 * PointsPerCm, data.Number, bold: true, vMiddle: true);
+                    // 2026-07-21 客訴：編號往下移 0.1cm → Top 0.1 → 0.2（9 變體共用；OneOne 2cm Margin 補償不變）。
+                    DrawText(layers, 0.2 - marginCompensation, 0.5, 4.29646, 1.13229, 0.8 * PointsPerCm, data.Number, bold: true, vMiddle: true);
                     DrawText(layers, 6.1 - marginCompensation, 3.9, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameSecond, vMiddle: true);
                     DrawText(layers, 6.1 - marginCompensation, 5.9, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameFirst, vMiddle: true);
 
@@ -132,7 +133,10 @@ public sealed class TabletRenderer
     // 這個值也跟窗框內緣量測寬度的幾何中心（(4.191+7.163)/2=5.677cm）幾乎一致，互相印證。
     // 位置在算出 GroupFontPt 的共用字級「之後」才動態算，而非像之前用編譯期常數——因為要置中的是
     // 「實際渲染寬度」（＝字級，直書 CJK 字寬≈字級），縮字後置中位置也要跟著變，否則會偏一邊。
-    private const double DeadCenterX = 5.685;
+    // 2026-07-21 客訴：往者整個列印位置右移 0.1cm。DeadCenterX 是 1/2/3+ 位往者共用的排版中心線，
+    // 移這一個常數即可讓所有往者欄位（含 2 位左右分居、3+ 位 2×3 矩陣）整體右移 0.1cm。
+    // 量測基準 5.685 → 5.785；右移後 3+ 矩陣右欄右緣 ≈7.018cm 仍在窗框內緣 7.163cm 之內。
+    private const double DeadCenterX = 5.785;
     private const double DeadColumnGap = 0.1; // 相鄰欄位之間的留白，避免緊貼（1-2 位亡者變體用）
     // 「故」字下緣 Y=7.5946cm、「靈」字上緣 Y=13.462cm（同一次像素量測），中間空隙 5.8674cm。
     private const double DeadGapTop = 7.5946;
@@ -248,7 +252,8 @@ public sealed class TabletRenderer
                 // 明顯拉大。扣掉 margin 補償讓三個變體印在同一個實體頁面高度。
                 var marginCompensation = data.Template == TabletTemplate.OneOne ? 2.0 : 0.0;
                 var f = VerticalText.GroupFontPt(pt08, (l[0], 5.5));
-                DrawText(layers, 14.00389 - marginCompensation, 0.83528, 0.8, 5.5, f, l[0], vertical: true);
+                // 2026-07-21 客訴：陽上 1 位時列印位置右移 0.5cm（Left 0.83528 → 1.33528）。
+                DrawText(layers, 14.00389 - marginCompensation, 1.33528, 0.8, 5.5, f, l[0], vertical: true);
                 break;
             }
 
@@ -258,8 +263,10 @@ public sealed class TabletRenderer
             {
                 // 2 位陽上（0.8cm，高欄）
                 var f = VerticalText.GroupFontPt(pt08, (l[0], 5.5), (l[1], 5.5));
-                DrawText(layers, 14.00389, 1.2825, 0.8, 5.5, f, l[0], vertical: true);
-                DrawText(layers, 14.00389, 0.30611, 0.8, 5.5, f, l[1], vertical: true);
+                // 2026-07-21 客訴：陽上 2 位時列印位置右移 0.5cm（l[0] 1.2825→1.7825、l[1] 0.30611→0.80611）。
+                // 附帶好處：l[1] 原 Left 0.30611 逼近印表機不可列印邊界（doc §3 標記的風險），右移後緩解。
+                DrawText(layers, 14.00389, 1.7825, 0.8, 5.5, f, l[0], vertical: true);
+                DrawText(layers, 14.00389, 0.80611, 0.8, 5.5, f, l[1], vertical: true);
                 break;
             }
 

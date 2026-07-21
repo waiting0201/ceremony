@@ -440,6 +440,47 @@ public sealed class RendererSmokeTests
         textBottomCm.Should().BeLessThanOrEqualTo(lingTopCm + 1e-6, "不應壓到樣板預印的「靈」字");
     }
 
+    // 2026-07-21 客訴回歸鎖：往者 1、2 位且 ≥8 真字時字級由 0.8cm 縮到 0.5cm（原 0.6cm 再下修，
+    // 使用者指定，僅 1/2 位往者；3+ 位仍 0.6cm）。用 PrintTemplateSelector 真實推導變體＋字級
+    // （＝生產路徑 ReportModelBuilders.Tablet 的做法），落地 overlay 供目視 8 字縮字樣張。
+    // 附帶斷言縮字目標＝0.5cm，避免未來誤把門檻或目標值改回。
+    [Fact]
+    public void Tablet_1and2Dead_8chars_ShrinkTo05_DumpOverlays()
+    {
+        // 8 真字往者名（觸發縮字）；控制組為 7 字（維持 0.8cm）供並排目視差異
+        var name8 = "一二三四五六七八"; // 8 字
+        var name7 = "一二三四五六七";   // 7 字（不縮）
+
+        static TabletData Build(string?[] dead, string?[] living)
+        {
+            var (template, para) = PrintTemplateSelector.ChooseTablet(dead, living);
+            var paraCm = double.Parse(para.Replace("cm", ""));
+            return new TabletData("郵1", null, null, dead, living, paraCm, template);
+        }
+
+        // 1 位往者 8 字 + 2 陽上 → OneTwo，往者字級 0.5cm
+        var oneDead = Build(N(name8), N("子甲", "子乙"));
+        oneDead.Template.Should().Be(TabletTemplate.OneTwo);
+        oneDead.ParaFontSizeCm.Should().BeApproximately(0.5, 1e-9, "1 位往者 8 字 → 0.5cm");
+
+        // 2 位往者（其一 8 字）+ 2 陽上 → TwoTwo，往者字級 0.5cm
+        var twoDead = Build(N("陳", name8), N("子甲", "子乙"));
+        twoDead.Template.Should().Be(TabletTemplate.TwoTwo);
+        twoDead.ParaFontSizeCm.Should().BeApproximately(0.5, 1e-9, "2 位往者任一 8 字 → 0.5cm");
+
+        // 控制組：1 位往者 7 字 → OneTwo，維持 0.8cm（不縮）
+        var control = Build(N(name7), N("子甲", "子乙"));
+        control.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9, "7 字不觸發縮字");
+
+        foreach (var (data, tag) in new[] { (oneDead, "1dead8"), (twoDead, "2dead8"), (control, "1dead7_control") })
+        {
+            var plain = new TabletRenderer().Render(data);
+            ShouldBePdf(plain);
+            DumpIfRequested(plain, $"tablet_shrink05_{tag}.pdf");
+            DumpIfRequested(new TabletRenderer().Render(data, debugOverlay: true), $"tablet_shrink05_{tag}_overlay.pdf");
+        }
+    }
+
     // 2026-07-17 客訴回歸鎖（reference/薦牌.jpg 郵27）：5 位亡者 + 5 位陽上時
     // (1) 字級被舊「固定列距 + WithBottomGap」機制縮到 0.37~0.47cm（字太小）；
     // (2) 陽上最左欄 Left=0.1 落在印表機不可列印邊界內，整欄消失（5 位只印出 3 位）；

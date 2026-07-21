@@ -23,11 +23,11 @@ public sealed class PrintTemplateSelectorTests
     }
 
     [Fact]
-    public void Tablet_1deadLong_2living_OneTwo_para06()
+    public void Tablet_1deadLong_2living_OneTwo_para05()
     {
         var (t, p) = PrintTemplateSelector.ChooseTablet(N("一二三四五六七八"), N("子甲", "子乙"));
         t.Should().Be(TabletTemplate.OneTwo);
-        p.Should().Be("0.6cm", "dead.Length > 7 → 0.6cm");
+        p.Should().Be("0.5cm", "2026-07-21 客訴：1 位往者 dead.Length > 7 → 0.5cm");
     }
 
     [Fact]
@@ -46,11 +46,11 @@ public sealed class PrintTemplateSelectorTests
     }
 
     [Fact]
-    public void Tablet_2dead_2living_dead2Long_para06()
+    public void Tablet_2dead_2living_dead2Long_para05()
     {
         var (t, p) = PrintTemplateSelector.ChooseTablet(N("陳", "一二三四五六七八"), N("子甲", "子乙"));
         t.Should().Be(TabletTemplate.TwoTwo);
-        p.Should().Be("0.6cm");
+        p.Should().Be("0.5cm", "2026-07-21 客訴：2 位往者任一 > 7 字 → 0.5cm");
     }
 
     [Fact]
@@ -101,11 +101,11 @@ public sealed class PrintTemplateSelectorTests
     }
 
     [Fact]
-    public void Tablet_dead8realChars_withSpace_still_para06()
+    public void Tablet_dead8realChars_withSpace_still_para05()
     {
         // "一二三四 五六七八" = 8 真字 + 空格；真實字數 8 > 7 → 仍縮（沒把真字誤刪）
         var (_, p) = PrintTemplateSelector.ChooseTablet(N("一二三四 五六七八"), N("子甲"));
-        p.Should().Be("0.6cm", "8 真字 > 7 門檻仍觸發");
+        p.Should().Be("0.5cm", "8 真字 > 7 門檻仍觸發（2026-07-21 客訴：縮到 0.5cm）");
     }
 
     [Fact]

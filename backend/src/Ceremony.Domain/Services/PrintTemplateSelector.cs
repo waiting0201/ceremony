@@ -25,6 +25,8 @@ public static class PrintTemplateSelector
         var dead1Long = IsPresent(deadNames[0]) && RealCharCount(deadNames[0]) > 7;
         var dead2Long = IsPresent(deadNames[1]) && RealCharCount(deadNames[1]) > 7;
 
+        // 2026-07-21 客訴：往者 1、2 位且 ≥8 真字時字級由 0.8cm 縮小。縮字目標由 0.6cm 再降到
+        // 0.5cm（使用者指定）。**僅 1、2 位往者**適用；3+ 位往者維持固定 0.6cm（見下方 fallback）。
         return deadTier switch
         {
             1 => (livingTier switch
@@ -32,14 +34,14 @@ public static class PrintTemplateSelector
                 1 => TabletTemplate.OneOne,
                 2 => TabletTemplate.OneTwo,
                 _ => TabletTemplate.One,
-            }, dead1Long ? "0.6cm" : "0.8cm"),
+            }, dead1Long ? "0.5cm" : "0.8cm"),
 
             2 => (livingTier switch
             {
                 1 => TabletTemplate.TwoOne,
                 2 => TabletTemplate.TwoTwo,
                 _ => TabletTemplate.Two,
-            }, (dead1Long || dead2Long) ? "0.6cm" : "0.8cm"),
+            }, (dead1Long || dead2Long) ? "0.5cm" : "0.8cm"),
 
             _ => (livingTier switch
             {
