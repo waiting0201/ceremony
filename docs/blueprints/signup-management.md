@@ -16,7 +16,7 @@ related_docs:
   - prepay-loading.md
   - printing-reports.md
 keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印, 勾選列印, signupIds]
-last_updated: 2026-07-18 (右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；先前 2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
+last_updated: 2026-07-21 (新增報名頁客訴六項：取消＝清成新的一筆不跳頁、改選信眾殘留欄位修復、搜尋結果與名單文字大小對齊地址、勾指定編號後編號欄移至勾選文字右邊、地址非必填（前後端同步放寬）；先前 2026-07-18 右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
 ---
 
 ## 背景與動機
@@ -139,6 +139,13 @@ last_updated: 2026-07-18 (右鍵「列印普桌／普桌資料卡」解鎖：前
 - **員工類型 + 固定編號唯讀顯示**：新流程不於報名建立時**編輯**既有信眾屬性（inline 編輯 Believer 捨棄，於信眾維護調整）。`BelieverListItem` 已含 `IsFixedNumber`（2026-06-02），報名表單唯讀顯示「固定編號 是/否」
 - **未選信眾 → 自動建立新信眾（2026-07-17 補齊，對齊舊 `btnConfirm_Click:186-223`）**：舊系統 `dgvBelievers.SelectedRows.Count == 0` 時當場 `Guid.NewGuid()` INSERT Believers 再建報名；新版 API 層維持不做 inline 建立（`CreateSignupRequest.BelieverId` 必填），由**前端 orchestration**：`submit()` 發現 create 模式且無 believerId → 先 `POST /believers`（employeeType=1 非員工、isFixedNumber=false，同舊表單下拉/checkbox 預設；姓名/電話/兩組地址/陽上/往生取自表單）→ 拿到 id 綁回表單再 `POST /signups`。信眾建立成功但報名失敗時 believerId 已綁回表單，重送不會重複建信眾。此前前端漏做這條路（believerId 掛 required），導致「沒選信眾就完全無法新增」——已修
 - **選信眾自動帶入預繳歷史**：`pickBeliever` 呼叫 `GET /prepay?believerId&year`，最新報名有預繳則帶入預繳年/法會（對齊舊 `BelieverSelected:1102-1115`；見 [get-prepay-believer-latest.md](api-endpoints/get-prepay-believer-latest.md)）
+- **新增報名頁客訴六項（2026-07-21）**：
+  1. **「取消」＝清成新的一筆、不關閉/跳頁**：新增模式的取消鈕改呼叫 `SignupEditFormComponent.resetBelow()`——保留最上方法會資料（年/法會/類型）作為連續輸入的固定情境，清除已選信眾＋搜尋框＋搜尋結果與信眾以下所有欄位（基本資料/地址/名單/編號/費用/備註/預繳），回到全新新增狀態。**兩個宿主都要改**：(a) overlay（主要 UX）`signup-list-page.onOverlayCancel()` 依 `editOverlay().signupId` 分流，新增時 resetBelow 且**不關閉 overlay**（要關閉走標題列 × / backdrop / Esc）；(b) 路由頁 `/signups/new`（deep-link）`signup-edit-page.onCancel()` 原本 `<a routerLink="/signups">` 直接跳頁 → 改成新增模式 resetBelow、不跳頁（同時移除未使用的 `RouterLink` import）。編輯模式（含 `/signups/:id/edit`）「取消」維持關閉/返回列表
+  2. **改選信眾殘留欄位修復**：`pickBeliever` 覆蓋整張表單前先清掉上一筆信眾殘留的每筆報名欄位（費用/備註/預繳年/預繳法會；非插入模式再清編號/keepNumber）；預繳先歸零再由 `prefillPrepayHistory` 只在確有紀錄時回填，避免新信眾查無預繳卻沿用前一筆
+  3. **搜尋結果 list 文字大小＝地址**：`.believer-results table.data-table` 覆寫 `font-size: var(--font-size-base)`（原 `.data-table` 為 `--font-size-sm`），對齊地址輸入框
+  4. **往生/陽上名單文字大小＝地址**：`.names .name-grid input` 明訂 `font-size: var(--font-size-base)`（原未設、繼承 body 雖同值，改為顯式對齊）
+  5. **勾「指定編號」後編號欄顯示在勾選文字右邊**：新增模式改用 `.keep-number-row`（flex，`align-items:flex-end`）把 checkbox 與編號欄放同一列、編號在右（勾選才出現）；非另起一列。編輯模式編號仍為獨立 `.field`
+  6. **地址非必填**：前端 `mailAddress` 移除 `Validators.required`（僅留 maxLength 200）＋拿掉「寄件地址 *」星號；**後端同步放寬**（見 [post-signups.md](api-endpoints/post-signups.md) 與 §地址非必填業務規則）。注意「同寄件地址」勾選仍要求先有寄件地址（複製來源不可空，屬功能性前置條件，非必填驗證）
 - **信眾搜尋 1:1 對齊舊 `dgvBelievers`（2026-07-02 決策，取代先前簡化卡片式設計；2026-07-17 由 modal picker 改為常駐 in-form 列表，完全回到舊系統型態）**：
   - **常駐列表（2026-07-17）**：搜尋框/搜尋鈕/結果表格直接放在表單頂部「信眾」fieldset（全寬），非彈窗——對齊舊 `plStep2` 上常駐的 `txtQ + dgvBelievers`。點列選定後**列表保留**、可隨時再點別筆（每次改選重新覆蓋整份表單欄位，同舊 `dgvBelievers_CellClick`）；選定列高亮 + 「已選信眾」摘要（**僅選定後顯示**；未選時不顯示任何提示文字，「符合 N 筆僅顯示前 200」截斷提示也不顯示——2026-07-17 使用者指定拿掉，截斷本身保留）。結果表格 `max-height: 140px` 內部捲動（舊 dgv 高 117px 同精神），**靜默截斷最多 render 前 200 列**（模糊字如「陳」可命中 2 萬+ 列，全塞 DOM 會卡死；舊 WinForms grid 有虛擬化沒此問題）。**無 row hover 變色**（對齊 vgrid，見配色規範）。**配色/列高對齊報名維護 grid（2026-07-17 使用者指定）**：走全站唯一權威 [visual-design.md「清單/資料格配色規範」](../design/visual-design.md)——`.data-table.dense` 已補直向格線/表頭底線/往生欄右框線與 vgrid 一一對應（Playwright computed-style 9 項比對全同值），cell padding 收為 2px 6px（列高 25px ≈ 報名維護 26px）。編輯模式不顯示搜尋區（不換信眾），僅顯示信眾摘要卡
   - **搜尋**：單一輸入框 + 「搜尋」按鈕觸發（**2026-07-02 改**：原本 `(input)` 即時查詢，即使加 debounce 仍是「打字就打 API」；改回對齊舊 `btnBelieverSearch_Click` 的按鈕觸發語意——文字先落地在框內，按鈕或 Enter 才真正查詢），OR 比對 Name/Phone/6組陽上/6組往生共 14 欄（對齊舊 `NewSignupForm.cs:715-722` `txtQ`/`LoadBelievers`）。**不新增 endpoint**——沿用既有 `GET /api/v1/signups`（`SignupApi.search`）帶 `searchKey` + `scopeName/scopePhone/scopeLivingName/scopeDeadName=true`（`scopeRemark` 不開，舊系統不搜備註），該端點語意與舊 14 欄 OR 搜尋完全對應

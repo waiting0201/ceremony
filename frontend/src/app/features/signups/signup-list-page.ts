@@ -587,6 +587,20 @@ export class SignupListPage implements OnInit {
     this.editFormDirty.set(false);
   }
 
+  /**
+   * overlay「取消」鈕（2026-07-21 使用者指定）：
+   * 新增模式＝清成新的一筆（保留法會資料、不關閉表單、不跳頁）；
+   * 編輯模式＝維持原本關閉 overlay 回列表。
+   */
+  protected onOverlayCancel(): void {
+    if (this.editOverlay()?.signupId) {
+      this.onOverlayClose();
+    } else {
+      this.editFormRef?.resetBelow();
+      this.editFormDirty.set(false);
+    }
+  }
+
   protected onEditFormDirtyChange(dirty: boolean): void {
     this.editFormDirty.set(dirty);
   }

@@ -46,11 +46,29 @@ public sealed class CreateSignupHandlerTests
     }
 
     [Fact]
-    public async Task EmptyMailAddress_throws_VALIDATION_REQUIRED()
+    public async Task EmptyMailAddress_allowed_and_stored_as_empty_string()
     {
-        var act = () => CreateSut().HandleAsync(ValidReq() with { MailAddress = "  " }, _caller);
-        await act.Should().ThrowAsync<DomainException>()
-            .Where(e => e.ErrorCode == "VALIDATION_REQUIRED" && e.Message == "請輸入寄件地址");
+        // 地址非必填（2026-07-21 使用者指定）：空白地址不再擋下，normalize 為空字串後照常寫入。
+        _believerRepo.Setup(r => r.GetNameAsync(AnyBelieverId, default)).ReturnsAsync("陳大明");
+        _signupRepo.Setup(r => r.GetCeremonyCategoryTitleAsync(AnyCategoryId, default)).ReturnsAsync("春季");
+
+        var capturedSignup = (SignupWriteModel?)null;
+        _signupRepo
+            .Setup(r => r.InsertWithLogAsync(It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), null, default))
+            .Callback<SignupWriteModel, SignupLogWriteModel, int?, CancellationToken>((s, _, _, _) => capturedSignup = s);
+        _signupRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), default))
+            .ReturnsAsync((Guid id, CancellationToken _) => new SignupListItem(
+                id, 115, AnyCategoryId, "春季", 1, "No", 1, null, "非員工", null, "Alice",
+                null, null, false, [null, null, null, null, null, null], [null, null, null, null, null, null],
+                null, null, null, "",
+                null, null, null, "",
+                null, null, null, null, "alice", DateTime.UtcNow));
+
+        var result = await CreateSut().HandleAsync(ValidReq() with { MailAddress = "  " }, _caller);
+
+        result.Should().NotBeNull();
+        capturedSignup.Should().NotBeNull();
+        capturedSignup!.MailAddress.Should().Be("");
     }
 
     [Fact]

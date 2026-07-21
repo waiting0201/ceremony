@@ -23,11 +23,11 @@ public sealed class BelieverWriteValidatorTests
     }
 
     [Fact]
-    public void EmptyMailAddress_throws_with_verbatim_message()
+    public void EmptyMailAddress_allowed_and_normalized_to_empty_string()
     {
-        var act = () => BelieverWriteValidator.ValidateAndNormalize(ValidReq() with { MailAddress = "  " });
-        act.Should().Throw<DomainException>()
-            .Where(e => e.ErrorCode == "VALIDATION_REQUIRED" && e.Message == "請輸入寄件地址");
+        // 地址非必填（2026-07-21 使用者指定）：空白地址不再擋下，normalize 為空字串。
+        var model = BelieverWriteValidator.ValidateAndNormalize(ValidReq() with { MailAddress = "  " });
+        model.MailAddress.Should().Be("");
     }
 
     [Theory]

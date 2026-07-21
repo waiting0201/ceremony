@@ -20,8 +20,7 @@ internal static class BelieverWriteValidator
 
         if (string.IsNullOrEmpty(name))
             throw new DomainException("VALIDATION_REQUIRED", "請輸入姓名");
-        if (string.IsNullOrEmpty(mailAddress))
-            throw new DomainException("VALIDATION_REQUIRED", "請輸入寄件地址");
+        // 地址非必填（2026-07-21 使用者指定）：空白即存空字串，不再擋下（未選信眾自動建立時亦適用）。
         if (req.EmployeeType is not (1 or 2 or 3))
             throw new DomainException("VALIDATION_INVALID", "員工類別錯誤");
         if (name.Length > 30)

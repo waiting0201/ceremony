@@ -178,7 +178,7 @@
             <input type="text" [value]="mailZipcode()" readonly placeholder="—" />
           </label>
           <label class="field span-row">
-            <span>寄件地址 *</span>
+            <span>寄件地址</span>
             <input type="text" formControlName="mailAddress" maxlength="200" />
           </label>
         </div>
@@ -247,12 +247,20 @@
             </p>
           }
           @if (mode() !== 'edit') {
-            <label class="field-check span-row">
-              <input type="checkbox" formControlName="keepNumber" />
-              <span>指定編號（不由系統自動分配）</span>
-            </label>
-          }
-          @if (form.controls.keepNumber.value || mode() === 'edit') {
+            <!-- 勾「指定編號」後，編號欄顯示在該勾選文字右邊（同列），非另起一列（2026-07-21 使用者指定） -->
+            <div class="keep-number-row span-row">
+              <label class="field-check">
+                <input type="checkbox" formControlName="keepNumber" />
+                <span>指定編號（不由系統自動分配）</span>
+              </label>
+              @if (form.controls.keepNumber.value) {
+                <label class="field number-field">
+                  <span>編號</span>
+                  <input type="text" inputmode="numeric" appNumericInput formControlName="customNumber" />
+                </label>
+              }
+            </div>
+          } @else {
             <label class="field">
               <span>編號</span>
               <input type="text" inputmode="numeric" appNumericInput formControlName="customNumber" />

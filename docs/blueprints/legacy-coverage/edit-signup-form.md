@@ -22,6 +22,7 @@ last_updated: 2026-07-17 (編輯 overlay 編號欄修正：恆顯示對齊 legac
 
 > ✅ **完成 (2026-06-02)**：20 個方法全部已實作。PUT/edit path（含 SignupLog transaction）+ 前端 `signup-edit-form` 全部 UI 連動（信眾選擇、城市/區域連動、同寄件地址、Load* 載入、編輯預填）全 ship。
 > 🔧 **修正（2026-07-17）編輯 overlay「按確認沒反應」**：前端編號欄先前藏在「指定編號（不由系統自動分配）」checkbox 後（該 checkbox 語意只適用新增模式的自動配號），編輯模式未勾時 submit 送 `customNumber: null`，而 `PUT /signups/:id` 編號**必填**（row 12 重複檢查也需要它）→ **所有編輯儲存必 400「請輸入編號」**、overlay 不關。修正：編輯模式編號欄**恆顯示並預填**（對齊 legacy `txtNumber` 恆可改）、checkbox 僅新增/插入模式顯示；另 submit 表單無效時不再靜默 return，改 markAllAsTouched + 顯示「必填欄位未完成」（對齊 legacy 驗證必有 MessageBox）。Playwright 實測：編輯預繳載入筆與一般筆皆可儲存。
+> ⚠️ **地址非必填 刻意偏離（2026-07-21 客訴）**：舊 `btnConfirm_Click` 驗證寄件地址必填；新版依使用者指定改非必填，`UpdateSignupHandler` 放寬（空存空字串）。詳見 [business-rules-implicit §12](../../business-rules-implicit.md)。
 > ⚠️ 已知關鍵段落：
 > - 變更紀錄寫入時機（Update 觸發 SignupLog）
 > - 不可改年份 / 不可改法會的限制（編號**可改**，見 row 12）

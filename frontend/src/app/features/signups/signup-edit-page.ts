@@ -5,7 +5,7 @@ import {
   signal,
   ViewChild,
 } from '@angular/core';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { SignupEditFormComponent } from './signup-edit-form.component';
 import { SignupSearchState } from './signup-search-state';
 
@@ -15,7 +15,7 @@ import { SignupSearchState } from './signup-search-state';
  */
 @Component({
   selector: 'app-signup-edit-page',
-  imports: [RouterLink, SignupEditFormComponent],
+  imports: [SignupEditFormComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './signup-edit-page.html',
   styleUrl: './signup-edit-page.scss',
@@ -46,7 +46,15 @@ export class SignupEditPage {
     void this.router.navigateByUrl('/signups');
   }
 
+  /**
+   * 取消（2026-07-21 使用者指定「按取消不能跳頁」）：
+   * 新增模式＝清成新的一筆（保留法會資料、不跳頁）；編輯模式＝返回列表。
+   */
   protected onCancel(): void {
-    void this.router.navigateByUrl('/signups');
+    if (this.signupId()) {
+      void this.router.navigateByUrl('/signups');
+    } else {
+      this.formRef?.resetBelow();
+    }
   }
 }

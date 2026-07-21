@@ -31,6 +31,7 @@ last_updated: 2026-07-17 (信眾搜尋改常駐 in-form 列表對齊舊 dgvBelie
 > - 選信眾自動帶入「預繳歷史」+ 固定編號顯示已補（2026-06-02，`BelieverListItem.IsFixedNumber` + `GET /prepay?believerId`）
 > - **重複報名警示 ➕ 新版增強（2026-06-30，無對應 legacy 行）**：舊 NewSignupForm 不檢查信眾重複報名；新版選信眾後即時查 `(Year, CeremonyCategoryID)` 同信眾既有報名（忽略 SignupType）跳警示但不阻擋。見 [get-signup-duplicates.md](../api-endpoints/get-signup-duplicates.md)。不影響本表覆蓋率（非 legacy 方法）。
 > - **插入並順移 ➕ 新版增強（2026-07-04，無對應 legacy 行）**：舊系統只能自動 `MAX+1` 或手動指定空號（指定已佔用號被擋）；新版於報名維護列表右鍵「在此前插入」，可插入到已佔用編號位並讓其後 `Number ≥ N` 的既有報名 +1 順移（主要用於預繳載入後補插）。見 [post-signups-insert-shift.md](../api-endpoints/post-signups-insert-shift.md)。不影響本表覆蓋率（非 legacy 方法）。
+> - **地址非必填 ⚠️ 刻意偏離（2026-07-21 客訴）**：舊 `btnConfirm_Click` 驗證寄件地址為必填（空白擋下）；新版依使用者指定改為**非必填**，前端移除 required、後端 `CreateSignupHandler` 與自動建信眾走的 `BelieverWriteValidator` 皆放寬，空白存空字串。詳見 [business-rules-implicit §12](../../business-rules-implicit.md) 與 [signup-management §新增報名頁客訴六項](../signup-management.md)。不影響本表覆蓋率（僅驗證強度變更）。
 
 ## 稽核總覽
 

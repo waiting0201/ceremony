@@ -142,7 +142,8 @@ export class SignupEditFormComponent {
     // 地址（城市/區域連動；zipcodeId 以字串持有，submit 轉 number）
     mailCity: [''],
     mailZipcodeId: [''],
-    mailAddress: ['', [Validators.required, Validators.maxLength(200)]],
+    // 地址非必填（2026-07-21 使用者指定）：僅長度限制，不再 required。
+    mailAddress: ['', [Validators.maxLength(200)]],
     sameMailAddress: [false],
     textCity: [''],
     textZipcodeId: [''],
@@ -487,11 +488,22 @@ export class SignupEditFormComponent {
     const b = await this.believerApi.getById(row.believerId);
     this.selectedBeliever.set(b);
     this.pickedRowId.set(row.id);
+    // 改選 / 重新搜尋後覆蓋整張表單前，先清掉上一筆信眾殘留的每筆報名欄位（費用/備註/預繳），
+    // 避免點另一筆信眾時遺留前一筆資料（2026-07-21 客訴）。prepay 先歸零，稍後 prefillPrepayHistory
+    // 只在該信眾確有預繳紀錄時才回填，查無就維持清空。編號欄（keepNumber/customNumber）在插入模式為
+    // 鎖定狀態，不在此清除。
     this.form.patchValue({
       believerId: b.id,
       name: b.name,
       phone: b.phone ?? '',
+      fee: null,
+      remark: '',
+      prepayYear: null,
+      prepayCeremonyCategoryId: '',
     });
+    if (!this.isInsert()) {
+      this.form.patchValue({ keepNumber: false, customNumber: null });
+    }
     await this.applyAddress('mail', b.mailCity, b.mailZipcodeId, b.mailArea, b.mailAddress);
     await this.applyAddress('text', b.textCity, b.textZipcodeId, b.textArea, b.textAddress);
     this.form.controls.sameMailAddress.setValue(false);
@@ -618,6 +630,51 @@ export class SignupEditFormComponent {
 
   protected onSubmitFromForm(): void {
     void this.submit();
+  }
+
+  /**
+   * 取消：清成新的一筆（2026-07-21 使用者指定）。
+   * 不關閉 overlay、不跳頁，只把「信眾與其以下」全部欄位清空，保留最上方法會資料（年份/法會/類型）
+   * 作為連續輸入下一筆的固定情境。清除已選信眾、搜尋框與搜尋結果，回到全新的新增狀態。
+   * 僅供新增模式使用（編輯模式的取消＝關閉，由 host 處理）。
+   */
+  resetBelow(): void {
+    // 信眾選取 / 搜尋狀態
+    this.selectedBeliever.set(null);
+    this.pickedRowId.set(null);
+    this.believerSearchTerm.set('');
+    this.believerSearchResults.set([]);
+    this.believerHasSearched.set(false);
+    this.believerSearching.set(false);
+    this.duplicates.set([]);
+    this.errorMessage.set(null);
+    // 地址連動下拉的暫存資料
+    this.mailAreas.set([]);
+    this.textAreas.set([]);
+    this.mailZipcode.set('');
+    this.textZipcode.set('');
+    // 保留法會資料（year/ceremonyCategoryId/signupType），清除信眾以下所有欄位
+    this.form.patchValue({
+      believerId: '',
+      name: '',
+      phone: '',
+      mailCity: '',
+      mailZipcodeId: '',
+      mailAddress: '',
+      sameMailAddress: false,
+      textCity: '',
+      textZipcodeId: '',
+      textAddress: '',
+      keepNumber: false,
+      customNumber: null,
+      fee: null,
+      remark: '',
+      prepayYear: null,
+      prepayCeremonyCategoryId: '',
+    });
+    this.livingArray.setValue(Array.from({ length: 6 }, () => ''));
+    this.deadArray.setValue(Array.from({ length: 6 }, () => ''));
+    this.form.markAsPristine();
   }
 }
 

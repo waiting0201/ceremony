@@ -17,7 +17,7 @@ related_docs:
   - post-believers.md
   - get-signups.md
 keywords: [signups, create, post, updlock, number, avoid4, signuplog]
-last_updated: 2026-05-27
+last_updated: 2026-07-21 (地址非必填客訴：mailAddress 由 required 改可空，空白 normalize 為空字串照常寫入；CreateSignupHandler/UpdateSignupHandler/InsertShiftSignupHandler 皆放寬，未選信眾自動建立走的 BelieverWriteValidator 同步放寬；移除「請輸入寄件地址」400 錯誤碼)
 ---
 
 ## 規格
@@ -40,7 +40,7 @@ last_updated: 2026-05-27
   "hallName": "string? (max 10)",
   "isFixedNumber": false,
   "mailZipcodeId": null,
-  "mailAddress": "string (required, max 250)",
+  "mailAddress": "string? (max 250)",                // 地址非必填（2026-07-21）：空 → 存空字串
   "textZipcodeId": null,
   "textAddress": "string? (max 250)",                // 空時自動 fallback 至 mailAddress
   "livingNames": ["", "", "", "", "", ""],
@@ -61,7 +61,6 @@ last_updated: 2026-05-27
 |---|---|---|---|
 | 400 | `VALIDATION_REQUIRED` | `請輸入編號` | keepNumber=true + customNumber 空 |
 | 400 | `VALIDATION_REQUIRED` | `請輸入姓名` | name trimmed 為空 |
-| 400 | `VALIDATION_REQUIRED` | `請輸入寄件地址` | mailAddress trimmed 為空 |
 | 400 | `VALIDATION_INVALID` | `報名類型錯誤` | signupType 不在 1..5 |
 | 409 | `SIGNUP_NUMBER_CONFLICT` | `{year} {ceremony} {signupTypeName} 編號重複，請重新確認！` | keepNumber=true + (year, ceremony, type, customNumber) 已存在 |
 | 404 | `BELIEVER_NOT_FOUND` | `找不到信眾` | believerId 不存在 |

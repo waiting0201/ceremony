@@ -13,7 +13,7 @@ related_docs:
   - blueprints/printing-reports.md
   - design/database-design.md
 keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季]
-last_updated: 2026-07-18 (§16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；先前 2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)
+last_updated: 2026-07-21 (§12 補新版偏離：地址改非必填（前後端同步放寬，空存空字串，含自動建信眾路徑），「同寄件地址」複製前置仍需寄件地址；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -230,6 +230,8 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 - 取消：清空 Text 區（City/Zone/Address 全還原為 placeholder）
 
 實作細節：用 `SelectedIndex` 複製（兩個 City list 順序相同因 query 一樣，但脆弱）。
+
+> **新版偏離（2026-07-21 客訴）：地址改非必填**。舊系統寄件地址為必填（空白擋下）；新版依使用者指定改為**非必填**——前端 `mailAddress` 移除 `Validators.required`，後端 `CreateSignupHandler` / `UpdateSignupHandler` / `InsertShiftSignupHandler` 與 `BelieverWriteValidator` 皆不再擋空，空白 normalize 為空字串照常寫入（含「未選信眾自動建立」路徑）。**唯一例外**：本節「同寄件地址」勾選仍要求先有寄件地址（複製來源不可空，屬功能性前置條件，非必填驗證），故 `"請先輸入寄件地址"` 提示保留。
 
 ---
 

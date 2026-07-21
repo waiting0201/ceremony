@@ -25,7 +25,8 @@ public sealed class InsertShiftSignupHandler(
 
         var numberTitle = NumberTitleResolver.Resolve(req.SignupType);
         var name = Trim(req.Name) ?? throw new DomainException("VALIDATION_REQUIRED", "請輸入姓名");
-        var mailAddress = Trim(req.MailAddress) ?? throw new DomainException("VALIDATION_REQUIRED", "請輸入寄件地址");
+        // 地址非必填（2026-07-21 使用者指定）：空白即存空字串，不再擋下。
+        var mailAddress = Trim(req.MailAddress) ?? string.Empty;
 
         // 驗證 BelieverID 存在
         var believerName = await believerRepo.GetNameAsync(req.BelieverId, ct);

@@ -76,14 +76,17 @@ public sealed class BelieversEndpointsTests(CeremonyApiFactory factory) : IClass
     }
 
     [Fact]
-    public async Task POST_empty_mailAddress_returns_400_verbatim()
+    public async Task POST_empty_mailAddress_is_allowed()
     {
+        // 地址非必填（2026-07-21 使用者指定）：空白地址不再回 400，改為照常建立、地址存空字串。
         var client = await CreateAuthedClientAsync();
+        var uniqueName = $"itest_noaddr_{DateTime.UtcNow:yyMMddHHmmssfff}";
         var resp = await client.PostAsJsonAsync("/api/v1/believers", new BelieverUpsertRequest(
-            EmployeeType: 1, Name: "Alice", MailAddress: ""));
-        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var body = await resp.Content.ReadAsStringAsync();
-        body.Should().Contain("VALIDATION_REQUIRED").And.Contain("請輸入寄件地址");
+            EmployeeType: 1, Name: uniqueName, MailAddress: ""));
+        resp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await resp.Content.ReadFromJsonAsync<BelieverListItem>();
+        created.Should().NotBeNull();
+        created!.Id.Should().NotBe(Guid.Empty);
     }
 
     [Fact]

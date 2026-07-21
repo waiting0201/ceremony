@@ -21,6 +21,7 @@ last_updated: 2026-06-02
 ---
 
 > ✅ **完成 (2026-06-02)**：17 個方法全部已實作。CRUD + 右鍵選單 + 城市/區域連動下拉 + 同寄件地址 + 表單模式切換全 ship（地址連動由 signup 表單 port 至 `believer-edit-form`）。
+> ⚠️ **地址非必填 刻意偏離（2026-07-21 客訴）**：舊 `btnConfirm_Click` 驗證寄件地址必填；新版依使用者指定改非必填，`BelieverWriteValidator` 放寬（空存空字串，含報名頁「未選信眾自動建立」路徑）。詳見 [business-rules-implicit §12](../../business-rules-implicit.md)。
 
 ## 稽核總覽
 
