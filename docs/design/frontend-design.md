@@ -9,8 +9,8 @@ related_docs:
   - frontend-coding-style.md
   - api-design.md
   - ../blueprints/printing-reports.md
-keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本]
-last_updated: 2026-07-18 (believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣)
+keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本, num-stepper, 捲軸, scrollbar, NumericUpDown]
+last_updated: 2026-07-21 (新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣)
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -403,7 +403,9 @@ list page 透過 `@ViewChild` 抓 form ref，overlay 的「確認」按鈕呼叫
 - ❌ Split layout 左列表右編輯
 - ❌ Inline expandable card
 
-共用 class：[styles.scss](../../frontend/src/styles.scss) 提供 `.overlay-*`（form overlay）、`.dense-controls`、`.vgrid-*`（virtual grid）、`.pane`、`.kebab-btn`、`.data-table.dense` 等 reusable primitive。
+共用 class：[styles.scss](../../frontend/src/styles.scss) 提供 `.overlay-*`（form overlay）、`.dense-controls`、`.vgrid-*`（virtual grid）、`.pane`、`.kebab-btn`、`.data-table.dense`、`.num-stepper`（數字微調控件）等 reusable primitive。
+
+`.num-stepper`（**2026-07-21 新增**）：`<input appNumericInput>` 右側掛垂直 ▲▼ 兩鈕做 ±1（下限 1），對齊舊系統 `NumericUpDown`（SignupForm `nudSearchNumber`）。用於報名維護「編號」搜尋欄與「批次列印」起迄欄。按鈕 `tabindex="-1"` 不搶 Tab 焦點；實際 ±1 由頁面 `stepNumber(control, delta)` 對 reactive form control `setValue` 完成（不另做 ControlValueAccessor，維持 `appNumericInput` 既有數字清洗/IME 行為）。
 
 實作參考：[believers-page](../../frontend/src/app/features/believers/believers-page.ts)（2026-05-29 起為 vgrid 全欄位清單 + 右鍵 context menu + single-form overlay；欄位定義抽至 [believer-columns.ts](../../frontend/src/app/features/believers/believer-columns.ts) 對齊舊 dgvBelievers）；[signup-list-page](../../frontend/src/app/features/signups/signup-list-page.ts) 最複雜（25 欄 + picker + virtual scroll list + 欄寬持久化 + 多選 + 3 entry points）。
 
@@ -455,6 +457,7 @@ list page 透過 `@ViewChild` 抓 form ref，overlay 的「確認」按鈕呼叫
 - **多選 + 右鍵 context menu**：對應舊 cmsSignups（單選/多選不同選單）— 詳見下方 Pattern 段
 - **欄位背景色**：DeadName 欄位橙色（`#FFE0C0`）
 - **欄寬持久化**：localStorage 記憶
+- **垂直捲軸右鍵子選單**（**2026-07-21 新增**，對齊舊 WinForms 原生捲軸選單）：〔捲動到這裡 / 頂端 / 底部 / 上一頁 / 下一頁 / 向上捲動 / 向下捲動〕。**必用自繪捲軸**：原生捲軸的 `contextmenu` 事件不會派送給網頁 JS（Windows Chromium 會顯示自己的原生捲軸選單但攔不到、macOS 又是 0 寬懸浮捲軸），故無法在原生捲軸上攔右鍵——詳見 [gotchas.md](../gotchas.md)。作法：`.has-custom-vscroll` 隱藏原生垂直捲軸（`::-webkit-scrollbar { width:0 }`，因此水平 thumb/track 需自行上色）＋自繪 `.vscroll` / `.vscroll-thumb`，支援左鍵拖曳、點軌道翻頁、滾輪、右鍵開選單；thumb 尺寸/位置由 signal（`scrollTop`/`viewportH` + `results().length*rowHeight`）computed，量測用 `ResizeObserver` + viewport `scroll`。捲動沿用 `ContextMenuService` 選單 + `CdkVirtualScrollViewport.scrollToOffset / measureScrollOffset / getViewportSize`。列本身 `(contextmenu)` 走列選單、捲軸走捲動選單，兩者獨立。
 - **空狀態**：「無資料，請重新搜尋！」verbatim
 - **載入中**：頂部 progress bar +「搜尋中，請稍後...」文字
 - **排序**：白名單欄位才可排序（對齊 backend 索引）

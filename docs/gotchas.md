@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-18 (追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
+last_updated: 2026-07-21 (追加：原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
 ---
 
 ## 通用陷阱
@@ -36,6 +36,12 @@ last_updated: 2026-07-18 (追加：舊系統「只有 N 位」是 slot-based，c
 - **真因（高度確信）**：Chromium 的 `<input type=number>` **不支援 IME 組字**——Windows 中文輸入法在中文模式下打數字（注音大千鍵盤數字鍵即ㄅㄉˇˋ…會進組字；全形模式數字也走組字）時，組字內容被整段丟棄且**畫面毫無回饋**，使用者感受就是「打了沒反應」。英數模式直接打則正常——這解釋了為何開發/測試從來重現不了
 - **修法**：全站純數字欄改 `type="text" inputmode="numeric"` + `appNumericInput` directive（shared/directives/numeric-input.directive.ts，自帶 CVA：組字過程可見、compositionend 後全形→半形＋濾非數字、control 值維持 `number | null`）
 - **預防**：新數字欄**禁用 `type="number"`**，一律套 `appNumericInput`（已寫入 [frontend-coding-style.md](design/frontend-coding-style.md)）。「打不進去/沒反應」類客訴要先問**輸入法狀態（中/英、全形/半形）**，開發機重現不了 ≠ 前端沒 bug
+
+### 原生捲軸的右鍵事件攔不到，想做「捲軸右鍵子選單」必須自繪捲軸（2026-07-21）
+- **症狀**：實作報名維護清單「垂直捲軸右鍵子選單」後，使用者（macOS 開發機）「沒看到這功能」
+- **真因**：瀏覽器/Electron **不會把右鍵點在原生捲軸上的 `contextmenu` 事件派送給網頁 JS**——Windows Chromium 會顯示它自己的原生捲軸選單（項目剛好很像，但攔不到也改不了），macOS 又是 0 寬懸浮捲軸（`offsetWidth - clientWidth === 0`），靠 `contextmenu` on viewport + 捲軸命中判定的初版永遠不會觸發
+- **修法**：隱藏原生垂直捲軸（`::-webkit-scrollbar { width:0 }`，注意這會連帶停用該元素**兩軸**的原生捲軸，水平 thumb/track 需自行上色）＋**自繪** `.vscroll`/`.vscroll-thumb`（左鍵拖曳/點軌道翻頁/滾輪/右鍵開選單全自控），thumb 尺寸位置用 signal computed、量測用 `ResizeObserver`。見 [frontend-design.md](design/frontend-design.md) Grid 段
+- **預防**：任何「捲軸上的自訂互動（右鍵、hover tooltip、雙擊…）」都不能依賴原生捲軸事件，一律自繪捲軸
 
 ### 前端把後端「必填」欄位藏在 checkbox 後 → 按確認永遠失敗（2026-07-17）
 - **症狀**：報名維護編輯 overlay「按確認沒反應」——overlay 不關、資料沒存。實測其實有發 `PUT /signups/:id` 但必回 400「請輸入編號」（紅條在 overlay 最上方，易被忽略成「沒反應」）

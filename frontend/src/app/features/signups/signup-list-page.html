@@ -45,7 +45,13 @@
         </select>
         <div class="r3c4 number-field">
           <label class="lbl">編號</label>
-          <input type="text" inputmode="numeric" appNumericInput formControlName="number" />
+          <div class="num-stepper">
+            <input type="text" inputmode="numeric" appNumericInput formControlName="number" />
+            <span class="num-steps">
+              <button type="button" tabindex="-1" aria-label="編號加一" (click)="stepNumber(form.controls.number, 1)">▲</button>
+              <button type="button" tabindex="-1" aria-label="編號減一" (click)="stepNumber(form.controls.number, -1)">▼</button>
+            </span>
+          </div>
         </div>
         <button type="button" class="btn r3c5" (click)="exportExcel()" [disabled]="exporting() || loading()">
           {{ exporting() ? '匯出中…' : '匯出 Excel' }}
@@ -59,9 +65,21 @@
     <fieldset class="pane print-pane">
       <legend>批次列印</legend>
       <form class="print-grid dense-controls" [formGroup]="batchForm" (ngSubmit)="submitBatchPrint()">
-        <input type="text" inputmode="numeric" appNumericInput class="num" formControlName="numberStart" placeholder="起" />
+        <div class="num-stepper num-start">
+          <input type="text" inputmode="numeric" appNumericInput formControlName="numberStart" placeholder="起" />
+          <span class="num-steps">
+            <button type="button" tabindex="-1" aria-label="起始編號加一" (click)="stepNumber(batchForm.controls.numberStart, 1)">▲</button>
+            <button type="button" tabindex="-1" aria-label="起始編號減一" (click)="stepNumber(batchForm.controls.numberStart, -1)">▼</button>
+          </span>
+        </div>
         <span class="tilde">～</span>
-        <input type="text" inputmode="numeric" appNumericInput class="num" formControlName="numberEnd" placeholder="迄" />
+        <div class="num-stepper num-end">
+          <input type="text" inputmode="numeric" appNumericInput formControlName="numberEnd" placeholder="迄" />
+          <span class="num-steps">
+            <button type="button" tabindex="-1" aria-label="結束編號加一" (click)="stepNumber(batchForm.controls.numberEnd, 1)">▲</button>
+            <button type="button" tabindex="-1" aria-label="結束編號減一" (click)="stepNumber(batchForm.controls.numberEnd, -1)">▼</button>
+          </span>
+        </div>
         <select class="r2c1-3" formControlName="reportType">
           @for (r of reportTypes; track r.value) {
             <option [value]="r.value">{{ r.label }}</option>
@@ -146,10 +164,11 @@
             }
           </div>
         </div>
+        <div class="vgrid-scroll-wrap">
         <cdk-virtual-scroll-viewport
           #vp
           [itemSize]="rowHeight"
-          class="vgrid-viewport"
+          class="vgrid-viewport has-custom-vscroll"
           (scroll)="onViewportScroll()"
         >
           <div
@@ -189,6 +208,25 @@
             }
           </div>
         </cdk-virtual-scroll-viewport>
+        @if (showScrollbar()) {
+          <!-- 自繪垂直捲軸（隱藏原生垂直捲軸）：唯一能跨平台攔到「捲軸右鍵」的方式；
+               左鍵拖曳＝捲動、點軌道＝翻頁、滾輪＝捲動、右鍵＝開捲動子選單（對齊舊 WinForms 原生捲軸選單）。 -->
+          <div
+            class="vscroll"
+            #vscrollTrack
+            (pointerdown)="onScrollbarPointerDown($event, vscrollTrack)"
+            (contextmenu)="onScrollbarContextMenu($event, vscrollTrack)"
+            (wheel)="onScrollbarWheel($event)"
+          >
+            <div
+              class="vscroll-thumb"
+              [style.height.px]="thumbHeight()"
+              [style.transform]="'translateY(' + thumbTop() + 'px)'"
+              (pointerdown)="onThumbPointerDown($event)"
+            ></div>
+          </div>
+        }
+        </div>
       </div>
     }
   </section>

@@ -9,9 +9,10 @@ import {
   OnInit,
   signal,
   ViewChild,
+  viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { SignupApi } from '../../core/api/signups/signup.api';
@@ -45,6 +46,11 @@ import {
 interface MenuContext {
   selectedRows: SignupListItem[];
   triggerRow: SignupListItem;
+}
+
+// 垂直捲軸右鍵子選單（對齊舊系統 Windows 原生捲軸選單）：offsetY＝點擊位置相對 viewport 頂端的 px。
+interface ScrollMenuContext {
+  offsetY: number;
 }
 
 const REPORT_TYPES: { value: SingleReportType; label: string }[] = [
@@ -102,6 +108,26 @@ export class SignupListPage implements OnInit {
   protected readonly signupTypes = SIGNUP_TYPES;
   protected readonly reportTypes = REPORT_TYPES;
   protected readonly rowHeight = ROW_HEIGHT;
+
+  // 自繪垂直捲軸（隱藏原生垂直捲軸）：原生捲軸的右鍵事件不會派送給網頁 JS，
+  // 且 macOS 懸浮式捲軸寬度為 0，故無法攔截；改自繪才能跨平台支援「捲軸右鍵子選單」。
+  private readonly vpQuery = viewChild<CdkVirtualScrollViewport>('vp');
+  private readonly scrollTop = signal(0);
+  private readonly viewportH = signal(0);
+  protected readonly thumbHeight = computed(() => {
+    const vh = this.viewportH();
+    const contentH = this.results().length * this.rowHeight;
+    if (contentH <= vh || vh === 0) return 0; // 內容未超出 → 不顯示捲軸
+    return Math.max(24, (vh * vh) / contentH);
+  });
+  protected readonly thumbTop = computed(() => {
+    const vh = this.viewportH();
+    const contentH = this.results().length * this.rowHeight;
+    const maxScroll = Math.max(0, contentH - vh);
+    if (maxScroll <= 0) return 0;
+    return (this.scrollTop() / maxScroll) * (vh - this.thumbHeight());
+  });
+  protected readonly showScrollbar = computed(() => this.thumbHeight() > 0);
   protected readonly categories = signal<CategoryNode[]>([]);
   protected readonly flatCategories = computed<FlatCategory[]>(() =>
     flattenCategories(this.categories()),
@@ -196,6 +222,21 @@ export class SignupListPage implements OnInit {
         this.state.selectedIds.set(ids);
       }
     });
+    // 自繪捲軸尺寸量測：viewport 出現或結果變動時重量，並以 ResizeObserver 追蹤版面/視窗縮放
+    effect((onCleanup) => {
+      const vp = this.vpQuery();
+      this.results(); // 依賴：結果變動後重新量測 thumb 大小
+      if (!vp) return;
+      const el = vp.getElementRef().nativeElement;
+      const measure = () => {
+        this.viewportH.set(el.clientHeight);
+        this.scrollTop.set(el.scrollTop);
+      };
+      requestAnimationFrame(measure);
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      onCleanup(() => ro.disconnect());
+    });
   }
 
   ngOnInit(): void {
@@ -273,9 +314,118 @@ export class SignupListPage implements OnInit {
   }
 
   protected onViewportScroll(): void {
-    if (!this.vp || !this.headerInner) return;
+    if (!this.vp) return;
     const el = this.vp.getElementRef().nativeElement;
-    this.headerInner.nativeElement.style.transform = `translateX(-${el.scrollLeft}px)`;
+    if (this.headerInner) {
+      this.headerInner.nativeElement.style.transform = `translateX(-${el.scrollLeft}px)`;
+    }
+    // 同步自繪垂直捲軸 thumb 位置
+    this.scrollTop.set(el.scrollTop);
+    this.viewportH.set(el.clientHeight);
+  }
+
+  /** 編號欄 ▲▼：對目標 control 做 ±1（下限 1），對齊舊系統 NumericUpDown。 */
+  protected stepNumber(control: FormControl<number | null>, delta: number): void {
+    if (control.disabled) return;
+    const cur = control.value;
+    const base = typeof cur === 'number' && Number.isFinite(cur) ? cur : 0;
+    control.setValue(Math.max(1, base + delta));
+    control.markAsDirty();
+  }
+
+  // ──────────── 自繪垂直捲軸互動 ────────────
+
+  /** thumb 左鍵拖曳＝捲動。 */
+  protected onThumbPointerDown(event: PointerEvent): void {
+    if (event.button !== 0) return; // 只處理左鍵；右鍵交給 contextmenu
+    event.preventDefault();
+    event.stopPropagation(); // 避免觸發 track 的翻頁
+    const startY = event.clientY;
+    const startScroll = this.scrollTop();
+    const range = this.viewportH() - this.thumbHeight();
+    const max = this.maxScrollOffset();
+    const onMove = (e: PointerEvent) => {
+      if (range <= 0 || !this.vp) return;
+      const next = clamp(startScroll + ((e.clientY - startY) / range) * max, 0, max);
+      this.vp.scrollToOffset(next);
+    };
+    const onUp = () => {
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  }
+
+  /** 點軌道空白處（非 thumb）＝往點擊方向翻一頁。 */
+  protected onScrollbarPointerDown(event: PointerEvent, track: HTMLElement): void {
+    if (event.button !== 0) return;
+    const clickY = event.clientY - track.getBoundingClientRect().top;
+    const dir = clickY < this.thumbTop() ? -1 : 1;
+    this.scrollByOffset(dir * this.pageAmount());
+  }
+
+  /** 滑鼠滾輪移到捲軸上時仍能捲動內容。 */
+  protected onScrollbarWheel(event: WheelEvent): void {
+    event.preventDefault();
+    this.scrollByOffset(event.deltaY);
+  }
+
+  /**
+   * 右鍵點在自繪垂直捲軸上：開自訂捲動子選單（對齊舊 WinForms 原生捲軸選單）。
+   * offsetY＝點擊位置相對軌道頂端（＝viewport 頂端）的 px，供「捲動到這裡」定位。
+   */
+  protected onScrollbarContextMenu(event: MouseEvent, track: HTMLElement): void {
+    event.preventDefault();
+    event.stopPropagation();
+    this.menu.open<ScrollMenuContext>({
+      origin: { x: event.clientX, y: event.clientY },
+      items: this.buildScrollMenuItems(),
+      context: { offsetY: event.clientY - track.getBoundingClientRect().top },
+    });
+  }
+
+  private buildScrollMenuItems(): ContextMenuItem<ScrollMenuContext>[] {
+    return [
+      { id: 'scroll-here', label: '捲動到這裡', onClick: (c) => this.scrollHere(c.offsetY) },
+      { id: 'sep-edge', label: '', divider: true, onClick: () => {} },
+      { id: 'scroll-top', label: '頂端', onClick: () => this.scrollToEdge('top') },
+      { id: 'scroll-bottom', label: '底部', onClick: () => this.scrollToEdge('bottom') },
+      { id: 'sep-page', label: '', divider: true, onClick: () => {} },
+      { id: 'page-up', label: '上一頁', onClick: () => this.scrollByOffset(-this.pageAmount()) },
+      { id: 'page-down', label: '下一頁', onClick: () => this.scrollByOffset(this.pageAmount()) },
+      { id: 'sep-line', label: '', divider: true, onClick: () => {} },
+      { id: 'line-up', label: '向上捲動', onClick: () => this.scrollByOffset(-this.rowHeight) },
+      { id: 'line-down', label: '向下捲動', onClick: () => this.scrollByOffset(this.rowHeight) },
+    ];
+  }
+
+  private maxScrollOffset(): number {
+    if (!this.vp) return 0;
+    const total = this.results().length * this.rowHeight;
+    return Math.max(0, total - this.vp.getViewportSize());
+  }
+
+  private pageAmount(): number {
+    return this.vp ? this.vp.getViewportSize() : 0;
+  }
+
+  private scrollHere(offsetY: number): void {
+    if (!this.vp) return;
+    const size = this.vp.getViewportSize();
+    const frac = size > 0 ? offsetY / size : 0;
+    this.vp.scrollToOffset(clamp(frac * this.maxScrollOffset(), 0, this.maxScrollOffset()));
+  }
+
+  private scrollToEdge(edge: 'top' | 'bottom'): void {
+    if (!this.vp) return;
+    this.vp.scrollToOffset(edge === 'top' ? 0 : this.maxScrollOffset());
+  }
+
+  private scrollByOffset(delta: number): void {
+    if (!this.vp) return;
+    const cur = this.vp.measureScrollOffset('top');
+    this.vp.scrollToOffset(clamp(cur + delta, 0, this.maxScrollOffset()));
   }
 
   private async loadCategories(): Promise<void> {

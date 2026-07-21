@@ -48,24 +48,26 @@
   .r3c3 { grid-column: 3; grid-row: 3; }
   .r3c4 { grid-column: 4; grid-row: 3; justify-self: end; }
   .number-field { display: flex; align-items: center; gap: 4px; }
-  .number-field input { width: 90px; }
+  .number-field .num-stepper { width: 96px; }
   .r3c5 { grid-column: 5; grid-row: 3; height: var(--control-height); padding: 0 8px; }
-  .search-btn { grid-column: 6; grid-row: 1 / 4; height: auto; padding: 0 var(--space-md); min-width: 64px; }
+  // 搜尋鈕撐滿三列高（對齊舊系統 btnSearch 75×99，幾乎滿版）——grid align-items:center 會讓按鈕只以自然高置中，故單獨 stretch
+  .search-btn { grid-column: 6; grid-row: 1 / 4; align-self: stretch; height: auto; padding: 0 var(--space-md); min-width: 64px; }
 }
 
 .print-grid {
   display: grid;
-  grid-template-columns: 70px auto 70px auto;
+  grid-template-columns: 86px auto 86px auto;
   grid-template-rows: repeat(2, var(--control-height));
   column-gap: 4px;
   row-gap: 4px;
   align-items: center;
 
-  .num:nth-of-type(1) { grid-column: 1; grid-row: 1; }
+  .num-start { grid-column: 1; grid-row: 1; }
   .tilde { grid-column: 2; grid-row: 1; text-align: center; color: var(--c-text-secondary); }
-  .num:nth-of-type(2) { grid-column: 3; grid-row: 1; }
+  .num-end { grid-column: 3; grid-row: 1; }
   .r2c1-3 { grid-column: 1 / 4; grid-row: 2; }
-  .print-btn { grid-column: 4; grid-row: 1 / 3; height: auto; padding: 0 var(--space-md); min-width: 64px; }
+  // 列印鈕撐滿兩列高（對齊舊系統 btnPrint 75×63）——同 search-btn 需單獨 stretch
+  .print-btn { grid-column: 4; grid-row: 1 / 3; align-self: stretch; height: auto; padding: 0 var(--space-md); min-width: 64px; }
 }
 
 .action-pane { min-width: 132px; }
@@ -114,6 +116,39 @@
 .vgrid-header,
 .vgrid-row {
   font-size: var(--font-size-md);
+}
+
+/* 自繪垂直捲軸（2026-07-21）：原生捲軸右鍵事件攔不到、macOS 又是 0 寬懸浮捲軸，
+   故隱藏原生垂直捲軸、改自繪，才能跨平台支援「捲軸右鍵子選單」。 */
+.vgrid-scroll-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+
+  .vgrid-viewport { flex: 1; }
+}
+.vscroll {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 14px;
+  background: var(--c-bg-darker);
+  border-left: 1px solid var(--c-border-soft);
+  z-index: 4;
+  user-select: none;
+}
+.vscroll-thumb {
+  position: absolute;
+  top: 0;
+  left: 2px;
+  right: 2px;
+  border-radius: 5px;
+  background: var(--c-text-disabled);
+  cursor: default;
+
+  &:hover { background: var(--c-text-secondary); }
 }
 
 @media (max-width: 1100px) {

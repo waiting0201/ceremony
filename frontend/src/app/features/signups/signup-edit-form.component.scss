@@ -134,6 +134,14 @@
   }
 }
 
+// 預繳民國年 + 預繳法會 自成一列（民國年在前），span-row 佔滿三欄後內部再切兩等欄（2026-07-21 使用者指定）
+.prepay-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 6px var(--space-sm);
+  align-items: end;
+}
+
 // 指定編號：勾選文字與編號欄同列（編號在右），對齊勾選列底部（2026-07-21 使用者指定）
 .keep-number-row {
   display: flex;

@@ -276,19 +276,22 @@
             <span>費用</span>
             <input type="text" inputmode="numeric" appNumericInput formControlName="fee" />
           </label>
-          <label class="field">
-            <span>預繳民國年</span>
-            <input type="text" inputmode="numeric" appNumericInput formControlName="prepayYear" />
-          </label>
-          <label class="field">
-            <span>預繳法會</span>
-            <select formControlName="prepayCeremonyCategoryId">
-              <option value="">無</option>
-              @for (cat of flatCategories(); track cat.id) {
-                <option [value]="cat.id">{{ cat.title }}</option>
-              }
-            </select>
-          </label>
+          <!-- 預繳民國年 + 預繳法會 自成一列（民國年在前、法會在後），不與編號/費用同列（2026-07-21 使用者指定） -->
+          <div class="prepay-line span-row">
+            <label class="field">
+              <span>預繳民國年</span>
+              <input type="text" inputmode="numeric" appNumericInput formControlName="prepayYear" />
+            </label>
+            <label class="field">
+              <span>預繳法會</span>
+              <select formControlName="prepayCeremonyCategoryId">
+                <option value="">無</option>
+                @for (cat of flatCategories(); track cat.id) {
+                  <option [value]="cat.id">{{ cat.title }}</option>
+                }
+              </select>
+            </label>
+          </div>
           <label class="field span-row">
             <span>備註</span>
             <textarea formControlName="remark" rows="1"></textarea>

@@ -267,6 +267,46 @@ a {
   }
 }
 
+/* 數字微調控件：<input appNumericInput> ＋ 垂直 ▲▼（±1）。
+   對齊舊系統 NumericUpDown（SignupForm nudSearchNumber）；用於搜尋編號 / 批次列印起迄。 */
+.num-stepper {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+
+  > input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .num-steps {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 auto;
+    width: 18px;
+  }
+  .num-steps button {
+    flex: 1 1 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 1px solid var(--c-border);
+    border-left: 0;
+    background: var(--c-surface);
+    color: var(--c-text-secondary);
+    font-size: 8px;
+    line-height: 1;
+    cursor: pointer;
+    user-select: none;
+  }
+  .num-steps button:first-child { border-bottom: 0; border-top-right-radius: 2px; }
+  .num-steps button:last-child { border-bottom-right-radius: 2px; }
+  .num-steps button:hover { background: var(--c-bg-darker); color: var(--c-text-primary); }
+  .num-steps button:active { background: var(--c-primary-soft); }
+}
+
 .pane {
   margin: 0;
   padding: 6px 10px 10px;
@@ -429,6 +469,21 @@ a {
   flex: 1;
   min-height: 0;
   width: 100%;
+}
+/* 報名維護清單改自繪垂直捲軸（見 signup-list-page，為支援捲軸右鍵子選單）：
+   隱藏原生垂直捲軸、保留可用的水平捲軸。注意：一旦定義 ::-webkit-scrollbar，
+   Chromium 會停用該元素兩軸的原生捲軸，故水平 thumb/track 也需自行上色。 */
+.vgrid-viewport.has-custom-vscroll::-webkit-scrollbar { width: 0; height: 12px; }
+.vgrid-viewport.has-custom-vscroll::-webkit-scrollbar-track { background: transparent; }
+.vgrid-viewport.has-custom-vscroll::-webkit-scrollbar-thumb {
+  background: var(--c-text-disabled);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+.vgrid-viewport.has-custom-vscroll::-webkit-scrollbar-thumb:hover {
+  background: var(--c-text-secondary);
+  background-clip: content-box;
 }
 .vgrid-row {
   display: grid;
