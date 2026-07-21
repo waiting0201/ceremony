@@ -12,7 +12,7 @@ related_docs:
   - ../design/api-design.md
   - ../design/visual-design.md
 keywords: [believer, 信眾, 信眾維護, BelieverForm, 地址, 陽上, 往生]
-last_updated: 2026-05-29
+last_updated: 2026-07-21 (往生／陽上名單字級對齊地址，比照報名表單客訴)
 ---
 
 ## 背景與動機
@@ -24,6 +24,7 @@ last_updated: 2026-05-29
 ### 做什麼
 - 信眾搜尋（姓名 / 電話 / 堂號 / 陽上 / 往生 — 至少填一）
 - 信眾 CRUD（含地址下拉、雙地址、6 組陽上、6 組往生）
+  - **往生／陽上名單字級對齊地址（2026-07-21 客訴，比照報名表單）**：`believer-edit-form.component.scss` `.names .name-grid input` 明訂 `font-size: var(--font-size-base)`（原未設、繼承 body；改顯式與地址 `.field input` 一致）
 - 員工類型管理（1=非員工 / 2=大殿 / 3=地藏殿）
 - 固定編號旗標（IsFixedNumber）
 - 刪除限制：有報名紀錄則不可刪

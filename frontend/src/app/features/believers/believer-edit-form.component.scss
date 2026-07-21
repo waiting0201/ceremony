@@ -96,6 +96,8 @@
       border: 1px solid var(--c-border);
       border-radius: 2px;
       font-family: inherit;
+      // 往生／陽上名單文字大小對齊地址輸入框（＝全域 .field input 的 --font-size-base，2026-07-21 客訴，比照報名表單）
+      font-size: var(--font-size-base);
     }
   }
 }
