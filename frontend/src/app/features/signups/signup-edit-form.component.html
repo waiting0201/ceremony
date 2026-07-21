@@ -125,21 +125,27 @@
        Tab 順序＝DOM 順序＝法會資料→信眾→左欄由上到下再右欄由上到下。 -->
   <div class="form-cols">
     <div class="col">
-      <!-- 基本資料（對齊舊 dlEmployeeType / txtHallName / txtName / txtPhone） -->
+      <!-- 基本資料（對齊舊 dlEmployeeType / txtHallName / txtName / txtPhone）。
+           員工類型/固定編號/堂號改為 per-signup 可編輯（2026-07-21）：選信眾帶入現值當預設，
+           只改這筆報名、不回寫 Believer。 -->
       <fieldset class="block">
         <legend>基本資料</legend>
         <div class="grid three">
           <label class="field">
             <span>員工類型</span>
-            <input type="text" [value]="employeeTypeTitle() || '—'" readonly title="信眾屬性，請於信眾維護調整" />
+            <select formControlName="employeeType">
+              <option [value]="1">非員工</option>
+              <option [value]="2">大殿員工</option>
+              <option [value]="3">地藏殿員工</option>
+            </select>
           </label>
-          <label class="field">
+          <label class="field-check">
+            <input type="checkbox" formControlName="isFixedNumber" />
             <span>固定編號</span>
-            <input type="text" [value]="isFixedNumber() ? '是' : '否'" readonly title="信眾屬性，請於信眾維護調整" />
           </label>
           <label class="field">
             <span>堂號</span>
-            <input type="text" [value]="hallNameDisplay() || '—'" readonly title="信眾屬性，請於信眾維護調整" />
+            <input type="text" formControlName="hallName" maxlength="10" autocomplete="off" />
           </label>
           <label class="field">
             <span>姓名 *</span>

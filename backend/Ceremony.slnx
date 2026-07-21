@@ -4,6 +4,7 @@
     <Project Path="src/Ceremony.Application/Ceremony.Application.csproj" />
     <Project Path="src/Ceremony.Domain/Ceremony.Domain.csproj" />
     <Project Path="src/Ceremony.Infrastructure/Ceremony.Infrastructure.csproj" />
+    <Project Path="src/Ceremony.Migrations/Ceremony.Migrations.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ceremony.Api.IntegrationTests/Ceremony.Api.IntegrationTests.csproj" />

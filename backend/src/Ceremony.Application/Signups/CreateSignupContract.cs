@@ -19,6 +19,10 @@ public sealed record CreateSignupRequest(
     int? Fee = null,
     string? Phone = null,
     string? HallName = null,
+    // per-signup 覆寫欄（2026-07-21）：報名自持堂號/員工類型/固定編號，不回寫 Believer。
+    // 空/超範圍 → 存 null → SignupView COALESCE 回退信眾值。見 signup-hallname-isolation.md（方案 A）。
+    int? EmployeeType = null,
+    bool? IsFixedNumber = null,
     int? MailZipcodeId = null,
     int? TextZipcodeId = null,
     string? TextAddress = null,

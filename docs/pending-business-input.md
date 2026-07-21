@@ -13,7 +13,7 @@ related_docs:
   - design/database-design.md
   - design/security.md
 keywords: [pending, 待確認, 業務輸入, 客戶確認, gap]
-last_updated: 2026-06-29 (B13 定案信眾層級＋方案 C 已實作)
+last_updated: 2026-07-21 (B13 反轉為報名層級／方案 A：三欄 per-signup 可編輯，已實作；先前 2026-06-29 曾定案信眾層級/方案 C)
 ---
 
 > 本檔列出**需要業務 / 客戶 / DBA 提供資訊**才能完成的項目。每項含：問題、為何重要、影響哪些 docs、預計確認時機。
@@ -154,7 +154,7 @@ last_updated: 2026-06-29 (B13 定案信眾層級＋方案 C 已實作)
   - 「永遠相同」→ 信眾層級：堂號集中到信眾維護、報名頁停止回寫（方案 C，零 schema）
 - **附帶確認**：目前「代入新增」改的堂號其實存不進新報名（只進 audit log），是否符合預期？→ 已隨方案 C 一併處理：堂號改唯讀，新增/編輯都不可改、僅信眾維護頁維護。
 - **確認時機**：實作此修正前
-- **狀態**：✅ 2026-06-29 定案「信眾層級」→ 採方案 C（報名編輯/新增不回寫 Believer、堂號唯讀）。已實作並回填 [signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md) / [business-rules-implicit.md §3.1](business-rules-implicit.md) / [glossary.md](glossary.md)
+- **狀態**：🔄 **2026-07-21 使用者反轉為「報名層級」→ 改採方案 A**（Signups 加自有 HallName/EmployeeType/IsFixedNumber、DbUp 加欄＋回填、SignupView COALESCE 回退；報名表單三欄可編輯只改這筆、不回寫 Believer；預繳保號仍讀信眾）。已實作並回填 [signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md) / [business-rules-implicit.md §3.1](business-rules-implicit.md) / [glossary.md](glossary.md) / [database-design.md](design/database-design.md)。（2026-06-29 曾定案信眾層級/方案 C，已被本次需求推翻。）
 
 ## C. 環境部署需求
 

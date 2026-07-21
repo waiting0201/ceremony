@@ -353,4 +353,67 @@ public sealed class SignupsEndpointsTests(CeremonyApiFactory factory) : IClassFi
             // futureYear=999 確保不影響真實資料)
         }
     }
+
+    [Fact]
+    public async Task Per_signup_override_columns_are_isolated_and_fallback_via_view()
+    {
+        // per-signup 覆寫（2026-07-21，方案 A）：報名自持堂號/員工類型/固定編號，
+        // 改 A 不影響同信眾 B、也不回寫信眾主檔；未覆寫（null）的報名由 SignupView COALESCE 回退信眾值。
+        var client = await AuthedAsync();
+
+        var believerName = $"itest_ovr_{DateTime.UtcNow:yyMMddHHmmssfff}";
+        var believerResp = await client.PostAsJsonAsync("/api/v1/believers", new
+        {
+            employeeType = 1,           // 非員工
+            name = believerName,
+            hallName = "原堂",
+            mailAddress = "整合測試地址",
+            isFixedNumber = false,
+        });
+        believerResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var believer = await believerResp.Content.ReadFromJsonAsync<Application.Believers.BelieverListItem>();
+
+        const int year = 998;                                                     // 專用年份，避開真實資料
+        const int signupType = 1;
+        var ceremonyId = Guid.Parse("18927907-dcad-42b2-8f2a-635c2e0fa98d");      // 春季
+
+        // 報名 A：覆寫三欄
+        var aResp = await client.PostAsJsonAsync("/api/v1/signups", new
+        {
+            year, ceremonyCategoryId = ceremonyId, signupType, believerId = believer!.Id,
+            name = believerName, mailAddress = "整合測試地址",
+            hallName = "甲堂", employeeType = 2, isFixedNumber = true,
+        });
+        aResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var a = (await aResp.Content.ReadFromJsonAsync<SignupListItem>())!;
+
+        // 報名 B：不送三欄 → 存 null → view COALESCE 回退信眾值
+        var bResp = await client.PostAsJsonAsync("/api/v1/signups", new
+        {
+            year, ceremonyCategoryId = ceremonyId, signupType, believerId = believer.Id,
+            name = believerName, mailAddress = "整合測試地址",
+        });
+        bResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var b = (await bResp.Content.ReadFromJsonAsync<SignupListItem>())!;
+
+        // GET A → 覆寫值
+        var aGet = (await (await client.GetAsync($"/api/v1/signups/{a.Id}")).Content.ReadFromJsonAsync<SignupListItem>())!;
+        aGet.HallName.Should().Be("甲堂");
+        aGet.EmployeeType.Should().Be(2);
+        aGet.Employee.Should().Be("大殿", because: "Employee 字串由 COALESCE(S.EmployeeType,B.EmployeeType) 推導");
+        aGet.IsFixedNumber.Should().BeTrue();
+
+        // GET B → 回退信眾值（COALESCE）
+        var bGet = (await (await client.GetAsync($"/api/v1/signups/{b.Id}")).Content.ReadFromJsonAsync<SignupListItem>())!;
+        bGet.HallName.Should().Be("原堂");
+        bGet.EmployeeType.Should().Be(1);
+        bGet.IsFixedNumber.Should().BeFalse();
+
+        // 改 A 未動信眾主檔
+        var believerGet = (await (await client.GetAsync($"/api/v1/believers/{believer.Id}"))
+            .Content.ReadFromJsonAsync<Application.Believers.BelieverListItem>())!;
+        believerGet.HallName.Should().Be("原堂", because: "報名覆寫不得回寫信眾主檔");
+        believerGet.EmployeeType.Should().Be(1);
+        believerGet.IsFixedNumber.Should().BeFalse();
+    }
 }

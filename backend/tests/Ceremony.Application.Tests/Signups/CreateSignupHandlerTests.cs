@@ -196,4 +196,32 @@ public sealed class CreateSignupHandlerTests
 
         captured!.TextZipcodeId.Should().Be(155);
     }
+
+    [Fact]
+    public async Task Writes_per_signup_override_columns_and_never_touches_Believer()
+    {
+        // per-signup 覆寫（2026-07-21）：堂號/員工類型/固定編號寫進 Signups write model，且不回寫 Believer。
+        _believerRepo.Setup(r => r.GetNameAsync(AnyBelieverId, default)).ReturnsAsync("陳大明");
+        _signupRepo.Setup(r => r.GetCeremonyCategoryTitleAsync(AnyCategoryId, default)).ReturnsAsync("春季");
+        SignupWriteModel? captured = null;
+        _signupRepo
+            .Setup(r => r.InsertWithLogAsync(It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), null, default))
+            .Callback<SignupWriteModel, SignupLogWriteModel, int?, CancellationToken>((s, _, _, _) => captured = s);
+        _signupRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), default))
+            .ReturnsAsync(new SignupListItem(
+                Guid.NewGuid(), 115, AnyCategoryId, "春季", 1, "No", 1, null, "大殿", AnyBelieverId, "Alice",
+                "慈光堂", null, true, [null, null, null, null, null, null], [null, null, null, null, null, null],
+                null, null, null, "addr",
+                null, null, null, "addr",
+                null, null, null, null, "alice", DateTime.UtcNow));
+
+        await CreateSut().HandleAsync(
+            ValidReq() with { HallName = "慈光堂", EmployeeType = 2, IsFixedNumber = true },
+            _caller);
+
+        captured!.HallName.Should().Be("慈光堂");
+        captured.EmployeeType.Should().Be(2);
+        captured.IsFixedNumber.Should().Be(true);
+        _believerRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<BelieverWriteModel>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

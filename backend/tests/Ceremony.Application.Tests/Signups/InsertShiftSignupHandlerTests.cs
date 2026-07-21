@@ -113,4 +113,27 @@ public sealed class InsertShiftSignupHandlerTests
             "插入模式刻意不做編號重複檢查");
         _signupRepo.Verify(r => r.InsertWithLogAsync(It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), It.IsAny<int?>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task Writes_per_signup_override_columns()
+    {
+        // per-signup 覆寫（2026-07-21）：堂號/員工類型/固定編號寫進 Signups write model。
+        _believerRepo.Setup(r => r.GetNameAsync(AnyBelieverId, default)).ReturnsAsync("陳大明");
+        _signupRepo.Setup(r => r.GetCeremonyCategoryTitleAsync(AnyCategoryId, default)).ReturnsAsync("春季");
+        SignupWriteModel? capturedSignup = null;
+        _signupRepo
+            .Setup(r => r.InsertWithShiftAsync(It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), It.IsAny<int>(), default))
+            .Callback<SignupWriteModel, SignupLogWriteModel, int, CancellationToken>((s, _, _, _) => capturedSignup = s);
+        _signupRepo.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), default))
+            .ReturnsAsync((Guid id, CancellationToken _) => AnyView(id));
+
+        await CreateSut().HandleAsync(
+            ValidReq() with { CustomNumber = 5, HallName = "慈光堂", EmployeeType = 3, IsFixedNumber = true },
+            _caller);
+
+        capturedSignup.Should().NotBeNull();
+        capturedSignup!.HallName.Should().Be("慈光堂");
+        capturedSignup.EmployeeType.Should().Be(3);
+        capturedSignup.IsFixedNumber.Should().Be(true);
+    }
 }

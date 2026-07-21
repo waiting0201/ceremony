@@ -98,6 +98,10 @@ public sealed record SignupWriteModel(
     int? Fee,
     string Name,
     string? Phone,
+    // per-signup 覆寫欄（2026-07-21）：寫入 dbo.Signups 自有欄；null → view COALESCE 回退信眾值
+    string? HallName,
+    int? EmployeeType,
+    bool? IsFixedNumber,
     string?[] LivingNames,
     string?[] DeadNames,
     int? MailZipcodeId,

@@ -91,19 +91,9 @@ export class SignupEditFormComponent {
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly selectedBeliever = signal<BelieverListItem | null>(null);
 
-  /** 選定信眾的員工類型（唯讀顯示，對齊舊 dlEmployeeType；新版不於報名建立時改信眾屬性）。 */
-  protected readonly employeeTypeTitle = computed<string>(
-    () => this.selectedBeliever()?.employeeTypeTitle ?? '',
-  );
-  // 固定編號為信眾屬性，唯讀顯示（對齊舊 cbIsFixedNumber 帶出；新版不於報名改信眾屬性）
-  protected readonly isFixedNumber = computed<boolean>(
-    () => this.selectedBeliever()?.isFixedNumber ?? false,
-  );
-  // 堂號為信眾層級屬性，唯讀顯示（僅於信眾維護頁修改）。報名編輯不回寫 Believer，避免連動同信眾全部報名。
-  // 見 docs/blueprints/signup-hallname-isolation.md
-  protected readonly hallNameDisplay = computed<string>(
-    () => this.selectedBeliever()?.hallName ?? '',
-  );
+  // 員工類型 / 固定編號 / 堂號改為 per-signup 可編輯（2026-07-21），改由 form control 持有（見下方 form）。
+  // 選信眾時帶入該信眾現值當預設，之後只改「這筆報名」、不回寫 Believer（後端寫 Signups 自有欄，
+  // SignupView 以 COALESCE 回退信眾值）。見 docs/blueprints/signup-hallname-isolation.md（方案 A）。
 
   // 城市 / 區域連動下拉資料
   protected readonly cities = signal<string[]>([]);
@@ -136,9 +126,13 @@ export class SignupEditFormComponent {
     signupType: [1, [Validators.required]],
     // 信眾（非必填：未選信眾時送出會自動建立新信眾，對齊舊 btnConfirm_Click:186-223）
     believerId: [''],
-    // 基本資料（堂號為信眾屬性，不在報名表單持有；唯讀顯示自 selectedBeliever）
+    // 基本資料。員工類型/固定編號/堂號為 per-signup 可編輯欄（2026-07-21）：選信眾帶入現值當預設，
+    // 只改這筆報名、不回寫 Believer。employeeType 1=非員工 2=大殿 3=地藏殿。
     name: ['', [Validators.required, Validators.maxLength(50)]],
     phone: [''],
+    employeeType: [1, [Validators.required, Validators.min(1), Validators.max(3)]],
+    isFixedNumber: [false],
+    hallName: ['', [Validators.maxLength(10)]],
     // 地址（城市/區域連動；zipcodeId 以字串持有，submit 轉 number）
     mailCity: [''],
     mailZipcodeId: [''],
@@ -299,6 +293,10 @@ export class SignupEditFormComponent {
         believerId: item.believerId ?? '',
         name: item.name ?? '',
         phone: item.phone ?? '',
+        // per-signup 覆寫欄：帶回該筆報名自身值（2026-07-21）
+        employeeType: item.employeeType ?? 1,
+        isFixedNumber: item.isFixedNumber,
+        hallName: item.hallName ?? '',
         remark: item.remark ?? '',
       });
       await this.applyAddress('mail', item.mailCity, null, item.mailZone, item.mailAddress);
@@ -321,6 +319,10 @@ export class SignupEditFormComponent {
       signupType: item.signupType,
       believerId: item.believerId ?? '',
       name: item.name ?? '',
+      // per-signup 覆寫欄：帶回該筆報名自身值（2026-07-21）
+      employeeType: item.employeeType ?? 1,
+      isFixedNumber: item.isFixedNumber,
+      hallName: item.hallName ?? '',
       keepNumber: false,
       customNumber: item.number,
       fee: item.fee,
@@ -496,6 +498,10 @@ export class SignupEditFormComponent {
       believerId: b.id,
       name: b.name,
       phone: b.phone ?? '',
+      // per-signup 覆寫欄：帶入該信眾現值當這筆報名的預設（可再改，只影響這筆）（2026-07-21）
+      employeeType: b.employeeType,
+      isFixedNumber: b.isFixedNumber,
+      hallName: b.hallName ?? '',
       fee: null,
       remark: '',
       prepayYear: null,
@@ -561,16 +567,17 @@ export class SignupEditFormComponent {
 
     // 未選信眾 → 先自動建立新信眾再報名（對齊舊 btnConfirm_Click:186-223 selectedcount==0 分支；
     // API 層故意不做 inline 建立，由前端 orchestration：POST /believers → POST /signups）。
-    // employeeType=1(非員工)/isFixedNumber=false 同舊表單下拉/checkbox 預設值。
+    // 員工類型/固定編號/堂號改為可編輯後（2026-07-21），新信眾用表單值建立（保持新信眾與這筆報名一致）。
     let believerId = v.believerId || this.selectedBeliever()?.id || '';
     if (!believerId && this.mode() === 'create') {
       try {
         const created = await this.believerApi.create({
-          employeeType: 1,
+          employeeType: v.employeeType,
           name: v.name,
+          hallName: v.hallName || null,
           mailAddress: v.mailAddress,
           phone: v.phone || null,
-          isFixedNumber: false,
+          isFixedNumber: v.isFixedNumber,
           mailZipcodeId: v.mailZipcodeId ? Number(v.mailZipcodeId) : null,
           textZipcodeId: v.textZipcodeId ? Number(v.textZipcodeId) : null,
           textAddress: v.textAddress || null,
@@ -601,8 +608,10 @@ export class SignupEditFormComponent {
       customNumber: this.mode() === 'edit' || v.keepNumber ? v.customNumber : null,
       fee: v.fee,
       phone: v.phone || null,
-      // 堂號為信眾屬性，取自選定信眾（後端僅用於 SignupLog 快照，不回寫 Believer）
-      hallName: this.selectedBeliever()?.hallName || null,
+      // per-signup 覆寫欄（2026-07-21）：改由表單值送出，後端寫 Signups 自有欄、不回寫 Believer。
+      hallName: v.hallName || null,
+      employeeType: v.employeeType,
+      isFixedNumber: v.isFixedNumber,
       mailZipcodeId: v.mailZipcodeId ? Number(v.mailZipcodeId) : null,
       textZipcodeId: v.textZipcodeId ? Number(v.textZipcodeId) : null,
       textAddress: v.textAddress || null,
@@ -658,6 +667,9 @@ export class SignupEditFormComponent {
       believerId: '',
       name: '',
       phone: '',
+      employeeType: 1,
+      isFixedNumber: false,
+      hallName: '',
       mailCity: '',
       mailZipcodeId: '',
       mailAddress: '',
@@ -690,12 +702,13 @@ function pad6(arr: (string | null)[]): string[] {
 function makeBelieverStubFromSignup(item: SignupListItem): BelieverListItem {
   return {
     id: item.believerId ?? '',
-    employeeType: 1,
-    employeeTypeTitle: '',
+    // per-signup 覆寫欄改帶報名自身值（2026-07-21）；表單本身已直接持有這三欄，stub 僅供信眾摘要卡顯示
+    employeeType: item.employeeType ?? 1,
+    employeeTypeTitle: item.employee ?? '',
     hallName: item.hallName,
     name: item.name ?? '',
     phone: item.phone,
-    isFixedNumber: false,
+    isFixedNumber: item.isFixedNumber,
     mailZipcodeId: null,
     mailCity: item.mailCity,
     mailArea: item.mailZone,

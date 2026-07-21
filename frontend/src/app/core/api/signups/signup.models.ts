@@ -8,6 +8,8 @@ export interface SignupListItem {
   number: number | null;
   fee: number | null;
   employee: string | null;
+  // per-signup 員工類型數值（2026-07-21）：1=非員工 2=大殿 3=地藏殿；employee 為對應顯示字串
+  employeeType: number | null;
   believerId: string | null;
   name: string | null;
   hallName: string | null;
@@ -62,7 +64,10 @@ export interface CreateSignupRequest {
   customNumber?: number | null;
   fee?: number | null;
   phone?: string | null;
+  // per-signup 覆寫欄（2026-07-21）：報名自持堂號/員工類型/固定編號，後端寫 Signups 自有欄、不回寫 Believer
   hallName?: string | null;
+  employeeType?: number | null;
+  isFixedNumber?: boolean | null;
   mailZipcodeId?: number | null;
   textZipcodeId?: number | null;
   textAddress?: string | null;

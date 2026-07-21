@@ -20,7 +20,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         var sql = new StringBuilder("""
             SELECT
               SignupID, Year, CeremonyCategoryID, CeremonyTitle, SignupType, NumberTitle, Number, Fee,
-              Employee, BelieverID, Name, HallName, Phone, IsFixedNumber,
+              Employee, EmployeeType, BelieverID, Name, HallName, Phone, IsFixedNumber,
               LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
               DeadNameOne,   DeadNameTwo,   DeadNameThree,   DeadNameFour,   DeadNameFive,   DeadNameSix,
               MailCity, MailZone, MailZipcode, MailAddress,
@@ -102,6 +102,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
                 Number: d["Number"] as int?,
                 Fee: d["Fee"] as int?,
                 Employee: d["Employee"] as string,
+                EmployeeType: d["EmployeeType"] as int?,
                 BelieverId: d["BelieverID"] as Guid?,
                 Name: d["Name"] as string,
                 HallName: d["HallName"] as string,
@@ -149,7 +150,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         const string sql = """
             SELECT TOP 1
               SignupID, Year, CeremonyCategoryID, CeremonyTitle, SignupType, NumberTitle, Number, Fee,
-              Employee, BelieverID, Name, HallName, Phone, IsFixedNumber,
+              Employee, EmployeeType, BelieverID, Name, HallName, Phone, IsFixedNumber,
               LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
               DeadNameOne,   DeadNameTwo,   DeadNameThree,   DeadNameFour,   DeadNameFive,   DeadNameSix,
               MailCity, MailZone, MailZipcode, MailAddress,
@@ -241,6 +242,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
                 UPDATE dbo.Signups SET
                   Year=@Year, CeremonyCategoryID=@CeremonyCategoryId, SignupType=@SignupType, BelieverID=@BelieverId,
                   NumberTitle=@NumberTitle, Number=@Number, Fee=@Fee, Name=@Name, Phone=@Phone,
+                  HallName=@HallName, EmployeeType=@EmployeeType, IsFixedNumber=@IsFixedNumber,
                   LivingNameOne=@L1, LivingNameTwo=@L2, LivingNameThree=@L3, LivingNameFour=@L4, LivingNameFive=@L5, LivingNameSix=@L6,
                   DeadNameOne=@D1, DeadNameTwo=@D2, DeadNameThree=@D3, DeadNameFour=@D4, DeadNameFive=@D5, DeadNameSix=@D6,
                   MailZipcodeID=@MailZipcodeId, MailAddress=@MailAddress,
@@ -253,6 +255,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
             {
                 s.SignupId, s.Year, s.CeremonyCategoryId, s.SignupType, s.BelieverId,
                 s.NumberTitle, Number = number, s.Fee, s.Name, s.Phone,
+                s.HallName, s.EmployeeType, s.IsFixedNumber,
                 L1 = s.LivingNames[0], L2 = s.LivingNames[1], L3 = s.LivingNames[2],
                 L4 = s.LivingNames[3], L5 = s.LivingNames[4], L6 = s.LivingNames[5],
                 D1 = s.DeadNames[0], D2 = s.DeadNames[1], D3 = s.DeadNames[2],
@@ -436,6 +439,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
             INSERT INTO dbo.Signups (
               SignupID, Year, CeremonyCategoryID, SignupType, BelieverID,
               NumberTitle, Number, Fee, Name, Phone,
+              HallName, EmployeeType, IsFixedNumber,
               LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
               DeadNameOne, DeadNameTwo, DeadNameThree, DeadNameFour, DeadNameFive, DeadNameSix,
               MailZipcodeID, MailAddress, TextZipcodeID, TextAddress,
@@ -443,6 +447,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
             ) VALUES (
               @SignupId, @Year, @CeremonyCategoryId, @SignupType, @BelieverId,
               @NumberTitle, @Number, @Fee, @Name, @Phone,
+              @HallName, @EmployeeType, @IsFixedNumber,
               @L1, @L2, @L3, @L4, @L5, @L6,
               @D1, @D2, @D3, @D4, @D5, @D6,
               @MailZipcodeId, @MailAddress, @TextZipcodeId, @TextAddress,
@@ -453,6 +458,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         {
             s.SignupId, s.Year, s.CeremonyCategoryId, s.SignupType, s.BelieverId,
             s.NumberTitle, Number = number, s.Fee, s.Name, s.Phone,
+            s.HallName, s.EmployeeType, s.IsFixedNumber,
             L1 = s.LivingNames[0], L2 = s.LivingNames[1], L3 = s.LivingNames[2],
             L4 = s.LivingNames[3], L5 = s.LivingNames[4], L6 = s.LivingNames[5],
             D1 = s.DeadNames[0], D2 = s.DeadNames[1], D3 = s.DeadNames[2],
@@ -496,7 +502,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         var sql = new StringBuilder("""
             SELECT
               SignupID, Year, CeremonyCategoryID, CeremonyTitle, SignupType, NumberTitle, Number, Fee,
-              Employee, BelieverID, Name, HallName, Phone, IsFixedNumber,
+              Employee, EmployeeType, BelieverID, Name, HallName, Phone, IsFixedNumber,
               LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
               DeadNameOne,   DeadNameTwo,   DeadNameThree,   DeadNameFour,   DeadNameFive,   DeadNameSix,
               MailCity, MailZone, MailZipcode, MailAddress,
@@ -544,7 +550,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         const string sql = """
             SELECT
               SignupID, Year, CeremonyCategoryID, CeremonyTitle, SignupType, NumberTitle, Number, Fee,
-              Employee, BelieverID, Name, HallName, Phone, IsFixedNumber,
+              Employee, EmployeeType, BelieverID, Name, HallName, Phone, IsFixedNumber,
               LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
               DeadNameOne,   DeadNameTwo,   DeadNameThree,   DeadNameFour,   DeadNameFive,   DeadNameSix,
               MailCity, MailZone, MailZipcode, MailAddress,
@@ -577,6 +583,7 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
             Number: d["Number"] as int?,
             Fee: d["Fee"] as int?,
             Employee: d["Employee"] as string,
+            EmployeeType: d["EmployeeType"] as int?,
             BelieverId: d["BelieverID"] as Guid?,
             Name: d["Name"] as string,
             HallName: d["HallName"] as string,

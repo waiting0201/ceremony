@@ -141,7 +141,7 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 
 | 風險 | 緩解措施 |
 |---|---|
-| 本機 admin 權限者可讀到 DB 密碼 | **應用程式執行期** DB 帳號維持最小權限：只能 DML + EXEC `backup proc`、**無 DDL**（不開放 `sysadmin` / `db_owner`）。**DbUp migration 於部署時以獨立的高權限帳號執行**，與 runtime 帳號分離 |
+| 本機 admin 權限者可讀到 DB 密碼 | **應用程式執行期** DB 帳號維持最小權限：只能 DML + EXEC `backup proc`、**無 DDL**（不開放 `sysadmin` / `db_owner`）。**DbUp migration 於部署時以獨立的高權限帳號執行**，與 runtime 帳號分離（目標設計）。**⚠️ 現況偏離（2026-07-21）**：客戶端採方案 B——sidecar 啟動自動跑 DbUp（見 [data-migration.md](../blueprints/data-migration.md)），故 runtime 連線（目前 `sa`）啟動時會執行 DDL。降權 runtime 帳號前需先改走方案 A |
 | 密碼以純文字存 user profile | LAN-only 部署，無公網暴露；SQL Server 開 Windows Firewall 限制來源網段 |
 | 多 client = 多份 config.json | 各 client 都是 user-profile 路徑（隨使用者 Windows 帳號）；**2026-06-02 起改出廠預寫**（見下），不再逐台手填 |
 | 升級安全等級 | 架構保留方案 A（Windows Authentication）/ 方案 B（DPAPI 加密）的升級路徑，現有 Electron `config.ts` 模組可換實作不動其他層 |

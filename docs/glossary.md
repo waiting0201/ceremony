@@ -11,7 +11,7 @@ related_docs:
   - blueprints/believer-management.md
   - blueprints/printing-reports.md
 keywords: [glossary, 業務術語, 法會, 信眾, 陽上, 往生, 文牒, 薦牌, 普桌, 觀音會, 寺方, 郵撥, 民國年, 避4]
-last_updated: 2026-05-26
+last_updated: 2026-07-21 (堂號/員工類型/固定編號改 per-signup 報名自有覆寫欄（方案 A），報名可編輯只改這筆、view COALESCE 回退信眾值、預繳保號仍讀信眾)
 ---
 
 > 本文依舊系統 v1.3.0 分析文件 + 原始碼整理；目的是讓新團隊成員（特別是非台灣 / 非佛道文化背景）能正確理解業務語意。
@@ -112,7 +112,7 @@ last_updated: 2026-05-26
 
 ### 員工類型 / EmployeeType
 
-`Believers.EmployeeType` — int 列舉：
+`Believers.EmployeeType`（信眾主檔）＋ `Signups.EmployeeType`（報名自有覆寫欄，2026-07-21）— int 列舉；報名表單可覆寫、只改該筆，view 以 COALESCE 回退信眾值（同堂號）：
 
 | ID | 名稱 | 說明 |
 |---|---|---|
@@ -142,9 +142,9 @@ UI label 同樣用「3-1」替代「4」。
 
 ### 堂號 / Hall Name
 
-儲存於 **`Believers.HallName`**（nvarchar(10)，信眾層級單一欄位）— 2-4 字的信眾組織名稱或暱稱（例：「慈光堂」「南無堂」）。
+儲存於 **`Believers.HallName`**（信眾主檔）**與 `Signups.HallName`**（報名自有覆寫欄，nvarchar(10)）— 2-4 字的信眾組織名稱或暱稱（例：「慈光堂」「南無堂」）。
 
-> **堂號為信眾層級屬性（2026-06-29 定案，方案 C）**：`Signups` 表無自有 HallName 欄位；報名/清單顯示的堂號是 `SignupView` JOIN `Believers` 即時帶出，`SignupLogs.HallName` 僅為審計快照。**僅信眾維護頁可改堂號**；報名表單堂號唯讀，報名新增/編輯**不回寫** Believer（修正 legacy「改一筆報名堂號→連動同信眾全部報名」缺陷）。詳見 [signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md)、[business-rules-implicit.md §3.1](business-rules-implicit.md)。
+> **堂號為報名層級可覆寫（2026-07-21 定案，方案 A）**：`Signups` 有自有 `HallName` 欄，報名表單堂號**可編輯、只改這一筆**；`SignupView` 以 `COALESCE(Signups.HallName, Believers.HallName)` 顯示（未覆寫則回退信眾值）。報名新增/編輯**不回寫** Believer（改一筆不連動同信眾其他報名）。信眾主檔堂號於信眾維護頁維護。員工類型 / 固定編號同款可覆寫。`SignupLogs.HallName` 仍為審計快照。沿革：2026-06-29 曾採方案 C（唯讀、信眾層級）→ 2026-07-21 反轉。詳見 [signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md)、[business-rules-implicit.md §3.1](business-rules-implicit.md)。
 
 列印時：
 - 2 字 → 拆為 First + Second（各 1 字）
@@ -181,7 +181,7 @@ UI label 同樣用「3-1」替代「4」。
 
 ### 固定編號 / IsFixedNumber
 
-`Believers.IsFixedNumber` (bit)
+`Believers.IsFixedNumber` (bit) ＋ `Signups.IsFixedNumber`（報名自有覆寫欄，2026-07-21）
 
 旗標：信眾在預繳載入時是否保留原編號。
 
@@ -189,6 +189,8 @@ UI label 同樣用「3-1」替代「4」。
 - 非固定編號：依序填補固定編號留下的空號，再續序
 
 **常見誤解**：「固定編號」不代表編號永不變 — 編輯報名時仍可改 Number；只是在 LoadPrepay 時優先保留。
+
+> **per-signup 覆寫（2026-07-21）**：報名表單可勾/改固定編號、只影響該筆的顯示與報名搜尋 `IsFixedNumber=1` 篩選（view COALESCE 回退信眾值）。**但預繳載入保號仍讀 `Believers.IsFixedNumber`**（per-signup 覆寫不影響預繳保號，使用者指定）。
 
 ### 避 4 / Avoid Number 4
 

@@ -76,6 +76,11 @@ public sealed class CreateSignupHandler(
             Fee: req.Fee,
             Name: name,
             Phone: phone,
+            // per-signup 覆寫欄（2026-07-21）：寫入 Signups 自有欄，維持不回寫 Believer。
+            // employeeType 超 1–3 或 null → 存 null → SignupView COALESCE 回退信眾值。
+            HallName: hallName,
+            EmployeeType: req.EmployeeType is >= 1 and <= 3 ? req.EmployeeType : null,
+            IsFixedNumber: req.IsFixedNumber,
             LivingNames: livingNames,
             DeadNames: deadNames,
             MailZipcodeId: NormalizeZipcode(req.MailZipcodeId),

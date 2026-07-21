@@ -102,6 +102,10 @@ public sealed class PrepayLoadHandler(IPrepayRepository repo)
             // 對齊舊 LoadPrepayForm：預繳建立的 Signup 不帶 Name/Phone（留 null），列印時姓名從 Believer 取。
             Name: null!,
             Phone: null,
+            // 預繳建立的報名不帶 per-signup 覆寫（留 null）→ SignupView COALESCE 回退信眾值。
+            HallName: null,
+            EmployeeType: null,
+            IsFixedNumber: null,
             LivingNames: s.LivingNames,
             DeadNames: s.DeadNames,
             MailZipcodeId: s.MailZipcodeId,

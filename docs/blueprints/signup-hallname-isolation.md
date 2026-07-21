@@ -15,19 +15,23 @@ related_docs:
   - ../business-rules-implicit.md
   - ../glossary.md
 keywords: [堂號, HallName, 信眾連動, 資料隔離, 代入新增, 編輯報名, Believers, Signups]
-last_updated: 2026-06-29
+last_updated: 2026-07-21 (使用者反轉 2026-06-29 決策：三欄改 per-signup 可編輯，採方案 A；DbUp 加欄 + SignupView COALESCE + 前後端可編輯)
 ---
 
-## 決議與實作（2026-06-29）
+## 決議與實作（2026-07-21：反轉為方案 A）
 
-**業務定案**：堂號為**信眾層級**屬性（同信眾跨報名一致）→ 採**方案 C**（零 schema，停止回寫）。已實作：
+**使用者定案（2026-07-21）**：員工類型 / 固定編號 / **堂號**三欄改為**報名層級**可編輯——「可以改、但只改目前這筆報名的資料，不回寫信眾主檔、不連動同信眾其他報名」。這**推翻**了 2026-06-29「堂號＝信眾層級」的結論，改採當年評估過但未採用的**方案 A（報名層級快照）**。已實作：
 
-- 後端 `UpdateWithLogAsync` 移除整段 Believer 更新 + 三個 `*ForBeliever` 參數（[ISignupRepository.cs](../../backend/src/Ceremony.Application/Signups/ISignupRepository.cs)、[SignupRepository.cs](../../backend/src/Ceremony.Infrastructure/Repositories/SignupRepository.cs)、[UpdateSignupHandler.cs](../../backend/src/Ceremony.Application/Signups/UpdateSignupHandler.cs)）；報名編輯從此絕不碰 Believer。堂號仍寫 `SignupLogs` 快照。
-- 前端報名表單堂號改唯讀（比照員工類型/固定編號），值取自 `selectedBeliever()`；移除 `hallName` form control（[signup-edit-form.component.ts](../../frontend/src/app/features/signups/signup-edit-form.component.ts) / `.html`）。
-- 回歸測試 `UpdateSignupHandlerTests.Edit_never_writes_back_to_Believer`（+5 其他）；後端 291+6 測試綠、前端 ng build 綠。
-- 堂號維護單一入口：信眾維護頁（[believer-management.md](./believer-management.md)）。
+- **DB（DbUp，新增 `Ceremony.Migrations` 專案）**：
+  - `0001` `ALTER TABLE dbo.Signups ADD HallName nvarchar(10) NULL, EmployeeType int NULL, IsFixedNumber bit NULL`（可空，向後相容）。
+  - `0002` 一次性回填：既有列三欄設為當下對應信眾值（凍結成快照）。
+  - `0003` `SignupView` 三欄改讀 `COALESCE(S.X, B.X)`，並新增數值 `EmployeeType` 欄（前端 select 用）。view 內 Name/Phone 早已是同款「S 為 null 回退 B」pattern。
+- **後端**：`CreateSignupRequest` 加 `EmployeeType`/`IsFixedNumber`（`HallName` 已有）；`SignupWriteModel` 加三欄；INSERT/UPDATE 寫 Signups 自有欄；三個 handler（Create/Update/InsertShift）把三欄帶入 write model（employeeType 超 1–3→null）；`SignupListItem` 加數值 `EmployeeType`；四個 SELECT + mapping 補讀。**維持不回寫 Believer**（`Edit_never_writes_back_to_Believer` 回歸仍綠）。
+- **前端**：報名表單三欄由唯讀改**可編輯**（員工類型 select、固定編號 checkbox、堂號 input，參考 believer-edit-form）；form group 加三 control；pick/apply/prefill 帶回值；submit 由表單值送出；未選信眾自動建立時用表單值建立新信眾。
+- **預繳保號維持讀信眾**（使用者指定）：per-signup 的 isFixedNumber 只影響該筆顯示/搜尋篩選；預繳載入保號仍讀 `Believers.IsFixedNumber`（Prepay 不改）。
+- **測試**：新增 Create/Update/InsertShift 單元測試（三欄寫進 write model、不回寫 Believer、employeeType 超範圍→null）＋整合測試（per-signup 隔離：改 A 不影響 B、不動信眾；COALESCE 回退）。Application 205 / Integration 66 / Infrastructure 107 綠、前端 ng build 綠。
 
-> 下方原評估內容保留作決策脈絡。方案 A（Signups 加自有 HallName 欄）未採用——**主因是業務確認堂號為信眾固有、不因報名而異**（C 在業務語意上即正確）。當時 A 另撞「DB 凍結」政策；該限制已於 2026-06-29 解除（schema 可走 DbUp migration），但**不改變結論**：堂號既屬信眾層級，C 仍是正解。
+> 下方原評估內容（背景/方案比較）保留作決策脈絡。**2026-06-29 曾採方案 C**（業務當時認定堂號為信眾固有）；2026-07-21 使用者需求改為「同信眾不同報名可掛不同堂號/員工類型/固定編號」→ 語意變為報名層級 → 改採**方案 A**。
 
 ## 背景與動機
 

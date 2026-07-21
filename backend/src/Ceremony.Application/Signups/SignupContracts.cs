@@ -54,7 +54,10 @@ public sealed record SignupListItem(
     string? PrepayCeremonyTitle,
     string? Remark,
     string? AdminName,
-    DateTime? CreateDate);
+    DateTime? CreateDate,
+    // per-signup 員工類型數值（2026-07-21）：前端 select 載入需 1/2/3；字串 Employee 為對應顯示 title。
+    // 置於尾端且帶預設值，既有位置式建構點免改。SignupView 以 COALESCE(S.EmployeeType, B.EmployeeType) 提供。
+    int? EmployeeType = null);
 
 public sealed record SignupListResponse(IReadOnlyList<SignupListItem> Items, int Total);
 

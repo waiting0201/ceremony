@@ -17,6 +17,8 @@
     <ProjectReference Include="..\Ceremony.Application\Ceremony.Application.csproj" />
     <ProjectReference Include="..\Ceremony.Infrastructure\Ceremony.Infrastructure.csproj" />
     <ProjectReference Include="..\Ceremony.Domain\Ceremony.Domain.csproj" />
+    <!-- 啟動時自動執行 DbUp schema migration（客戶端 sidecar：安裝新版開 App 即自動就緒） -->
+    <ProjectReference Include="..\Ceremony.Migrations\Ceremony.Migrations.csproj" />
   </ItemGroup>
 
 </Project>

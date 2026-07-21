@@ -64,6 +64,28 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// 啟動時自動執行 DbUp schema migration（客戶端 Electron sidecar：安裝新版開 App 即自動就緒，免手動 CLU）。
+// 冪等（journal dbo.SchemaVersions）→ 每次啟動只補未套用的腳本。失敗即 fail-fast 中止啟動（避免用殘缺 schema 服務）。
+// 可用 config "Migration:RunOnStartup"=false 關閉；appsettings placeholder（未設真實連線）自動跳過。
+{
+    var runMigration = app.Configuration.GetValue("Migration:RunOnStartup", true);
+    var migrationConn = app.Configuration.GetConnectionString("Ceremony");
+    if (runMigration
+        && !string.IsNullOrWhiteSpace(migrationConn)
+        && !migrationConn.Contains("__OVERRIDE", StringComparison.Ordinal))
+    {
+        Log.Information("Schema migration 檢查中…");
+        var result = Ceremony.Migrations.MigrationRunner.Run(
+            migrationConn, msg => Log.Information("[migration] {Message}", msg));
+        if (!result.Successful)
+        {
+            Log.Fatal("Schema migration 失敗，中止啟動：{Error}", result.Error);
+            throw new InvalidOperationException($"Schema migration 失敗：{result.Error}");
+        }
+        Log.Information("Schema migration 完成（本次套用 {Count} 支腳本）。", result.ScriptsExecuted);
+    }
+}
+
 app.UseSerilogRequestLogging();
 app.UseMiddleware<ExceptionMiddleware>();
 

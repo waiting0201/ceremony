@@ -369,9 +369,9 @@ if (apiBase) (environment as any).apiBaseUrl = apiBase;
 - **Schema**：**可變更，走 DbUp migration**（2026-06-29 解除凍結，見 [database-design.md](database-design.md)）
 - **ORM**：Dapper + 手寫 SQL；**Migration 工具：DbUp**（`Ceremony.Migrations`，部署時冪等執行）
 - **備份**：見 [database-design.md](database-design.md) 備份章節
-- **DB 帳號**：runtime 用應用專用帳號（最小權限，僅本 DB 表的 DML + EXEC backup proc，**無 DDL**）；**DbUp migration 於部署時用獨立高權限帳號執行**
+- **DB 帳號**：runtime 用應用專用帳號（最小權限，僅本 DB 表的 DML + EXEC backup proc，**無 DDL**）；**DbUp migration 於部署時用獨立高權限帳號執行**（目標設計）。
 
-> 部署時**不執行任何 DDL**。應用程式啟動只連 DB、讀資料、寫資料 — DB 結構零變動。
+> **現況（2026-07-21）**：客戶端 migration 採方案 B——**API sidecar 啟動時自動跑 DbUp**（`Ceremony.Migrations` 隨 `Ceremony.Api` publish 打包；冪等、fail-fast、可 config `Migration:RunOnStartup=false` 關閉）。因此**啟動時會執行 DDL**（ALTER TABLE / CREATE VIEW）。目前客戶端用 `sa`（具 DDL）故可行——這是相對上述「runtime 帳號無 DDL」目標設計的**已知偏離**：若未來把 runtime 帳號降權，需改走方案 A（Electron 啟 sidecar 前以獨立高權限帳號跑 `Ceremony.Migrations.exe`）。詳見 [data-migration.md](../blueprints/data-migration.md)「Migration 如何在客戶端執行」。
 
 ## CI/CD
 

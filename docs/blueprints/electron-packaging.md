@@ -53,7 +53,7 @@ Angular SPA + .NET API 主流程完成後，最後一步把系統包成寺方 cl
 ### 不做什麼
 - 非 Windows target（mac/linux 不打包）。
 - auto-update（electron-updater）：保留為後續（需內網 update server）。
-- DB schema 變動（本打包任務範圍外；schema 變更走 DbUp，見 [data-migration.md](data-migration.md)）。
+- DB schema 變動：schema 腳本走 DbUp（`Ceremony.Migrations`），**經 Api ProjectReference 隨 sidecar publish 自動打包、由 Api 啟動時自動執行**（方案 B，2026-07-21），不需另外調打包配置。詳見 [data-migration.md](data-migration.md)「Migration 如何在客戶端執行」。
 - Windows Authentication / DPAPI 加密 config（方案 C 已決策；保留升級路徑）。
 
 ## 使用者流程

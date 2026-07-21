@@ -11,7 +11,7 @@ related_docs:
   - security.md
   - ../blueprints/signup-management.md
 keywords: [database, db, schema, 資料庫, 索引, 法會, ceremony, signup, believer, MSSQL, EF Core, Database First]
-last_updated: 2026-06-29 (解除 DB 凍結，導入 DbUp migration)
+last_updated: 2026-07-21 (Signups 加三個 per-signup 覆寫欄 HallName/EmployeeType/IsFixedNumber、SignupView 改 COALESCE 回退＋新增數值 EmployeeType；`Ceremony.Migrations` DbUp 專案首次落地 0001 加欄/0002 回填/0003 改 view；先前 2026-06-29 解除 DB 凍結、導入 DbUp)
 ---
 
 ## ⚠️ 重要決策：DB schema 可變更，導入 DbUp migration（**2026-06-29 解除凍結**）
@@ -249,6 +249,9 @@ Navigation properties（EF 自動命名）：
 | `Fee` | int | NULL | – | 費用 |
 | `Name` | nvarchar(30) | NULL | – | 報名快照姓名 |
 | `Phone` | nvarchar(30) | NULL | – | 報名快照電話 |
+| `HallName` | nvarchar(10) | NULL | – | **per-signup 堂號覆寫**（2026-07-21 DbUp 0001 新增）；null → SignupView COALESCE 回退 Believers |
+| `EmployeeType` | int | NULL | – | **per-signup 員工類型覆寫**（同上）；1=非員工 2=大殿 3=地藏殿；null → 回退 |
+| `IsFixedNumber` | bit | NULL | – | **per-signup 固定編號覆寫**（同上）；null → 回退。預繳保號仍讀 Believers.IsFixedNumber |
 | `LivingNameOne`～`LivingNameSix` | nvarchar(30) × 6 | NULL | – | 快照陽上 |
 | `DeadNameOne`～`DeadNameSix` | nvarchar(30) × 6 | NULL | – | 快照往生 |
 | `MailZipcodeID` | int | NULL | FK→Zipcodes | |
@@ -294,11 +297,13 @@ Navigation properties（EF 自動命名）：
 
 兩個 view 已存在於 DB（對應 EDMX 反向產出的 readonly model）。新系統 EF Core 對映用 `[Keyless]` + `ToView()`。
 
-**SignupView 欄位（既有，無需改 view）**：
+**SignupView 欄位**（2026-07-21 DbUp 0003 改：三欄改讀 per-signup 覆寫、新增數值 `EmployeeType`）：
 - SignupID, Year, CeremonyTitle, CeremonySort, CeremonyCategoryID
 - SignupType, NumberTitle, Number, Fee
-- Employee（CASE Believers.EmployeeType → 字串）
-- Name, HallName, Phone, IsFixedNumber
+- Employee（CASE **`COALESCE(Signups.EmployeeType, Believers.EmployeeType)`** → 字串）
+- **EmployeeType**（數值，`COALESCE(Signups.EmployeeType, Believers.EmployeeType)`；前端 select 用）
+- Name, **HallName（`COALESCE(Signups.HallName, Believers.HallName)`）**, Phone, **IsFixedNumber（`COALESCE(Signups.IsFixedNumber, Believers.IsFixedNumber)`）**
+- （Name/Phone 早已是 `CASE WHEN Signups.X IS NULL THEN Believers.X ELSE Signups.X`，三欄比照此 pattern）
 - LivingNameOne～Six, DeadNameOne～Six
 - MailZipcode, MailCity, MailZone, MailAddress
 - TextZipcode, TextCity, TextZone, TextAddress

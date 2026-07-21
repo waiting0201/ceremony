@@ -23,10 +23,14 @@ public sealed class CeremonyApiFactory : WebApplicationFactory<Program>
             // 允許在 ENV 變數覆蓋（CI 用）；空時 fall back 到 Api project 的 user-secrets。
             var envConn = Environment.GetEnvironmentVariable("ConnectionStrings__Ceremony");
             var envJwt = Environment.GetEnvironmentVariable("Jwt__SigningKey");
-            var overrides = new Dictionary<string, string?>();
+            var overrides = new Dictionary<string, string?>
+            {
+                // 測試 DB 由 CI/開發者預先套 migration；關掉啟動時自動 migrate，避免多個測試工廠並行重跑 DbUp。
+                ["Migration:RunOnStartup"] = "false",
+            };
             if (!string.IsNullOrWhiteSpace(envConn)) overrides["ConnectionStrings:Ceremony"] = envConn;
             if (!string.IsNullOrWhiteSpace(envJwt)) overrides["Jwt:SigningKey"] = envJwt;
-            if (overrides.Count > 0) conf.AddInMemoryCollection(overrides);
+            conf.AddInMemoryCollection(overrides);
         });
     }
 }

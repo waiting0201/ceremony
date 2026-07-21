@@ -82,6 +82,47 @@ public sealed class UpdateSignupHandlerTests
     }
 
     [Fact]
+    public async Task Edit_writes_per_signup_override_columns_to_Signup()
+    {
+        // per-signup 覆寫（2026-07-21）：堂號/員工類型/固定編號寫進 Signups 自有欄（write model），不回寫 Believer。
+        SetupHappyPath();
+        SignupWriteModel? capturedSignup = null;
+        _signupRepo.Setup(r => r.UpdateWithLogAsync(
+                It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), It.IsAny<int>(), default))
+            .Callback<SignupWriteModel, SignupLogWriteModel, int, CancellationToken>((s, _, _, _) => capturedSignup = s)
+            .ReturnsAsync(true);
+
+        await CreateSut().HandleAsync(
+            AnySignupId,
+            ValidReq() with { HallName = "慈光堂", EmployeeType = 2, IsFixedNumber = true },
+            _caller);
+
+        capturedSignup.Should().NotBeNull();
+        capturedSignup!.HallName.Should().Be("慈光堂");
+        capturedSignup.EmployeeType.Should().Be(2);
+        capturedSignup.IsFixedNumber.Should().Be(true);
+
+        // 仍不得回寫 Believer
+        _believerRepo.Verify(r => r.UpdateAsync(It.IsAny<Guid>(), It.IsAny<BelieverWriteModel>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Edit_out_of_range_employeeType_stored_as_null()
+    {
+        // employeeType 超 1–3 → 存 null → 由 SignupView COALESCE 回退信眾值。
+        SetupHappyPath();
+        SignupWriteModel? capturedSignup = null;
+        _signupRepo.Setup(r => r.UpdateWithLogAsync(
+                It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), It.IsAny<int>(), default))
+            .Callback<SignupWriteModel, SignupLogWriteModel, int, CancellationToken>((s, _, _, _) => capturedSignup = s)
+            .ReturnsAsync(true);
+
+        await CreateSut().HandleAsync(AnySignupId, ValidReq() with { EmployeeType = 99 }, _caller);
+
+        capturedSignup!.EmployeeType.Should().BeNull();
+    }
+
+    [Fact]
     public async Task MissingNumber_throws_VALIDATION_REQUIRED()
     {
         _believerRepo.Setup(r => r.GetNameAsync(AnyBelieverId, default)).ReturnsAsync("陳大明");

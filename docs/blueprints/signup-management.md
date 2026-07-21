@@ -16,7 +16,7 @@ related_docs:
   - prepay-loading.md
   - printing-reports.md
 keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印, 勾選列印, signupIds]
-last_updated: 2026-07-21 (新增報名頁客訴六項：取消＝清成新的一筆不跳頁、改選信眾殘留欄位修復、搜尋結果與名單文字大小對齊地址、勾指定編號後編號欄移至勾選文字右邊、地址非必填（前後端同步放寬）；先前 2026-07-18 右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
+last_updated: 2026-07-21 (員工類型/固定編號/堂號改 per-signup 可編輯（方案 A）：Signups 加自有欄＋DbUp 回填＋SignupView COALESCE，報名表單三欄可編輯只改這筆、不回寫信眾、預繳保號仍讀信眾；同日新增報名頁客訴六項：取消＝清成新的一筆不跳頁、改選信眾殘留欄位修復、搜尋結果與名單文字大小對齊地址、勾指定編號後編號欄移至勾選文字右邊、地址非必填（前後端同步放寬）；先前 2026-07-18 右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
 ---
 
 ## 背景與動機
@@ -123,7 +123,7 @@ last_updated: 2026-07-21 (新增報名頁客訴六項：取消＝清成新的一
 法會資料   民國年(預設 TaiwanCalendar.GetYear) / 法會分類 / 報名類型（2026-07-17 使用者指定提到表單最上方）
 信眾       常駐搜尋列 + 結果列表直接顯示（2026-07-17 改，對齊舊常駐 dgvBelievers；
            選定後列表保留、可隨時點別筆改選覆蓋欄位；未選信眾也可送出 → 自動建新信眾）
-基本資料   員工類型(唯讀) / 堂號(唯讀) / 姓名 / 聯絡電話
+基本資料   員工類型(可編輯 select) / 固定編號(可編輯 checkbox) / 堂號(可編輯 input) / 姓名 / 聯絡電話（三欄 2026-07-21 改 per-signup 可編輯）
 地址       寄件在上：寄件城市→區域(連動下拉)→郵遞區號(唯讀) / 寄件地址
            文牒在下：文牒城市→區域→郵遞區號 / 文牒地址 + ☑ 同寄件地址（同列；
            複製 mail→text；mail 空 → 「請先輸入寄件地址」）
@@ -136,7 +136,7 @@ last_updated: 2026-07-21 (新增報名頁客訴六項：取消＝清成新的一
 
 - **法會分類依當月自動帶季別（新版加值，2026-06-23）**：新增模式下載完分類樹後，依當前月份自動把「法會分類」預設為對應季別 root（1-4月→春季 / 5-8月→中元 / 9-12月→秋季，見 [business-rules-implicit.md](../business-rules-implicit.md) §月→季）。為**可編輯的預設**：使用者仍可改選任何季別或子法會（子法會仍人工挑選，月份只決定季別）。僅在 create 模式且使用者尚未選值時帶入；編輯模式不覆蓋既有 ceremony。實作：`util/ceremony-season.ts`（`currentSeason` / `resolveSeasonRootId`，GUID 優先、title 退場）+ `signup-edit-form` `applySeasonDefault()`
 - 城市/區域連動下拉資料源：`GET /zipcodes/cities`、`GET /zipcodes?city=`（見 [get-zipcodes.md](api-endpoints/get-zipcodes.md)）；對齊舊 `LoadCity` / `dlMailCity_SelectedIndexChanged`
-- **員工類型 + 固定編號唯讀顯示**：新流程不於報名建立時**編輯**既有信眾屬性（inline 編輯 Believer 捨棄，於信眾維護調整）。`BelieverListItem` 已含 `IsFixedNumber`（2026-06-02），報名表單唯讀顯示「固定編號 是/否」
+- **員工類型 / 固定編號 / 堂號改 per-signup 可編輯（2026-07-21，方案 A，反轉先前唯讀決策）**：這三欄由唯讀改為可編輯（員工類型 select、固定編號 checkbox、堂號 input），**只改這筆報名、不回寫 Believer**。後端 `Signups` 加自有 `HallName/EmployeeType/IsFixedNumber` 欄（DbUp 0001 加欄 / 0002 回填 / 0003 `SignupView` 改 `COALESCE(Signups.X, Believers.X)` + 新增數值 `EmployeeType`）；`CreateSignupRequest` 加 `employeeType/isFixedNumber`（`hallName` 已有），三個 handler 寫入 Signups 自有欄。前端 form group 加三 control，選信眾帶入現值當預設、submit 由表單值送出、未選信眾自動建立時用表單值建新信眾。**預繳保號仍讀 `Believers.IsFixedNumber`**（per-signup 覆寫不影響預繳保號，使用者指定）。見 [signup-hallname-isolation.md](signup-hallname-isolation.md)、[business-rules-implicit §3.1](../business-rules-implicit.md)
 - **未選信眾 → 自動建立新信眾（2026-07-17 補齊，對齊舊 `btnConfirm_Click:186-223`）**：舊系統 `dgvBelievers.SelectedRows.Count == 0` 時當場 `Guid.NewGuid()` INSERT Believers 再建報名；新版 API 層維持不做 inline 建立（`CreateSignupRequest.BelieverId` 必填），由**前端 orchestration**：`submit()` 發現 create 模式且無 believerId → 先 `POST /believers`（employeeType=1 非員工、isFixedNumber=false，同舊表單下拉/checkbox 預設；姓名/電話/兩組地址/陽上/往生取自表單）→ 拿到 id 綁回表單再 `POST /signups`。信眾建立成功但報名失敗時 believerId 已綁回表單，重送不會重複建信眾。此前前端漏做這條路（believerId 掛 required），導致「沒選信眾就完全無法新增」——已修
 - **選信眾自動帶入預繳歷史**：`pickBeliever` 呼叫 `GET /prepay?believerId&year`，最新報名有預繳則帶入預繳年/法會（對齊舊 `BelieverSelected:1102-1115`；見 [get-prepay-believer-latest.md](api-endpoints/get-prepay-believer-latest.md)）
 - **新增報名頁客訴六項（2026-07-21）**：

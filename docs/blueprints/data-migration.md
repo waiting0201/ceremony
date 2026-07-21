@@ -9,7 +9,7 @@ related_agents:
 related_docs:
   - ../design/database-design.md
 keywords: [migration, 資料遷移, datatrans, 沿用, DbUp, schema]
-last_updated: 2026-06-29 (解除 DB 凍結，導入 DbUp schema migration)
+last_updated: 2026-07-21 (客戶端 migration 定案方案 B：Api sidecar 啟動自動跑 DbUp（Ceremony.Migrations 經 ProjectReference 隨 Api publish 打包）、fail-fast、可 config 關閉、CLI 保留；DDL 現用 sa，降權後改方案 A；先前 2026-06-29 解除 DB 凍結、導入 DbUp)
 ---
 
 ## 範圍：零 ETL 搬遷 + DbUp schema migration
@@ -44,13 +44,24 @@ last_updated: 2026-06-29 (解除 DB 凍結，導入 DbUp schema migration)
 
 備份策略不變（既有 SQL Server Agent 排程）。
 
+## Migration 如何在客戶端執行（2026-07-21 定案：sidecar 啟動自動 migrate）
+
+客戶端是 Electron 桌面 App（sidecar `Ceremony.Api.exe` 直連客戶 MSSQL），沒有伺服器可手動跑 CLI。**採方案 B：API sidecar 啟動時自動執行 DbUp**：
+
+- `Ceremony.Api` 以 ProjectReference 參考 `Ceremony.Migrations`（腳本 embedded 在該組件）→ `dotnet publish Ceremony.Api` 時 `Ceremony.Migrations.dll` 自動被打包進 sidecar，**不需**額外改 `publish.ps1` / `electron-builder.yml`。
+- `Program.cs`（`Build()` 後、`Run()` 前）呼叫 `MigrationRunner.Run(連線字串)`：連線字串由 Electron main 經 ENV 注入，啟動當下保證已備妥。DbUp 冪等 + journal（`dbo.SchemaVersions`）→ 每次開 App 只補未套用的腳本。
+- **多台並發串行化**：多台客戶端 sidecar 可能幾乎同時啟動。`MigrationRunner` 外層以 **`sp_getapplock`**（Exclusive、Session-scoped、專用鎖連線、逾時 90s）串行化——同一時間只有一台真正跑 migration，其餘台等它釋放鎖後再檢查 journal → **直接 no-op**（journal 在共用 DB，`dbo.SchemaVersions` 記錄已套用腳本，全域只套一次）。與本專案配號/預繳共用 `sp_getapplock` 做法。逾時（另一台 migration 異常久）則 fail-fast。已實測：A 取鎖 `rc=0`、B 等待後 `rc=1` 再 no-op。
+- **fail-fast**：migration 失敗即中止啟動（不以殘缺 schema 服務），錯誤走既有 `/health`→`/setup` 呈現。可用 config `Migration:RunOnStartup=false` 關閉（整合測試工廠即設 false，測試 DB 由 CI/開發者預先套 migration）。
+- **CLI 仍保留**：`Ceremony.Migrations` console（`dotnet Ceremony.Migrations.dll "<連線字串>"`）供伺服器式部署或手動一次性套用。
+- **DDL 權限現況**：客戶端目前用 `sa` 連線（具 DDL），故 sidecar 啟動跑 `ALTER TABLE / CREATE VIEW` 可行。**注意**：此偏離 [security.md](../design/security.md)/[infrastructure.md](../design/infrastructure.md) 所述「runtime 低權限帳號無 DDL、migration 走獨立高權限帳號」的目標設計——若未來把 runtime 帳號降權成無 DDL，就要改走方案 A（Electron 啟 sidecar 前先以獨立高權限帳號跑 `Ceremony.Migrations.exe`）。
+
 ## 切換上線流程（零資料遷移）
 
 ```
 1. 部署新後端（Ceremony.Api）
    - 連線字串指向既有 Ceremony DB
-   - 執行 DbUp migration（若有待套用的 schema 變更；冪等、向後相容）
-   - sa 改為應用專用帳號（DDL 權限視 migration 需求授予）
+   - schema migration：伺服器式可跑 Ceremony.Migrations CLI；客戶端 Electron 由 sidecar 啟動自動執行（見上）
+   - sa 改為應用專用帳號（DDL 權限視 migration 需求授予；若降權則 migration 改走獨立高權限帳號/方案 A）
 2. 部署新 Electron client
 3. 並行運行（pilot）
    - 1 位使用者試新版，其他人續用舊版
