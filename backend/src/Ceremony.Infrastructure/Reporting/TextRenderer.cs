@@ -13,10 +13,11 @@ namespace Ceremony.Infrastructure.Reporting;
 /// 頁面 36.5×26.2cm 橫向超寬。2 變體：tmpTextTwo（恰好 2 亡）/ tmpText（其他）。
 /// DeadName 在 RDLC 內以 Rectangle2 群組，座標已換算成絕對值（Rect 原點 + 相對位移）。
 /// PhotoAddress 為 27×653px 直書地址 PNG（SkiaSharp 移植自 Library.DrawText），嵌入 0.75×18.13cm 窄帶。
-/// 字型固定 BiauKai；DeadName / LivingName 0.9cm、HallName 0.6cm VAlign=Middle、Number 1cm Bold。
-/// 2026-07-18 客訴調整（刻意偏離 RDLC 原 0.8cm/0.66cm）：地址加大（0.66→0.75cm）＋下移 0.8cm
-/// （Top 4.9，印在預印「臺灣」正下方、水平置中）、亡/陽姓名加大（0.8→0.9cm，仍 &lt; 欄距 0.91251
-/// 不重疊），且姓名必須比地址大。
+/// 字型固定 BiauKai；DeadName / LivingName 0.8cm、HallName 0.6cm VAlign=Middle、Number 1cm Bold。
+/// 2026-07-18 客訴調整（刻意偏離 RDLC 原 0.66cm）：地址加大（0.66→0.75cm）＋下移（Top 4.9，印在
+/// 預印「臺灣」正下方）。2026-07-21 客訴再調（覆蓋前一輪的字級）：往者/陽上字級統一 0.8cm、同欄上下
+/// 姓名間空一個全形（WithBottomGap）；往者整體右移 0.5cm（DeadShiftX）；陽上整體下移 1cm、右移 1cm
+/// （LivingShift）；地址右移 0.5cm（Left 25.4→25.9）並提高 PNG 解析度（SkiaImageHelpers Supersample）。
 /// </remarks>
 public sealed class TextRenderer
 {
@@ -25,9 +26,18 @@ public sealed class TextRenderer
     private const double PageWidthCm = 36.5;
     private const double PageHeightCm = 26.2;
 
-    // 亡/陽姓名起始字級（cm）。RDLC 原 0.8，2026-07-18 依客訴加大；上限受欄距 0.91251cm 制約
-    // （直書字寬≈字級，再大會蓋到隔壁欄），且必須維持 > 地址字級（0.75cm）。
-    private const double NameBaseFontCm = 0.9;
+    // 亡/陽姓名起始字級（cm）。RDLC 原 0.8，2026-07-18 曾依客訴加大到 0.9；2026-07-21 客訴
+    // 改回「往者/陽上統一 0.8cm」。上限受欄距 0.91251cm 制約（直書字寬≈字級，再大會蓋到隔壁欄），
+    // 且維持 > 地址字級（0.75cm，0.8 > 0.75 ✓）。
+    private const double NameBaseFontCm = 0.8;
+
+    // 2026-07-21 客訴位移（僅文牒）：往者整體右移 0.5cm（與左邊預印字距 0.5cm）＋下移 0.5cm；堂號在
+    // 往者正上方，共用 DeadShiftX/DeadShiftY 一起右移下移維持對齊；陽上整體下移 1cm、右移 1cm。
+    // 只加在各自欄位的 Left/Top 上，相對矩陣結構不變。
+    private const double DeadShiftX = 0.5;
+    private const double DeadShiftY = 0.5;
+    private const double LivingShiftX = 1.0;
+    private const double LivingShiftY = 1.0;
 
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
@@ -63,30 +73,37 @@ public sealed class TextRenderer
                     // Number (Top 3.8, Left 31.49729, 1cm Bold)
                     DrawText(layers, 3.8, 31.49729, 4.74896, 1.10272, 1.0 * PointsPerCm, data.Number, bold: true);
 
-                    // HallName (Top 2.1, VAlign=Middle, 0.6cm)
-                    DrawText(layers, 2.1, 11.5, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameSecond, vMiddle: true);
-                    DrawText(layers, 2.1, 13.53753, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameFirst, vMiddle: true);
+                    // HallName (Top 2.1, VAlign=Middle, 0.6cm)。2026-07-21 客訴：堂號在往者正上方，
+                    // 跟著往者一起右移 DeadShiftX＋下移 DeadShiftY（各 0.5cm）維持上下對齊。
+                    DrawText(layers, 2.1 + DeadShiftY, 11.5 + DeadShiftX, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameSecond, vMiddle: true);
+                    DrawText(layers, 2.1 + DeadShiftY, 13.53753 + DeadShiftX, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameFirst, vMiddle: true);
 
-                    // LivingNames 5 位（0.9cm，2026-07-18 客訴加大）— tmpText.rdlc；矩陣上排(Top15.2748)
+                    // LivingNames 5 位（0.8cm，2026-07-21 客訴統一）— tmpText.rdlc；矩陣上排(Top15.2748)
                     // →下排(Top17.25916) 列距 1.98436cm。統一字級（整組同大小、最擠的塞得下才不重疊）；
-                    // 上排僅當下方有名字才以列距為界。
+                    // 上排僅當下方有名字才以列距為界。2026-07-21 客訴：整體下移 LivingShiftY／右移 LivingShiftX，
+                    // 且同欄上、下姓名之間空一個全形（WithBottomGap，正下方有名字才補）。
                     var pt08l = NameBaseFontCm * PointsPerCm;
                     const double livingPitch = 17.25916 - 15.2748; // 1.98436
                     const double livingFull = 6.72806;
                     var lv = data.LivingNames;
                     // 第 6 位（lv[5]）補在下排右欄 L21.87382（主欄 lv[0] 正下方），使矩陣對稱（座標確認見 business-rules-implicit §18）。
+                    // 上排三格尾端補全形空格 → GroupFontPt 多算一列統一縮字、Stack 渲染空白列，天然空出一個字高間距。
+                    var lv0 = VerticalText.WithBottomGap(lv[0], lv[5]);
+                    var lv1 = VerticalText.WithBottomGap(lv[1], lv[3]);
+                    var lv2 = VerticalText.WithBottomGap(lv[2], lv[4]);
                     var fl = VerticalText.GroupFontPt(pt08l,
-                        (lv[0], VerticalText.Avail(lv[5], livingPitch, livingFull)),
-                        (lv[1], VerticalText.Avail(lv[3], livingPitch, livingFull)),
-                        (lv[2], VerticalText.Avail(lv[4], livingPitch, livingFull)),
+                        (lv0, VerticalText.Avail(lv[5], livingPitch, livingFull)),
+                        (lv1, VerticalText.Avail(lv[3], livingPitch, livingFull)),
+                        (lv2, VerticalText.Avail(lv[4], livingPitch, livingFull)),
                         (lv[3], livingFull), (lv[4], livingFull), (lv[5], livingFull));
 
-                    DrawText(layers, 15.2748, 21.87382, 0.91251, livingFull, fl, lv[0], vertical: true);
-                    DrawText(layers, 15.2748, 20.96131, 0.91251, livingFull, fl, lv[1], vertical: true);
-                    DrawText(layers, 15.2748, 20.0488, 0.91251, livingFull, fl, lv[2], vertical: true);
-                    DrawText(layers, 17.25916, 20.96131, 0.91251, livingFull, fl, lv[3], vertical: true);
-                    DrawText(layers, 17.25916, 20.0488, 0.91251, livingFull, fl, lv[4], vertical: true);
-                    DrawText(layers, 17.25916, 21.87382, 0.91251, livingFull, fl, lv[5], vertical: true); // Six（補：下排右欄，主欄正下方）
+                    const double lY0 = 15.2748 + LivingShiftY, lY1 = 17.25916 + LivingShiftY;
+                    DrawText(layers, lY0, 21.87382 + LivingShiftX, 0.91251, livingFull, fl, lv0, vertical: true);
+                    DrawText(layers, lY0, 20.96131 + LivingShiftX, 0.91251, livingFull, fl, lv1, vertical: true);
+                    DrawText(layers, lY0, 20.0488 + LivingShiftX, 0.91251, livingFull, fl, lv2, vertical: true);
+                    DrawText(layers, lY1, 20.96131 + LivingShiftX, 0.91251, livingFull, fl, lv[3], vertical: true);
+                    DrawText(layers, lY1, 20.0488 + LivingShiftX, 0.91251, livingFull, fl, lv[4], vertical: true);
+                    DrawText(layers, lY1, 21.87382 + LivingShiftX, 0.91251, livingFull, fl, lv[5], vertical: true); // Six（補：下排右欄，主欄正下方）
 
                     // DeadName（Rectangle2 群組，絕對座標 = Rect 原點 + 相對；0.9cm）。
                     // 往生／陽上**各自獨立**算安全字級（見 ComputeDeadFontPt 註解）——兩者共用同一個
@@ -107,11 +124,11 @@ public sealed class TextRenderer
                     // 在 y≈22.5cm 前無預印字（22.8 起是「人氏奉」尾字，45+ 字極端地址才可能碰到）。
                     if (!string.IsNullOrEmpty(data.Address))
                     {
-                        const double pxToCm = 0.75 / SkiaImageHelpers.AddressColWidthPx; // 等比：27px ↔ 0.75cm
+                        const double pxToCm = 0.75 / SkiaImageHelpers.AddressColWidthPx; // 等比：AddressColWidthPx px ↔ 0.75cm
                         var bandW = (SkiaImageHelpers.AddressColumns(data.Address) == 1
                             ? SkiaImageHelpers.AddressColWidthPx
                             : SkiaImageHelpers.AddressColWidthPx * 2 + SkiaImageHelpers.AddressColGapPx) * pxToCm;
-                        const double bandRight = 25.4 + 0.75; // 右緣固定（單欄時 Left = 25.4 不變）
+                        const double bandRight = 25.9 + 0.75; // 2026-07-21 客訴右移 0.5cm（單欄時 Left = 25.9）
 
                         layers.Layer()
                             .TranslateX((float)(bandRight - bandW), Unit.Centimetre)
@@ -147,30 +164,33 @@ public sealed class TextRenderer
         const double full = 10.50374;
         // 第 6 位（d[5]）補在下排正中央 L12.41251（主欄 d[0] 正下方），使矩陣對稱（座標確認見 business-rules-implicit §18）。
         // d[0] 之前下方為空可用整欄高；現 d[5] 在其正下方 → 改用列距為界（無第 6 位時 Avail 回整欄高＝向後相容）。
+        // 2026-07-21 客訴：上排三格尾端補全形空格（WithBottomGap），字數計入多一列 → 上下姓名間空一個字高。
         return VerticalText.GroupFontPt(pt08,
-            (d[0], VerticalText.Avail(d[5], pitch, full)),
-            (d[1], VerticalText.Avail(d[3], pitch, full)),
-            (d[2], VerticalText.Avail(d[4], pitch, full)),
+            (VerticalText.WithBottomGap(d[0], d[5]), VerticalText.Avail(d[5], pitch, full)),
+            (VerticalText.WithBottomGap(d[1], d[3]), VerticalText.Avail(d[3], pitch, full)),
+            (VerticalText.WithBottomGap(d[2], d[4]), VerticalText.Avail(d[4], pitch, full)),
             (d[3], full), (d[4], full), (d[5], full));
     }
 
     private static void DrawDeadNames(LayersDescriptor layers, TextData data, double fontPt)
     {
         var d = data.DeadNames;
+        // 2026-07-21 客訴：往者整體右移 DeadShiftX＋下移 DeadShiftY（矩陣相對結構不變）。
         if (data.Template == TextTemplate.Two)
         {
-            DrawText(layers, 3.65889, 13.01299, 0.91251, 10.50374, fontPt, d[0], vertical: true);
-            DrawText(layers, 3.62361, 11.85, 0.91251, 10.50374, fontPt, d[1], vertical: true);
+            DrawText(layers, 3.65889 + DeadShiftY, 13.01299 + DeadShiftX, 0.91251, 10.50374, fontPt, d[0], vertical: true);
+            DrawText(layers, 3.62361 + DeadShiftY, 11.85 + DeadShiftX, 0.91251, 10.50374, fontPt, d[1], vertical: true);
             return;
         }
 
         const double full = 10.50374;
-        DrawText(layers, 3.65889, 12.41251, 0.91251, full, fontPt, d[0], vertical: true); // One（主欄）
-        DrawText(layers, 3.65889, 13.32502, 0.91251, full, fontPt, d[1], vertical: true); // Two
-        DrawText(layers, 3.65889, 11.5, 0.91251, full, fontPt, d[2], vertical: true);     // Three
-        DrawText(layers, 5.72264, 13.32502, 0.91251, full, fontPt, d[3], vertical: true); // Four
-        DrawText(layers, 5.72264, 11.5, 0.91251, full, fontPt, d[4], vertical: true);     // Five
-        DrawText(layers, 5.72264, 12.41251, 0.91251, full, fontPt, d[5], vertical: true); // Six（補：下排中央，主欄正下方）
+        // 上排三格尾端補全形空格（同 ComputeDeadFontPt），Stack 渲染空白列 → 上下姓名間空一個字高間距。
+        DrawText(layers, 3.65889 + DeadShiftY, 12.41251 + DeadShiftX, 0.91251, full, fontPt, VerticalText.WithBottomGap(d[0], d[5]), vertical: true); // One（主欄）
+        DrawText(layers, 3.65889 + DeadShiftY, 13.32502 + DeadShiftX, 0.91251, full, fontPt, VerticalText.WithBottomGap(d[1], d[3]), vertical: true); // Two
+        DrawText(layers, 3.65889 + DeadShiftY, 11.5 + DeadShiftX, 0.91251, full, fontPt, VerticalText.WithBottomGap(d[2], d[4]), vertical: true);     // Three
+        DrawText(layers, 5.72264 + DeadShiftY, 13.32502 + DeadShiftX, 0.91251, full, fontPt, d[3], vertical: true); // Four
+        DrawText(layers, 5.72264 + DeadShiftY, 11.5 + DeadShiftX, 0.91251, full, fontPt, d[4], vertical: true);     // Five
+        DrawText(layers, 5.72264 + DeadShiftY, 12.41251 + DeadShiftX, 0.91251, full, fontPt, d[5], vertical: true); // Six（補：下排中央，主欄正下方）
     }
 
     private static void DrawText(LayersDescriptor layers, double top, double left, double width, double height, double fontPt, string? text, bool bold = false, bool vMiddle = false, bool vertical = false)

@@ -8,7 +8,8 @@ namespace Ceremony.Infrastructure.Reporting;
 /// <remarks>
 /// 兩個用途：
 /// (1) <see cref="VerticalAddress"/> — 1:1 移植舊系統 reference/old/Ceremony/Commons/Library.cs:34-124
-///     （原 System.Drawing，非跨平台）；文牒 PhotoAddress 垂直地址 27×653px 透明 PNG。
+///     （原 System.Drawing，非跨平台）；文牒 PhotoAddress 垂直地址透明 PNG（27×653px 邏輯規格
+///     ×Supersample 放大以提高列印解析度）。
 /// (2) <see cref="DashedLine"/> — DataCard Line2 虛線；QuestPDF 2026 已收回 SkiaSharp 公開 Canvas API，
 ///     故改以小張虛線 PNG 嵌入。
 ///
@@ -38,12 +39,16 @@ internal static class SkiaImageHelpers
         return SKTypeface.FromFamilyName(FontFamily) ?? SKTypeface.Default;
     }
 
-    // 文牒垂直地址 canvas 規格。欄寬 = 字級；欄距 9px（0.25cm）在兩欄折行時使用。
-    // 與文牒嵌入帶等比：27px ↔ 0.75cm（見 TextRenderer PhotoAddress 段）。
-    internal const int AddressColWidthPx = 27;
-    internal const int AddressColGapPx = 9;
-    internal const int AddressColHeightPx = 653;
-    private const float AddressFontSize = 27f;
+    // 文牒垂直地址 canvas 規格。欄寬 = 字級；欄距對應 0.25cm，在兩欄折行時使用。
+    // 與文牒嵌入帶等比：AddressColWidthPx px ↔ 0.75cm（見 TextRenderer PhotoAddress 段；TextRenderer
+    // 用 0.75/AddressColWidthPx 換算，故放大像素不影響定位，只提高解析度）。
+    // 2026-07-21 客訴「地址解析度要好一點」：整組 canvas 規格 ×Supersample 放大（27→108px/字，帶尺寸
+    // 不變 → 每 0.75cm 由 27px 提升到 108px ≈ 366 DPI，列印更銳利）。所有比例（欄距、可容字數）等比不變。
+    private const int Supersample = 4;
+    internal const int AddressColWidthPx = 27 * Supersample;
+    internal const int AddressColGapPx = 9 * Supersample;
+    internal const int AddressColHeightPx = 653 * Supersample;
+    private const float AddressFontSize = 27f * Supersample;
 
     /// <summary>單欄可容納字數（步進 = 行高 ≈ 1.02 字級 → 23 字）。TextRenderer 判斷帶寬也用它。</summary>
     internal static int AddressCharsPerColumn
