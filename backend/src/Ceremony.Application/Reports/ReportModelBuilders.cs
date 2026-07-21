@@ -16,14 +16,21 @@ internal static class ReportModelBuilders
         var prepay = s.PrepayYear.HasValue
             ? $"預繳至{s.PrepayYear}年{s.PrepayCeremonyTitle}"
             : string.Empty;
+        // 2026-07-21 客訴：往者字級改與薦牌一致——起點取 ChooseTablet 的 ParaFontSize（1-2 位 0.8/0.5cm、
+        // 3+ 位 0.6cm），交給 DataCardRenderer 以 MatrixLayout 於窗框內動態縮放。
+        var (_, paraFontSize) = PrintTemplateSelector.ChooseTablet(deadNames, livingNames);
+        var paraSizeCm = double.Parse(paraFontSize.Replace("cm", ""));
         return new DataCardModel(
-            Number: SignupReportContext.DataCardNumber(s),
+            // 2026-07-21 客訴：抬頭與號碼分開繪製（中間 0.3cm 空隙、不再用「.」相接），故 Number 只帶號碼。
+            Number: SignupReportContext.NumberText(s),
             Prepay: prepay,
             DeadNames: deadNames,
             LivingNames: livingNames,
             Address: SignupReportContext.TextAddressOf(s),
             Phone: s.Phone,
-            Remark: s.Remark);
+            Remark: s.Remark,
+            NumberTitle: s.NumberTitle,
+            ParaFontSizeCm: paraSizeCm);
     }
 
     public static ReceiptModel Receipt(SignupListItem s, DateTime now)

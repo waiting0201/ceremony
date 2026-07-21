@@ -22,7 +22,9 @@ public sealed record DataCardModel(
     string?[] LivingNames,
     string? Address,
     string? Phone,
-    string? Remark);
+    string? Remark,
+    string? NumberTitle = null,      // 編號抬頭（與號碼分開繪製，中間留 0.3cm 空隙；2026-07-21 客訴）
+    double ParaFontSizeCm = 0.6);    // 往者字級起點，由 PrintTemplateSelector.ChooseTablet 決定（與薦牌同）
 
 public sealed record ReceiptModel(
     string Name,

@@ -163,25 +163,21 @@ public sealed class RendererSmokeTests
         ShouldBePdf(pdf);
         DumpIfRequested(new DataCardRenderer().Render(data, debugOverlay: true), "datacard_six_dead_matrix_overlay.pdf");
 
+        // 2026-07-21 客訴：字級改採與薦牌一致的 MatrixLayout（起點 ParaFontSize、窗框內動態縮 + 動態下排起點），
+        // 取代舊版固定列距 2.6 + GroupFontPt。此處重算須與 DataCardRenderer.DrawDeadNamesInWindow 同一套邏輯。
         const double topRowY = 5.6388 + 0.1;
         const double windowGapBottom = 11.4427; // 「靈」字上緣，硬邊界
-        const double rowPitch = 2.6;
-        const double bottomRowY = topRowY + rowPitch;
         const double safetyMargin = 0.2;
-        const double fullHeight = windowGapBottom - bottomRowY - safetyMargin;
+        const double boxHeight = windowGapBottom - topRowY - safetyMargin;
 
         var d = data.DeadNames;
-        var font = VerticalText.GroupFontPt(0.6 * PtPerCm,
-            (d[0], VerticalText.Avail(d[5], rowPitch, fullHeight)),
-            (d[1], VerticalText.Avail(d[3], rowPitch, fullHeight)),
-            (d[2], VerticalText.Avail(d[4], rowPitch, fullHeight)),
-            (d[3], fullHeight),
-            (d[4], fullHeight),
-            (d[5], fullHeight));
+        var (fontCm, bottomOffset) = VerticalText.MatrixLayout(
+            0.6, boxHeight, (d[0], d[5]), (d[1], d[3]), (d[2], d[4]));
+        var bottomRowY = topRowY + bottomOffset;
 
         foreach (var (rowTop, name) in new[] { (topRowY, d[0]), (topRowY, d[1]), (topRowY, d[2]), (bottomRowY, d[3]), (bottomRowY, d[4]), (bottomRowY, d[5]) })
         {
-            var bottomCm = rowTop + name!.Length * (font / PtPerCm);
+            var bottomCm = rowTop + name!.Length * fontCm;
             bottomCm.Should().BeLessThanOrEqualTo(windowGapBottom - safetyMargin + 1e-6,
                 $"「{name}」縮字後不應超出窗框缺口（含安全邊界）");
         }

@@ -14,4 +14,6 @@ public sealed record DataCardData(
     string?[] LivingNames,   // 6 elements
     string? Address,
     string? Phone,
-    string? Remark);
+    string? Remark,
+    string? NumberTitle = null,      // 編號抬頭；與 Number 分開繪製，中間留 0.3cm 空隙（2026-07-21 客訴）
+    double ParaFontSizeCm = 0.6);    // 往者字級起點（cm），與薦牌一致：由 PrintTemplateSelector.ChooseTablet 決定

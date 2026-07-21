@@ -17,7 +17,8 @@ public sealed class QuestPdfReportRenderer(
         => dataCard.Render(new DataCardData(
             model.Number, model.Prepay,
             model.DeadNames, model.LivingNames,
-            model.Address, model.Phone, model.Remark), debugOverlay);
+            model.Address, model.Phone, model.Remark,
+            model.NumberTitle, model.ParaFontSizeCm), debugOverlay);
 
     public byte[] RenderReceipt(ReceiptModel model)
         => receipt.Render(new ReceiptData(

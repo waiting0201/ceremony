@@ -19,9 +19,9 @@ internal static class SignupReportContext
     // 各報表「編號欄」字串組法不同 — 對齊舊 SignupForm btnPrint_Click 路徑（SignupForm.cs:488-637），
     // 該路徑同時供單筆與批次列印。新版先前一律用 "{title}-{num}" 連字號是錯的。
 
-    /// <summary>資料卡：NumberTitle + "." + 號（SignupForm.cs:488）。</summary>
-    public static string DataCardNumber(SignupListItem s)
-        => $"{s.NumberTitle}.{NumberText(s)}";
+    // 資料卡編號：2026-07-21 客訴改為「抬頭 + 0.3cm 空隙 + 號碼」（不再用「.」相接），抬頭與號碼
+    // 由 DataCardRenderer 分開繪製（見 ReportModelBuilders.DataCard 傳 NumberTitle + NumberText），
+    // 故此處不再組合字串。舊 legacy 對照：SignupForm.cs:488 是 NumberTitle+"."+號。
 
     /// <summary>收據：只印號碼、無 NumberTitle（SignupForm.cs:523 / :262）。</summary>
     public static string ReceiptNumber(SignupListItem s)

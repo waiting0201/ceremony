@@ -24,6 +24,10 @@ public sealed class DataCardRenderer
     private const double PageWidthCm = 21.0;
     private const double PageHeightCm = 14.8;
 
+    // 2026-07-21 客訴：往者「故◯◯靈位」窗框（含框、故／靈位、框內亡者名）整體右移 0.8cm。
+    // 框（DrawTemplate）與框內亡者名（DrawDeadNamesInWindow）共用此位移，右移後相對位置不變。
+    private const double FrameShiftX = 0.8;
+
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
     private static readonly byte[] TemplateImage = LoadTemplate("datacard-template.jpg");
@@ -68,11 +72,15 @@ public sealed class DataCardRenderer
                     // （使用者確認）：Number 留左、預繳留右、堂號不印、亡者改印進右側樣板窗框裡（比照
                     // TabletRenderer 直書堆疊），陽上／地址／電話／備註／簽名沿用樣板量到的座標。
                     // 2026-07-18 客訴：編號往下 0.5cm（0.538 → 1.038）
-                    DrawText(layers, top: 1.038, left: 1.361, width: 6.204, height: 1.129, fontCm: 1.0, text: data.Number);
+                    // 2026-07-21 客訴：抬頭（NumberTitle）與號碼分開繪製，中間不再用「.」相接，改留固定 0.3cm
+                    // 空隙。抬頭起於 Left=1.361；空隙用 QuestPDF Row 版面自動量測抬頭「實際渲染寬度」後插入
+                    // ——半形抬頭（如 "No"）字寬遠小於全形，不能用「字數×1.0cm」估算，否則空隙會被撐太寬。
+                    DrawNumberField(layers, top: 1.038, left: 1.361, width: 6.204, fontCm: 1.0, title: data.NumberTitle, number: data.Number);
                     // 預繳欄沿用原寬度：樣板窗框（Top=4.40cm 起）在這一列（Top 0.776~1.667cm）之下，不會重疊
-                    DrawText(layers, top: 0.776, left: 12.133, width: 7.629, height: 0.891, fontCm: 0.7, text: data.Prepay);
+                    // 2026-07-21 客訴：預繳整體右移 1.5cm（Left 12.133 → 13.633）
+                    DrawText(layers, top: 0.776, left: 13.633, width: 7.629, height: 0.891, fontCm: 0.7, text: data.Prepay);
 
-                    DrawDeadNamesInWindow(layers, data.DeadNames);
+                    DrawDeadNamesInWindow(layers, data.DeadNames, data.ParaFontSizeCm);
 
                     // 2026-07-03 起欄位標題（陽上／地址／電話／備註／簽名）由 DrawTemplate 統一繪製
                     // （2026-07-18 前假設樣板紙預印、程式不印標題；現改為程式全印），內容欄位仍
@@ -128,16 +136,18 @@ public sealed class DataCardRenderer
             .LineHorizontal(0.8f);
 
         // 窗框矩形（樣板外緣量測 x 14.973~17.983、y 4.394~14.046）
+        // 2026-07-21 客訴：往者整個列印位置「含整個框」右移 0.8cm。框（矩形＋故／靈位）與框內亡者名
+        // （DrawDeadNamesInWindow）共用同一個 FrameShiftX 位移，整體右移後相對位置不變。
         layers.Layer()
-            .TranslateX(14.973f, Unit.Centimetre)
+            .TranslateX((float)(14.973 + FrameShiftX), Unit.Centimetre)
             .TranslateY(4.394f, Unit.Centimetre)
             .Width(3.010f, Unit.Centimetre)
             .Height(9.652f, Unit.Centimetre)
             .Border(0.8f);
 
-        // 「故」與「靈位」：置中於窗框中軸 16.478；墨跡對齊樣板量測（「故」下緣 5.6388、
-        // 「靈」上緣 11.4427——兩者是 DrawDeadNamesInWindow 亡者矩陣的硬邊界，不可越過）
-        const double frameCenterX = (14.973 + 17.983) / 2; // 16.478
+        // 「故」與「靈位」：置中於窗框中軸（右移後 16.478 + 0.8 = 17.278）；墨跡對齊樣板量測（「故」下緣
+        // 5.6388、「靈」上緣 11.4427——兩者是 DrawDeadNamesInWindow 亡者矩陣的硬邊界，不可越過）
+        const double frameCenterX = (14.973 + 17.983) / 2 + FrameShiftX; // 17.278
         const double glyphFontCm = 1.10;                   // 樣板墨跡量測字級（位 字寬 ≈1.12cm）
         var glyphFontPt = glyphFontCm * PointsPerCm;
         DrawVerticalName(layers, top: 4.585, left: frameCenterX - glyphFontCm / 2, fontPt: glyphFontPt, text: "故");
@@ -154,34 +164,34 @@ public sealed class DataCardRenderer
     // 2026-07-05 改版（使用者指定）：改成跟 TabletRenderer.DrawDeadNames default 分支同一套 2×3
     // 矩陣排法（不再是單欄「、」串接）：1st 中間上、2nd 右邊上、3rd 左邊上、4th 右邊下、5th 左邊下、
     // 6th 中間下；同時整體再往下 0.1cm、往左 0.1cm。
-    private static void DrawDeadNamesInWindow(LayersDescriptor layers, string?[] deadNames)
+    // 2026-07-21 客訴（兩項）：
+    //  (a) 往者字級「列印邏輯」改與薦牌一致——起點字級由 PrintTemplateSelector.ChooseTablet 決定
+    //      （1-2 位 0.8/0.5cm、3+ 位 0.6cm，隨 paraFontSizeCm 傳入），再以 VerticalText.MatrixLayout
+    //      於窗框內動態等比縮並算下排起點，取代原本寫死 0.6cm + 固定列距 2.6 的 GroupFontPt 做法。
+    //      欄位配對同薦牌 2×3：中欄 d0/d5、右欄 d1/d3、左欄 d2/d4。
+    //  (b) 整個框（含亡者名）右移 0.8cm（FrameShiftX；框本身於 DrawTemplate 一併右移）。
+    private static void DrawDeadNamesInWindow(LayersDescriptor layers, string?[] deadNames, double paraFontSizeCm)
     {
         const double topRowY = 5.6388 + 0.1;        // 5.7388
         const double windowGapBottom = 11.4427;     // 「靈」字上緣，硬邊界
-        const double rowPitch = 2.6;
-        const double bottomRowY = topRowY + rowPitch; // 8.3388
         const double safetyMargin = 0.2;
-        // 下排／單獨欄可用高（到「靈」字上緣扣安全邊界）；上排跟下排共用同一個保守值（比照 TabletRenderer
-        // 的 deadFull 對上下排一視同仁的簡化做法）
-        const double fullHeight = windowGapBottom - bottomRowY - safetyMargin; // 2.9039
+        // 方框可用高：topRowY 到「靈」字上緣扣安全邊界（比照薦牌 DeadMatrixHeight 的固定方框概念）
+        const double boxHeight = windowGapBottom - topRowY - safetyMargin; // 5.5039
 
-        const double centerX = 16.285 - 0.1; // 16.185（前一版單欄置中值再往左 0.1cm）
+        const double centerX = 16.285 - 0.1 + FrameShiftX; // 16.985（前一版置中值 16.185 再右移 0.8cm）
         const double columnGap = 0.75;
         const double leftX = centerX - columnGap;
         const double rightX = centerX + columnGap;
 
-        // 窗框內緣只有 2.9845cm 寬，塞 3 欄字級不能沿用 0.8cm（1 字時會撐到 columnGap 都不夠、3 欄互相
-        // 貼在一起看起來像連在一起）；改用 0.6cm 上限，GroupFontPt 只會縮不會放大，欄距才留得出空隙。
-        const double baseFontCm = 0.6;
         var d = deadNames;
 
-        var fontPt = VerticalText.GroupFontPt(baseFontCm * PointsPerCm,
-            (d[0], VerticalText.Avail(d[5], rowPitch, fullHeight)),
-            (d[1], VerticalText.Avail(d[3], rowPitch, fullHeight)),
-            (d[2], VerticalText.Avail(d[4], rowPitch, fullHeight)),
-            (d[3], fullHeight),
-            (d[4], fullHeight),
-            (d[5], fullHeight));
+        // 字級與下排起點：同薦牌 3+ 位分支——起點 paraFontSizeCm，塞不下整欄鏈才整組等比縮；
+        // 下排起點＝上排（有配對者）最長字數 +1 個字高間距後動態決定。
+        var (fontCm, bottomOffset) = VerticalText.MatrixLayout(
+            paraFontSizeCm, boxHeight,
+            (d[0], d[5]), (d[1], d[3]), (d[2], d[4]));
+        var fontPt = fontCm * PointsPerCm;
+        var bottomRowY = topRowY + bottomOffset;
 
         DrawVerticalName(layers, topRowY, centerX, fontPt, d[0]);    // 1st 中間上
         DrawVerticalName(layers, topRowY, rightX, fontPt, d[1]);     // 2nd 右邊上
@@ -199,6 +209,33 @@ public sealed class DataCardRenderer
             .TranslateX((float)left, Unit.Centimetre)
             .TranslateY((float)top, Unit.Centimetre)
             .Text(VerticalText.Stack(text)).FontSize((float)fontPt).FontFamily(FontFamily).LineHeight(1f);
+    }
+
+    // 編號欄：抬頭（NumberTitle）＋固定 0.3cm 空隙＋號碼。空隙用 Row 的 Spacing，讓版面引擎依抬頭
+    // 「實際渲染寬度」定位號碼——半形抬頭（"No"）與全形抬頭（"信"/"寺"）字寬不同，實際量測才會準。
+    // 抬頭為空時只印號碼（無前導空隙，起於 left）；號碼為空時只印抬頭。
+    private static void DrawNumberField(
+        LayersDescriptor layers,
+        double top, double left, double width,
+        double fontCm,
+        string? title, string? number)
+    {
+        var hasTitle = !string.IsNullOrEmpty(title);
+        var hasNumber = !string.IsNullOrEmpty(number);
+        if (!hasTitle && !hasNumber) return;
+        var fontPt = (float)(fontCm * PointsPerCm);
+        var gapPt = (float)(0.3 * PointsPerCm);
+
+        layers.Layer()
+            .TranslateX((float)left, Unit.Centimetre)
+            .TranslateY((float)top, Unit.Centimetre)
+            .Width((float)width, Unit.Centimetre)
+            .Row(row =>
+            {
+                row.Spacing(gapPt); // 抬頭與號碼之間固定 0.3cm（僅在兩者都存在時生效）
+                if (hasTitle) row.AutoItem().Text(title).FontSize(fontPt).FontFamily(FontFamily).LineHeight(1f);
+                if (hasNumber) row.AutoItem().Text(number).FontSize(fontPt).FontFamily(FontFamily).LineHeight(1f);
+            });
     }
 
     private static void DrawText(

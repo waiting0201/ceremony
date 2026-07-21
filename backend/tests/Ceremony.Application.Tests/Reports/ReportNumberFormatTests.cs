@@ -34,13 +34,20 @@ public sealed class ReportNumberFormatTests
         PrepayYear: prepayYear, PrepayCeremonyCategoryId: null, PrepayCeremonyTitle: prepayTitle,
         Remark: null, AdminName: "Administrator", CreateDate: DateTime.UtcNow);
 
+    // 2026-07-21 客訴：資料卡編號改為「抬頭 + 0.3cm 空隙 + 號碼」（不再用「.」相接），抬頭與號碼
+    // 分開帶出（NumberTitle + Number）由 DataCardRenderer 分開繪製。舊 legacy 對照 SignupForm.cs:488 是
+    // NumberTitle+"."+號，已不再沿用（號碼欄不含抬頭、不含「.」）。
     [Fact]
-    public void DataCard_uses_title_dot_number()  // SignupForm.cs:488
-        => ReportModelBuilders.DataCard(Make(123, 1, "No")).Number.Should().Be("No.123");
+    public void DataCard_number_is_number_only_title_separate()
+    {
+        var m = ReportModelBuilders.DataCard(Make(123, 1, "No"));
+        m.Number.Should().Be("123");
+        m.NumberTitle.Should().Be("No");
+    }
 
     [Fact]
     public void DataCard_applies_avoid_four()
-        => ReportModelBuilders.DataCard(Make(14, 1, "No")).Number.Should().Be("No.13-1");
+        => ReportModelBuilders.DataCard(Make(14, 1, "No")).Number.Should().Be("13-1");
 
     [Fact]
     public void Receipt_uses_number_only_no_title()  // SignupForm.cs:523
