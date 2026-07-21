@@ -18,6 +18,9 @@ bin/
 obj/
 node_modules/
 
+# Report PDF dump artifacts (CEREMONY_PDF_DUMP 校正輸出，本地檢視用)
+output/
+
 # Legacy reference source — local only, not committed
 reference/old/
 

@@ -121,20 +121,21 @@ public sealed class WorshipRenderer
             }
             default: // Base 2×3 矩陣：上排右→左①②③、下排右→左④⑤⑥（同欄配對 0↔3、1↔4、2↔5）
             {
-                // 2026-07-18 客訴「六位的要靠右一點，比較置中」：RDLC 原值整組墨跡中心 9.8604
-                // 偏離葫蘆中軸 10.039（positions §20 錨值），6 欄 Left 統一 +0.1786 對齊中軸（positions §14）
+                // 2026-07-18 客訴「六位的要靠右一點，比較置中」：RDLC 原值整組墨跡中心 9.8604，
+                // 先 +0.1786 對齊葫蘆中軸 10.039。2026-07-21 客訴仍偏左，再 +0.461 對齊 A4 紙張
+                // 實體中心 10.5cm（10.5−10.039）；6 欄 Left 累計自 RDLC +0.6396（positions §14）。
                 var n0 = VerticalText.WithBottomGap(l[0], l[3]);
                 var n1 = VerticalText.WithBottomGap(l[1], l[4]);
                 var n2 = VerticalText.WithBottomGap(l[2], l[5]);
                 var f = VerticalText.GroupFontPt(pt2,
                     (n0, SlotH), (n1, SlotH), (n2, SlotH),
                     (l[3], SlotH), (l[4], SlotH), (l[5], SlotH));
-                DrawName(layers, 7.31167, 11.2711, f, n0);
-                DrawName(layers, 7.31167, 9.00694, f, n1);
-                DrawName(layers, 7.31167, 6.80694, f, n2);
-                DrawName(layers, 17.69931, 11.25575, f, l[3]);
-                DrawName(layers, 17.69931, 9.04222, f, l[4]);
-                DrawName(layers, 17.69931, 6.80694, f, l[5]);
+                DrawName(layers, 7.31167, 11.7321, f, n0);
+                DrawName(layers, 7.31167, 9.46794, f, n1);
+                DrawName(layers, 7.31167, 7.26794, f, n2);
+                DrawName(layers, 17.69931, 11.71675, f, l[3]);
+                DrawName(layers, 17.69931, 9.50322, f, l[4]);
+                DrawName(layers, 17.69931, 7.26794, f, l[5]);
                 break;
             }
         }
