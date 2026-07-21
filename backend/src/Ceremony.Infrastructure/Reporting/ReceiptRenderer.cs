@@ -1,3 +1,4 @@
+using System.Reflection;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -19,8 +20,15 @@ public sealed class ReceiptRenderer
 {
     private const string FontFamily = "BiauKai";
     private const double PointsPerCm = 28.3464567;
+    private const double PageWidthCm = 21.0;
+    private const double PageHeightCm = 29.7;
 
-    public byte[] Render(ReceiptData data)
+    // 開發用列印位置檢視工具的樣板照片（EmbeddedResource，來源 reference/template/收據.jpg）；
+    // 只在 debugOverlay:true 時載入使用，不進生產列印路徑。樣板僅涵蓋收據本體（上下聯），
+    // 郵寄封面頁無樣板故不疊。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
+    private static readonly byte[] TemplateImage = LoadTemplate("receipt-template.jpg");
+
+    public byte[] Render(ReceiptData data, bool debugOverlay = false)
     {
         return Document.Create(container =>
         {
@@ -34,22 +42,39 @@ public sealed class ReceiptRenderer
                 {
                     layers.PrimaryLayer().Background("#FFFFFF");
 
+                    if (debugOverlay)
+                    {
+                        // 疊樣板照片供對位（拉伸填滿＝座標系統比對用途，同 TextRenderer/TabletRenderer）。
+                        layers.Layer()
+                            .TranslateX(0, Unit.Centimetre)
+                            .TranslateY(0, Unit.Centimetre)
+                            .Width((float)PageWidthCm, Unit.Centimetre)
+                            .Height((float)PageHeightCm, Unit.Centimetre)
+                            .Image(TemplateImage).FitUnproportionally();
+                    }
+
                     // 2026-07-18 客戶樣張校正（reference/收據.jpg 手寫註記）：偏離 RDLC 原始座標——
                     // Name +0.2、Number +0.8/右+1.0、Prepay +0.3、年月日 +0.5（cm，上下聯同步套用）。
+                    // 2026-07-21 客訴續調（overlay 對位後定案，見 reference/output/receipt_overlay.pdf）：
+                    // (1) Number 左移 0.5（Left 16.00→15.50，距預印「郵」字 0.5cm，上下聯同步）。
+                    // (2) 本體 Name 下移 0.2（上聯 Top 2.50→2.70、下聯 12.30→12.50），原名字浮在預印「大德贊助法會」上方，
+                    //     下移對齊「大德」列。客戶原稱「封面」實指收據聯本體；第 2 頁郵寄封面無「大德」故 Name 維持 5.44111。
+                    // (3) 本體 Fee 對齊左右預印「新台幣…元整」列，與 Number 同列。金額與編號本在同列；07-18 只把 Number
+                    //     下移到該列、Fee 落單，此次補齊；再依客戶回饋整列上移 0.2 → Fee/Number 上聯 Top 4.10、下聯 14.20。
 
                     // 上聯（收據聯）
-                    DrawText(layers, 2.50, 6.73, 8.257, 0.726, 0.6 * PointsPerCm, data.Name);
-                    DrawText(layers, 3.50, 5.00, 2.50, 0.653, 14, data.Fee);
-                    DrawText(layers, 4.30, 16.00, 2.50, 0.653, 14, data.Number, bold: true);
+                    DrawText(layers, 2.70, 6.73, 8.257, 0.726, 0.6 * PointsPerCm, data.Name);
+                    DrawText(layers, 4.10, 5.00, 2.50, 0.653, 14, data.Fee);
+                    DrawText(layers, 4.10, 15.50, 2.50, 0.653, 14, data.Number, bold: true);
                     DrawText(layers, 5.00, 11.50, 6.00, 0.653, 14, data.Prepay);
                     DrawText(layers, 8.10, 8.00, 2.50, 0.653, 14, data.Year);
                     DrawText(layers, 8.10, 11.50, 2.50, 0.653, 14, data.Month);
                     DrawText(layers, 8.10, 15.00, 2.50, 0.653, 14, data.Day);
 
                     // 下聯（存根聯）
-                    DrawText(layers, 12.30, 6.73, 8.257, 0.753, 0.6 * PointsPerCm, data.Name);
-                    DrawText(layers, 13.60, 5.00, 2.50, 0.653, 14, data.Fee);
-                    DrawText(layers, 14.40, 16.00, 2.50, 0.653, 14, data.Number, bold: true);
+                    DrawText(layers, 12.50, 6.73, 8.257, 0.753, 0.6 * PointsPerCm, data.Name);
+                    DrawText(layers, 14.20, 5.00, 2.50, 0.653, 14, data.Fee);
+                    DrawText(layers, 14.20, 15.50, 2.50, 0.653, 14, data.Number, bold: true);
                     DrawText(layers, 14.80, 11.50, 6.00, 0.653, 14, data.Prepay);
                     DrawText(layers, 18.00, 8.00, 2.50, 0.653, 14, data.Year);
                     DrawText(layers, 18.00, 11.50, 2.50, 0.653, 14, data.Month);
@@ -90,6 +115,16 @@ public sealed class ReceiptRenderer
             .FontFamily(FontFamily)
             .LineHeight(1f);
         if (bold) span.Bold();
+    }
+
+    private static byte[] LoadTemplate(string fileName)
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        var name = asm.GetManifestResourceNames().Single(n => n.EndsWith(fileName, StringComparison.Ordinal));
+        using var stream = asm.GetManifestResourceStream(name)!;
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        return ms.ToArray();
     }
 }
 

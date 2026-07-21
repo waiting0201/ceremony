@@ -237,6 +237,24 @@ public sealed class RendererSmokeTests
             Fee: "1200", Number: "信1", Prepay: "", Year: "115", Month: "5", Day: "29"));
         ShouldBePdf(pdf);
         CountPages(pdf).Should().Be(2, "收據每筆固定兩頁：上下聯 + 郵寄封面（RDLC Tablix 59.4cm）");
+        DumpIfRequested(pdf, "receipt_with_cover.pdf");
+    }
+
+    // 開發用列印位置檢視工具：debugOverlay 疊收據樣板照片（reference/template/收據.jpg），供對位「郵/大德/號」。
+    [Fact]
+    public void Receipt_DebugOverlay_DumpsCalibrationPdf()
+    {
+        var data = new ReceiptData(
+            Name: "陳大明", Zipcode: "110", Address: "台北市信義區市府路 1 號",
+            Fee: "1200", Number: "信1", Prepay: "", Year: "115", Month: "5", Day: "29");
+
+        var plain = new ReceiptRenderer().Render(data);
+        ShouldBePdf(plain);
+
+        var overlay = new ReceiptRenderer().Render(data, debugOverlay: true);
+        ShouldBePdf(overlay);
+        overlay.Length.Should().BeGreaterThan(plain.Length, "樣板疊圖必須真的畫出來，不是被忽略的參數");
+        DumpIfRequested(overlay, "receipt_overlay.pdf");
     }
 
     [Fact]
