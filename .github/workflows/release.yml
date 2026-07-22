@@ -69,6 +69,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ceremony-windows-installer
+          retention-days: 2   # 安裝檔為每次 build 產物，短期保留避免撐爆帳號共用配額
           path: |
             frontend/release/*.exe
             frontend/release/*.blockmap
