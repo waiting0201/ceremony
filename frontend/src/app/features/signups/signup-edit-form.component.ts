@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   input,
+  OnInit,
   output,
   signal,
 } from '@angular/core';
@@ -25,12 +26,16 @@ import type { BelieverListItem } from '../../core/api/believers/believer.models'
 import { ZipcodeApi } from '../../core/api/zipcodes/zipcode.api';
 import type { ZipcodeAreaItem } from '../../core/api/zipcodes/zipcode.models';
 import { PrepayApi } from '../../core/api/prepay/prepay.api';
+import { ReportApi } from '../../core/api/reports/report.api';
+import { openPdfInNewTab } from '../../shared/util/pdf';
 import { ApiError } from '../../core/http/api-error';
 import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-season';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
+import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
+import { SignupDraftState, type SignupDraft } from './signup-draft-state';
 
 /**
  * 報名 create/edit 表單（不含 page layout / overlay shell）。
@@ -43,7 +48,7 @@ import { NumericInputDirective } from '../../shared/directives/numeric-input.dir
  *
  * - signupId 有值 → 編輯模式
  * - fromSignupId 有值 → 代入新增模式（不帶 year/ceremony/type）
- * - 兩者都 null → 純新增模式
+ * - 兩者都 null → 純新增模式（唯一會存跨路由草稿的模式，見 signup-draft-state.ts）
  *
  * 由外部容器（route page / overlay）呼叫 `submit()` 觸發儲存；成功 emit `saved`。
  */
@@ -55,6 +60,16 @@ export interface InsertAtContext {
   signupType: number;
 }
 
+/**
+ * 儲存成功事件。
+ * `keepOpen`＝新增類（非編輯、非插入）存檔後**保留表單與已填資料、不關閉**，對齊舊
+ * `NewSignupForm.btnConfirm_Click:355-361`（跳「編號X，新增報名成功」後按鈕重新啟用，
+ * 表單原樣留著可接著列印資料卡）。host 收到後一律重查列表。
+ */
+export interface SignupSavedEvent {
+  keepOpen: boolean;
+}
+
 @Component({
   selector: 'app-signup-edit-form',
   imports: [ReactiveFormsModule, NumericInputDirective],
@@ -62,13 +77,16 @@ export interface InsertAtContext {
   templateUrl: './signup-edit-form.component.html',
   styleUrl: './signup-edit-form.component.scss',
 })
-export class SignupEditFormComponent {
+export class SignupEditFormComponent implements OnInit {
   private readonly api = inject(SignupApi);
   private readonly categoryApi = inject(CategoryApi);
   private readonly believerApi = inject(BelieverApi);
   private readonly zipcodeApi = inject(ZipcodeApi);
   private readonly prepayApi = inject(PrepayApi);
+  private readonly reportApi = inject(ReportApi);
   private readonly fb = inject(FormBuilder);
+  private readonly draftState = inject(SignupDraftState);
+  private readonly confirmDialog = inject(ConfirmDialogService);
 
   private readonly destroyRef = inject(DestroyRef);
 
@@ -76,7 +94,7 @@ export class SignupEditFormComponent {
   readonly fromSignupId = input<string | null>(null);
   // 插入模式（列表右鍵「在此前插入」）：帶入目標群組 + 插入位置編號，走 InsertShift（後續編號 +1 順移）。
   readonly insertAt = input<InsertAtContext | null>(null);
-  readonly saved = output<void>();
+  readonly saved = output<SignupSavedEvent>();
   readonly cancelled = output<void>();
   readonly dirtyChange = output<boolean>();
 
@@ -88,6 +106,14 @@ export class SignupEditFormComponent {
 
   protected readonly loading = signal(false);
   protected readonly saving = signal(false);
+  /**
+   * 剛新增成功那一筆的 id（＝舊 `NewSignupForm.CurrentSignupID`）。**public**：按鈕在 host 的
+   * overlay actions 列（取消鈕左邊），由 host 讀這個 signal 決定 disabled。
+   * 「列印資料卡」在存檔前 disabled、存檔後才能按，對齊舊 btnPrintDataCard
+   * （進表單時 `Enabled = false`:95 → btnConfirm 成功後 `Enabled = true`:361）。
+   */
+  readonly lastCreatedSignupId = signal<string | null>(null);
+  readonly printingDataCard = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly selectedBeliever = signal<BelieverListItem | null>(null);
 
@@ -118,6 +144,15 @@ export class SignupEditFormComponent {
   );
   // 插入模式：非編輯、且帶 insertAt。年/法會/類型鎖定為目標群組。
   protected readonly isInsert = computed<boolean>(() => !this.signupId() && !!this.insertAt());
+
+  /**
+   * 純新增模式（非編輯 / 非代入新增 / 非插入）＝ 唯一會存草稿的模式。
+   * 其他三種模式各有自己的資料來源（既有報名、來源報名、插入群組），還原草稿只會互相打架。
+   * 見 signup-draft-state.ts。
+   */
+  private readonly isPlainCreate = computed<boolean>(
+    () => !this.signupId() && !this.fromSignupId() && !this.insertAt(),
+  );
 
   protected readonly form = this.fb.nonNullable.group({
     // 法會資料（舊 Step1）
@@ -203,6 +238,77 @@ export class SignupEditFormComponent {
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe(() => void this.checkDuplicates());
+
+    // 編號欄恆顯示、僅在勾「指定編號」時可編輯（2026-07-27 使用者指定，對齊舊
+    // cbKeepNumber_CheckedChanged:139-149 的 `txtNumber.Enabled = cbKeepNumber.Checked`）。
+    this.form.controls.keepNumber.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.syncCustomNumberEnabled());
+
+    // 元件銷毀（關 overlay / 切到其他功能頁）時保存未完成的新增內容，見 ngOnInit 的還原。
+    this.destroyRef.onDestroy(() => this.saveDraft());
+  }
+
+  /**
+   * 編號欄的啟用狀態：新增類跟著「指定編號」勾選走（未勾＝disabled，仍看得到欄位）；
+   * 編輯模式編號恆可改（舊 EditSignupForm 亦然），一律 enable。
+   * disabled control 的值不進 `form.value`，但 submit 走 `getRawValue()` 故不受影響。
+   */
+  private syncCustomNumberEnabled(): void {
+    const ctrl = this.form.controls.customNumber;
+    const enabled = this.mode() === 'edit' || this.form.controls.keepNumber.value;
+    if (enabled) ctrl.enable({ emitEvent: false });
+    else ctrl.disable({ emitEvent: false });
+  }
+
+  /**
+   * 純新增模式：把上次未完成的內容原樣帶回（靜默，不顯示提示列）。
+   * 早於 loadCategories() 的 applySeasonDefault()，且該方法「已有值就不覆蓋」，故不會蓋掉草稿的法會。
+   */
+  async ngOnInit(): Promise<void> {
+    this.syncCustomNumberEnabled(); // inputs 已就緒（mode 才判得準）
+    if (!this.isPlainCreate()) return;
+    const draft = this.draftState.draft();
+    if (draft) await this.applyDraft(draft);
+  }
+
+  private async applyDraft(draft: SignupDraft): Promise<void> {
+    const v = draft.value;
+    this.selectedBeliever.set(draft.selectedBeliever);
+    this.pickedRowId.set(draft.pickedRowId);
+    this.believerSearchTerm.set(draft.believerSearchTerm);
+    this.believerSearchResults.set(draft.believerSearchResults);
+    this.believerHasSearched.set(draft.believerHasSearched);
+    this.form.patchValue(v);
+    this.livingArray.setValue(pad6(v.livingNames));
+    this.deadArray.setValue(pad6(v.deadNames));
+    // 地址：區域下拉選項是依城市即時載入的（不入草稿），故重跑一次連動把選項與郵遞區號補回來。
+    await this.applyAddress(
+      'mail', v.mailCity || null, v.mailZipcodeId ? Number(v.mailZipcodeId) : null,
+      null, v.mailAddress,
+    );
+    await this.applyAddress(
+      'text', v.textCity || null, v.textZipcodeId ? Number(v.textZipcodeId) : null,
+      null, v.textAddress,
+    );
+    this.form.controls.sameMailAddress.setValue(v.sameMailAddress);
+    // 還原回來的內容視同「有未儲存的變更」，讓 host 的 dirty 狀態與畫面一致。
+    this.form.markAsDirty();
+    this.dirtyChange.emit(true);
+    // 重複報名警示由 valueChanges → checkDuplicates 自動重查，不需入草稿。
+  }
+
+  /** 純新增模式且有動過欄位才存草稿；乾淨表單不覆蓋（避免把既有草稿清成空的）。 */
+  private saveDraft(): void {
+    if (!this.isPlainCreate() || !this.form.dirty) return;
+    this.draftState.save({
+      value: this.form.getRawValue(),
+      selectedBeliever: this.selectedBeliever(),
+      pickedRowId: this.pickedRowId(),
+      believerSearchTerm: this.believerSearchTerm(),
+      believerSearchResults: this.believerSearchResults(),
+      believerHasSearched: this.believerHasSearched(),
+    });
   }
 
   /**
@@ -364,6 +470,8 @@ export class SignupEditFormComponent {
     zipcodeId: number | null,
     areaName: string | null,
     address: string | null,
+    /** 載入區域清單期間若條件已被更新的操作取代（如快速改選信眾）→ 放棄寫入，避免蓋掉新的選擇。 */
+    isStale?: () => boolean,
   ): Promise<void> {
     const cityCtrl = kind === 'mail' ? this.form.controls.mailCity : this.form.controls.textCity;
     const zipCtrl = kind === 'mail' ? this.form.controls.mailZipcodeId : this.form.controls.textZipcodeId;
@@ -381,6 +489,7 @@ export class SignupEditFormComponent {
         this.errorMessage.set(toMessage(err));
       }
     }
+    if (isStale?.()) return;
     if (kind === 'mail') this.mailAreas.set(areas);
     else this.textAreas.set(areas);
 
@@ -428,6 +537,8 @@ export class SignupEditFormComponent {
   // ── 信眾搜尋（常駐 in-form 列表，對齊舊 txtQ + dgvBelievers）──────────
 
   private believerSearchToken = 0;
+  /** 改選信眾的 in-flight guard（見 pickBeliever）。 */
+  private pickToken = 0;
 
   /** 輸入只更新框內文字，不打 API；對齊舊 NewSignupForm 按「搜尋」鍵才查詢 */
   protected onBelieverSearchInput(term: string): void {
@@ -458,21 +569,34 @@ export class SignupEditFormComponent {
   private async runBelieverSearch(trimmed: string): Promise<void> {
     const token = ++this.believerSearchToken;
     try {
-      // 對齊舊 NewSignupForm.cs:715-722（txtQ 單一輸入框，OR 比對 Name/Phone/6組陽上/6組往生）
-      const resp = await this.api.search({
-        searchKey: trimmed,
-        scopeName: true,
-        scopePhone: true,
-        scopeLivingName: true,
-        scopeDeadName: true,
-      });
+      // 兩路併查後合併，等效舊 BelieverView（Believers LEFT JOIN Signups）：
+      //  (a) /signups：每筆報名一列（同一信眾報過幾次就幾列）
+      //  (b) /believers?searchKey=：信眾主檔，用來補「從未報名過的信眾」——舊系統 LoadBelievers 由
+      //      SignupView 換成 BelieverView 正是為了這個（註解「如果沒有報名過就查不到」）
+      // 兩邊都是同一把關鍵字 OR 比對 Name/Phone/6組陽上/6組往生 14 欄（舊 NewSignupForm.cs:715-722）
+      const [signupResp, believerResp] = await Promise.all([
+        this.api.search({
+          searchKey: trimmed,
+          scopeName: true,
+          scopePhone: true,
+          scopeLivingName: true,
+          scopeDeadName: true,
+        }),
+        this.believerApi.search({ searchKey: trimmed }),
+      ]);
       if (token !== this.believerSearchToken) return; // 舊查詢的回應，畫面已經換了輸入內容
       // /signups 依 Year/CeremonySort/NumberTitle/Number 全部 ascending 排序；反轉近似舊系統「新的在前」。
       // 常駐列表只 render 前 N 列（不顯示截斷提示，2026-07-17 使用者指定拿掉）：
       // 模糊字（如單字「陳」）可命中 2 萬+ 列，全部塞進 DOM 會卡死頁面
-      this.believerSearchResults.set(
-        resp.items.slice().reverse().slice(0, MAX_BELIEVER_RESULT_ROWS),
-      );
+      const signupRows = signupResp.items.slice().reverse().slice(0, MAX_BELIEVER_RESULT_ROWS);
+      // 未報名過的信眾接在最後（舊 BelieverView 依 Year desc 排序，Year 為 null 的本來就墊底）。
+      // 另有獨立額度，不與報名列互相排擠——這批正是最需要被找到的（要幫他報名）。
+      const withSignup = new Set(signupResp.items.map((r) => r.believerId));
+      const believerOnlyRows = believerResp.items
+        .filter((b) => !withSignup.has(b.id))
+        .slice(0, MAX_BELIEVER_ONLY_ROWS)
+        .map(makeSignupRowFromBeliever);
+      this.believerSearchResults.set([...signupRows, ...believerOnlyRows]);
     } catch (err) {
       if (token !== this.believerSearchToken) return;
       this.errorMessage.set(toMessage(err));
@@ -482,50 +606,92 @@ export class SignupEditFormComponent {
   }
 
   /**
-   * 點選結果列 → 以該信眾覆蓋整張表單（對齊舊 dgvBelievers_CellClick + BelieverSelected）。
+   * 點選結果列 → 以「點到的那筆報名」覆蓋整張表單（對齊舊 dgvBelievers_CellClick + BelieverSelected:991-1101）。
    * 列表保留不關閉，可隨時再點別筆改選（每次改選都重新覆蓋欄位，同舊系統）。
+   *
+   * 2026-07-27 客訴修正：先前版本一律帶信眾主檔（Believers）資料，導致點哪一筆報名都拿到同一份舊資料。
+   * 舊系統帶的是該筆報名自身的姓名/電話/地址/名單/備註（Signups 快照，每次報名可不同），
+   * 信眾主檔只當該欄為空時的 fallback（同舊 `signup != null ? signup.X : believer.X` 分支）。
+   * 年份/法會/報名類型/編號/費用不帶（那是新的一筆要自己決定的）。
    */
   protected async pickBeliever(row: SignupListItem): Promise<void> {
     if (!row.believerId) return;
-    const b = await this.believerApi.getById(row.believerId);
-    this.selectedBeliever.set(b);
+    // 改選 guard（2026-07-27）：整段有多個 await（信眾主檔 / 區域清單 / 預繳歷史），使用者在回應到齊前
+    // 再點別列時，舊的慢回應會把新選的資料蓋掉、或與新選的混在一起（地址區域下拉尤其明顯）。
+    // 同 believerSearchToken 手法：每次改選換一個 token，非最新的一律放棄寫入。
+    const token = ++this.pickToken;
+    const isStale = (): boolean => token !== this.pickToken;
+    this.errorMessage.set(null); // 上一次操作留下的錯誤訊息不該掛在新選的信眾上
+    // 主檔僅作 fallback 與「已選信眾」摘要用；取不到不阻斷選取（欄位改吃該筆報名值）
+    const master = await this.believerApi.getById(row.believerId).catch((err: unknown) => {
+      if (!isStale()) this.errorMessage.set(toMessage(err));
+      return null;
+    });
+    if (isStale()) return;
+    this.selectedBeliever.set(master ?? makeBelieverStubFromSignup(row));
     this.pickedRowId.set(row.id);
-    // 改選 / 重新搜尋後覆蓋整張表單前，先清掉上一筆信眾殘留的每筆報名欄位（費用/備註/預繳），
-    // 避免點另一筆信眾時遺留前一筆資料（2026-07-21 客訴）。prepay 先歸零，稍後 prefillPrepayHistory
-    // 只在該信眾確有預繳紀錄時才回填，查無就維持清空。編號欄（keepNumber/customNumber）在插入模式為
-    // 鎖定狀態，不在此清除。
+    // 改選 / 重新搜尋後覆蓋整張表單前，先清掉上一筆殘留的預繳（2026-07-21 客訴）：預繳有資料源
+    // （prefillPrepayHistory），先歸零，稍後只在該信眾確有預繳紀錄時才回填，查無就維持清空，
+    // 避免把前一位信眾的預繳留給下一位。編號欄（keepNumber/customNumber）在插入模式為鎖定狀態，
+    // 不在此清除。
+    //
+    // **費用刻意不清**（2026-07-27 使用者指定）：費用不會從結果列帶入，唯一來源就是使用者自己輸入，
+    // 清掉等於把已打好的金額吃掉。舊 BelieverSelected 也完全沒碰 txtFee（只在送出時讀值 + 數字驗證），
+    // 故不清才是對齊舊系統。
     this.form.patchValue({
-      believerId: b.id,
-      name: b.name,
-      phone: b.phone ?? '',
-      // per-signup 覆寫欄：帶入該信眾現值當這筆報名的預設（可再改，只影響這筆）（2026-07-21）
-      employeeType: b.employeeType,
-      isFixedNumber: b.isFixedNumber,
-      hallName: b.hallName ?? '',
-      fee: null,
-      remark: '',
+      believerId: row.believerId,
+      name: row.name ?? master?.name ?? '',
+      phone: row.phone ?? master?.phone ?? '',
+      // per-signup 覆寫欄（2026-07-21 方案 A）：/signups 已 COALESCE 回退信眾值，故直接取該筆
+      employeeType: row.employeeType ?? master?.employeeType ?? 1,
+      isFixedNumber: row.isFixedNumber,
+      hallName: row.hallName ?? master?.hallName ?? '',
+      remark: row.remark ?? '',
       prepayYear: null,
       prepayCeremonyCategoryId: '',
     });
     if (!this.isInsert()) {
       this.form.patchValue({ keepNumber: false, customNumber: null });
     }
-    await this.applyAddress('mail', b.mailCity, b.mailZipcodeId, b.mailArea, b.mailAddress);
-    await this.applyAddress('text', b.textCity, b.textZipcodeId, b.textArea, b.textAddress);
+    // 該筆報名有自己的地址就用它（只存 city/area 字串，無 zipcodeId → 以區域名稱比對）；
+    // 整段皆空才退回信眾主檔（同舊 `signup.Zipcodes != null` 判斷）
+    if (row.mailCity || row.mailAddress) {
+      await this.applyAddress('mail', row.mailCity, null, row.mailZone, row.mailAddress, isStale);
+    } else {
+      await this.applyAddress(
+        'mail', master?.mailCity ?? null, master?.mailZipcodeId ?? null,
+        master?.mailArea ?? null, master?.mailAddress ?? null, isStale,
+      );
+    }
+    if (isStale()) return;
+    if (row.textCity || row.textAddress) {
+      await this.applyAddress('text', row.textCity, null, row.textZone, row.textAddress, isStale);
+    } else {
+      await this.applyAddress(
+        'text', master?.textCity ?? null, master?.textZipcodeId ?? null,
+        master?.textArea ?? null, master?.textAddress ?? null, isStale,
+      );
+    }
+    if (isStale()) return;
     this.form.controls.sameMailAddress.setValue(false);
-    this.livingArray.setValue(pad6(b.livingNames));
-    this.deadArray.setValue(pad6(b.deadNames));
-    await this.prefillPrepayHistory(b.id);
+    this.livingArray.setValue(pad6(row.livingNames));
+    this.deadArray.setValue(pad6(row.deadNames));
+    // 選信眾＝使用者的實質輸入（patchValue 本身不會標髒）。沒標髒的話，「選了信眾但一個字都沒改就切走」
+    // 會被草稿的 dirty 條件擋掉 → 回來又是空白，正是這次要修的客訴情境。
+    this.form.markAsDirty();
+    this.dirtyChange.emit(true);
+    await this.prefillPrepayHistory(row.believerId, isStale);
   }
 
   /**
    * 帶入該信眾今年(含)以前最新一筆報名的預繳資訊（對齊舊 NewSignupForm.BelieverSelected:1102-1115）。
    * 僅在最新報名有 PrepayYear 時才預填；查無或失敗則不動使用者既填值。
    */
-  private async prefillPrepayHistory(believerId: string): Promise<void> {
+  private async prefillPrepayHistory(believerId: string, isStale?: () => boolean): Promise<void> {
     if (!believerId) return;
     try {
       const latest = await this.prepayApi.believerLatest(believerId, this.form.controls.year.value);
+      if (isStale?.()) return; // 已改選別的信眾 → 這筆預繳不是他的
       if (latest.prepayYear != null) {
         this.form.patchValue({
           prepayYear: latest.prepayYear,
@@ -625,11 +791,32 @@ export class SignupEditFormComponent {
     };
     try {
       const editing = this.signupId();
-      if (this.isInsert()) await this.api.insertShift(body);
+      let created: SignupListItem | null = null;
+      if (this.isInsert()) created = await this.api.insertShift(body);
       else if (editing) await this.api.update(editing, body);
-      else await this.api.create(body);
+      else created = await this.api.create(body);
       this.form.markAsPristine();
-      this.saved.emit();
+      // markAsPristine 不會走 valueChanges，host 的 dirty 旗標要主動同步——否則存完仍留在
+      // 表單上的資料會讓代入新增/插入模式關閉時誤跳「未儲存的變更」。
+      this.dirtyChange.emit(false);
+      // 這筆已經存進去了，草稿記憶要作廢（否則下次開新增報名會把剛存好的內容再帶回來一次）。
+      // 表單畫面上的資料仍原樣留著（見下方 keepOpen），只是不再被記到跨路由草稿。
+      if (this.isPlainCreate()) this.draftState.clear();
+      // 存完可接著印這一筆的資料卡（舊 btnPrintDataCard 於此刻 Enabled = true）
+      if (created) this.lastCreatedSignupId.set(created.id);
+      // 新增類（非編輯、非插入）＝存完不關閉、資料留著；插入/編輯維持關閉。
+      const keepOpen = !editing && !this.isInsert();
+      this.saved.emit({ keepOpen });
+      // 成功提示（對齊舊 NewSignupForm.cs:355「編號X，新增報名成功」的 CustomMessageForm）。
+      // 舊系統順序是先重查列表再跳訊息，故排在 saved.emit() 之後。
+      if (created) {
+        await this.confirmDialog.ask({
+          title: '新增報名成功',
+          message: `編號${created.number ?? ''}，新增報名成功`,
+          confirmLabel: '確定',
+          hideCancel: true,
+        });
+      }
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -642,12 +829,35 @@ export class SignupEditFormComponent {
   }
 
   /**
+   * 列印剛新增那一筆的資料卡（對齊舊 `btnPrintDataCard_Click:371-404`，該處以 `CurrentSignupID`
+   * 取 SignupView 後送印）。新版走既有 `GET /reports/datacard?signupId=`，PDF 開新分頁預覽。
+   */
+  async printDataCard(): Promise<void> {
+    const id = this.lastCreatedSignupId();
+    if (!id || this.printingDataCard()) return;
+    this.printingDataCard.set(true);
+    this.errorMessage.set(null);
+    try {
+      const { blob } = await this.reportApi.single('datacard', id);
+      openPdfInNewTab(blob);
+    } catch (err) {
+      this.errorMessage.set(toMessage(err));
+    } finally {
+      this.printingDataCard.set(false);
+    }
+  }
+
+  /**
    * 取消：清成新的一筆（2026-07-21 使用者指定）。
    * 不關閉 overlay、不跳頁，只把「信眾與其以下」全部欄位清空，保留最上方法會資料（年份/法會/類型）
    * 作為連續輸入下一筆的固定情境。清除已選信眾、搜尋框與搜尋結果，回到全新的新增狀態。
    * 僅供新增模式使用（編輯模式的取消＝關閉，由 host 處理）。
    */
   resetBelow(): void {
+    // 還在路上的「改選信眾」回應作廢，否則按完取消後它會把欄位再填回來
+    this.pickToken++;
+    // 「清成新的一筆」＝回到還沒存檔的狀態 → 列印資料卡重新 disabled（舊系統重進 Step2 亦 Enabled=false:95）
+    this.lastCreatedSignupId.set(null);
     // 信眾選取 / 搜尋狀態
     this.selectedBeliever.set(null);
     this.pickedRowId.set(null);
@@ -687,16 +897,62 @@ export class SignupEditFormComponent {
     this.livingArray.setValue(Array.from({ length: 6 }, () => ''));
     this.deadArray.setValue(Array.from({ length: 6 }, () => ''));
     this.form.markAsPristine();
+    // 「取消」＝使用者明確要丟掉這筆未完成的內容 → 草稿一併作廢（2026-07-27）。
+    this.draftState.clear();
   }
 }
 
-/** 信眾搜尋常駐列表最多 render 的列數（超過只顯示前 N 列 + 總數提示，請使用者縮小條件）。 */
+/** 信眾搜尋常駐列表「報名紀錄列」最多 render 的列數（超過靜默截斷，請使用者縮小條件）。 */
 const MAX_BELIEVER_RESULT_ROWS = 200;
+
+/** 「從未報名過的信眾」補列的獨立額度（接在報名列之後；獨立額度避免被大量報名列擠掉）。 */
+const MAX_BELIEVER_ONLY_ROWS = 50;
 
 function pad6(arr: (string | null)[]): string[] {
   const out = [...arr];
   while (out.length < 6) out.push(null);
   return out.slice(0, 6).map((v) => v ?? '');
+}
+
+/**
+ * 把「從未報名過的信眾」包成一列搜尋結果（等效舊 BelieverView 中 SignupID 為 null 的列）。
+ * 報名相關欄位留空（年份/法會/編號/費用/備註/預繳），清單會顯示成空白格；
+ * `id` 加 `believer:` 前綴避免與報名列的 SignupID 撞號（僅供 track / 選定列高亮用）。
+ */
+function makeSignupRowFromBeliever(b: BelieverListItem): SignupListItem {
+  return {
+    id: `believer:${b.id}`,
+    year: 0,
+    ceremonyCategoryId: '',
+    ceremonyTitle: null,
+    signupType: 1,
+    numberTitle: null,
+    number: null,
+    fee: null,
+    employee: b.employeeTypeTitle,
+    employeeType: b.employeeType,
+    believerId: b.id,
+    name: b.name,
+    hallName: b.hallName,
+    phone: b.phone,
+    isFixedNumber: b.isFixedNumber,
+    livingNames: b.livingNames,
+    deadNames: b.deadNames,
+    mailCity: b.mailCity,
+    mailZone: b.mailArea,
+    mailZipcode: null,
+    mailAddress: b.mailAddress,
+    textCity: b.textCity,
+    textZone: b.textArea,
+    textZipcode: null,
+    textAddress: b.textAddress,
+    prepayYear: null,
+    prepayCeremonyCategoryId: null,
+    prepayCeremonyTitle: null,
+    remark: null,
+    adminName: null,
+    createDate: null,
+  };
 }
 
 function makeBelieverStubFromSignup(item: SignupListItem): BelieverListItem {

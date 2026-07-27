@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-21 (報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
+last_updated: 2026-07-27 (Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
 ---
 
 ## 設計原則
@@ -185,6 +185,24 @@ last_updated: 2026-07-21 (報名維護 UI 客訴四項：搜尋/列印按鈕補 
 - **文字 verbatim**：「新增信眾成功！」「刪除成功！」「請輸入姓名」等
 
 ## 表單區塊（與舊 WinForms 對齊）
+
+### 表單控件 disabled 樣式（**2026-07-27**）
+
+`.field` 內的 `input / select / textarea` 因為無條件設了 `background: var(--c-surface)` + `color: var(--c-text-primary)`，
+會把**瀏覽器預設的 disabled 外觀整個蓋掉**——結果 disabled 欄位看起來與可輸入欄位一模一樣（報名表單「編號」欄客訴由此而來）。
+全域補：
+
+```scss
+.field input:disabled, .field select:disabled, .field textarea:disabled {
+  background: var(--c-bg-darker);      // #F0EBE0，一眼看得出「這格現在不能改」
+  color: var(--c-text-secondary);      // 不用 --c-text-disabled：欄位可能已有值，要保持可讀
+  cursor: not-allowed;
+}
+```
+
+文字刻意**不用** `--c-text-disabled`（#B3AC9C）——那與 `--c-bg-darker` 對比僅約 1.6:1，欄位已有值時會看不清楚；
+「不能改」由底色 + `not-allowed` 游標表達即可。
+
 
 ### Nav 中文標籤對照（**2026-05-28 命名決策**）
 
@@ -461,10 +479,13 @@ Step2（右側 637 寬）：信眾搜尋 + 編輯區（含所有欄位）
 - backdrop `@keyframes fadeIn` 120ms
 - panel `@keyframes pop` 140ms（translateY(8px) → 0、opacity 0 → 1）
 
+**寬度（2026-07-27）**：panel 預設 content-adaptive（`min-width: min(420px, 92vw)` / `max-width: 92vw`），但內容只要有寬表格就會被撐到 92vw——報名維護的新增/編輯 overlay 被 19 欄的信眾搜尋結果表撐滿，客訴「彈跳視窗太寬」。此時用 `<app-form-overlay width="1100px">` 給 panel 定寬（該值＝對應整頁版本 `.page` 的 `max-width`，讓 overlay 與整頁看起來一樣寬），寬表格自行橫向捲動；**限制 overlay 內層的表單元件無效**（panel 照樣被撐寬，底部 actions 會落單在右下角）。
+
 **互動**：
 - 點 backdrop、按 ESC、點 × button → 觸發 `tryClose()`
 - form dirty 時 → `ConfirmDialogService.ask({ title: '未儲存的變更', message: '...', danger: true })`
 - form 不 dirty → 直接關閉
+- **例外：有草稿保護的表單不跳確認（2026-07-27）**——「新增報名」純新增模式的未完成內容會存成跨路由草稿、下次開啟自動帶回（見 [frontend-design.md「未完成表單的跨路由草稿」](frontend-design.md)），資料不會不見，故 host 把 `[dirty]` 綁成 `editFormDirty() && overlayGuardsDirty()` 直接關閉；其餘模式（編輯/代入新增/插入）維持確認
 
 **全域 class**（[styles.scss](../../frontend/src/styles.scss)）：
 - `.overlay-backdrop` / `.overlay-panel` / `.overlay-header` / `.overlay-body` / `.overlay-actions` / `.overlay-close-btn`

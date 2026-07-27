@@ -6,34 +6,55 @@
 }
 
 <form [formGroup]="form" (ngSubmit)="onSubmitFromForm()" class="form-card">
-  <!-- 法會資料（對齊舊 Step1：年份 / 法會 / 類型）——2026-07-17 使用者指定提到表單最上方 -->
-  <fieldset class="block">
-    <legend>法會資料</legend>
-    <div class="grid three">
-      <label class="field">
-        <span>民國年 *</span>
-        <input type="text" inputmode="numeric" appNumericInput formControlName="year" />
-      </label>
-      <label class="field">
-        <span>法會分類 *</span>
-        <select formControlName="ceremonyCategoryId">
-          <option value="">請選擇</option>
-          @for (cat of flatCategories(); track cat.id) {
-            <option [value]="cat.id">{{ cat.title }}</option>
-          }
-        </select>
-      </label>
-      <label class="field">
-        <span>報名類型 *</span>
-        <select formControlName="signupType">
-          @for (t of signupTypes; track t.value) {
-            <option [value]="t.value">{{ t.label }} ({{ t.numberTitle }})</option>
-          }
-        </select>
-      </label>
-    </div>
-  </fieldset>
+  <!-- 法會資料靠左直立、其餘內容在右（2026-07-27 使用者指定，回到舊版面）：
+       舊 NewSignupForm 的 plStep1 就是最左側窄長面板（Location 11,85 / Size 175×470），
+       年份→法會→類型由上到下排；plStep2（信眾與其餘欄位）在右側。 -->
+  <div class="form-shell">
+    <div class="form-side">
+    <fieldset class="block ceremony-block">
+      <legend>法會資料</legend>
+      <div class="grid">
+        <label class="field">
+          <span>民國年 *</span>
+          <input type="text" inputmode="numeric" appNumericInput formControlName="year" />
+        </label>
+        <label class="field">
+          <span>法會分類 *</span>
+          <select formControlName="ceremonyCategoryId">
+            <option value="">請選擇</option>
+            @for (cat of flatCategories(); track cat.id) {
+              <option [value]="cat.id">{{ cat.title }}</option>
+            }
+          </select>
+        </label>
+        <label class="field">
+          <span>報名類型 *</span>
+          <select formControlName="signupType">
+            @for (t of signupTypes; track t.value) {
+              <option [value]="t.value">{{ t.label }} ({{ t.numberTitle }})</option>
+            }
+          </select>
+        </label>
+      </div>
+    </fieldset>
 
+    <!-- 重複報名警示（選定信眾在同年同法會既有的報名；僅提醒、不阻擋）。
+         2026-07-27 使用者指定：從「信眾」fieldset 內移到法會資料下方的左欄空白處——
+         它講的正是「這個信眾在這個年份/法會曾經報過什麼」，貼著法會資料看最直覺，
+         也順便把左欄下方的空白利用起來、不再把右側主體往下推。 -->
+    @if (duplicates().length) {
+      <div class="alert alert-warn dup-alert" role="alert">
+        <strong>⚠️ {{ form.controls.year.value }}年「{{ selectedCeremonyTitle() }}」已有 {{ duplicates().length }} 筆：</strong>
+        <ul class="dup-list">
+          @for (d of duplicates(); track d.signupId) {
+            <li>{{ d.numberTitle }}{{ d.number }} · {{ signupTypeLabel(d.signupType) }}</li>
+          }
+        </ul>
+      </div>
+    }
+    </div><!-- /.form-side -->
+
+    <div class="form-main">
   <!-- 信眾搜尋（對齊舊 NewSignupForm txtQ + dgvBelievers：常駐於表單頂部，結果列表直接顯示、
        選定後列表保留可隨時改選；非彈窗）。編輯模式不換信眾，僅顯示已選摘要。 -->
   <fieldset class="block believer-block">
@@ -80,7 +101,8 @@
                   <td>{{ row.phone }}</td>
                   <td>{{ row.numberTitle }}</td>
                   <td>{{ row.number }}</td>
-                  <td>{{ row.year }}</td>
+                  <!-- 未報名過的信眾補列：年份/法會/編號等報名欄位留空（year 以 0 表示「無報名」） -->
+                  <td>{{ row.year || '' }}</td>
                   <td>{{ row.ceremonyTitle }}</td>
                   @for (n of row.deadNames; track $index) { <td class="dead">{{ n }}</td> }
                   @for (n of row.livingNames; track $index) { <td>{{ n }}</td> }
@@ -105,17 +127,6 @@
       }
     }
 
-    <!-- 重複報名警示：同信眾同年同法會（忽略報名類型）已有報名。僅提醒，不阻擋。 -->
-    @if (duplicates().length) {
-      <div class="alert alert-warn dup-alert" role="alert">
-        <strong>⚠️ {{ form.controls.year.value }}年「{{ selectedCeremonyTitle() }}」已有 {{ duplicates().length }} 筆：</strong>
-        <ul class="dup-list">
-          @for (d of duplicates(); track d.signupId) {
-            <li>{{ d.numberTitle }}{{ d.number }} · {{ signupTypeLabel(d.signupType) }}</li>
-          }
-        </ul>
-      </div>
-    }
   </fieldset>
 
   <!-- 雙欄密集排版節省高度（2026-07-04 起，避免整頁垂直捲動）：
@@ -253,18 +264,18 @@
             </p>
           }
           @if (mode() !== 'edit') {
-            <!-- 勾「指定編號」後，編號欄顯示在該勾選文字右邊（同列），非另起一列（2026-07-21 使用者指定） -->
+            <!-- 編號欄顯示在勾選文字右邊（同列），非另起一列（2026-07-21 使用者指定）。
+                 2026-07-27 使用者指定回到舊行為：編號欄**恆顯示**，預設 disabled，勾「指定編號」才可編輯
+                 （對齊舊 cbKeepNumber_CheckedChanged：`txtNumber.Enabled = cbKeepNumber.Checked`）。 -->
             <div class="keep-number-row span-row">
               <label class="field-check">
                 <input type="checkbox" formControlName="keepNumber" />
                 <span>指定編號（不由系統自動分配）</span>
               </label>
-              @if (form.controls.keepNumber.value) {
-                <label class="field number-field">
-                  <span>編號</span>
-                  <input type="text" inputmode="numeric" appNumericInput formControlName="customNumber" />
-                </label>
-              }
+              <label class="field number-field">
+                <span>編號</span>
+                <input type="text" inputmode="numeric" appNumericInput formControlName="customNumber" />
+              </label>
             </div>
           } @else {
             <label class="field">
@@ -299,6 +310,11 @@
         </div>
       </fieldset>
     </div>
-  </div>
+  </div><!-- /.form-cols -->
+    </div><!-- /.form-main -->
+  </div><!-- /.form-shell -->
+
+  <!-- 「列印資料卡」按鈕不在表單內，而在 host 的 actions 列（取消鈕左邊），
+       由 host 讀 lastCreatedSignupId() 決定 disabled，見 signup-list-page / signup-edit-page。 -->
   <button type="submit" hidden></button>
 </form>

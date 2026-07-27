@@ -3,10 +3,10 @@ import {
   Component,
   inject,
   signal,
-  ViewChild,
+  viewChild,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { SignupEditFormComponent } from './signup-edit-form.component';
+import { SignupEditFormComponent, type SignupSavedEvent } from './signup-edit-form.component';
 import { SignupSearchState } from './signup-search-state';
 
 /**
@@ -25,7 +25,8 @@ export class SignupEditPage {
   private readonly router = inject(Router);
   private readonly state = inject(SignupSearchState);
 
-  @ViewChild(SignupEditFormComponent) protected formRef?: SignupEditFormComponent;
+  // signal query：按鈕列要即時反映表單狀態（列印資料卡的 disabled），@ViewChild 不是 reactive。
+  protected readonly formRef = viewChild(SignupEditFormComponent);
 
   protected readonly signupId = signal<string | null>(
     this.route.snapshot.paramMap.get('id'),
@@ -38,12 +39,21 @@ export class SignupEditPage {
   );
 
   protected onSubmit(): void {
-    void this.formRef?.submit();
+    void this.formRef()?.submit();
   }
 
-  protected onSaved(): void {
+  /**
+   * 存檔成功。新增類（`keepOpen`）留在原頁、資料原樣保留（2026-07-27 使用者指定，對齊舊
+   * `NewSignupForm` 成功後不清表單）；編輯/插入維持返回列表。列表下次 mount 由 stale 旗標重查。
+   */
+  protected onSaved(e: SignupSavedEvent): void {
     this.state.markStale();
-    void this.router.navigateByUrl('/signups');
+    if (!e.keepOpen) void this.router.navigateByUrl('/signups');
+  }
+
+  /** 列印剛新增那筆的資料卡（按鈕在「取消」左邊，對齊舊 btnPrintDataCard）。 */
+  protected onPrintDataCard(): void {
+    void this.formRef()?.printDataCard();
   }
 
   /**
@@ -54,7 +64,7 @@ export class SignupEditPage {
     if (this.signupId()) {
       void this.router.navigateByUrl('/signups');
     } else {
-      this.formRef?.resetBelow();
+      this.formRef()?.resetBelow();
     }
   }
 }

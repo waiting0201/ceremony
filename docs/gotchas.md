@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-21 (追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
+last_updated: 2026-07-27 (追加：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
 ---
 
 ## 通用陷阱
@@ -24,6 +24,25 @@ last_updated: 2026-07-21 (追加：Ceremony.Migrations（Exe）被 sidecar Api P
 - **特例**：qa-test-engineer **絕不**修改 code，只審查；要求其改 code 應改用 code-review-optimizer 或 backend/frontend agent
 
 ## 專案層級陷阱
+
+### `.field` 外的 `<input>` 不會繼承 body 文字色 → 看起來「比較黑」（2026-07-27）
+- **症狀**：客訴「往生/陽上名單 input 的字比寄件地址黑」。字級明明已對齊（2026-07-21 客訴修過），顏色卻不同
+- **真因**：全域只有 `.field input, select, textarea` 設 `color: var(--c-text-primary)`（#2C2A26 暖色深灰）。`.name-grid input` 不在 `.field` 內 → 落回**瀏覽器 UA 樣式表的 `input { color: fieldtext }`＝純黑 #000**。`fieldtext` 是**直接設在元素上**的宣告，不是繼承，所以「body 有設 color 就會繼承下去」的直覺在 form control 上不成立（`background: field`、focus ring 同理）
+- **修法**：自訂的 form control 樣式區塊要**顯式**補 `color: var(--c-text-primary)` + `background: var(--c-surface)`；報名表單與信眾表單的 `.names .name-grid input` 皆已補
+- **預防**：凡是在 `.field` 之外自刻 input/select/textarea 樣式，就要自行對齊全域 `.field` 的整組宣告（height/padding/border/radius/font/**color/background**），只補字級不夠
+
+
+### 「多個 await 依序覆蓋整張表單」的方法一定要有 in-flight guard（2026-07-27）
+- **症狀**：新增報名的信眾搜尋結果快速改點兩列時，欄位可能混成兩筆的合體（最明顯是地址：區域下拉選項與已選 zipcodeId 對不起來 → 看起來像空白或殘留），或直接顯示先點那筆
+- **真因**：`pickBeliever` 內有 3 段 `await`（信眾主檔 / 城市→區域清單 / 預繳歷史），每段回來都往同一份 form + signal 寫。使用者不會等回應，舊呼叫的慢回應會在新呼叫之後才落地。同檔的 `triggerBelieverSearch` 早就有 `believerSearchToken` guard，`pickBeliever` 卻沒有——**同一支元件裡有 guard 的與沒 guard 的並存最容易漏掉**
+- **修法**：`pickToken` + `isStale()`，每個 await 後判斷；被共用的 helper（`applyAddress` / `prefillPrepayHistory`）加**選用** `isStale` 參數，讓其他呼叫端不受影響；`resetBelow()` 也 `pickToken++` 讓在途回應作廢
+- **預防**：凡「非同步 + 會覆蓋共用狀態 + 使用者可重複觸發」三者齊備就要 token guard。測法：不要 flush 第一個請求就發第二個，後 flush 第一個，斷言畫面是第二筆（本案 `signup-edit-form.draft.spec.ts` 該 case 已用「暫時移除 guard → 轉紅」驗證過有效）
+
+### `patchValue` / `setValue` 不會把表單標成 dirty（2026-07-27）
+- **症狀**：新增報名「只選了信眾、一個字都沒改」就切到別頁，回來是空白——但有手打過任何欄位就正常
+- **真因**：草稿的儲存條件是 `form.dirty`，而 `pickBeliever` 是用 `patchValue` 填值；Angular 只有**使用者透過 control 互動**才標髒，程式寫值一律不標
+- **修法**：凡「程式填值但語意上是使用者的實質輸入」的路徑，自行 `markAsDirty()`（本案並補 `dirtyChange.emit(true)` 讓 host 狀態一致）
+- **預防**：任何以 `form.dirty` 當條件的功能（草稿、離開確認、送出啟用），都要回頭盤點所有 `patchValue`/`setValue` 呼叫點
 
 ### 舊系統「只有 N 位」是 slot-based 逐槽判定，count-based 重寫會讓空洞資料整組消失（2026-07-18）
 - **症狀**：客訴「文牒往生者的部分沒有印出來」。常見資料（名字從第 1 格連續填）完全正常，開發自測不會踩到
@@ -48,6 +67,14 @@ last_updated: 2026-07-21 (追加：Ceremony.Migrations（Exe）被 sidecar Api P
 - **真因**：`Ceremony.Api` 以 sidecar 方案 `ProjectReference` 了 `Ceremony.Migrations`（啟動自動跑 DbUp）。publish.ps1 用 `-r win-x64 -p:SelfContained=false`（framework-dependent 單檔）發佈，**RID 會沿 ProjectReference 傳遞**到 Migrations；而 Migrations 有 `<OutputType>Exe</OutputType>`——**Exe＋RID 預設 SelfContained=true**，於是被 non-self-contained 的 Api 參考就爆 NETSDK1151。本機不帶 `-r` 的 `dotnet build`/`dotnet test` 不會踩到（無 RID→不觸發），只有帶 RID 的 publish 會炸，故 CI 才現形
 - **修法**：`Ceremony.Migrations.csproj` 明確加 `<SelfContained>false</SelfContained>`，與 Api 對齊為 framework-dependent（獨立執行也走 shared runtime，無妨）
 - **預防**：任何被「帶 RID 發佈的 framework-dependent 專案」參考的 **Exe 子專案**都要顯式 `<SelfContained>false</SelfContained>`；復現這類問題必須帶 `-r <rid> -p:SelfContained=false` build，純 `dotnet build` 測不出來。另註：`.csproj` 的 XML 註解不可含 `--`（會 MSB4025），寫 `SelfContained=false` 別寫 `--self-contained`
+
+### `NU1903 Microsoft.OpenApi 2.0.0` 弱點：升 `Microsoft.AspNetCore.OpenApi` 沒用，必須直接 pin transitive 版本（2026-07-27）
+
+- **症狀**：每次 `dotnet build` / `dotnet test` / `dotnet list package` 都噴 `warning NU1903: 套件 'Microsoft.OpenApi' 2.0.0 具有已知的 高 嚴重性弱點`（[GHSA-v5pm-xwqc-g5wc](https://github.com/advisories/GHSA-v5pm-xwqc-g5wc)，circular schema references 可中止 OpenAPI 解析），`Ceremony.Api` 與 `Ceremony.Api.IntegrationTests` 各一行
+- **真因**：`Microsoft.OpenApi` 是 **transitive**（由 `Microsoft.AspNetCore.OpenApi` 帶進來）。直覺會去升 `Microsoft.AspNetCore.OpenApi`——**沒用**：連最新的 `10.0.10` 的 nuspec 依然寫 `<dependency id="Microsoft.OpenApi" version="2.0.0" />`，NuGet 取相依下限就解析回 2.0.0
+- **修法**：在 `Ceremony.Api.csproj` 直接加 `<PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />` 覆寫 transitive（直接參考優先於 transitive）。2.7.5 是該 advisory 在 **2.x 線**的 first patched version；**不要跳 3.x**（另一條版本線，advisory 的 3.x patched 版是 3.5.4，且 AspNetCore.OpenApi 10.0.x 是對著 2.x 編的）。取最低修補版而非最新 2.11.0，是為了壓低與 10.0.x 的相容風險
+- **驗證方式**：`dotnet list package --vulnerable --include-transitive` 要回「未提供任何易受攻擊套件」；並且**實跑一次** `/openapi/v1.json`（`AddOpenApi()`＋`MapOpenApi()` 僅 Development 開）確認沒有型別綁定失敗——單純 build 綠證明不了 runtime 相容
+- **預防**：transitive 弱點一律先看「上游套件的 nuspec 相依下限」再決定升誰；上游沒動下限就只能自己 pin。macOS 上要驗 API 記得 `dotnet run` 會吃 `launchSettings.json` 的 5050 埠（本機常已被佔用），加 `--no-launch-profile --urls http://127.0.0.1:<port>` 才會照你給的走
 
 ### 前端把後端「必填」欄位藏在 checkbox 後 → 按確認永遠失敗（2026-07-17）
 - **症狀**：報名維護編輯 overlay「按確認沒反應」——overlay 不關、資料沒存。實測其實有發 `PUT /signups/:id` 但必回 400「請輸入編號」（紅條在 overlay 最上方，易被忽略成「沒反應」）

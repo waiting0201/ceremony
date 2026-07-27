@@ -45,6 +45,7 @@ import { ConfirmDialogService } from '../confirm-dialog/confirm-dialog.service';
         role="dialog"
         aria-modal="true"
         [attr.aria-label]="title()"
+        [style.width]="width()"
         (click)="$event.stopPropagation()"
       >
         <div class="overlay-header">
@@ -73,6 +74,12 @@ export class FormOverlayComponent {
 
   readonly title = input.required<string>();
   readonly dirty = input<boolean>(false);
+  /**
+   * panel 寬度（CSS 長度字串，如 `'900px'`）。不給＝維持 content-adaptive。
+   * 內容含寬表格時務必給值：panel 預設是「有多寬長多寬（上限 92vw）」，
+   * 一張 19 欄的表就能把整個視窗撐滿。全域 `max-width: 92vw` 仍在，小視窗會自動縮。
+   */
+  readonly width = input<string | null>(null);
   readonly close = output<void>();
 
   @HostListener('document:keydown.escape')

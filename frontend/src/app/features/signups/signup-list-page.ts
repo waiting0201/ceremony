@@ -33,7 +33,12 @@ import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { FormOverlayComponent } from '../../shared/form-overlay/form-overlay.component';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
-import { SignupEditFormComponent, type InsertAtContext } from './signup-edit-form.component';
+import { openPdfInNewTab } from '../../shared/util/pdf';
+import {
+  SignupEditFormComponent,
+  type InsertAtContext,
+  type SignupSavedEvent,
+} from './signup-edit-form.component';
 import { SignupSearchState, type SignupSearchFormSnapshot } from './signup-search-state';
 import {
   SIGNUP_COLUMNS,
@@ -91,10 +96,22 @@ export class SignupListPage implements OnInit {
   private readonly destroyRef = inject(DestroyRef);
   @ViewChild('vp') protected vp?: CdkVirtualScrollViewport;
   @ViewChild('headerInner') protected headerInner?: ElementRef<HTMLElement>;
-  @ViewChild(SignupEditFormComponent) protected editFormRef?: SignupEditFormComponent;
+  // signal query（非 @ViewChild）：overlay actions 列要即時反映表單狀態（列印資料卡的 disabled），
+  // 傳統 @ViewChild 不是 reactive，OnPush + zoneless 下綁到模板不會即時更新。
+  protected readonly editForm = viewChild(SignupEditFormComponent);
 
   protected readonly editOverlay = signal<EditOverlayState | null>(null);
   protected readonly editFormDirty = signal(false);
+
+  /**
+   * 關閉 overlay 時要不要跳「未儲存的變更」確認（2026-07-27）。
+   * 純新增模式的未完成內容會存成草稿、下次開新增報名自動帶回（見 signup-draft-state.ts），
+   * 資料不會不見 → 不需要攔人。編輯 / 代入新增 / 插入模式不做草稿，維持原本的確認。
+   */
+  protected readonly overlayGuardsDirty = computed<boolean>(() => {
+    const o = this.editOverlay();
+    return !!o && (!!o.signupId || !!o.fromSignupId || !!o.insertAt);
+  });
 
   private readonly api = inject(SignupApi);
   private readonly categoryApi = inject(CategoryApi);
@@ -723,12 +740,18 @@ export class SignupListPage implements OnInit {
   }
 
   protected onOverlaySubmit(): void {
-    void this.editFormRef?.submit();
+    void this.editForm()?.submit();
   }
 
-  protected onOverlaySaved(): void {
-    this.editOverlay.set(null);
-    this.editFormDirty.set(false);
+  /**
+   * 存檔成功。列表一律重查（對齊舊 `NewSignupForm` 成功後呼叫 `signupForm.LoadSearchSignups()`）；
+   * 是否關閉 overlay 由表單決定——新增類 `keepOpen=true`＝表單與已填資料原樣留著（2026-07-27 使用者指定）。
+   */
+  protected onOverlaySaved(e: SignupSavedEvent): void {
+    if (!e.keepOpen) {
+      this.editOverlay.set(null);
+      this.editFormDirty.set(false);
+    }
     void this.search();
   }
 
@@ -746,9 +769,14 @@ export class SignupListPage implements OnInit {
     if (this.editOverlay()?.signupId) {
       this.onOverlayClose();
     } else {
-      this.editFormRef?.resetBelow();
+      this.editForm()?.resetBelow();
       this.editFormDirty.set(false);
     }
+  }
+
+  /** 列印剛新增那筆的資料卡（按鈕在 overlay actions 列、取消鈕左邊）。 */
+  protected onPrintDataCard(): void {
+    void this.editForm()?.printDataCard();
   }
 
   protected onEditFormDirtyChange(dirty: boolean): void {
@@ -796,7 +824,7 @@ export class SignupListPage implements OnInit {
     this.errorMessage.set(null);
     try {
       const { blob, fileName } = await this.reportApi.single(type, item.id);
-      openPdfInNewTab(blob, fileName);
+      openPdfInNewTab(blob);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -813,7 +841,7 @@ export class SignupListPage implements OnInit {
         reportType: type,
         signupIds: items.map((i) => i.id),
       });
-      openPdfInNewTab(resp.blob, resp.fileName);
+      openPdfInNewTab(resp.blob);
       const count = resp.signupCount ?? items.length;
       this.successMessage.set(`已列印 ${count} 筆 (${resp.fileName})`);
     } catch (err) {
@@ -841,7 +869,7 @@ export class SignupListPage implements OnInit {
         ceremonyCategoryId: q.ceremonyCategoryId || null,
         signupType: q.signupType >= 0 ? q.signupType : null,
       });
-      openPdfInNewTab(resp.blob, resp.fileName);
+      openPdfInNewTab(resp.blob);
       const count = resp.signupCount ?? '';
       this.successMessage.set(`已列印批次 ${count} 筆 (${resp.fileName})`);
     } catch (err) {
@@ -884,12 +912,6 @@ function buildPrintItem(
     },
     onClick,
   };
-}
-
-function openPdfInNewTab(blob: Blob, _fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  window.open(url, '_blank', 'noopener');
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
 function downloadBlob(blob: Blob, fileName: string): void {

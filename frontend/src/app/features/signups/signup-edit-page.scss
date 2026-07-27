@@ -1,5 +1,7 @@
 :host { display: block; }
 
+// 1100px 同時是「報名維護」新增/編輯 overlay 的 panel 寬度（signup-list-page.html 的
+// <app-form-overlay width="1100px">，2026-07-27 使用者指定兩者一致）——改這裡要一起改那裡。
 .page { display: grid; gap: var(--space-md); max-width: 1100px; }
 
 .header {

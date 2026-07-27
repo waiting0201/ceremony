@@ -547,6 +547,16 @@ a {
     outline: 2px solid var(--c-primary);
     outline-offset: -1px;
   }
+
+  // disabled 要一眼看得出來（2026-07-27 客訴：報名表單「編號」欄未勾指定編號時 disabled，
+  // 但外觀與可輸入欄位完全一樣）。真因：上面無條件設了 background/color，把瀏覽器預設的
+  // disabled 外觀蓋掉了，所以必須自己補。文字仍用 --c-text-secondary（非 --c-text-disabled）
+  // 以免欄位已有值時看不清楚——「不能改」靠底色 + not-allowed 表達即可。
+  input:disabled, select:disabled, textarea:disabled {
+    background: var(--c-bg-darker);
+    color: var(--c-text-secondary);
+    cursor: not-allowed;
+  }
 }
 
 .card {

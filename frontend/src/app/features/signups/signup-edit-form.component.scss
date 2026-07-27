@@ -1,9 +1,38 @@
+// 表單本身不設寬度（撐滿容器）。「表單太寬」是 overlay panel 的問題，改由 form-overlay 的
+// `width` input 限制 panel——曾經改成在這裡設 `width: min(920px, 88vw)`，結果 panel 仍被 19 欄的
+// 信眾搜尋結果表撐寬，表單縮了、panel 沒縮，底部「取消／確認」就落單在右下角（2026-07-27 客訴）。
 :host { display: block; }
 
 // 法會資料提到最上後全高變高（2026-07-17），區塊間距/區塊內距全面再收緊補回高度
 .form-card {
   display: grid;
   gap: 6px;
+}
+
+// 法會資料靠左直立、其餘在右（2026-07-27 使用者指定，回到舊 plStep1 175×470 窄長面板的版面）。
+// 左欄固定窄寬（三個欄位垂直堆疊即可），右欄吃滿剩餘寬度。
+.form-shell {
+  display: grid;
+  grid-template-columns: 176px minmax(0, 1fr);
+  gap: var(--space-sm);
+  align-items: start;
+
+  // 窄視窗改回上下堆疊（法會資料在上），避免左欄把右側主體壓到不能用
+  @media (max-width: 900px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+// 左欄：法會資料 +（選定信眾後）重複報名警示，塞在法會資料下方的空白處
+.form-side,
+.form-main {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-width: 0;
+}
+// 左欄的法會資料：年份→法會→類型單欄由上到下（同舊 plStep1 的垂直排列）
+.ceremony-block .grid {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 // 雙欄密集排版：左右欄各自堆疊 fieldset，避免單欄長表單造成整頁垂直捲動（2026-07-04）
@@ -103,9 +132,11 @@
 }
 
 // 重複報名警示：改窄欄後單行呈現（文案已縮短），比一般 .alert 再緊湊一點
+// 2026-07-27：移到左欄（法會資料下方）後，間距交給 .form-side 的 grid gap，不再自帶 margin-top；
+// 欄寬僅 176px，文案會折行，故行高收緊、清單縮排改小以免第二層縮排吃掉可用寬度。
 .dup-alert {
-  margin-top: var(--space-xs);
   padding: 6px var(--space-sm);
+  line-height: 1.35;
 
   strong { font-size: var(--font-size-sm); font-weight: 600; }
 }
@@ -130,6 +161,11 @@
       font-family: inherit;
       // 往生／陽上名單文字大小對齊地址輸入框（＝全域 .field input 的 --font-size-base，2026-07-21 客訴）
       font-size: var(--font-size-base);
+      // 文字/底色也要對齊地址輸入框（2026-07-27 客訴「名單的字比較黑」）：
+      // 這些 input 不在 .field 內，拿不到全域 .field input 的 color/background；而 UA 樣式表對 input
+      // 直接設了 `color: fieldtext`（純黑 #000）——是設在元素上、不是繼承 body，所以不補就會偏黑。
+      background: var(--c-surface);
+      color: var(--c-text-primary);
     }
   }
 }
@@ -179,14 +215,24 @@
   border-radius: 2px;
   font-family: inherit;
 }
+// 結果表格高度＝表頭 + 4 列（2026-07-27 使用者指定，同日先前為 3 列）。
+// 列高以「padding ×2 + line-height」寫死才算得準（原本靠字型 line-height 推估，140px≈5 列）。
+$result-row-h: 25px;
+$result-cell-pad-y: 2px;
+$result-visible-rows: 4;
+
 .believer-results {
-  max-height: 140px; // 常駐於表單頂部，限制高度避免把下方表單推出視窗（舊 dgvBelievers 高 117px 同精神）
+  // 表頭 1 列 + 資料 4 列；第 5 列起靠內捲軸（舊 dgvBelievers 高 117px 同精神）
+  max-height: $result-row-h * ($result-visible-rows + 1);
   overflow: auto;
 
   // 配色完全沿用全域 .data-table.dense（＝「清單/資料格配色規範」，與報名維護 vgrid 同 token；
   // 含「無 hover 變色」——vgrid 沒有 row hover，此表也不加），此處只收更緊的列高與 cursor
   // 對齊報名維護 26px 列高（specificity 蓋過全域 .data-table.dense 的 4px 6px）
-  table.data-table th, table.data-table td { padding: 2px 6px; }
+  table.data-table th, table.data-table td {
+    padding: $result-cell-pad-y 6px;
+    line-height: $result-row-h - $result-cell-pad-y * 2; // 固定列高，讓「剛好 3 列」成立
+  }
   tbody tr { cursor: pointer; }
 
   // 搜尋結果文字大小對齊地址輸入框（＝ --font-size-base，蓋過 .data-table 預設的 --font-size-sm，2026-07-21 客訴）
@@ -196,7 +242,7 @@
 // 重複報名警示清單（.alert-warn 內）
 .dup-list {
   margin: var(--space-xs) 0 0;
-  padding-left: var(--space-lg);
+  padding-left: var(--space-md); // 左欄窄，縮排收小（原 --space-lg）
 
   li { font-size: var(--font-size-sm); }
 }
