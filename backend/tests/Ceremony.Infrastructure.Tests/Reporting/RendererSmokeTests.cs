@@ -651,6 +651,19 @@ public sealed class RendererSmokeTests
         ShouldBePdf(overlay);
         overlay.Length.Should().BeGreaterThan(plain.Length, "樣板疊圖必須真的畫出來，不是被忽略的參數");
         DumpIfRequested(overlay, "text_debug_overlay.pdf");
+
+        // 2026-07-27 客訴複驗用：滿版 6 位（字級是否仍 0.8cm、下排是否被 MatrixLayout 推到不重疊）
+        // 與 2 位變體（最左欄是否同樣離預印字 0.5cm）各疊一份。
+        DumpIfRequested(new TextRenderer().Render(data with
+        {
+            DeadNames = N("亡甲", "亡乙", "亡丙", "亡丁", "亡戊", "亡己"),
+            LivingNames = N("陽子", "陽丑", "陽寅", "陽卯", "陽辰", "陽巳"),
+        }, debugOverlay: true), "text_debug_overlay_six.pdf");
+        DumpIfRequested(new TextRenderer().Render(data with
+        {
+            DeadNames = N("亡甲", "亡乙"),
+            Template = TextTemplate.Two,
+        }, debugOverlay: true), "text_debug_overlay_two.pdf");
     }
 
     // 設 CEREMONY_PDF_DUMP=<dir> 時把 PDF 寫出供 pdftotext 對位驗收；未設則不落地（CI 純記憶體）。
@@ -905,13 +918,72 @@ public sealed class RendererSmokeTests
         var pdf = new TextRenderer().Render(data);
         ShouldBePdf(pdf);
 
-        var deadFont = VerticalText.GroupFontPt(0.8 * PtPerCm, (crowded, 10.50374));
-        (deadFont / PtPerCm).Should().BeApproximately(10.50374 / 14, 1e-6,
+        var (deadFont, _) = VerticalText.MatrixLayout(0.8, 10.50374, (crowded, null));
+        deadFont.Should().BeApproximately(10.50374 / 14, 1e-6,
             "14 字超出主欄可用高／0.8cm 門檻，DeadName 自身安全字級應縮小");
 
-        var livingFont = VerticalText.GroupFontPt(0.8 * PtPerCm, ("蔡", 6.72806));
-        (livingFont / PtPerCm).Should().BeApproximately(0.8, 1e-6,
+        var (livingFont, _) = VerticalText.MatrixLayout(0.8, 6.72806, ("蔡", null));
+        livingFont.Should().BeApproximately(0.8, 1e-6,
             "陽上只有 1 個短名、可用高遠超所需，即使往生同一頁被迫縮字，陽上仍應維持舊字級 0.8cm，不受影響");
+    }
+
+    // 2026-07-27 客訴（1）：「陽上跟往者不管幾位，字體大小都跟一位一樣」。
+    // 回歸鎖：舊做法（固定列距 + WithBottomGap + GroupFontPt 以列距當可用高）在上下排都有名字時，
+    // 往者被限在列距 2.06375cm、陽上 1.98436cm 內 → 3 字名 +1 間距 = 4 列，字級掉到 0.50cm 左右。
+    // 改用 MatrixLayout 後，字級只受「整欄高」節制（往者 10.50374 / 陽上 6.72806），
+    // 3 字名的整欄鏈只要 3+1+3=7 列 × 0.8 = 5.6cm，兩個框都塞得下 → 1~6 位一律維持 0.8cm。
+    [Fact]
+    public void Text_NameFontSize_StaysAtBase_RegardlessOfNameCount()
+    {
+        const double deadBox = 10.50374, livingBox = 6.72806;
+        const double baseFont = TextRenderer.NameBaseFontCm;
+
+        for (var count = 1; count <= 6; count++)
+        {
+            var n = N(Enumerable.Range(0, count).Select(i => $"陳大{i}").ToArray<string?>());
+
+            var (deadFont, deadOffset) = VerticalText.MatrixLayout(
+                baseFont, deadBox, (n[0], n[5]), (n[1], n[3]), (n[2], n[4]));
+            deadFont.Should().BeApproximately(baseFont, 1e-6, $"{count} 位往者字級要跟 1 位一樣大");
+
+            var (livingFont, livingOffset) = VerticalText.MatrixLayout(
+                baseFont, livingBox, (n[0], n[5]), (n[1], n[3]), (n[2], n[4]));
+            livingFont.Should().BeApproximately(baseFont, 1e-6, $"{count} 位陽上字級要跟 1 位一樣大");
+
+            // 下排（第 4 位起）才需要動態起點；起點 = 上排最長字數 +1 個字高間距
+            var expectedOffset = count >= 4 ? 4 * baseFont : 0;
+            deadOffset.Should().BeApproximately(expectedOffset, 1e-6);
+            livingOffset.Should().BeApproximately(expectedOffset, 1e-6);
+
+            // 整欄鏈（上排 + 間距 + 下排）不可超出方框
+            (deadOffset + 3 * deadFont).Should().BeLessThan(deadBox);
+            (livingOffset + 3 * livingFont).Should().BeLessThan(livingBox);
+        }
+    }
+
+    // 2026-07-27 客訴（2）：「往者要跟左邊文牒本來的文字距離 0.5 公分，堂號也是同樣對齊」。
+    // 量測（reference/template/文牒.jpg 逐欄墨跡掃描，姓名帶 y 3.6~14cm）：往者左側最近的預印字欄
+    // 「鳴呼既追攀之無從…」x 10.558~11.207cm → 最左往者欄左緣必須是 11.207+0.5=11.707。
+    // 回歸鎖：防止再度退回 2026-07-21 的「整體右移 0.5cm」（DeadShiftX，實際間距變 0.793cm）。
+    [Fact]
+    public void Text_DeadNamesAndHallName_KeepHalfCentimeterFromPrePrintedText()
+    {
+        TextRenderer.DeadLeftX.Should().BeApproximately(11.707, 1e-6);
+        (TextRenderer.DeadLeftX - TextRenderer.PrePrintLeftTextRightX)
+            .Should().BeApproximately(0.5, 1e-6, "往者最左欄離左側預印字要 0.5cm");
+
+        // 堂號左字（Second）與往者最左欄同一條線；右字（First）維持 RDLC 相對距 2.03753cm
+        TextRenderer.HallSecondX.Should().BeApproximately(TextRenderer.DeadLeftX, 1e-6, "堂號要跟往者同樣對齊");
+        (TextRenderer.HallFirstX - TextRenderer.HallSecondX).Should().BeApproximately(2.03753, 1e-6);
+
+        // 欄與欄的相對距離維持 RDLC 原值（Base 欄距 0.91251；Two 變體兩高欄相距 1.16299）
+        (TextRenderer.DeadMidX - TextRenderer.DeadLeftX).Should().BeApproximately(12.41251 - 11.5, 1e-6);
+        (TextRenderer.DeadRightX - TextRenderer.DeadLeftX).Should().BeApproximately(13.32502 - 11.5, 1e-6);
+        (TextRenderer.DeadTwoRightX - TextRenderer.DeadLeftX).Should().BeApproximately(13.01299 - 11.85, 1e-6);
+
+        // 最右欄右緣（0.8cm 字寬）不可壓到右側預印字（「等切念」欄 x 13.436~13.971 在 y 22cm 以下，
+        // 姓名帶內無預印字；仍以 14.5cm 當硬界限，避免未來調整時無聲越界）
+        (TextRenderer.DeadRightX + TextRenderer.NameBaseFontCm).Should().BeLessThan(14.5);
     }
 
     [Fact]

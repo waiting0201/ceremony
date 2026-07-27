@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-27 (追加：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
+last_updated: 2026-07-27 (追加：客訴「距離 X 公分」是**間距**不是「移動 X 公分」——文牒往者 07-21 照字面做成 DeadShiftX=0.5 右移，實際間距變 0.793cm，客戶再度回報；含「跟…距離／離…／對齊…」的句子要先量參考物邊界再回推絕對座標；同日先前：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
 ---
 
 ## 通用陷阱
@@ -30,6 +30,12 @@ last_updated: 2026-07-27 (追加：套印「置中」不可用固定位移量—
 - **真因**：直書 CJK 的字寬≈字級，所以「一組名字的總寬」隨字級與位數而變（1 位＝`fontCm`、2 位＝`2×fontCm+欄距`），而字級本身是動態的（`ParaFontSize` tier 0.8/0.5cm，再經 `VerticalText.MatrixLayout` 於方框內等比縮）。**一個固定 cm 位移量不可能同時對到兩種組寬**——實測 0.3cm 讓 1 位偏左 0.19cm、2 位偏右 0.18cm，方向相反
 - **修法**：欄位 X 一律用「中軸 − 該組總寬/2」回推，且**必須排在字級算完之後**（`DataCardRenderer.DeadColumnsX(deadNames, fontCm)`；薦牌 `TabletRenderer` 的 `DeadCenterX − fontCm/2` 是同一套做法）
 - **預防**：收到「往左/往右幾公分」的客訴先分辨是**整體偏移**（樣板對位問題，用常數位移正確）還是**沒置中**（版面問題，要回推）。少人數用多人數矩陣的固定欄位就是典型的「沒置中」來源。驗收用 200 DPI 回掃量墨跡中心對中軸，不要只看疊圖目視
+
+### 客訴的「距離 X 公分」是**間距**，不是「移動 X 公分」（2026-07-27）
+- **症狀**：客戶說文牒「往者要跟左邊本來的文字距離 0.5 公分」。2026-07-21 照字面實作成 `DeadShiftX = 0.5`（整組**右移** 0.5cm），客戶隔週再度回報同一件事
+- **真因**：兩者都是「0.5cm」但語意完全不同。RDLC 原座標下往者最左欄離預印字已有 0.293cm，再右移 0.5cm → 實際間距變成 **0.793cm**（是要求值的 1.6 倍）。位移量是相對值、間距是絕對值，**只有在「原本剛好貼齊 0」時兩者才等價**
+- **修法**：改成絕對錨點——量出參考物邊界（`reference/template/文牒.jpg` 逐欄墨跡掃描：左側預印字欄右緣 11.207cm），`DeadLeftX = 11.207 + 0.5`；各變體都以「自己的最左欄」對齊此錨點，欄間相對距離維持 RDLC 原值。回歸鎖 `Text_DeadNamesAndHallName_KeepHalfCentimeterFromPrePrintedText`
+- **預防**：收到帶數字的版面客訴，先問自己「這個數字是**位移量**還是**目標間距/座標**」。**含『跟…距離』『離…』『對齊…』的句子幾乎都是絕對值**，要先量參考物邊界再回推座標，不能直接當 shift 常數加上去。與上一條同源：常數位移是最容易寫、也最容易寫錯的做法
 
 ### `.field` 外的 `<input>` 不會繼承 body 文字色 → 看起來「比較黑」（2026-07-27）
 - **症狀**：客訴「往生/陽上名單 input 的字比寄件地址黑」。字級明明已對齊（2026-07-21 客訴修過），顏色卻不同
