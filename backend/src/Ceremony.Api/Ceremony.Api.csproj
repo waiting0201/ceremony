@@ -10,6 +10,13 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.8" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.3" />
+    <!--
+      NU1903 修補：Microsoft.AspNetCore.OpenApi 10.0.x（含最新 10.0.10）對 Microsoft.OpenApi 的相依下限
+      仍是 2.0.0，NuGet 就會解析到有 GHSA-v5pm-xwqc-g5wc（circular schema references 可中止 OpenAPI 解析，
+      high）的 2.0.0。升 AspNetCore.OpenApi 沒用，必須直接指定版本覆寫 transitive。
+      2.7.5 為該 advisory 在 2.x 線的 first patched version（取最低修補版，降低與 10.0.x 的相容風險）。
+    -->
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
     <PackageReference Include="Serilog.AspNetCore" Version="10.0.0" />
   </ItemGroup>
 
