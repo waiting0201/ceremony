@@ -17,8 +17,10 @@ public sealed class BelieversController(
     /// <summary>搜尋信眾（至少需給 1 個搜尋條件）</summary>
     /// <remarks>
     /// Legacy: BelieverForm.cs:35-44 (btnSearch_Click) + :353-409 (LoadBelievers)
+    ///         searchKey: NewSignupForm.cs:715-722 (LoadBelievers 的 txtQ，14 欄 OR)
     /// Blueprint: docs/blueprints/api-endpoints/get-believers.md
     /// Coverage:  docs/blueprints/legacy-coverage/believer-form.md (rows 2, 13)
+    ///            docs/blueprints/legacy-coverage/new-signup-form.md (rows 3, 24)
     /// </remarks>
     [HttpGet]
     [ProducesResponseType(typeof(BelieverListResponse), StatusCodes.Status200OK)]
@@ -28,9 +30,10 @@ public sealed class BelieversController(
         [FromQuery] string? hallName,
         [FromQuery] string? livingName,
         [FromQuery] string? deadName,
+        [FromQuery] string? searchKey,
         CancellationToken ct)
     {
-        var query = new BelieverSearchQuery(name, phone, hallName, livingName, deadName);
+        var query = new BelieverSearchQuery(name, phone, hallName, livingName, deadName, searchKey);
         var result = await search.HandleAsync(query, ct);
         return Ok(result);
     }

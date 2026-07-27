@@ -90,6 +90,42 @@ public sealed class BelieversEndpointsTests(CeremonyApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task GET_believers_searchKey_finds_believer_with_no_signup_by_name_or_deadName()
+    {
+        // 新增報名的信眾搜尋改用 searchKey（14 欄 OR），重點是「從未報名過的信眾也要查得到」
+        // ——/signups 只有報名紀錄，這條路徑正是舊 BelieverView LEFT JOIN 的等效補償。
+        var client = await CreateAuthedClientAsync();
+        var stamp = $"{DateTime.UtcNow:yyMMddHHmmssfff}";
+        var uniqueName = $"itest_key_{stamp}";
+        var uniqueDead = $"itest_dead_{stamp}";
+
+        var createResp = await client.PostAsJsonAsync("/api/v1/believers", new BelieverUpsertRequest(
+            EmployeeType: 1,
+            Name: uniqueName,
+            MailAddress: "台中市北區",
+            DeadNames: [uniqueDead, null, null, null, null, null]));
+        createResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = await createResp.Content.ReadFromJsonAsync<BelieverListItem>();
+
+        try
+        {
+            // 姓名命中（此信眾沒有任何報名）
+            var byName = await client.GetFromJsonAsync<BelieverListResponse>(
+                $"/api/v1/believers?searchKey={uniqueName}");
+            byName!.Items.Should().ContainSingle(i => i.Id == created!.Id);
+
+            // 往生名命中（同一把 searchKey OR 到 14 欄）
+            var byDead = await client.GetFromJsonAsync<BelieverListResponse>(
+                $"/api/v1/believers?searchKey={uniqueDead}");
+            byDead!.Items.Should().ContainSingle(i => i.Id == created!.Id);
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/v1/believers/{created!.Id}");
+        }
+    }
+
+    [Fact]
     public async Task Full_CRUD_lifecycle_create_read_update_delete()
     {
         var client = await CreateAuthedClientAsync();

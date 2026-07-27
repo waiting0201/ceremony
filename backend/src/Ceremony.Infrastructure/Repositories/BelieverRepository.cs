@@ -57,6 +57,20 @@ public sealed class BelieverRepository(IDbConnectionFactory factory) : IBeliever
             p.Add("@DeadName", Like(query.DeadName));
         }
 
+        // 單一關鍵字 OR 比對 14 欄（Name/Phone/陽上 1-6/往生 1-6）— 對齊舊 NewSignupForm.cs:715-722 的 txtQ；
+        // 新增報名的信眾搜尋用此參數，讓「從未報名過的信眾」也搜得到（/signups 只有報名紀錄）
+        if (!string.IsNullOrEmpty(query.SearchKey))
+        {
+            sql.AppendLine("""
+                 AND (b.Name LIKE @SearchKey OR b.Phone LIKE @SearchKey
+                   OR b.LivingNameOne LIKE @SearchKey OR b.LivingNameTwo LIKE @SearchKey OR b.LivingNameThree LIKE @SearchKey
+                   OR b.LivingNameFour LIKE @SearchKey OR b.LivingNameFive LIKE @SearchKey OR b.LivingNameSix LIKE @SearchKey
+                   OR b.DeadNameOne LIKE @SearchKey OR b.DeadNameTwo LIKE @SearchKey OR b.DeadNameThree LIKE @SearchKey
+                   OR b.DeadNameFour LIKE @SearchKey OR b.DeadNameFive LIKE @SearchKey OR b.DeadNameSix LIKE @SearchKey)
+                """);
+            p.Add("@SearchKey", Like(query.SearchKey));
+        }
+
         sql.AppendLine(" ORDER BY b.Name");
 
         await using var conn = await factory.CreateOpenAsync(ct);

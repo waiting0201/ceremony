@@ -29,6 +29,8 @@ export interface BelieverSearchQuery {
   hallName?: string | null;
   livingName?: string | null;
   deadName?: string | null;
+  /** 單一關鍵字：OR 比對姓名/電話/陽上 1-6/往生 1-6 共 14 欄（對齊舊 NewSignupForm txtQ）；與其餘條件 AND */
+  searchKey?: string | null;
 }
 
 export interface BelieverUpsertRequest {

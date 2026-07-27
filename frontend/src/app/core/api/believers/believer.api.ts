@@ -21,6 +21,7 @@ export class BelieverApi {
     if (query.hallName) params = params.set('hallName', query.hallName);
     if (query.livingName) params = params.set('livingName', query.livingName);
     if (query.deadName) params = params.set('deadName', query.deadName);
+    if (query.searchKey) params = params.set('searchKey', query.searchKey);
     return firstValueFrom(this.http.get<BelieverListResponse>(this.base, { params }));
   }
 

@@ -3,12 +3,17 @@ namespace Ceremony.Application.Believers;
 /// <summary>
 /// 搜尋條件。對應 BelieverForm.cs:35-44 (btnSearch_Click)。
 /// </summary>
+/// <param name="SearchKey">
+/// 單一關鍵字（2026-07-27 加）：OR 比對 Name/Phone/陽上 1-6/往生 1-6 共 14 欄，
+/// 對應舊 NewSignupForm.cs:715-722 (LoadBelievers 的 txtQ)。與其餘欄位條件為 AND。
+/// </param>
 public sealed record BelieverSearchQuery(
     string? Name = null,
     string? Phone = null,
     string? HallName = null,
     string? LivingName = null,
-    string? DeadName = null);
+    string? DeadName = null,
+    string? SearchKey = null);
 
 /// <summary>
 /// 信眾列表 read-model。對應舊 BelieverViewModel (BelieverForm.cs:368-396)。

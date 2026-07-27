@@ -20,14 +20,16 @@ public sealed class SearchBelieversHandler(IBelieverRepository repo)
             Trim(query.Phone),
             Trim(query.HallName),
             Trim(query.LivingName),
-            Trim(query.DeadName));
+            Trim(query.DeadName),
+            Trim(query.SearchKey));
 
-        // 至少一個非空 — 對齊 BelieverForm.cs:37
+        // 至少一個非空 — 對齊 BelieverForm.cs:37（searchKey 單獨給也算數，對齊舊 LoadBelievers 的 txtQ）
         if (string.IsNullOrEmpty(normalized.Name)
             && string.IsNullOrEmpty(normalized.Phone)
             && string.IsNullOrEmpty(normalized.HallName)
             && string.IsNullOrEmpty(normalized.LivingName)
-            && string.IsNullOrEmpty(normalized.DeadName))
+            && string.IsNullOrEmpty(normalized.DeadName)
+            && string.IsNullOrEmpty(normalized.SearchKey))
         {
             throw new DomainException("VALIDATION_REQUIRED", "請輸入搜尋條件");
         }

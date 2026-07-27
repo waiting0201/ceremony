@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-07-18 (worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)
+last_updated: 2026-07-27 (GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)
 ---
 
 ## 通則
@@ -119,7 +119,7 @@ HTTP status 映射：
 
 | Method | Path | 說明 |
 |---|---|---|
-| GET | `/believers/search?name=&phone=&hallName=&livingName=&deadName=&page=&pageSize=` | 搜尋（至少一個欄位；對應舊 BelieverForm 規則） |
+| GET | `/believers?name=&phone=&hallName=&livingName=&deadName=&searchKey=` | 搜尋（至少一個非空條件，否則 400 `VALIDATION_REQUIRED`；對應舊 BelieverForm 規則）。`searchKey`（2026-07-27 加）為單一關鍵字 OR 比對姓名/電話/陽上 1-6/往生 1-6 共 14 欄，對齊舊 `NewSignupForm` txtQ，供新增報名的信眾搜尋補「從未報名過的信眾」；見 [get-believers.md](../blueprints/api-endpoints/get-believers.md) |
 | GET | `/believers/{id}` | 單筆 + nav data |
 | GET | `/believers/{id}/signups?year=` | 信眾的報名紀錄（含預繳查詢用） |
 | POST | `/believers` | 新增 |

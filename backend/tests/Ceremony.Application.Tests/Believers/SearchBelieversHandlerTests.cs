@@ -45,6 +45,28 @@ public sealed class SearchBelieversHandlerTests
     }
 
     [Fact]
+    public async Task SearchKeyOnly_passes_validation_and_reaches_repo_trimmed()
+    {
+        // 新增報名的信眾搜尋只給單一關鍵字（對齊舊 NewSignupForm txtQ），不應被「請輸入搜尋條件」擋下
+        _repo.Setup(r => r.SearchAsync(It.IsAny<BelieverSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        await CreateSut().HandleAsync(new BelieverSearchQuery(SearchKey: "  陳  "));
+
+        _repo.Verify(r => r.SearchAsync(
+            It.Is<BelieverSearchQuery>(q => q.SearchKey == "陳" && q.Name == null),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task SearchKeyWhitespace_only_still_throws_VALIDATION_REQUIRED()
+    {
+        var ex = await Assert.ThrowsAsync<DomainException>(() =>
+            CreateSut().HandleAsync(new BelieverSearchQuery(SearchKey: "   ")));
+        ex.ErrorCode.Should().Be("VALIDATION_REQUIRED");
+    }
+
+    [Fact]
     public async Task NoResults_returns_empty_response_with_total_0()
     {
         _repo.Setup(r => r.SearchAsync(It.IsAny<BelieverSearchQuery>(), It.IsAny<CancellationToken>()))
