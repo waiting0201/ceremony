@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-27 (追加：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
+last_updated: 2026-07-27 (追加：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
 ---
 
 ## 通用陷阱
@@ -24,6 +24,12 @@ last_updated: 2026-07-27 (追加：.field 外的 input 不繼承 body 文字色�
 - **特例**：qa-test-engineer **絕不**修改 code，只審查；要求其改 code 應改用 code-review-optimizer 或 backend/frontend agent
 
 ## 專案層級陷阱
+
+### 套印「置中」不能用固定位移量，一定要用字級回推（2026-07-27）
+- **症狀**：客戶說資料卡「往者 1 位／2 位沒有在框中置中」，照原話整組左移 0.3cm 後**再度回報還是沒置中**
+- **真因**：直書 CJK 的字寬≈字級，所以「一組名字的總寬」隨字級與位數而變（1 位＝`fontCm`、2 位＝`2×fontCm+欄距`），而字級本身是動態的（`ParaFontSize` tier 0.8/0.5cm，再經 `VerticalText.MatrixLayout` 於方框內等比縮）。**一個固定 cm 位移量不可能同時對到兩種組寬**——實測 0.3cm 讓 1 位偏左 0.19cm、2 位偏右 0.18cm，方向相反
+- **修法**：欄位 X 一律用「中軸 − 該組總寬/2」回推，且**必須排在字級算完之後**（`DataCardRenderer.DeadColumnsX(deadNames, fontCm)`；薦牌 `TabletRenderer` 的 `DeadCenterX − fontCm/2` 是同一套做法）
+- **預防**：收到「往左/往右幾公分」的客訴先分辨是**整體偏移**（樣板對位問題，用常數位移正確）還是**沒置中**（版面問題，要回推）。少人數用多人數矩陣的固定欄位就是典型的「沒置中」來源。驗收用 200 DPI 回掃量墨跡中心對中軸，不要只看疊圖目視
 
 ### `.field` 外的 `<input>` 不會繼承 body 文字色 → 看起來「比較黑」（2026-07-27）
 - **症狀**：客訴「往生/陽上名單 input 的字比寄件地址黑」。字級明明已對齊（2026-07-21 客訴修過），顏色卻不同

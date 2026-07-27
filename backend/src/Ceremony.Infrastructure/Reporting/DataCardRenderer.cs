@@ -1,4 +1,5 @@
 using System.Reflection;
+using Ceremony.Domain.Services;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -27,6 +28,13 @@ public sealed class DataCardRenderer
     // 2026-07-21 客訴：往者「故◯◯靈位」窗框（含框、故／靈位、框內亡者名）整體右移 0.8cm。
     // 框（DrawTemplate）與框內亡者名（DrawDeadNamesInWindow）共用此位移，右移後相對位置不變。
     private const double FrameShiftX = 0.8;
+
+    // 窗框中軸（框外緣量測 x 14.973~17.983 的幾何中心，右移 FrameShiftX 後）＝「故」「靈位」所在的
+    // 那條線。1、2 位往者的姓名以此置中（見 DrawDeadNamesInWindow），DrawTemplate 的故／靈位共用。
+    private const double FrameCenterX = (14.973 + 17.983) / 2 + FrameShiftX; // 17.278
+
+    // 1、2 位往者並排時兩欄之間的留白（比照薦牌 TabletRenderer.DeadColumnGap），避免字貼在一起。
+    private const double FewDeadColumnGap = 0.1;
 
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
@@ -147,13 +155,12 @@ public sealed class DataCardRenderer
 
         // 「故」與「靈位」：置中於窗框中軸（右移後 16.478 + 0.8 = 17.278）；墨跡對齊樣板量測（「故」下緣
         // 5.6388、「靈」上緣 11.4427——兩者是 DrawDeadNamesInWindow 亡者矩陣的硬邊界，不可越過）
-        const double frameCenterX = (14.973 + 17.983) / 2 + FrameShiftX; // 17.278
         const double glyphFontCm = 1.10;                   // 樣板墨跡量測字級（位 字寬 ≈1.12cm）
         var glyphFontPt = glyphFontCm * PointsPerCm;
-        DrawVerticalName(layers, top: 4.585, left: frameCenterX - glyphFontCm / 2, fontPt: glyphFontPt, text: "故");
+        DrawVerticalName(layers, top: 4.585, left: FrameCenterX - glyphFontCm / 2, fontPt: glyphFontPt, text: "故");
         // LineHeight 1.13：讓「靈」上緣落在 11.4427、「位」下緣落在 13.7414（皆為樣板量測值）
         layers.Layer()
-            .TranslateX((float)(frameCenterX - glyphFontCm / 2), Unit.Centimetre)
+            .TranslateX((float)(FrameCenterX - glyphFontCm / 2), Unit.Centimetre)
             .TranslateY(11.33f, Unit.Centimetre)
             .Text(VerticalText.Stack("靈位")).FontSize((float)glyphFontPt).FontFamily(FontFamily).LineHeight(1.13f);
     }
@@ -170,6 +177,12 @@ public sealed class DataCardRenderer
     //      於窗框內動態等比縮並算下排起點，取代原本寫死 0.6cm + 固定列距 2.6 的 GroupFontPt 做法。
     //      欄位配對同薦牌 2×3：中欄 d0/d5、右欄 d1/d3、左欄 d2/d4。
     //  (b) 整個框（含亡者名）右移 0.8cm（FrameShiftX；框本身於 DrawTemplate 一併右移）。
+    // 2026-07-27 客訴：往者 1 位／2 位時姓名沒有在框中置中（框本身不動）。1 位只用中欄、2 位用中欄＋
+    // 右欄，都是為 3+ 位矩陣設計的固定欄位，落在框中軸右側；先做過「整組左移 0.3cm」的固定位移，實印
+    // 仍不準（1 位變成偏左 0.19cm、2 位偏右 0.18cm，方向相反，固定位移救不了）。改為**依實際字級動態
+    // 置中**於框中軸 FrameCenterX：見 DeadColumnsX。3+ 位維持原 2×3 矩陣欄位不動。
+    // 「1 位／2 位」判定沿用 PrintTemplateSelector.SlotTier 的 slot-based 語意（與薦牌變體/字級同一套，
+    // 不可改用 Count 數總數——名字填在後面欄位有空洞時會誤判，見 PrintTemplateSelector remarks）。
     private static void DrawDeadNamesInWindow(LayersDescriptor layers, string?[] deadNames, double paraFontSizeCm)
     {
         const double topRowY = 5.6388 + 0.1;        // 5.7388
@@ -177,11 +190,6 @@ public sealed class DataCardRenderer
         const double safetyMargin = 0.2;
         // 方框可用高：topRowY 到「靈」字上緣扣安全邊界（比照薦牌 DeadMatrixHeight 的固定方框概念）
         const double boxHeight = windowGapBottom - topRowY - safetyMargin; // 5.5039
-
-        const double centerX = 16.285 - 0.1 + FrameShiftX; // 16.985（前一版置中值 16.185 再右移 0.8cm）
-        const double columnGap = 0.75;
-        const double leftX = centerX - columnGap;
-        const double rightX = centerX + columnGap;
 
         var d = deadNames;
 
@@ -193,12 +201,50 @@ public sealed class DataCardRenderer
         var fontPt = fontCm * PointsPerCm;
         var bottomRowY = topRowY + bottomOffset;
 
+        // 欄位 X 必須在字級算完之後才決定：直書 CJK 字寬≈字級，置中位置隨縮字而變（同薦牌 DeadCenterX 註解）
+        var (leftX, centerX, rightX) = DeadColumnsX(deadNames, fontCm);
+
         DrawVerticalName(layers, topRowY, centerX, fontPt, d[0]);    // 1st 中間上
         DrawVerticalName(layers, topRowY, rightX, fontPt, d[1]);     // 2nd 右邊上
         DrawVerticalName(layers, topRowY, leftX, fontPt, d[2]);      // 3rd 左邊上
         DrawVerticalName(layers, bottomRowY, rightX, fontPt, d[3]);  // 4th 右邊下
         DrawVerticalName(layers, bottomRowY, leftX, fontPt, d[4]);   // 5th 左邊下
         DrawVerticalName(layers, bottomRowY, centerX, fontPt, d[5]); // 6th 中間下
+    }
+
+    /// <summary>
+    /// 窗框內亡者三欄的 X 起點（cm，＝該欄文字左緣）：左＝d[2]/d[4]、中＝d[0]/d[5]、右＝d[1]/d[3]。
+    /// </summary>
+    /// <remarks>
+    /// 3+ 位往者：沿用 2×3 矩陣的固定欄位（中欄 16.985、欄距 0.75）。
+    /// 1、2 位往者（2026-07-27 客訴「沒有置中」）：改依 <paramref name="fontCm"/> 動態置中於框中軸
+    /// <see cref="FrameCenterX"/>——直書 CJK 字寬≈字級，所以欄位左緣要用「中軸 − 該組總寬/2」回推，
+    /// 固定位移量做不到（字級 0.8/0.5cm、位數 1/2 各有不同總寬）。
+    /// * 只有 1 個名字（不論落在 d[0] 或 d[1]）：單欄置中，左緣＝中軸 − 字級/2
+    /// * 2 個名字：對稱分居中軸左右，中間留 <see cref="FewDeadColumnGap"/>（比照薦牌 2 位分支）
+    /// internal 供 <c>Ceremony.Infrastructure.Tests</c> 斷言置中結果（PDF 內無法直接量測座標）。
+    /// </remarks>
+    internal static (double LeftX, double CenterX, double RightX) DeadColumnsX(string?[] deadNames, double fontCm)
+    {
+        const double matrixCenterX = 16.285 - 0.1 + FrameShiftX; // 16.985（置中值 16.185 再右移 0.8cm）
+        const double columnGap = 0.75;
+
+        if (PrintTemplateSelector.SlotTier(deadNames) > 2)
+            return (matrixCenterX - columnGap, matrixCenterX, matrixCenterX + columnGap);
+
+        // tier 1/2 保證 d[2..5] 全空，只會用到「中欄＝d[0]」與「右欄＝d[1]」
+        var hasFirst = !string.IsNullOrWhiteSpace(deadNames[0]);
+        var hasSecond = !string.IsNullOrWhiteSpace(deadNames[1]);
+        var singleX = FrameCenterX - fontCm / 2;
+
+        if (hasFirst && hasSecond)
+        {
+            var first = FrameCenterX - FewDeadColumnGap / 2 - fontCm;  // d[0] 在左
+            var second = FrameCenterX + FewDeadColumnGap / 2;          // d[1] 在右
+            return (first - columnGap, first, second);
+        }
+
+        return (singleX - columnGap, singleX, singleX);
     }
 
     private static void DrawVerticalName(LayersDescriptor layers, double top, double left, double fontPt, string? text)

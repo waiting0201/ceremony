@@ -215,6 +215,64 @@ public sealed class RendererSmokeTests
         pdfWithName.Length.Should().BeGreaterThan(pdfEmpty.Length, "唯一一位亡者必須真的畫出來");
     }
 
+    // 2026-07-27 客訴：往者 1 位／2 位時姓名要在窗框中置中（框不動；3+ 位矩陣位置不變）。
+    // 置中基準＝框中軸 17.278（框外緣 14.973~17.983 幾何中心 + FrameShiftX 0.8），也是「故／靈位」所在線。
+    // 直書 CJK 字寬≈字級，故「該組墨跡總寬」的中點必須落在中軸上——先前固定左移 0.3cm 做不到（1 位偏左、
+    // 2 位偏右，方向相反）。此處對 0.8cm（1-2 位基準）與 0.5cm（≥8 真字縮字）兩種字級都驗。
+    [Fact]
+    public void DataCard_OneOrTwoDeadNames_AreCenteredInWindowFrame()
+    {
+        const double frameCenterX = (14.973 + 17.983) / 2 + 0.8; // 17.278
+        const double innerLeft = 14.986 + 0.8;
+        const double innerRight = 17.9705 + 0.8;
+
+        foreach (var fontCm in new[] { 0.8, 0.5 })
+        {
+            // 1 位：單欄置中
+            var one = DataCardRenderer.DeadColumnsX(N("陳大明"), fontCm);
+            (one.CenterX + fontCm / 2).Should().BeApproximately(frameCenterX, 1e-6, "1 位往者要置中於框中軸");
+
+            // 只填第 2 格（slot tier 2 但實際只有 1 位）：一樣單欄置中
+            var onlySecond = DataCardRenderer.DeadColumnsX(N(null, "陳二"), fontCm);
+            (onlySecond.RightX + fontCm / 2).Should().BeApproximately(frameCenterX, 1e-6);
+
+            // 2 位：對稱分居中軸左右，整組墨跡（d[0] 左緣 ~ d[1] 右緣）中點落在中軸
+            var two = DataCardRenderer.DeadColumnsX(N("陳大明", "陳二"), fontCm);
+            ((two.CenterX + two.RightX + fontCm) / 2).Should().BeApproximately(frameCenterX, 1e-6, "2 位往者整組要置中於框中軸");
+            (two.RightX - (two.CenterX + fontCm)).Should().BeApproximately(0.1, 1e-6, "兩欄之間留 0.1cm 不可貼在一起");
+
+            // 都不可壓到窗框內緣
+            two.CenterX.Should().BeGreaterThan(innerLeft);
+            (two.RightX + fontCm).Should().BeLessThan(innerRight);
+        }
+
+        // 3+ 位維持原 2×3 矩陣欄位（中欄 16.985、欄距 0.75），不因字級改變
+        var threePlus = DataCardRenderer.DeadColumnsX(N("陳大明", "陳二", "陳三"), 0.6);
+        threePlus.CenterX.Should().BeApproximately(16.985, 1e-6);
+        threePlus.LeftX.Should().BeApproximately(16.985 - 0.75, 1e-6);
+        threePlus.RightX.Should().BeApproximately(16.985 + 0.75, 1e-6);
+
+        // slot 有空洞（只填第 3、4 格）→ slot tier 3，走矩陣不走置中
+        DataCardRenderer.DeadColumnsX(N(null, null, "陳三", "陳四"), 0.6).CenterX
+            .Should().BeApproximately(16.985, 1e-6);
+
+        // 疊圖 PDF 供實體複驗（CEREMONY_PDF_DUMP 才落地）
+        foreach (var (names, file) in new[]
+                 {
+                     (N("陳大明"), "datacard_one_dead_centered_overlay.pdf"),
+                     (N("陳大明", "陳二"), "datacard_two_dead_centered_overlay.pdf"),
+                 })
+        {
+            var data = new DataCardData(
+                Number: "信1", Prepay: "", DeadNames: names, LivingNames: N("陳孝"),
+                Address: "", Phone: "", Remark: "");
+            var plain = new DataCardRenderer().Render(data);
+            ShouldBePdf(plain);
+            DumpIfRequested(plain, file.Replace("_overlay", "_plain"));
+            DumpIfRequested(new DataCardRenderer().Render(data, debugOverlay: true), file);
+        }
+    }
+
     // 2026-07-18 客訴改版：資料卡改成連 template 一起印（欄位標題／簽名底線／「故◯◯靈位」窗框），
     // 白紙即可列印。回歸鎖：內容全空也必須畫出 template（PDF 遠大於一張空白頁），防止未來誤退回
     // 「假設預印樣板紙、只印內容」的套印模式。

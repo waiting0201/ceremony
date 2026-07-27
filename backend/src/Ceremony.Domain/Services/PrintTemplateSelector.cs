@@ -61,7 +61,11 @@ public static class PrintTemplateSelector
     /// （不看 slot 1，與舊 code 一致）；其餘＝3（fallback）。名字填在後面欄位（有空洞）一律落 fallback，
     /// 由 Base 系列變體逐槽全畫，才不會丟名字。
     /// </summary>
-    private static int SlotTier(string?[] names)
+    /// <remarks>
+    /// public 是為了讓 <c>DataCardRenderer</c> 判「往者 1 位／2 位」時共用同一套 slot-based 語意
+    /// （2026-07-27 客訴：1、2 位往者名字左移 0.3cm）；不可在呼叫端另外用 Count 數總數（見上方 remarks 的客訴根因）。
+    /// </remarks>
+    public static int SlotTier(string?[] names)
     {
         if (IsPresent(names[0]) && AllEmptyFrom(names, 1)) return 1;
         if (IsPresent(names[1]) && AllEmptyFrom(names, 2)) return 2;
