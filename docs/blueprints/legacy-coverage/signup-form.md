@@ -85,5 +85,5 @@ last_updated: 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TY
 | 39 | `PanelPrintSwitch()` helper | 1840-1874 | 切換列印面板控制項狀態 | ✅ 已實作 | 前端 form mode | 列印改右鍵選單項 `enabledWhen`（依選取筆數啟用/禁用），取代列印面板控制項切換 |
 | 40 | `PanelControlSwitch()` helper | 1876-1910 | 切換控制面板控制項狀態 | ✅ 已實作 | 前端 form mode | 控制按鈕（修改/刪除/歷程）以選取狀態 computed 控制可用性 |
 | 41 | `GetNumberText()` helper | 1912-1927 | **避 4 規則** (個位 4 → "3-1") | ✅ 已實作 | `Domain.Services.AvoidFourFormatter` | 純函式；單元測試覆蓋 |
-| 42 | `ShowCompleteColumn()` helper | 1929-1936 | 切換進階欄位可見性 | ✅ 已實作 | 前端 grid columns | `showAll` signal 控制進階欄位顯示 + computed 欄位清單（偏好存 localStorage）|
+| 42 | `ShowCompleteColumn()` helper | 1929-1936 | 切換進階欄位可見性 | ✅ 已實作 | 前端 grid columns | `showAll` signal 控制進階欄位顯示 + computed 欄位清單（偏好存 localStorage）。**⚠️ 新版增強（2026-07-27，無舊對應）**：搜尋面板另加「全部」checkbox（置於「範圍」上方），勾選＝忽略所有搜尋條件顯示全部報名供比對、條件值保留但停用，取消勾選即以原條件重查還原。舊系統達成同一目的的做法是從 `MainForm.btnSignup_Click` 再 `Show()` 一個 SignupForm 視窗並排比對；新版為 SPA 單一 `/signups` 路由，改用同頁模式切換。詳見 [signup-management.md](../signup-management.md) §「全部」checkbox |
 | 43 | `EnabledSearchKey()` helper | 1938-1942 | 啟用/禁用搜尋鍵欄位 | ✅ 已實作 | 前端 form logic | `signup-list-page` effect：任一 scope*（姓名/陽上/亡名/電話）勾選 → `searchKey.enable()`，全不勾 → `disable()` |

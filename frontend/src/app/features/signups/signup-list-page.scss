@@ -44,6 +44,7 @@
   .r2c3 { grid-column: 3; grid-row: 2; }
   .r2c4 { grid-column: 4; grid-row: 2; }
   .r2c5 { grid-column: 5; grid-row: 2; }
+  .r3c1 { grid-column: 1; grid-row: 3; }
   .r3c2 { grid-column: 2; grid-row: 3; }
   .r3c3 { grid-column: 3; grid-row: 3; }
   .r3c4 { grid-column: 4; grid-row: 3; justify-self: end; }
@@ -52,6 +53,17 @@
   .r3c5 { grid-column: 5; grid-row: 3; height: var(--control-height); padding: 0 8px; }
   // 搜尋鈕撐滿三列高（對齊舊系統 btnSearch 75×99，幾乎滿版）——grid align-items:center 會讓按鈕只以自然高置中，故單獨 stretch
   .search-btn { grid-column: 6; grid-row: 1 / 4; align-self: stretch; height: auto; padding: 0 var(--space-md); min-width: 64px; }
+
+  // 「全部」模式：條件控制項本身已 disabled（原生變灰），這裡連 label / checkbox 文字一起淡化，
+  // 讓「條件還在、只是此刻不生效」一眼可辨。全部 + 顯示完整表格兩個 checkbox 仍作用中，不淡化。
+  &.all-mode {
+    .lbl,
+    .scope-row,
+    .r2c1,
+    .r2c5 {
+      opacity: 0.5;
+    }
+  }
 }
 
 .print-grid {

@@ -13,8 +13,15 @@
   <section class="toolbar">
     <fieldset class="pane search-pane">
       <legend>搜尋</legend>
-      <form class="search-grid dense-controls" [formGroup]="form" (ngSubmit)="search()">
-        <label class="chk r1c1"><input type="checkbox" formControlName="isScope" /><span>範圍</span></label>
+      <form
+        class="search-grid dense-controls"
+        [class.all-mode]="allMode()"
+        [formGroup]="form"
+        (ngSubmit)="search()"
+      >
+        <label class="chk r1c1 all-chk" title="忽略所有搜尋條件，顯示全部報名資料；條件會保留，取消勾選即還原">
+          <input type="checkbox" formControlName="isAll" /><span>全部</span>
+        </label>
         <label class="lbl r1c2">年份</label>
         <input type="text" inputmode="numeric" appNumericInput class="r1c3" formControlName="year" />
         <div class="scope-row r1c4">
@@ -25,7 +32,7 @@
           <label class="chk"><input type="checkbox" formControlName="scopeRemark" /><span>備註</span></label>
         </div>
 
-        <label class="chk r2c1"><input type="checkbox" [checked]="showAll()" (change)="toggleShowAll()" /><span>顯示完整表格</span></label>
+        <label class="chk r2c1"><input type="checkbox" formControlName="isScope" /><span>範圍</span></label>
         <label class="lbl r2c2">法會</label>
         <select class="r2c3" formControlName="ceremonyCategoryId">
           <option value="">全部</option>
@@ -36,6 +43,7 @@
         <input type="text" class="r2c4 search-key" formControlName="searchKey" placeholder="關鍵字" />
         <label class="chk r2c5"><input type="checkbox" formControlName="isFixedNumber" /><span>固定編號</span></label>
 
+        <label class="chk r3c1 showall-chk"><input type="checkbox" [checked]="showAll()" (change)="toggleShowAll()" /><span>顯示完整表格</span></label>
         <label class="lbl r3c2">類型</label>
         <select class="r3c3" formControlName="signupType">
           <option [value]="-1">全部</option>
@@ -179,6 +187,7 @@
             [style.width.px]="totalGridWidth()"
             [style.grid-template-columns]="gridTemplateColumns()"
             [style.height.px]="rowHeight"
+            (mousedown)="onRowMouseDown($event)"
             (click)="toggleRow(item, $event, i)"
             (contextmenu)="openRowMenu($event, item, i)"
           >
@@ -193,11 +202,12 @@
               >
                 @switch (col.id) {
                   @case ('check') {
+                    <!-- 走 (click) 而非 (change)：change 的 event 不帶 shiftKey，
+                         用 change 的話從 checkbox 點選就永遠吃不到 shift 範圍選取。 -->
                     <input
                       type="checkbox"
                       [checked]="isSelected(item.id)"
-                      (change)="toggleRow(item, null, i)"
-                      (click)="$event.stopPropagation()"
+                      (click)="onCheckboxClick(item, $event, i)"
                     />
                   }
                   @default {

@@ -14,7 +14,7 @@ related_docs:
   - ../legacy-coverage/signup-form.md
   - get-believers.md
 keywords: [signups, search, predicatebuilder, signupview]
-last_updated: 2026-06-29
+last_updated: 2026-07-27 (補記「全部參數省略 → WHERE 1=1 回傳全部」語意，對應報名維護新增的「全部」checkbox)
 ---
 
 ## 規格
@@ -37,6 +37,8 @@ last_updated: 2026-06-29
 | `scopePhone` | bool | false | searchKey LIKE `Phone` |
 | `scopeRemark` | bool | false | searchKey LIKE `Remark`（新版加入，舊系統無此搜尋欄位） |
 | `isFixedNumber` | bool | false | 含「固定編號 = true」OR 條件 |
+
+**全部參數皆省略 → `WHERE 1=1`，回傳整張 `SignupView`（無 TOP 上限，與舊系統一致）。** 這是報名維護「全部」checkbox 的送出形態（前端 `buildQuery()` 在該模式下短路回 `{}`，`POST /signups/export` 同理），見 [signup-management.md](../signup-management.md) §「全部」checkbox。
 
 **OR 群組規則**（沿用舊系統 line 825-830，`scopeRemark` 為新版擴充）：
 - 任一 `scope*` 旗標需配合 `searchKey` 非空才生效

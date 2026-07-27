@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本, num-stepper, 捲軸, scrollbar, NumericUpDown, 草稿, draft, 未儲存]
-last_updated: 2026-07-27 (form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣)
+last_updated: 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣)
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -484,6 +484,7 @@ list page 透過 `@ViewChild` 抓 form ref，overlay 的「確認」按鈕呼叫
 - **Server-side 分頁**：強制；單頁 50 筆，max 200（搭配 [performance.md](performance.md)）
 - **Virtual scrolling**：用 `cdk-virtual-scroll-viewport`；單頁載入仍開虛擬以應付未來成長
 - **顯隱欄位 toggle**（對應 cbShowAll）：傳入欄定義含 `defaultVisible: boolean`，頂部下拉勾選；偏好存 localStorage
+- **「全部」條件旁路 toggle**（**2026-07-27 新增**，報名維護搜尋面板）：勾選＝忽略所有搜尋條件、直接查全部資料供比對；條件控制項一律 `disable({ emitEvent: false })` 而**非清空**（值仍在 `getRawValue()`，取消勾選即以原條件重查還原）。實作要點：(1) 用 `formControlName` + `valueChanges` 驅動，切換即重查，不需另按搜尋；(2) 查詢建構函式（`buildQuery()`）單點短路回空物件，讓搜尋與匯出兩條路徑自動一致，**不要**在各呼叫點各自判斷；(3) 停用時原生控制項自己會變灰，但 `<label>` 文字不會 → 額外掛 `.all-mode` class 把條件 label / checkbox 文字淡化 `opacity: .5`；(4) 離開模式時 `enable()` 全部後，要再依既有連動規則把該關的關回去（報名維護的關鍵字欄仍取決於 scope* 是否勾選），否則會出現「沒勾範圍卻能打關鍵字」的殘留狀態
 - **多選 + 右鍵 context menu**：對應舊 cmsSignups（單選/多選不同選單）— 詳見下方 Pattern 段
 - **欄位背景色**：DeadName 欄位橙色（`#FFE0C0`）
 - **欄寬持久化**：localStorage 記憶
@@ -529,10 +530,20 @@ interface MenuContext<T> {
 
 #### 多選與選列同步規則
 
-- **右鍵點未選列** → 自動選中該列、其他取消（對齊舊 `dgvSignups.Rows[e.RowIndex].Selected = true; ClearSelection`）
+- **右鍵點未選列** → 自動選中該列、其他取消（對齊舊 `dgvSignups.Rows[e.RowIndex].Selected = true; ClearSelection`），該列同時成為 shift 範圍的錨點
 - **右鍵點已選列**（多選之一）→ 保留現有選取
 - **列尾 kebab** 不改變選取狀態
 - **header checkbox** 三態：none / partial（indeterminate） / all
+
+#### shift 範圍選取（**2026-07-27 補齊**，對齊舊 DataGridView `MultiSelect` 原生行為）
+
+- **一般點擊**＝toggle 該列（不清掉其他選取，checkbox 清單語意），並把該列設為**錨點**
+- **shift + 點擊**＝選取「錨點 ~ 本列」整段
+- **錨點在 shift 期間不移動**，且範圍以「錨點成立當下的選取集合」為基準**重算**（存 `anchorSelection`）而非疊加到現有選取。兩個效果：連續 shift 可以**縮小**範圍（`1→5` 後再 shift 點 3 得 `1~3`，不是 `1~5`）；錨點之前既有的選取完整保留
+- 選取換掉錨點就失效：新搜尋、`clearSelection()`、header 全選/全不選都要清錨點（index 對不上新資料）
+- ⚠ **列首 checkbox 必須綁 `(click)` 而非 `(change)`**：`change` 事件不帶 `shiftKey`，走 `change` 的話從 checkbox 點選永遠吃不到 shift（最自然的多選入口反而失效）。改綁 click 後要 `preventDefault()`，讓勾選狀態一律由選取 signal 經 `[checked]` 決定，避免 DOM 自行翻轉造成不同步；並 `stopPropagation()` 免得列的 `(click)` 再處理一次
+- ⚠ **shift + 點擊會觸發瀏覽器的文字範圍選取**（整片反白）。在列的 `(mousedown)` 上 `preventDefault()` 擋掉即可，`click` 階段照常選列（`.vgrid-td` 沒有 `user-select: none`，改用 CSS 全域關掉會連帶讓儲存格文字不能複製）
+- 回歸鎖：[signup-list-page.spec.ts](../../frontend/src/app/features/signups/signup-list-page.spec.ts)
 
 #### 報名維護 9 項對應（cmsSignups）
 

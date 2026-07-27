@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-27 (Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
+last_updated: 2026-07-27 (報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
 ---
 
 ## 設計原則
@@ -270,9 +270,9 @@ last_updated: 2026-07-27 (Form Overlay 補「寬度」規則：內容含寬表�
 │ 報名維護                                                                  │
 ├──────────────────────────────────────────────────────────────────────────┤
 │ ┌─ 搜尋 (flex 1) ─────────────────────────────────────┐┌─ 列印 ─┐┌動作─┐ │
-│ │ ☑啟用       年份[___]   ☑姓名 ☑陽上 ☑往生 ☑電話  ┃ ││[起]~[迄]││+新增 │ │
-│ │ ☑顯完整 法會[ ▼ ]  關鍵字[__________]  ☑固定編號  ┃搜││[類型▼]  ││✎修改 │ │
-│ │           類型[ ▼ ]  編號[__]   [匯出 Excel]      ┃尋││  [列印] │└─────┘ │
+│ │ ☑全部       年份[___]   ☑姓名 ☑陽上 ☑往生 ☑電話  ┃ ││[起]~[迄]││+新增 │ │
+│ │ ☑範圍   法會[ ▼ ]  關鍵字[__________]  ☑固定編號  ┃搜││[類型▼]  ││✎修改 │ │
+│ │ ☑顯完整   類型[ ▼ ]  編號[__]   [匯出 Excel]      ┃尋││  [列印] │└─────┘ │
 │ └────────────────────────────────────────────────────┘└────────┘         │
 ├──────────────────────────────────────────────────────────────────────────┤
 │ 結果 N 筆          已選 K 筆 [取消選取] [對選取項目 ⋮]                     │
@@ -289,10 +289,13 @@ last_updated: 2026-07-27 (Form Overlay 補「寬度」規則：內容含寬表�
 #### 搜尋 pane 內部 grid（對齊 plSearch 615×127 三列五欄）
 
 ```
-Row 1: ☑啟用              [年份][__]      ☑姓名 ☑陽上 ☑往生 ☑電話   ┐
-Row 2: ☑顯完整         [法會][ ▼ ]      [關鍵字___________]  ☑固定編號 │ [搜尋]
-Row 3:                 [類型][ ▼ ]      [編號][__]   [匯出 Excel]      ┘
+Row 1: ☑全部              [年份][__]      ☑姓名 ☑陽上 ☑往生 ☑電話   ┐
+Row 2: ☑範圍           [法會][ ▼ ]      [關鍵字___________]  ☑固定編號 │ [搜尋]
+Row 3: ☑顯完整         [類型][ ▼ ]      [編號][__]   [匯出 Excel]      ┘
 ```
+
+- **col 1 = checkbox 欄，由上而下 `全部` / `範圍` / `顯示完整表格`**（2026-07-27）。「全部」依需求插在「範圍」上方，其餘兩個各往下一列；沿用既有三列 grid，**面板高度不變**（不新增第 4 列，避免壓縮下方 grid 可視列數）。代價：`範圍` 不再與 `年份` 同列相鄰（它控制的是 `Year >=` 或 `Year =`），改由 checkbox 欄的語意分組承接
+- **「全部」勾選時**：條件控制項 disabled（原生變灰）＋ `.all-mode` 讓條件 label / `範圍` / `固定編號` 文字 `opacity: .5`；`全部` 與 `顯示完整表格` 本身不淡化（仍作用中）
 
 - 高度 110px，row gap 4px，column gap 8px
 - input/select 高度 28px（`--control-height`），font 12px

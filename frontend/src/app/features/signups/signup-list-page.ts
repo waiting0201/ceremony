@@ -71,6 +71,28 @@ const ROW_HEIGHT = 26;
 const LS_SHOW_ALL = 'ceremony.signupList.showAll';
 const LS_COL_WIDTHS = 'ceremony.signupList.colWidths';
 
+/**
+ * 「全部」模式下要被停用的搜尋條件控制項（值保留、只是不生效）。
+ * 不含 isAll 本身；showAll（顯示完整表格）是欄位顯隱、與條件無關故不停用。
+ */
+const CONDITION_CONTROLS = [
+  'year',
+  'isScope',
+  'ceremonyCategoryId',
+  'signupType',
+  'number',
+  'isFixedNumber',
+  'searchKey',
+  'scopeName',
+  'scopeLivingName',
+  'scopeDeadName',
+  'scopePhone',
+  'scopeRemark',
+] as const;
+
+/** 「全部」模式送出的查詢：所有條件留空 → 後端 WHERE 1=1，回傳全部報名。 */
+const ALL_QUERY: SignupSearchQuery = {};
+
 interface EditOverlayState {
   signupId: string | null;
   fromSignupId: string | null;
@@ -160,11 +182,19 @@ export class SignupListPage implements OnInit {
   protected readonly hasSearched = signal(false);
   protected readonly keyEnabled = signal(false);
 
+  /** 「全部」模式是否啟用（鏡射 form.isAll，供模板做樣式綁定；OnPush + zoneless 下 control.value 不是 reactive）。 */
+  protected readonly allMode = signal(false);
+  /** 進入「全部」模式前是否已搜尋過 → 決定取消勾選時要重查條件、還是回到未搜尋的空狀態。 */
+  private searchedBeforeAll = false;
+
   protected readonly showAll = signal(loadShowAll());
   protected readonly columnWidths = signal<Record<string, number>>(loadColumnWidths());
 
   protected readonly selectedIds = signal<ReadonlySet<string>>(new Set());
-  private lastClickIndex: number | null = null;
+  // shift 範圍選取的錨點：一般點擊 / 右鍵選列時更新，shift 點擊時不動（見 toggleRow）。
+  private anchorIndex: number | null = null;
+  /** 錨點成立當下的選取集合——shift 範圍以此為基準重算，讓範圍可縮小且不吃掉更早的選取。 */
+  private anchorSelection: ReadonlySet<string> = new Set();
 
   protected readonly selectedCount = computed(() => this.selectedIds().size);
   protected readonly allSelected = computed(() => {
@@ -195,6 +225,8 @@ export class SignupListPage implements OnInit {
   });
 
   protected readonly form = this.fb.nonNullable.group({
+    // 「全部」：忽略下方所有搜尋條件、grid 直接顯示全部報名（條件值保留，取消勾選即還原）
+    isAll: [false],
     year: [null as number | null, [Validators.min(1), Validators.max(999)]],
     isScope: [false],
     ceremonyCategoryId: [''],
@@ -259,6 +291,7 @@ export class SignupListPage implements OnInit {
   ngOnInit(): void {
     void this.loadCategories();
     this.bindScopeKeyToggle();
+    this.bindAllModeToggle();
     this.restoreFromState();
   }
 
@@ -283,6 +316,11 @@ export class SignupListPage implements OnInit {
     if (anyScope) keyCtrl.enable({ emitEvent: false });
     else keyCtrl.disable({ emitEvent: false });
 
+    // 「全部」模式一併跨路由還原（含條件控制項的停用狀態）
+    this.allMode.set(cached.isAll);
+    this.searchedBeforeAll = this.state.searchedBeforeAll();
+    this.applyAllMode(cached.isAll);
+
     if (this.state.stale()) {
       this.state.clearStale();
       void this.search();
@@ -297,6 +335,7 @@ export class SignupListPage implements OnInit {
 
   private saveToState(): void {
     this.state.form.set(this.form.getRawValue() as SignupSearchFormSnapshot);
+    this.state.searchedBeforeAll.set(this.searchedBeforeAll);
     this.state.results.set(this.results());
     this.state.total.set(this.total());
     this.state.hasSearched.set(this.hasSearched());
@@ -327,6 +366,51 @@ export class SignupListPage implements OnInit {
       this.form.controls[name].valueChanges
         .pipe(takeUntilDestroyed(this.destroyRef))
         .subscribe(update);
+    }
+  }
+
+  /**
+   * 「全部」勾選 → 立即以空條件重查（grid 顯示全部報名）；取消勾選 → 立即用原條件重查還原。
+   * 條件值全程保留在表單，只是在全部模式下被停用（getRawValue 仍讀得到）。
+   */
+  private bindAllModeToggle(): void {
+    this.form.controls.isAll.valueChanges
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((on) => void this.onAllModeChanged(on));
+  }
+
+  private async onAllModeChanged(on: boolean): Promise<void> {
+    this.allMode.set(on);
+    this.applyAllMode(on);
+
+    if (on) {
+      this.searchedBeforeAll = this.hasSearched();
+      await this.search();
+      return;
+    }
+
+    if (this.searchedBeforeAll) {
+      await this.search(); // 還原：用保留下來的條件重查
+      return;
+    }
+    // 進全部模式前根本沒搜尋過 → 回到「請設定搜尋條件後點搜尋」的空狀態，不憑空跑一次無條件查詢
+    this.results.set([]);
+    this.total.set(0);
+    this.hasSearched.set(false);
+    this.clearSelection();
+    this.saveToState();
+  }
+
+  /** 全部模式：停用（而非清空）所有條件控制項，讓「條件仍在、但此刻不生效」一目了然。 */
+  private applyAllMode(on: boolean): void {
+    for (const name of CONDITION_CONTROLS) {
+      const ctrl = this.form.controls[name];
+      if (on) ctrl.disable({ emitEvent: false });
+      else ctrl.enable({ emitEvent: false });
+    }
+    // 離開全部模式時，關鍵字仍須依 scope* 勾選狀態決定可否輸入（見 bindScopeKeyToggle）
+    if (!on && !this.keyEnabled()) {
+      this.form.controls.searchKey.disable({ emitEvent: false });
     }
   }
 
@@ -456,6 +540,8 @@ export class SignupListPage implements OnInit {
 
   private buildQuery(): SignupSearchQuery {
     const v = this.form.getRawValue();
+    // 「全部」模式：忽略所有條件（搜尋與匯出 Excel 皆然），條件值仍留在表單供取消勾選後還原
+    if (v.isAll) return ALL_QUERY;
     return {
       year: v.year ?? null,
       isScope: v.isScope,
@@ -482,7 +568,7 @@ export class SignupListPage implements OnInit {
       this.results.set(resp.items);
       this.total.set(resp.total);
       this.selectedIds.set(new Set());
-      this.lastClickIndex = null;
+      this.clearAnchor(); // 結果換掉了，舊 index 對不上新資料
       this.saveToState();
     } catch (err) {
       this.errorMessage.set(toMessage(err));
@@ -493,6 +579,7 @@ export class SignupListPage implements OnInit {
 
   protected resetForm(): void {
     this.form.reset({
+      isAll: false,
       year: null,
       isScope: false,
       ceremonyCategoryId: '',
@@ -508,6 +595,8 @@ export class SignupListPage implements OnInit {
     });
     this.form.controls.searchKey.disable({ emitEvent: false });
     this.keyEnabled.set(false);
+    this.allMode.set(false);
+    this.applyAllMode(false);
   }
 
   protected async exportExcel(): Promise<void> {
@@ -562,31 +651,65 @@ export class SignupListPage implements OnInit {
 
   // ──────────── Selection ────────────
 
+  /**
+   * 列選取。一般點擊＝toggle 該列並把它設為**錨點**；shift + 點擊＝選取「錨點 ~ 本列」整段。
+   *
+   * shift 以「錨點當下的選取狀態」為基準重算（`anchorSelection`），而非疊加到現有選取，
+   * 所以可以反覆 shift 點擊調整範圍（含**縮小**）；錨點前既有的選取則完整保留。
+   * 錨點在 shift 期間刻意不移動——移動的話第二次 shift 會從上一個終點再往外長，範圍只能變大。
+   */
   protected toggleRow(item: SignupListItem, event: MouseEvent | null, index: number): void {
-    const current = new Set(this.selectedIds());
-    if (event?.shiftKey && this.lastClickIndex != null) {
-      const lo = Math.min(this.lastClickIndex, index);
-      const hi = Math.max(this.lastClickIndex, index);
-      const items = this.results();
-      for (let i = lo; i <= hi; i++) current.add(items[i].id);
-    } else {
-      current.has(item.id) ? current.delete(item.id) : current.add(item.id);
+    const items = this.results();
+    if (event?.shiftKey && this.anchorIndex != null && this.anchorIndex < items.length) {
+      const lo = Math.min(this.anchorIndex, index);
+      const hi = Math.max(this.anchorIndex, index);
+      const next = new Set(this.anchorSelection);
+      for (let i = lo; i <= hi; i++) next.add(items[i].id);
+      this.selectedIds.set(next);
+      return;
     }
-    this.selectedIds.set(current);
-    this.lastClickIndex = index;
+
+    const next = new Set(this.selectedIds());
+    next.has(item.id) ? next.delete(item.id) : next.add(item.id);
+    this.selectedIds.set(next);
+    this.setAnchor(index, next);
+  }
+
+  /**
+   * 列首 checkbox 的點擊：與點列同一套邏輯（含 shift 範圍選取）。
+   * 走 click 而非 change——change 的 event 沒有 shiftKey，checkbox 就永遠吃不到 shift。
+   * preventDefault 讓勾選狀態一律由 `selectedIds` 經 `[checked]` 決定，避免 DOM 自行翻轉造成不同步。
+   */
+  protected onCheckboxClick(item: SignupListItem, event: MouseEvent, index: number): void {
+    event.stopPropagation(); // 別讓列的 (click) 再處理一次
+    event.preventDefault();
+    this.toggleRow(item, event, index);
+  }
+
+  /** shift + 點列會觸發瀏覽器的文字範圍選取（整片反白）；在 mousedown 擋掉，click 階段照常選列。 */
+  protected onRowMouseDown(event: MouseEvent): void {
+    if (event.shiftKey) event.preventDefault();
   }
 
   protected toggleAll(): void {
-    if (this.allSelected()) {
-      this.selectedIds.set(new Set());
-    } else {
-      this.selectedIds.set(new Set(this.results().map((r) => r.id)));
-    }
+    const next = this.allSelected() ? new Set<string>() : new Set(this.results().map((r) => r.id));
+    this.selectedIds.set(next);
+    this.clearAnchor(); // 全選/全不選後舊錨點已無意義，下一次 shift 需重新指定起點
   }
 
   protected clearSelection(): void {
     this.selectedIds.set(new Set());
-    this.lastClickIndex = null;
+    this.clearAnchor();
+  }
+
+  private setAnchor(index: number, selection: ReadonlySet<string>): void {
+    this.anchorIndex = index;
+    this.anchorSelection = selection;
+  }
+
+  private clearAnchor(): void {
+    this.anchorIndex = null;
+    this.anchorSelection = new Set();
   }
 
   protected isSelected(id: string): boolean {
@@ -607,8 +730,9 @@ export class SignupListPage implements OnInit {
     event.preventDefault();
     event.stopPropagation();
     if (!this.selectedIds().has(item.id)) {
-      this.selectedIds.set(new Set([item.id]));
-      this.lastClickIndex = index;
+      const next = new Set([item.id]);
+      this.selectedIds.set(next);
+      this.setAnchor(index, next); // 右鍵選中的那列同時成為 shift 範圍的起點
     }
     this.menu.open<MenuContext>({
       origin: { x: event.clientX, y: event.clientY },
@@ -619,8 +743,9 @@ export class SignupListPage implements OnInit {
 
   protected openRowMenuFromButton(button: HTMLElement, item: SignupListItem, index: number): void {
     if (!this.selectedIds().has(item.id)) {
-      this.selectedIds.set(new Set([item.id]));
-      this.lastClickIndex = index;
+      const next = new Set([item.id]);
+      this.selectedIds.set(next);
+      this.setAnchor(index, next);
     }
     this.menu.open<MenuContext>({
       origin: button,

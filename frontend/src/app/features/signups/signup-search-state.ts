@@ -2,6 +2,8 @@ import { Injectable, signal } from '@angular/core';
 import type { SignupListItem } from '../../core/api/signups/signup.models';
 
 export interface SignupSearchFormSnapshot {
+  /** 「全部」模式：忽略以下所有條件顯示全部報名（條件值仍保留於本快照，取消勾選即還原）。 */
+  isAll: boolean;
   year: number | null;
   isScope: boolean;
   ceremonyCategoryId: string;
@@ -32,6 +34,8 @@ export class SignupSearchState {
   readonly hasSearched = signal(false);
   readonly selectedIds = signal<ReadonlySet<string>>(new Set());
   readonly stale = signal(false);
+  /** 進入「全部」模式前是否已搜尋過 → 取消勾選時決定要重查條件還是回到未搜尋的空狀態。 */
+  readonly searchedBeforeAll = signal(false);
 
   markStale(): void {
     this.stale.set(true);
@@ -48,5 +52,6 @@ export class SignupSearchState {
     this.hasSearched.set(false);
     this.selectedIds.set(new Set());
     this.stale.set(false);
+    this.searchedBeforeAll.set(false);
   }
 }
