@@ -144,6 +144,25 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     expect(draftState.draft()).toBeNull(); // resetBelow 後表單已 pristine，不會再存回去
   });
 
+  it('按「取消」保留法會資料與費用，其餘欄位清空（2026-07-28 使用者指定：金額不用重打）', async () => {
+    const f = await open();
+    probe(f).form.patchValue({
+      year: 113, ceremonyCategoryId: 'c1', signupType: 2,
+      name: '陳小美', phone: '0900-000-000', fee: 1200, remark: '測試備註',
+    });
+    probe(f).form.markAsDirty();
+
+    probe(f).resetBelow();
+
+    expect(val(f, 'fee')).toBe(1200);              // 費用保留
+    expect(val(f, 'year')).toBe(113);              // 法會資料保留
+    expect(val(f, 'ceremonyCategoryId')).toBe('c1');
+    expect(val(f, 'signupType')).toBe(2);
+    expect(val(f, 'name')).toBe('');               // 信眾以下其餘欄位清空
+    expect(val(f, 'phone')).toBe('');
+    expect(val(f, 'remark')).toBe('');
+  });
+
   it('只選了信眾、一個字都沒改就切走 → 回來仍帶回（選信眾＝實質輸入）', async () => {
     const draftState = TestBed.inject(SignupDraftState);
 

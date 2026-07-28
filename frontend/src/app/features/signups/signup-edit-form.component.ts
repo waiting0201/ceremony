@@ -864,6 +864,9 @@ export class SignupEditFormComponent implements OnInit {
    * 不關閉 overlay、不跳頁，只把「信眾與其以下」全部欄位清空，保留最上方法會資料（年份/法會/類型）
    * 作為連續輸入下一筆的固定情境。清除已選信眾、搜尋框與搜尋結果，回到全新的新增狀態。
    * 僅供新增模式使用（編輯模式的取消＝關閉，由 host 處理）。
+   *
+   * **例外：費用不清**（2026-07-28 使用者指定）——同一場法會連續輸入時金額多半固定，
+   * 每按一次取消就要重打很煩。與「改選信眾不清費用」同一取捨（舊 BelieverSelected 亦未碰 txtFee）。
    */
   resetBelow(): void {
     // 還在路上的「改選信眾」回應作廢，否則按完取消後它會把欄位再填回來
@@ -884,7 +887,7 @@ export class SignupEditFormComponent implements OnInit {
     this.textAreas.set([]);
     this.mailZipcode.set('');
     this.textZipcode.set('');
-    // 保留法會資料（year/ceremonyCategoryId/signupType），清除信眾以下所有欄位
+    // 保留法會資料（year/ceremonyCategoryId/signupType）與費用（fee），清除信眾以下其餘欄位
     this.form.patchValue({
       believerId: '',
       name: '',
@@ -901,7 +904,6 @@ export class SignupEditFormComponent implements OnInit {
       textAddress: '',
       keepNumber: false,
       customNumber: null,
-      fee: null,
       remark: '',
       prepayYear: null,
       prepayCeremonyCategoryId: '',
