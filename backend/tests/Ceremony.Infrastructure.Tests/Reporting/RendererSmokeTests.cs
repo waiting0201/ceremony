@@ -315,6 +315,60 @@ public sealed class RendererSmokeTests
         DumpIfRequested(overlay, "receipt_overlay.pdf");
     }
 
+    // 2026-07-28 客訴（客戶實印信封回掃 reference/template/收據封面.jpg）：郵寄封面收件人姓名要對齊
+    // 預印「大德　法啟」那一列（只下移、左緣不動）。回歸鎖：姓名 Top 必須維持在量測錨值，且地址不論
+    // 多長都不得長到姓名列（地址換行往下長，姓名錨在預印字上不能被推走）。
+    [Fact]
+    public void Receipt_CoverName_SitsOnPrePrintedDaDeRow_AndAddressWrapsAboveIt()
+    {
+        const double addressTopCm = 4.67056;
+        const double pointsPerCm = 28.3464567;
+
+        ReceiptRenderer.CoverNameTopCm.Should().BeApproximately(6.13, 1e-9,
+            "姓名列錨在預印「大德」墨跡基線（回掃 200DPI：原 5.44111 下移 0.683cm）");
+
+        // 一般長度地址不縮字（維持 RDLC 原始 16pt）
+        ReceiptRenderer.CoverAddressFontPt("台中市烏日區三民街97號").Should().Be(16);
+        ReceiptRenderer.CoverAddressLineCount("台中市烏日區三民街97號", 16).Should().Be(1);
+
+        // 超過一行 → 印到下一行，字級仍不動（兩行塞得進地址列到姓名列之間）
+        const string twoLines = "台中市烏日區三民街97號之3四樓之12號1室";
+        ReceiptRenderer.CoverAddressLineCount(twoLines, 16).Should().BeGreaterThan(1, "過長地址要換行，不是截斷");
+        ReceiptRenderer.CoverAddressFontPt(twoLines).Should().Be(16);
+
+        // 極長地址 → 降字級塞好，絕不壓到姓名列
+        foreach (var address in new[]
+                 {
+                     "台中市烏日區三民街97號",
+                     twoLines,
+                     new string('中', 40),
+                     new string('中', 80),
+                 })
+        {
+            var pt = ReceiptRenderer.CoverAddressFontPt(address);
+            var bottom = addressTopCm + ReceiptRenderer.CoverAddressLineCount(address, pt) * (pt / pointsPerCm);
+            bottom.Should().BeLessThanOrEqualTo(ReceiptRenderer.CoverNameTopCm,
+                $"地址「{address[..Math.Min(10, address.Length)]}…」換行後不得長到姓名列（實得 {pt}pt）");
+        }
+
+        // 疊圖對位樣張：封面頁改成也疊客戶實印信封回掃（reference/template/收據封面.jpg），
+        // 供目視確認姓名列落在預印「大德　法啟」上。
+        var sample = new ReceiptData(
+            Name: "林美鳳", Zipcode: "414", Address: "台中市烏日區三民街97號",
+            Fee: "1200", Number: "信1", Prepay: "", Year: "115", Month: "5", Day: "29");
+        var samplePlain = new ReceiptRenderer().Render(sample);
+        var sampleOverlay = new ReceiptRenderer().Render(sample, debugOverlay: true);
+        sampleOverlay.Length.Should().BeGreaterThan(samplePlain.Length, "封面樣板必須真的被疊上去");
+        DumpIfRequested(samplePlain, "receipt_cover_name_row.pdf");
+        DumpIfRequested(sampleOverlay, "receipt_cover_name_row_overlay.pdf");
+        DumpIfRequested(new ReceiptRenderer().Render(new ReceiptData(
+            Name: "林美鳳", Zipcode: "414", Address: twoLines,
+            Fee: "1200", Number: "信1", Prepay: "", Year: "115", Month: "5", Day: "29")), "receipt_cover_long_address.pdf");
+        DumpIfRequested(new ReceiptRenderer().Render(new ReceiptData(
+            Name: "林美鳳", Zipcode: "414", Address: new string('中', 80),
+            Fee: "1200", Number: "信1", Prepay: "", Year: "115", Month: "5", Day: "29")), "receipt_cover_extreme_address.pdf");
+    }
+
     [Fact]
     public void Receipt_EmptyAddress_StillTwoPages()
     {

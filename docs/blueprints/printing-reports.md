@@ -200,7 +200,7 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 在 `debugGrid`（格線）之外，新增另一種對位輔助：把 `reference/template/` 底下的實體樣板掃描照（文牒.jpg / 資料卡.jpg / 薦牌.jpg，200 DPI）疊在產出 PDF 的文字層底下，讓開發人員直接肉眼比對欄位是否落在樣板框線/欄位內，比純格線更直覺。
 
 - **觸發**：既有 3 個 GET endpoint 加 `debugOverlay` query 參數 —
-  `GET /api/v1/reports/{datacard,tablet,text}?signupId=...&debugOverlay=true`。收據沒有樣板圖、普桌本身已有真背景圖，故不適用。
+  `GET /api/v1/reports/{datacard,tablet,text}?signupId=...&debugOverlay=true`。普桌本身已有真背景圖故不適用；收據**當時**沒有樣板圖，後來補上（本體 2026-07-21 `receipt-template.jpg`、郵寄封面 2026-07-28 `receipt-cover-template.png`），但收據的 `debugOverlay` 只走 `ReceiptRenderer.Render(data, debugOverlay: true)`＋測試 dump，沒有加 endpoint。
 - **環境限制**：僅 `ASPNETCORE_ENVIRONMENT=Development` 可用；其他環境一律回 404（不是 403，避免洩漏功能存在），見 [ReportsController](../../backend/src/Ceremony.Api/Controllers/ReportsController.cs)。
 - **實作**：比照 [WorshipRenderer](../../backend/src/Ceremony.Infrastructure/Reporting/WorshipRenderer.cs) 既有的 `EmbeddedResource + LoadBackground()` 手法，樣板照複製進 `Reporting/Assets/DebugTemplates/`（英文檔名，中文檔名做 EmbeddedResource 邏輯名稱有建置風險）；`DataCardRenderer` / `TextRenderer` / `TabletRenderer` 的 `Render(...)` 各加 `bool debugOverlay = false`，預設 `false` 不影響生產路徑。`TabletTemplate.OneOne`（頁面有 2cm 上下 margin）疊圖需對齊內容區高度，其餘變體對齊整張頁面——跟既有 `debugGrid` 一樣可以同時開啟。
 - **已知限制（重要，不要誤用）**：掃描樣板尺寸跟 RDLC 座標換算出的頁面尺寸有小誤差（例如文牒頁 36.5×26.2cm，掃描圖換算約 36.4×25.7cm），資料卡樣板另有 EXIF 側拍需轉正。這個工具**只能做粗略肉眼比對**，不能取代 [printing-reports-positions.md](printing-reports-positions.md) 的 RDLC ground truth、`debugGrid` 實體校正、或下面「本輪仍未做」列的 `±0.05cm CI 座標量測自動化`（規劃中，尚未實作）。
@@ -215,6 +215,11 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
   - **修法**：三處都加 `var marginCompensation = data.Template == TabletTemplate.OneOne ? 2.0 : 0.0;`，content-Y 一律減去這個補償值，讓 OneOne 印出來的實體頁面高度跟共用同一個座標常數的其他變體一致。
   - **關鍵技術發現**：原本擔心負值 `TranslateY`（例如 `0.1 - 2.0 = -1.9`）會像先前 debugOverlay 圖片疊圖那樣被 QuestPDF 整層裁掉——**但實測文字（`Text` fluent API）不會被裁掉**，只有先前疊圖用的 `Image` + `.FitUnproportionally()`/`.FitArea()` 那條路徑會被裁；`回歸測試（含檢查 PDF 位元組數變大的測試）全數通過證實這點。這代表 QuestPDF 對「超出 Margin 範圍的內容」是否裁切，**依內容類型而不是座標系統統一決定**，不能從一種元素的行為直接類推到另一種。
   - PDF 已更新至 `reference/output/`，`dotnet test` 314 個測試全數通過（無需新增測試，既有測試已能驗證內容真的畫出來）。
+
+- **✅ 2026-07-28 追加：郵寄封面（收據第 2 頁）也能疊圖**——客戶提供實印信封回掃（`reference/template/收據封面.jpg`），先前封面頁完全沒有樣板可對位、只能憑座標推。作法與其他樣板不同的三點：
+  - **不是整頁掃描**：只有信封本體那一塊（約頁面左上 21.2 × 9.8cm），所以**不能**像其他 renderer 拉滿整頁，要依量測的偏移／尺寸擺放（`ReceiptRenderer.CoverTemplate*`）。scale 與原點是拿「圖上本 renderer 印出來的三欄墨跡」對照同一筆資料新版 PDF 的實際墨跡解出來的：68.85 px/cm、原點 (0.05, −0.10)cm
+  - **踩到兩個 QuestPDF `Image` 的雷（文字都不會中，只有圖片會）**：①位移為負 → **整張圖不畫**（不是只裁掉超出的部分）②容器寬度超出頁面（原圖 1458px＝21.18cm > A4 21cm）→ **同樣整張不畫**。兩者都在**資產端**解掉：裁成 1441×665 的灰階 PNG（上緣裁 7px＝0.10cm 讓 y0 落在 0、右緣裁到 20.93cm），改用正值位移；順帶檔案從 JPG 69KB → 灰階 PNG 81KB，可接受。**教訓補充**：07-05 已知「Image 會被 Margin 裁、文字不會」，這次多學到「不合法的位移／尺寸不是裁切而是靜默整張消失」，而且**沒有任何警告**，只能靠回掃像素確認圖真的畫出來了（PDF 位元組變大不代表畫得到——圖片一定會被嵌進檔案）
+  - **回掃驗證（150DPI）**：新姓名墨跡 6.164~6.672cm、樣板預印「大德」6.181~6.655cm → **中心差 0.000cm、基線差 0.017cm**；樣張 `reference/output/receipt_cover_name_row_overlay.pdf`
 
 ### 資料卡改版（2026-07-03，用 `debugOverlay` 樣板量測發現版面結構落差後改版）
 
