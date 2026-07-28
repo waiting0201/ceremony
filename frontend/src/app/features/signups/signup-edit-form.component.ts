@@ -824,8 +824,20 @@ export class SignupEditFormComponent implements OnInit {
     }
   }
 
-  protected onSubmitFromForm(): void {
-    void this.submit();
+  /**
+   * Enter 一律不送出表單（2026-07-28 使用者指定：「確認」只能用滑鼠點）。
+   *
+   * 兩道防線：(1) 表單內已移除 `<button type="submit">` 與 `(ngSubmit)`，HTML 隱含送出失效；
+   * (2) 這裡再攔一次 Enter——按鈕列已投影進 `<form>` 內，焦點若停在「確認」上，
+   * 原生 button 的 Enter 啟動（keydown 的預設動作＝click）也會被這裡的 preventDefault 擋掉。
+   *
+   * 例外：`textarea`（備註要能換行）。信眾搜尋框自己的 Enter＝觸發搜尋，
+   * 它在 target 階段就已處理完並 preventDefault（見 `onBelieverSearchKeydown`），不受影響。
+   */
+  protected onFormKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Enter') return;
+    if ((event.target as HTMLElement | null)?.tagName === 'TEXTAREA') return;
+    event.preventDefault();
   }
 
   /**

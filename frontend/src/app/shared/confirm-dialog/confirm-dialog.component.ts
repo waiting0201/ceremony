@@ -72,9 +72,12 @@ import type { ConfirmDialogConfig } from './confirm-dialog.types';
       border-bottom: 1px solid var(--c-border-soft);
       h3 { margin: 0; font-size: var(--font-size-lg); font-weight: 600; }
     }
+    /* 訊息字級＝側欄選單 .nav-label 的 --font-size-md（2026-07-28 使用者指定「提示字再大一點，
+       跟左邊選單文字一樣大」）。這是所有 confirm/alert dialog 共用的 body，全站一起放大——
+       dialog 是要人停下來讀的文字，沒有理由比選單還小。 */
     .confirm-body {
       padding: var(--space-lg);
-      font-size: var(--font-size-base);
+      font-size: var(--font-size-md);
       line-height: 1.55;
       p { margin: 0; white-space: pre-wrap; }
     }

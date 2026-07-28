@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-27 (追加：客訴「距離 X 公分」是**間距**不是「移動 X 公分」——文牒往者 07-21 照字面做成 DeadShiftX=0.5 右移，實際間距變 0.793cm，客戶再度回報；含「跟…距離／離…／對齊…」的句子要先量參考物邊界再回推絕對座標；同日先前：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測)
+last_updated: 2026-07-28 (追加：表單內 `<button type="submit" hidden>` 就是「按 Enter 就送出」的來源，拿掉才是關掉隱含送出；焦點在投影進 form 的按鈕上按 Enter 也會啟動，需 form 層攔 Enter 但放行 textarea；先前 2026-07-27 追加：客訴「距離 X 公分」是**間距**不是「移動 X 公分」——文牒往者 07-21 照字面做成 DeadShiftX=0.5 右移，實際間距變 0.793cm，客戶再度回報；含「跟…距離／離…／對齊…」的句子要先量參考物邊界再回推絕對座標；同日先前：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測))
 ---
 
 ## 通用陷阱
@@ -107,6 +107,12 @@ last_updated: 2026-07-27 (追加：客訴「距離 X 公分」是**間距**不�
 - **真因**：RDLC 沿襲的座標把最左欄放在 Left=0.1cm、編號放在 0.1cm，落在使用者印表機的不可列印邊界（估 ≥0.4-0.5cm）內；QuestPDF/PDF 檢視器不會警告
 - **預防**：**滿版（Margin 0）報表的任何欄位離紙緣至少 0.5cm**；驗收不能只看 PDF，要實機列印。薦牌已把陽上矩陣左界改 0.5、編號 Left 改 0.5（見 [printing-reports-positions.md](blueprints/printing-reports-positions.md) §3 2026-07-17 條）
 - **殘留風險**：薦牌 2 位陽上變體（OneTwo/TwoTwo/UnderscoreTwo）l[1] Left=0.30611 也在風險區，尚未接獲客訴、未改；若再有「少印一欄」回報先查這裡
+
+### 表單裡那顆 `<button type="submit" hidden>` 就是「按 Enter 就送出」的來源（2026-07-28）
+- **症狀**：使用者客訴「打字打到一半按 Enter 就直接送出報名了」，但畫面上的「確認」按鈕明明是 `type="button"` + `(click)`，看起來跟 Enter 無關
+- **真因**：HTML 的**隱含送出（implicit submission）**——只要表單內存在 submit 按鈕，任一單行輸入框按 Enter 就會觸發 `submit` → Angular 的 `(ngSubmit)`。本專案的 edit-form 都刻意放了一顆 `<button type="submit" hidden>`，為的正是讓 Enter 可送出；要拿掉這個行為就是拿掉那顆按鈕（`(ngSubmit)` 一併移除，否則留著一個永遠不會觸發的 handler）
+- **注意**：表單內**沒有** submit 按鈕但只有單一輸入框時，瀏覽器仍會隱含送出（規範如此）；且按鈕列若投影在 `<form>` 內，焦點停在「確認」上按 Enter 也會啟動它（原生 button 的 Enter＝keydown 的預設動作）。要徹底擋掉就在 form 上加 `(keydown)` 攔 Enter 並 `preventDefault()`，**但要放行 `textarea`**（備註要能換行），也不用特別排除有自己 Enter handler 的輸入框（它們在 target 階段就處理完了）
+- **現況**：只有「新增/編輯報名」表單依使用者指定拿掉 Enter 送出（signup-edit-form）；admins / believers / categories 三個 edit-form 仍保留隱含送出，**不要無差別跟進**
 
 ### 「文字顏色不清楚」抱怨要先算對比度，不要憑感覺調色（2026-07-04）
 - **症狀**：使用者反映「文字太小、顏色不清楚」，2026-07-02 已單純把全部字級 +1px 處理過一次，這次同樣抱怨又出現

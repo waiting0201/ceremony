@@ -5,7 +5,7 @@
   <div class="hint">載入中…</div>
 }
 
-<form [formGroup]="form" (ngSubmit)="onSubmitFromForm()" class="form-card">
+<form [formGroup]="form" (keydown)="onFormKeydown($event)" class="form-card">
   <!-- 法會資料靠左直立、其餘內容在右（2026-07-27 使用者指定，回到舊版面）：
        舊 NewSignupForm 的 plStep1 就是最左側窄長面板（Location 11,85 / Size 175×470），
        年份→法會→類型由上到下排；plStep2（信眾與其餘欄位）在右側。 -->
@@ -332,7 +332,8 @@
     </div><!-- /.form-main -->
   </div><!-- /.form-shell -->
 
-  <!-- 「列印資料卡」按鈕不在表單內，而在 host 的 actions 列（取消鈕左邊），
-       由 host 讀 lastCreatedSignupId() 決定 disabled，見 signup-list-page / signup-edit-page。 -->
-  <button type="submit" hidden></button>
+  <!-- 這裡原本有一顆 `<button type="submit" hidden>`：那是「按 Enter 就送出」的來源
+       （HTML 隱含送出需要表單內有 submit 按鈕）。2026-07-28 使用者指定「確認只能用滑鼠點」，
+       故移除，`(ngSubmit)` 一併拿掉；另有 onFormKeydown 攔 Enter 當第二道保險。
+       「列印資料卡 / 取消 / 確認」按鈕由 host 投影進上方 .form-actions-slot。 -->
 </form>

@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-28 (form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
+last_updated: 2026-07-28 (confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
 ---
 
 ## 設計原則
@@ -519,6 +519,7 @@ class FormOverlayComponent {
 - **成功**：彈出**單一「確定」按鈕的結果 dialog**（沿用 ConfirmDialog 的 `hideCancel` 變體，非另造元件），顯示 fileName / fullPath / sizeBytes。
 - **失敗**：dialog 顯示後端 verbatim 中文錯誤訊息（透過 `ApiError`）。
 - **pattern 要點**：通知型「結果視窗」一律走 ConfirmDialog `hideCancel: true`（單 OK），不要再各自做 toast / alert，維持全系統 dialog 一致。
+- **dialog 內文字級（2026-07-28）**：`.confirm-body` ＝ `--font-size-md`，與側欄選單 `.nav-label` 同級（使用者客訴「報名成功的提示字太小」）。dialog 是要人停下來讀的文字，不該比選單小；此為**全站共用**設定，改的是共用元件而非單一呼叫端。
 
 ### 列印預覽頁面（`/reports/preview`，**2026-05-28 重新設計**）
 

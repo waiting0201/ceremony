@@ -283,6 +283,27 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     expect(number().disabled).toBe(true);
   });
 
+  // 2026-07-28 使用者指定：「確認」只能用滑鼠點，Enter 不可以送出。
+  it('按 Enter 不送出表單（備註 textarea 仍可換行）', async () => {
+    const f = await open();
+    const host: HTMLElement = f.nativeElement;
+
+    // 隱含送出的來源就是表單內的 submit 按鈕，不能再有
+    expect(host.querySelector('button[type="submit"]')).toBeNull();
+
+    const enter = () => new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+
+    const nameInput = host.querySelector<HTMLInputElement>('input[formControlName="name"]')!;
+    const onInput = enter();
+    nameInput.dispatchEvent(onInput);
+    expect(onInput.defaultPrevented).toBe(true);
+
+    const remark = host.querySelector<HTMLTextAreaElement>('textarea[formControlName="remark"]')!;
+    const onTextarea = enter();
+    remark.dispatchEvent(onTextarea);
+    expect(onTextarea.defaultPrevented).toBe(false);
+  });
+
   it('編輯模式編號恆可改（不受「指定編號」影響）', async () => {
     const f = await open({ signupId: 'a1b2c3' });
     expect(probe(f).form.get('customNumber')!.enabled).toBe(true);
