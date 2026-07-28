@@ -57,7 +57,10 @@ builder.Services.AddAuthorization();
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:4200"])
      .AllowAnyHeader()
-     .AllowAnyMethod()));
+     .AllowAnyMethod()
+     // 這兩個不在 CORS safelist，不明示 expose 前端就讀不到（檔名會退回 fallback、筆數會是 undefined）。
+     // dev 是 :4200→:5050 跨源，prod Electron renderer 走 file:// Origin=null 也算跨源，兩邊都需要。
+     .WithExposedHeaders("Content-Disposition", "X-Signup-Count")));
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

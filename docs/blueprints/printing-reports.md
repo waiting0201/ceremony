@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-07-27 (文牒客訴兩項：①往者/陽上「不管幾位字級都跟一位一樣」——改 VerticalText.MatrixLayout（同薦牌 07-17），字級固定 0.8cm、下排起點動態，撤掉 07-21 的 WithBottomGap＋固定列距（把 3 字名縮到 ≈0.50cm）②往者最左欄離左側預印字 0.5cm 是**間距**不是位移——撤掉 07-21 的 DeadShiftX=0.5（實際變 0.793cm），改絕對錨點 DeadLeftX=11.707（量測「鳴呼既追攀…」欄右緣 11.207+0.5），Base/Two 皆以自己的最左欄對齊；堂號 Second 同錨、First 維持相對 2.03753；200DPI 回掃最左欄墨跡 11.756／堂號 11.769、6 位滿版字高 0.685cm 未超框——回歸鎖 Text_NameFontSize_StaysAtBase_RegardlessOfNameCount／Text_DeadNamesAndHallName_KeepHalfCentimeterFromPrePrintedText，Infrastructure 112 綠、待實體複驗)；同日先前 (資料卡客訴二度回報「往者 1／2 位沒置中」：改依實際字級動態置中於框中軸 17.278（1 位 中軸−fontCm/2、2 位對稱分居留 0.1cm），撤掉固定左移 0.3cm 的 FewDeadShiftX〔固定位移救不了兩種組寬，1 位偏左 0.19／2 位偏右 0.18〕；200 DPI 回掃誤差 ≤0.012cm；框與 3+ 矩陣不動；slot-based 判定用 public PrintTemplateSelector.SlotTier——回歸鎖 DataCard_OneOrTwoDeadNames_AreCenteredInWindowFrame，Infrastructure 110 綠、待實體複驗)；先前 2026-07-21 (資料卡客訴三項：編號抬頭與號碼分開繪製、中間 0.3cm 空隙、不再用「.」（NumberTitle/Number 分兩欄）；往者字級改與薦牌一致（ChooseTablet 的 ParaFontSize tier + MatrixLayout 於窗框動態縮，取代寫死 0.6cm+固定列距 2.6）；窗框含整個框右移 0.8cm（FrameShiftX）＋預繳右移 1.5cm（Left 12.133→13.633）——回歸鎖 DataCard_SixDeadNames_MatrixStaysWithinMeasuredWindow 改用 MatrixLayout、DataCard_number_is_number_only_title_separate，280 單元測試綠、待實體複驗)；先前 2026-07-18 (普桌資料卡客訴：template 一樣要全印——WorshipCardRenderer.DrawTemplate 生產路徑畫葫蘆（重用 worship2.png 墨跡對墨跡縮放）＋右側標題＋簽名底線，白紙可印；生產字型渲染回掃逐項誤差 ≤0.013cm，內容座標不動，回歸鎖 WorshipCard_EmptyContent_StillPrintsTemplate；同日資料卡客訴改版：template 由程式全印——§1 DrawTemplate 畫標題/簽名底線/窗框/故靈位，白紙可印、內容座標不動、亡者矩陣硬邊界不變，回歸鎖 DataCard_EmptyContent_StillPrintsTemplate；同日文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
+last_updated: 2026-07-28 (批次列印改 job 模型：「批次範圍列印」流程改寫、新增「批次列印進度與取消」段〔三個批次入口顯示真實 i/N 進度 overlay、可取消、合併階段提示、2GB 規模上限〕。先前 2026-07-27 文牒客訴兩項：①往者/陽上「不管幾位字級都跟一位一樣」——改 VerticalText.MatrixLayout（同薦牌 07-17），字級固定 0.8cm、下排起點動態，撤掉 07-21 的 WithBottomGap＋固定列距（把 3 字名縮到 ≈0.50cm）②往者最左欄離左側預印字 0.5cm 是**間距**不是位移——撤掉 07-21 的 DeadShiftX=0.5（實際變 0.793cm），改絕對錨點 DeadLeftX=11.707（量測「鳴呼既追攀…」欄右緣 11.207+0.5），Base/Two 皆以自己的最左欄對齊；堂號 Second 同錨、First 維持相對 2.03753；200DPI 回掃最左欄墨跡 11.756／堂號 11.769、6 位滿版字高 0.685cm 未超框——回歸鎖 Text_NameFontSize_StaysAtBase_RegardlessOfNameCount／Text_DeadNamesAndHallName_KeepHalfCentimeterFromPrePrintedText，Infrastructure 112 綠、待實體複驗)；同日先前 (資料卡客訴二度回報「往者 1／2 位沒置中」：改依實際字級動態置中於框中軸 17.278（1 位 中軸−fontCm/2、2 位對稱分居留 0.1cm），撤掉固定左移 0.3cm 的 FewDeadShiftX〔固定位移救不了兩種組寬，1 位偏左 0.19／2 位偏右 0.18〕；200 DPI 回掃誤差 ≤0.012cm；框與 3+ 矩陣不動；slot-based 判定用 public PrintTemplateSelector.SlotTier——回歸鎖 DataCard_OneOrTwoDeadNames_AreCenteredInWindowFrame，Infrastructure 110 綠、待實體複驗)；先前 2026-07-21 (資料卡客訴三項：編號抬頭與號碼分開繪製、中間 0.3cm 空隙、不再用「.」（NumberTitle/Number 分兩欄）；往者字級改與薦牌一致（ChooseTablet 的 ParaFontSize tier + MatrixLayout 於窗框動態縮，取代寫死 0.6cm+固定列距 2.6）；窗框含整個框右移 0.8cm（FrameShiftX）＋預繳右移 1.5cm（Left 12.133→13.633）——回歸鎖 DataCard_SixDeadNames_MatrixStaysWithinMeasuredWindow 改用 MatrixLayout、DataCard_number_is_number_only_title_separate，280 單元測試綠、待實體複驗)；先前 2026-07-18 (普桌資料卡客訴：template 一樣要全印——WorshipCardRenderer.DrawTemplate 生產路徑畫葫蘆（重用 worship2.png 墨跡對墨跡縮放）＋右側標題＋簽名底線，白紙可印；生產字型渲染回掃逐項誤差 ≤0.013cm，內容座標不動，回歸鎖 WorshipCard_EmptyContent_StillPrintsTemplate；同日資料卡客訴改版：template 由程式全印——§1 DrawTemplate 畫標題/簽名底線/窗框/故靈位，白紙可印、內容座標不動、亡者矩陣硬邊界不變，回歸鎖 DataCard_EmptyContent_StillPrintsTemplate；同日文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
 ---
 
 ## 背景與動機
@@ -475,14 +475,30 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 6. 預覽可再按「列印」呼叫 OS 印表機 dialog
 ```
 
-### 批次範圍列印
+### 批次範圍列印（**2026-07-28 改 job 模型**）
 
 ```
 1. SignupForm 底部 plPrint：起~迄編號 + 類型
 2. 「列印」→ 套用當前搜尋篩選 + 編號範圍
-3. POST /reports/batch 將 query 與 type 傳給後端
-4. 後端依 query 取資料 → 同上 4-6
+3. POST /reports/batch/jobs → 後端同步驗證＋查詢，回 202 {jobId, total}
+4. 前端開進度 overlay，每 250ms GET /reports/batch/jobs/{id} 取 completed
+5. 完成 → GET /reports/batch/jobs/{id}/file 取合併 PDF → 開新分頁 / iframe 預覽
 ```
+
+### 批次列印進度與取消（**2026-07-28 新增**）
+
+三個批次入口（報名維護的編號區間列印、多選右鍵列印、`/reports/preview` 批次產生）都會跳出
+置中的進度 overlay，顯示真實的「第 i / 共 N 筆」百分比與取消鈕；完成後 overlay 自動消失。
+**單筆列印不走這條**（很快，不需要進度條）。
+
+- 進度是**真的**：後端每渲染完一筆就回報一次，不是估算動畫。
+- 筆數跑滿但尚未結束時顯示「合併 PDF…」（PdfSharp 正在合併，實測 799 筆需 ~1.6s）。
+- 按「取消」會真的中止後端渲染（最多多跑當下這一筆），不產生 PDF。
+- 完整契約、錯誤碼與取捨理由見
+  [api-endpoints/post-reports-batch-jobs.md](api-endpoints/post-reports-batch-jobs.md)；
+  視覺規格見 [visual-design.md「進度 Overlay」](../design/visual-design.md)。
+- **規模上限**：合併走 `MemoryStream`，超過 2 GB 會失敗（實測 19018 筆 datacard）。
+  屬既有限制，見 [performance.md](../design/performance.md)。
 
 ## 技術選型
 

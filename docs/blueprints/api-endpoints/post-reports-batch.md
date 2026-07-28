@@ -16,8 +16,17 @@ related_docs:
   - ../printing-reports-positions.md
   - ../legacy-coverage/signup-form.md
 keywords: [reports, batch, print, pdf, merge, range, signupIds, 勾選, 精準列印]
-last_updated: 2026-07-18 (worship/worshipcard 解鎖：撤回 SignupType=4 防呆——signupIds 模式選什麼印什麼、編號區間只跟隨呼叫端篩選，對齊舊系統（客訴選項被鎖）。先前 2026-07-04 reportType 白名單加 worshipcard；再先前加 signupIds[] 精準勾選列印模式)
+last_updated: 2026-07-28 (定位改為 compat/測試用：UI 已改走 job 版 POST /reports/batch/jobs，前端 ReportApi.batch() 移除、後端保留（理由見檔頭警示框）；風險段更新 sequential render 現況與 PdfSharp 2GB 合併上限。先前 2026-07-18 worship/worshipcard 解鎖：撤回 SignupType=4 防呆——signupIds 模式選什麼印什麼、編號區間只跟隨呼叫端篩選，對齊舊系統（客訴選項被鎖）。先前 2026-07-04 reportType 白名單加 worshipcard；再先前加 signupIds[] 精準勾選列印模式)
 ---
+
+> ⚠️ **2026-07-28：此為同步阻塞版，UI 已不再使用。**
+> 前端三個批次入口都改走 [POST /reports/batch/jobs](./post-reports-batch-jobs.md)（有真實進度與取消），
+> `ReportApi.batch()` 已從前端移除。
+>
+> **後端仍保留本 endpoint**，理由：(1) `ReportsEndpointsTests` 有 8 個測試（含 3 個真 DB
+> render/merge）是批次渲染路徑唯一的端到端覆蓋；(2) 拆分後它只是
+> `ResolveAsync + BatchReportComposer.Render` 的兩行 wrapper，維護成本 ≈ 0；(3) 對外契約已 shipped。
+> 「後端留、前端刪」的不對稱是刻意的，不是漏改。狀態維持 **shipped**，定位改為 compat / 測試用。
 
 ## 規格
 
@@ -156,7 +165,11 @@ ORDER BY Number
 
 ## 風險與未解問題
 
-- 大範圍批次（500+ signups）效能：目前 sequential render；後續視需求改 parallel 或 stream
+- ~~大範圍批次（500+ signups）效能：目前 sequential render；後續視需求改 parallel 或 stream~~
+  → **2026-07-28 部分解決**：渲染仍是 sequential，但改成背景 job 後 UI 有真實進度且可取消
+  （見 [post-reports-batch-jobs.md](./post-reports-batch-jobs.md)）。實測 799 筆 datacard
+  渲染 5.4s + 合併 1.6s。**尚未解決**：合併走 `MemoryStream`，19018 筆會觸發
+  `System.IO.IOException: Stream was too long`（2 GB 上限），同步版與 job 版皆然。
 - Worship 自動過濾 non-type-4：與舊系統行為不同（舊系統會崩潰），新版選擇防呆；若有客戶投訴可改為 422 嚴格驗證
 
 ## 參考

@@ -180,6 +180,46 @@ SQL Server
 - LoadPrepayCommand：原本就單次 SaveChanges → 保留 atomic
 - 跨服務交易（例：寄送 email）採 outbox pattern（目前無此需求）
 
+## 批次列印背景工作（in-memory job，**2026-07-28**）
+
+批次列印從「一次阻塞式 POST」改為 job 模型，讓 UI 能顯示真實的「第 i / 共 N 筆」進度並中途取消。
+端點契約與取捨理由見 [api-design.md](api-design.md) 與
+[post-reports-batch-jobs.md](../blueprints/api-endpoints/post-reports-batch-jobs.md)。
+
+**Handler 拆分**（`Application/Reports/`）
+
+| 型別 | 職責 |
+|---|---|
+| `BatchReportHandler.ResolveAsync` | 驗證 + DB 查詢 + 決定檔名 → `BatchReportPlan`。**同步執行**，錯誤碼/訊息與原本完全相同 |
+| `BatchReportComposer.Render`（static） | 逐筆渲染 + 合併。每筆之前 `ct.ThrowIfCancellationRequested()`、之後 `onRendered(i+1)` |
+| `BatchReportHandler.HandleAsync` | ＝ `ResolveAsync` + `Composer.Render(..., null, ct)`。**簽章與行為刻意不變**，既有測試與同步版 endpoint 一行都不用改 |
+| `BatchPrintJobService`（Singleton） | job store（`ConcurrentDictionary`）+ 背景 `Task.Run` + 取消 + TTL |
+
+兩個刻意的選擇：
+- **`Action<int>` 而非 `IProgress<int>`**：後者會 post 到 SynchronizationContext / thread pool，
+  回報可能延遲或亂序；這裡只是同步寫一個 int，直接呼叫最準。
+- **Composer 做成 static**：`BatchReportHandler` 建構子不必多吃相依（既有測試不炸），
+  job service 可自行注入 Singleton 的 `IReportRenderer` / `IPdfMerger`。
+
+**為什麼 job state 放記憶體**：Electron + .NET sidecar 同一個 exe，一台 client 一個 API process、
+只服務一個使用者，無反向代理也無多實例（見 [infrastructure.md](infrastructure.md)），與既有
+`MemoryJwtBlacklist` 是同一組取捨。不用 `IMemoryCache` 是因為需要列舉（TTL sweep、per-owner 計數）
+與可變的 job 物件。
+
+**CancellationToken 串接**：job 自帶 `CancellationTokenSource`，`DELETE` 端點觸發 `Cancel()`；
+service 實作 `IDisposable`，DI 釋放 singleton（App 關閉）時取消所有進行中的工作。
+**絕不可用 `HttpContext.RequestAborted`**——POST 一回應該 token 就被取消，背景工作會立刻死
+（見 [gotchas.md](../gotchas.md)）。
+
+**記憶體釋放三層**：(1) `/file` 取走即移除（主力）(2) TTL 10 分鐘 sweep（在 `Start` 與每個 job
+收尾時各掃一次，不需要 `BackgroundService`/Timer）(3) 硬上限保留 4 個 job。
+成品 PDF 可能很大（實測 799 筆 datacard ＝ 107 MB），one-shot 釋放是必要的。
+
+**背景例外不經過 `ExceptionMiddleware`**：`RunAsync` 的 catch 分流成
+`OperationCanceledException` → `Canceled`、`DomainException` → `Failed` + 保留原錯誤碼、
+其他 → 記 log（**唯一會留下 stack trace 的地方**）+ `INTERNAL_ERROR`。
+狀態端點再把 errorCode/message 帶給前端，UX 與同步版一致。
+
 ## 觀測
 
 - 結構化 log（含 `trace_id` / `user_id` / `command_name`），輸出到 Seq（dev）/ 檔案（prod）

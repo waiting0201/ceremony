@@ -57,6 +57,8 @@ public static class DependencyInjection
         services.AddScoped<GenerateWorshipHandler>();
         services.AddScoped<GenerateWorshipCardHandler>();
         services.AddScoped<BatchReportHandler>();
+        // 批次列印背景 job 狀態必須跨 request 存活 → Singleton（單機 sidecar，見該類別 remarks）
+        services.AddSingleton<BatchPrintJobService>();
         services.AddScoped<BackupHandler>();
         services.AddScoped<ListZipcodeCitiesHandler>();
         services.AddScoped<ListZipcodeAreasHandler>();

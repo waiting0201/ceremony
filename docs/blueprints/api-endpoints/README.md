@@ -31,7 +31,7 @@ last_updated: 2026-05-27.4
 
 ## 索引（依舊 Form 分組）
 
-> 進度：**30 個 endpoint shipped**（含全部 5 個單筆列印變體 + batch + backup + backup download + logout）。列印 PoC 已確認 **QuestPDF 路徑**（RDLC 在 .NET 10 不可行）；批次列印用 **PdfSharp 6.2.4** 合併；列印 5 變體已產出真實 PDF（worship batch 1..200 → 2634 頁），variant-specific 座標 / worship2.png 背景 / PhotoAddress PNG 仍待印表機實機驗收後精修。Auth 完整含 logout（JWT 黑名單）。
+> 進度：**34 個 endpoint shipped**（含全部 5 個單筆列印變體 + batch 同步版 + batch job 版 4 支 + backup + backup download + logout）。列印 PoC 已確認 **QuestPDF 路徑**（RDLC 在 .NET 10 不可行）；批次列印用 **PdfSharp 6.2.4** 合併；列印 5 變體已產出真實 PDF（worship batch 1..200 → 2634 頁），variant-specific 座標 / worship2.png 背景 / PhotoAddress PNG 仍待印表機實機驗收後精修。Auth 完整含 logout（JWT 黑名單）。
 
 ### Auth & Admin（LoginForm + MainForm + AdminsForm）
 
@@ -94,7 +94,11 @@ last_updated: 2026-05-27.4
 | `GET /api/v1/reports/text` | — | **`SignupForm.cs:1335-1552`** (PrintText 2 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 12,31 ✅ | **shipped (selector + base render)** |
 | `GET /api/v1/reports/worship` | — | **`SignupForm.cs:1554-1696`** (PrintWorship 5 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 13,32 ✅ | **shipped (selector + base render; only SignupType=4)** |
 | `GET /api/v1/reports/worshipcard` | [get-reports-worshipcard.md](get-reports-worshipcard.md) | N/A（全新複合報表，舊系統無對應） | N/A | **shipped（待實體卡紙驗收）** |
-| `POST /api/v1/reports/batch` | [post-reports-batch.md](post-reports-batch.md) | `SignupForm.cs:447-653` (btnPrint_Click 編號範圍) + `CombinePDFs` 1698-1722 | [signup-form.md](../legacy-coverage/signup-form.md) rows 16, 33 ✅ | **shipped** |
+| `POST /api/v1/reports/batch` | [post-reports-batch.md](post-reports-batch.md) | `SignupForm.cs:447-653` (btnPrint_Click 編號範圍) + `CombinePDFs` 1698-1722 | [signup-form.md](../legacy-coverage/signup-form.md) rows 16, 33 ✅ | **shipped（同步阻塞版；保留為相容契約＋整合測試，UI 已改走 job 版）** |
+| `POST /api/v1/reports/batch/jobs` | [post-reports-batch-jobs.md](post-reports-batch-jobs.md) | 同上（進度／取消為新版加值，舊系統無對應） | [signup-form.md](../legacy-coverage/signup-form.md) rows 16, 33 ✅ | **shipped** |
+| `GET /api/v1/reports/batch/jobs/{jobId}` | ↑ 併入母 blueprint | N/A（新需求） | N/A | **shipped** |
+| `GET /api/v1/reports/batch/jobs/{jobId}/file` | ↑ 併入母 blueprint | N/A（新需求） | N/A | **shipped** |
+| `DELETE /api/v1/reports/batch/jobs/{jobId}` | ↑ 併入母 blueprint | N/A（新需求） | N/A | **shipped** |
 
 > 列印變體選擇邏輯（薦牌 9 / 文牒 2 / 普桌 6）已收斂到 `Domain.Services.PrintTemplateSelector` 純函式 + xUnit 測試覆蓋。Renderer 目前以「base variant 座標」實作，variant-specific 細部偏移（薦牌 9 個位置 / 文牒 2 個版型 / 普桌字級切換）已預留 TODO；最終 ground truth 仍是 [printing-reports-positions.md](../printing-reports-positions.md)。客端實機印表測試後再決定是否進一步精修。
 

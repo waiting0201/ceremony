@@ -10,10 +10,26 @@ namespace Ceremony.Application.Reports;
 /// Legacy: SignupForm.cs:447-653 (btnPrint_Click) + :1698-1722 (CombinePDFs PdfSharp)
 /// Blueprint: docs/blueprints/api-endpoints/post-reports-batch.md
 /// Coverage:  docs/blueprints/legacy-coverage/signup-form.md rows 16, 33
+///
+/// 2026-07-28 拆成 <see cref="ResolveAsync"/>（驗證＋查詢，同步）與 <see cref="BatchReportComposer.Render"/>
+/// （渲染＋合併，可回報進度／可取消），供 job 版端點使用；<see cref="HandleAsync"/> 行為與簽章維持不變。
 /// </remarks>
 public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer renderer, IPdfMerger merger)
 {
     public async Task<(byte[] Pdf, string FileName, int SignupCount)> HandleAsync(BatchReportRequest req, CancellationToken ct = default)
+    {
+        var plan = await ResolveAsync(req, ct);
+        var merged = BatchReportComposer.Render(renderer, merger, plan, null, ct);
+        return (merged, plan.FileName, plan.Signups.Count);
+    }
+
+    /// <summary>
+    /// 驗證請求、查出要印的 signups、決定檔名。不做任何渲染。
+    /// </summary>
+    /// <exception cref="DomainException">
+    /// VALIDATION_INVALID（編號錯誤／報表類型錯誤）、BATCH_NO_SIGNUPS（查無符合條件的報名資料）
+    /// </exception>
+    public async Task<BatchReportPlan> ResolveAsync(BatchReportRequest req, CancellationToken ct = default)
     {
         // 兩種選取模式：SignupIds（勾選的任意幾筆，不論編號是否連續）優先於編號區間
         var useIds = req.SignupIds is { Count: > 0 };
@@ -51,24 +67,7 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
         if (signups.Count == 0)
             throw new DomainException("BATCH_NO_SIGNUPS", "查無符合條件的報名資料");
 
-        var now = DateTime.Now;
-        var pdfs = new List<byte[]>(signups.Count);
-        foreach (var s in signups)
-        {
-            pdfs.Add(reportType switch
-            {
-                "datacard" => renderer.RenderDataCard(ReportModelBuilders.DataCard(s)),
-                "receipt" => renderer.RenderReceipt(ReportModelBuilders.Receipt(s, now)),
-                "tablet" => renderer.RenderTablet(ReportModelBuilders.Tablet(s)),
-                "text" => renderer.RenderText(ReportModelBuilders.Text(s)),
-                "worship" => renderer.RenderWorship(ReportModelBuilders.Worship(s)),
-                "worshipcard" => renderer.RenderWorshipCard(ReportModelBuilders.WorshipCard(s)),
-                _ => throw new InvalidOperationException(),
-            });
-        }
-
-        var merged = merger.Merge(pdfs);
-        return (merged, fileName, signups.Count);
+        return new BatchReportPlan(reportType, fileName, signups);
     }
 }
 

@@ -24,6 +24,7 @@ import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
 import { ReportApi } from '../../core/api/reports/report.api';
 import type { SingleReportType } from '../../core/api/reports/report.models';
+import { BatchPrintService } from '../../core/reports/batch-print.service';
 import { ApiError } from '../../core/http/api-error';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { ContextMenuService } from '../../shared/context-menu/context-menu.service';
@@ -138,6 +139,7 @@ export class SignupListPage implements OnInit {
   private readonly api = inject(SignupApi);
   private readonly categoryApi = inject(CategoryApi);
   private readonly reportApi = inject(ReportApi);
+  private readonly batchPrint = inject(BatchPrintService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly menu = inject(ContextMenuService);
@@ -965,10 +967,12 @@ export class SignupListPage implements OnInit {
     this.printing.set(true);
     this.errorMessage.set(null);
     try {
-      const resp = await this.reportApi.batch({
-        reportType: type,
-        signupIds: items.map((i) => i.id),
-      });
+      // 走 job 版：進度 overlay 由 BatchPrintService 負責；回 null 代表使用者取消
+      const resp = await this.batchPrint.run(
+        { reportType: type, signupIds: items.map((i) => i.id) },
+        { detail: reportTypeLabel(type) },
+      );
+      if (!resp) return;
       openPdfInNewTab(resp.blob);
       const count = resp.signupCount ?? items.length;
       this.successMessage.set(`已列印 ${count} 筆 (${resp.fileName})`);
@@ -989,14 +993,18 @@ export class SignupListPage implements OnInit {
     this.errorMessage.set(null);
     const q = this.form.getRawValue();
     try {
-      const resp = await this.reportApi.batch({
-        reportType: type,
-        numberStart,
-        numberEnd,
-        year: q.year ?? null,
-        ceremonyCategoryId: q.ceremonyCategoryId || null,
-        signupType: q.signupType >= 0 ? q.signupType : null,
-      });
+      const resp = await this.batchPrint.run(
+        {
+          reportType: type,
+          numberStart,
+          numberEnd,
+          year: q.year ?? null,
+          ceremonyCategoryId: q.ceremonyCategoryId || null,
+          signupType: q.signupType >= 0 ? q.signupType : null,
+        },
+        { detail: reportTypeLabel(type) },
+      );
+      if (!resp) return;
       openPdfInNewTab(resp.blob);
       const count = resp.signupCount ?? '';
       this.successMessage.set(`已列印批次 ${count} 筆 (${resp.fileName})`);
@@ -1055,6 +1063,10 @@ function downloadBlob(blob: Blob, fileName: string): void {
 
 function toMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
+}
+
+function reportTypeLabel(type: SingleReportType): string {
+  return REPORT_TYPES.find((r) => r.value === type)?.label ?? type;
 }
 
 function clamp(v: number, lo: number, hi: number): number {

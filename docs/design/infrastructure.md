@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-07-01 (prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結)
+last_updated: 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結)
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -175,6 +175,16 @@ spawn(apiExe, [`--urls=http://localhost:${apiPort}`], {
 | `Auth:FailedLoginLockMinutes` | `15` | 失敗鎖定時間 |
 | `Logging:Seq:ServerUrl` | `http://seq:5341`（dev） | Seq log server |
 | `Cors:AllowedOrigins` | `http://localhost:4200`（dev）/ `null` 與 `file://`（prod Electron renderer） | dev 為 ng serve、prod sidecar 模式 renderer 從 `file://` 載入時 Origin header 通常為 `null`，需明確 allow |
+
+**CORS exposed headers（2026-07-28 修正）**：policy 除了 `AllowAnyHeader/AllowAnyMethod`，
+還必須 `.WithExposedHeaders("Content-Disposition", "X-Signup-Count")`。這兩個不在 CORS safelist，
+不明示 expose 前端就讀不到——修正前 `ReportApi.extractFileName()` 永遠回 `null`、`signupCount`
+永遠 `undefined`，一直靠 fallback 檔名運作。dev（`:4200`→`:5050`）與 prod（Electron `file://`，
+Origin 為 `null`）都算跨源，兩邊都需要。見 [gotchas.md](../gotchas.md)。
+
+**單實例假設**：批次列印的 job 狀態存在 API process 的記憶體裡（見
+[backend-design.md](backend-design.md)）。這依賴上述「一台 client 一個 sidecar、無反向代理、
+無負載平衡」的部署形態；若日後改為多實例或加上 LB，job store 必須改為外部儲存。
 
 ## 部署單元
 

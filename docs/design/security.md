@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - infrastructure.md
 keywords: [security, 安全, 密碼, 加密, JWT, OWASP, PII]
-last_updated: 2026-07-04 (JWT access token TTL 30 分 → 10 小時／600 分，配合 kiosk 整日操作)
+last_updated: 2026-07-28 (新增兩段：「不用 SSE 做批次列印進度推送」的決策與理由〔EventSource 帶不了 Authorization，token 進 query 會被 UseSerilogRequestLogging 寫進 log〕、批次列印 job 的 owner 綁定與跨帳號一律回 404。先前 2026-07-04 JWT access token TTL 30 分 → 10 小時／600 分，配合 kiosk 整日操作)
 ---
 
 ## 安全策略總覽
@@ -120,6 +120,29 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 - **備份下載 `GET /backup/{fileName}/download`（2026-06-02，Electron 另存用）**：`[Authorize]`，串流 `Backup:Directory` 下的 `.bak`/`.trn`。**路徑穿越（path traversal）防護**：`SqlBackupService.IsValidBackupFileName` 僅放行 `^[0-9A-Za-z._-]+\.(bak|trn)$` 且拒絕 `..` / 任何路徑分隔符 / 磁碟代號 / UNC 前綴 → 不合法回 400 `VALIDATION_BACKUP_FILENAME`，避免讀到目錄外檔案。檔案以 `FileShare.Read` 唯讀開啟。Electron 端以 JWT Bearer 經 `net.request` 取檔（非把 token 寫進 URL）。
 
 > 未來若有需要加 RBAC：新增 DbUp migration 加 `admins.role` 欄位 + 用 `[Authorize(Roles = "Admin")]`
+
+### 決策：不用 SSE 做批次列印進度推送（**2026-07-28**）
+
+批次列印要回報「第 i / 共 N 筆」進度時評估過 SSE，**否決，改用 250ms 輪詢**。
+
+- `Program.cs` 是純 JWT Bearer（無 cookie scheme），瀏覽器的 `EventSource` **無法帶
+  `Authorization` header**。
+- 唯一常見 workaround 是把 token 放 query string（`?access_token=`）+ `JwtBearerEvents.OnMessageReceived`。
+  但本專案有 `app.UseSerilogRequestLogging()`，會把 `RequestPath` 寫進 console log
+  → **JWT 會被完整記錄到 log**。這與既有的「Electron 下載備份用 Bearer header 而非把 token 寫進 URL」
+  是同一條原則。
+- 附帶問題：EventSource 繞過前端 `authInterceptor`，401 → 自動登出的流程要另刻一套。
+
+替代方案（採用）：job 化 + 前端輪詢，走既有 HttpClient 與 interceptor。job 資源模型與 SSE 完全相容，
+日後若要改推送不必動 job store / 取消 / 下載。詳見
+[post-reports-batch-jobs.md](../blueprints/api-endpoints/post-reports-batch-jobs.md)。
+
+### 批次列印 job 的存取控制（**2026-07-28**）
+
+每個 job 記錄建立者的 `sub`（取自 `ClaimTypes.NameIdentifier`，因為 JwtBearer 預設
+`MapInboundClaims=true` 會把 `sub` 映射過去，見 [gotchas.md](../gotchas.md)）。
+查進度 / 取檔 / 取消時 owner 不符一律回 **404 `BATCH_JOB_NOT_FOUND`**（不回 403），
+不洩漏該 job 是否存在。成品 PDF 取走即從記憶體移除，並有 10 分鐘 TTL 上限。
 
 ## 加密
 

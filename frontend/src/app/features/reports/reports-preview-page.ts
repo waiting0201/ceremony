@@ -12,6 +12,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ReportApi } from '../../core/api/reports/report.api';
 import type { SingleReportType } from '../../core/api/reports/report.models';
+import { BatchPrintService } from '../../core/reports/batch-print.service';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
 import { ApiError } from '../../core/http/api-error';
@@ -45,6 +46,7 @@ const REPORT_TYPES: readonly ReportTypeOption[] = [
 })
 export class ReportsPreviewPage implements OnInit, OnDestroy {
   private readonly api = inject(ReportApi);
+  private readonly batchPrint = inject(BatchPrintService);
   private readonly categoryApi = inject(CategoryApi);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -132,17 +134,22 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.errorMessage.set(null);
     this.signupCount.set(null);
     try {
-      const { blob, fileName, signupCount } = await this.api.batch({
-        reportType: v.reportType,
-        numberStart: v.numberStart,
-        numberEnd: v.numberEnd,
-        year: v.year ?? null,
-        yearGte: v.yearGte,
-        ceremonyCategoryId: v.ceremonyCategoryId || null,
-        signupType: v.signupType ?? null,
-      });
-      this.displayBlob(blob, fileName);
-      this.signupCount.set(signupCount ?? null);
+      // 走 job 版：進度 overlay 由 BatchPrintService 負責；回 null 代表使用者取消
+      const resp = await this.batchPrint.run(
+        {
+          reportType: v.reportType,
+          numberStart: v.numberStart,
+          numberEnd: v.numberEnd,
+          year: v.year ?? null,
+          yearGte: v.yearGte,
+          ceremonyCategoryId: v.ceremonyCategoryId || null,
+          signupType: v.signupType ?? null,
+        },
+        { detail: REPORT_TYPES.find((r) => r.value === v.reportType)?.label },
+      );
+      if (!resp) return;
+      this.displayBlob(resp.blob, resp.fileName);
+      this.signupCount.set(resp.signupCount ?? null);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {

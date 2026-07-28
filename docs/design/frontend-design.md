@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本, num-stepper, 捲軸, scrollbar, NumericUpDown, 草稿, draft, 未儲存]
-last_updated: 2026-07-28 (form-overlay 新增 dismissible input（false＝backdrop click / Esc 不再關閉，只剩 × 與 host 自己的取消鈕；報名維護新增/編輯 overlay 指定 false，其餘三個 feature 不變）；同日先前新增「Enter 就送出的開關是那顆隱藏 submit 按鈕」段（報名表單改為 Enter 不送出：移除隱藏鈕＋ngSubmit＋form 層攔 Enter 放行 textarea；其他三個 edit-form 不跟進）；同日先前版面客訴第二輪：地址段「同寄件地址」改夾在寄件/文牒之間、文牒郵遞區號回到區域右邊、文牒地址加寬；按鈕列（列印資料卡/取消/確認）移到備註下方——signup-edit-form 新增 form-actions 投影 slot、form-overlay 新增 showActions input 收掉底部 footer、路由頁 .form-actions 移除；同日先前四項：信眾搜尋框字級對齊地址欄〔.search-input 不在 .field 內、只繼承 font-family，字級落回 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄地址下方、「同寄件地址」移到文牒郵遞區號正上方〔第一列第三欄，郵遞區號下移到文牒地址同列，不多佔列高〕、備註 rows=1→4；ng build 綠，待實機複驗；先前 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣))
+last_updated: 2026-07-28 (新增 `<app-progress-overlay>` 共用 shell 與 `BatchPrintService`：批次列印改 job 模型後，三個批次入口（編號區間/多選/列印預覽頁）會顯示置中進度 overlay，含真實 i/N 百分比與取消鈕；記錄 CDK setInput 必須傳新物件、取消時不自動關 overlay 的理由；`ReportApi.batch()` 移除。同日先前 form-overlay 新增 dismissible input（false＝backdrop click / Esc 不再關閉，只剩 × 與 host 自己的取消鈕；報名維護新增/編輯 overlay 指定 false，其餘三個 feature 不變）；同日先前新增「Enter 就送出的開關是那顆隱藏 submit 按鈕」段（報名表單改為 Enter 不送出：移除隱藏鈕＋ngSubmit＋form 層攔 Enter 放行 textarea；其他三個 edit-form 不跟進）；同日先前版面客訴第二輪：地址段「同寄件地址」改夾在寄件/文牒之間、文牒郵遞區號回到區域右邊、文牒地址加寬；按鈕列（列印資料卡/取消/確認）移到備註下方——signup-edit-form 新增 form-actions 投影 slot、form-overlay 新增 showActions input 收掉底部 footer、路由頁 .form-actions 移除；同日先前四項：信眾搜尋框字級對齊地址欄〔.search-input 不在 .field 內、只繼承 font-family，字級落回 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄地址下方、「同寄件地址」移到文牒郵遞區號正上方〔第一列第三欄，郵遞區號下移到文牒地址同列，不多佔列高〕、備註 rows=1→4；ng build 綠，待實機複驗；先前 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣))
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -390,6 +390,45 @@ template 樣板：
   </ng-container>
 </app-form-overlay>
 ```
+
+### `<app-progress-overlay>` 共用 shell（**2026-07-28**）
+
+阻擋畫面的置中進度 overlay，目前用於批次列印。與 `ConfirmDialogService` 同一套 CDK Overlay pattern
+（`overlay.create({hasBackdrop:false, scrollStrategy: block(), positionStrategy: global()})` + `ComponentPortal`
++ `setInput` + `dispose`），元件為 inline template/styles 的 standalone `OnPush` 元件。
+視覺規格（z-index 層級、色票、尺寸）見 [visual-design.md「進度 Overlay」](visual-design.md)。
+
+```typescript
+// shared/progress-overlay/progress-overlay.service.ts
+open(config: ProgressOverlayConfig): ProgressOverlayHandle
+// ProgressOverlayConfig: { title, detail?, total, completed, note?, cancelable?, cancelLabel? }
+// ProgressOverlayHandle: { update(patch), canceled: Promise<void>, close() }
+```
+
+兩個關鍵設計：
+
+- **`update()` 必須傳新物件**：`ref.setInput('config', {...current, ...patch})`。就地改 mutable 物件
+  在 OnPush 下不會觸發更新（見 [gotchas.md](../gotchas.md)）。
+- **按下取消時 service 不自動關閉 overlay**：它先把自己切成 `cancelable:false` + `note:'取消中…'`
+  並 resolve `canceled`，由呼叫端真的把後端工作停掉之後才 `close()`。否則會出現「畫面關了但伺服器
+  還在燒 CPU」。也刻意**不做 backdrop 點擊關閉**——這裡擋的是長時間工作，誤觸中斷的代價比關不掉高。
+
+### `BatchPrintService`（批次列印 orchestration，**2026-07-28**）
+
+[core/reports/batch-print.service.ts](../../frontend/src/app/core/reports/batch-print.service.ts)：
+`run(req, {title?, detail?}) → Promise<ReportPdf | null>`（`null` ＝使用者取消；丟 `ApiError` ＝真失敗）。
+內部流程：`createBatchJob` → 開 overlay → 每 250ms 輪詢（`await sleep()` 串接的 `while`，
+**不用 `setInterval`** 以免請求疊加）→ `completed` 就取檔、`canceled` 回 null、`failed` 丟 `ApiError`。
+筆數跑滿但狀態仍 running 時顯示「合併 PDF…」（伺服端正在 merge），如此不必在 API 多加 `phase` 欄位。
+
+放 `core/` 而非某個 feature：signups 與 reports 兩個 feature 都用它，放任一邊會造成跨 feature 相依；
+放 `shared/` 又不符「shared ＝無業務語意的 UI 元件/工具」的現況慣例。
+
+三個呼叫點（`signup-list-page` 的 `printSelected` / `printBatch`、`reports-preview-page` 的
+`generateBatch`）各自的 `printing()` / `loading()` signal 與 try/catch **保留**（仍驅動按鈕 disabled
+與「列印中…」文案），只是把 API 呼叫換成 `batchPrint.run(...)` 並多一行 `if (!resp) return;`。
+**單筆列印不走這條**（很快，不需要進度條）。`ReportApi.batch()` 已移除（後端同步版仍保留，見
+[api-design.md](api-design.md)）。
 
 ### 「Enter 就送出」的開關是那顆隱藏 submit 按鈕（**2026-07-28**）
 

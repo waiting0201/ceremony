@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-28 (Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
+last_updated: 2026-07-28 (新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
 ---
 
 ## 設計原則
@@ -183,6 +183,42 @@ last_updated: 2026-07-28 (Form Overlay 互動加「只能用 × 關」例外〔d
 - 短期提示：bottom-center snackbar，3 秒自動消失
 - 阻斷型：modal dialog（OK / Yes-No）
 - **文字 verbatim**：「新增信眾成功！」「刪除成功！」「請輸入姓名」等
+
+### 進度 Overlay（**2026-07-28 新增**，批次列印用）
+
+阻擋畫面的置中進度卡片，顯示真實的「第 i / 共 N 筆」與百分比，並可取消。
+元件：[shared/progress-overlay/](../../frontend/src/app/shared/progress-overlay/)，
+行為與 API 見 [frontend-design.md](frontend-design.md)。
+
+**Overlay z-index 層級表（全站唯一權威）**
+
+| 層 | z-index | 用途 | 為什麼在這一層 |
+|---|---|---|---|
+| `.overlay-backdrop`（form-overlay） | 900 | 新增/編輯彈窗 | 底層工作面板 |
+| `.confirm-backdrop`（confirm-dialog） | 1000 | 確認 / 警示對話框 | 要能蓋住編輯彈窗（未儲存確認） |
+| `.progress-backdrop`（progress-overlay） | **1100** | 進行中的長時間工作 | 進行中的工作不該被任何東西蓋住 |
+
+**版面**（由上而下，卡片 `width: min(420px, 92vw)`、`padding: var(--space-xl) var(--space-lg)`、置中）
+
+| 元素 | 樣式 |
+|---|---|
+| backdrop | `rgba(44, 42, 38, 0.42)`，`fadeIn 120ms` |
+| 卡片 | `--c-surface` + 1px `--c-border` + radius 6px + `0 12px 40px rgba(44,42,38,.22)`，`pop 140ms` |
+| 標題 | `--font-size-lg`，600 |
+| 副標（報表名稱） | `--font-size-sm`，`--c-text-secondary` |
+| **百分比數字** | `--font-size-xl`，600，`--c-primary-strong`，`tabular-nums` |
+| 進度條 | 高 8px、radius 4px；track `--c-border-soft`、fill `--c-primary-strong`；`transition: width 200ms ease-out` |
+| 計數「12 / 28 筆」 | `--font-size-sm`，`--c-text-secondary`，`tabular-nums` |
+| 狀態字（合併 PDF…／下載中…／取消中…） | `--font-size-sm`，`--c-text-secondary` |
+| 取消鈕 | 全域 `.btn`（非 primary）；下載階段隱藏 |
+
+**行為與 a11y**
+
+- **不可點 backdrop 關閉**：這裡擋的是長時間工作，誤觸中斷的代價比關不掉高。只能按「取消」或 Esc。
+- 進度條加 `transition` 是為了補平 250ms 輪詢的跳格感（見 [performance.md](performance.md)）。
+- 卡片 `role="dialog" aria-modal="true"`；進度條 `role="progressbar"` + `aria-valuenow/min/max`；
+  計數列 `aria-live="polite"`。
+- 數字欄位一律 `font-variant-numeric: tabular-nums`，避免位數變化時左右跳動。
 
 ## 表單區塊（與舊 WinForms 對齊）
 

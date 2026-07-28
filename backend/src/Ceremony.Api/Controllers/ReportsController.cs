@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Ceremony.Application.Reports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
@@ -18,6 +20,7 @@ public sealed class ReportsController(
     GenerateWorshipHandler worship,
     GenerateWorshipCardHandler worshipCard,
     BatchReportHandler batch,
+    BatchPrintJobService jobs,
     IHostEnvironment env) : ControllerBase
 {
     /// <summary>產生報名資料卡 PDF (A5 橫 21×14.8cm)</summary>
@@ -117,10 +120,13 @@ public sealed class ReportsController(
         return File(pdf, "application/pdf", fileName);
     }
 
-    /// <summary>按編號範圍批次列印同一類報表，合併為單一 PDF。</summary>
+    /// <summary>按編號範圍批次列印同一類報表，合併為單一 PDF（同步阻塞版）。</summary>
     /// <remarks>
     /// Legacy: SignupForm.cs:447-653 (btnPrint_Click) + :1698-1722 (CombinePDFs PdfSharp)
     /// Blueprint: docs/blueprints/api-endpoints/post-reports-batch.md
+    ///
+    /// 2026-07-28 起 UI 已改走 POST batch/jobs（有進度回報與取消）；本 endpoint 保留為
+    /// 相容契約與批次渲染路徑的整合測試覆蓋，前端不再呼叫。
     /// </remarks>
     [HttpPost("batch")]
     public async Task<IActionResult> Batch([FromBody] BatchReportRequest req, CancellationToken ct)
@@ -129,4 +135,52 @@ public sealed class ReportsController(
         Response.Headers.Append("X-Signup-Count", count.ToString());
         return File(pdf, "application/pdf", fileName);
     }
+
+    /// <summary>建立批次列印背景工作，立刻回 jobId 與總筆數（驗證與查詢仍是同步的）。</summary>
+    /// <remarks>Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md</remarks>
+    [HttpPost("batch/jobs")]
+    public async Task<IActionResult> CreateBatchJob([FromBody] BatchReportRequest req, CancellationToken ct)
+    {
+        // 驗證＋查詢留在這裡 → VALIDATION_INVALID / BATCH_NO_SIGNUPS 的狀態碼與訊息與同步版完全相同
+        var plan = await batch.ResolveAsync(req, ct);
+        var created = jobs.Start(plan, OwnerSub());
+        return Accepted(created);
+    }
+
+    /// <summary>查詢批次列印工作進度。前端每 250ms 輪詢一次。</summary>
+    /// <remarks>Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md</remarks>
+    [HttpGet("batch/jobs/{jobId:guid}")]
+    public IActionResult GetBatchJob(Guid jobId)
+        => Ok(jobs.GetState(jobId, OwnerSub()));
+
+    /// <summary>取出批次列印成品 PDF。成功後 job 立即釋放（one-shot）。</summary>
+    /// <remarks>Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md</remarks>
+    [HttpGet("batch/jobs/{jobId:guid}/file")]
+    public IActionResult GetBatchJobFile(Guid jobId)
+    {
+        var (pdf, fileName, total) = jobs.TakeFile(jobId, OwnerSub());
+        Response.Headers.Append("X-Signup-Count", total.ToString());
+        return File(pdf, "application/pdf", fileName);
+    }
+
+    /// <summary>取消批次列印工作。冪等：未知 id 也回 204。</summary>
+    /// <remarks>Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md</remarks>
+    [HttpDelete("batch/jobs/{jobId:guid}")]
+    public IActionResult CancelBatchJob(Guid jobId)
+    {
+        jobs.Cancel(jobId, OwnerSub());
+        return NoContent();
+    }
+
+    /// <summary>
+    /// 取本次請求的使用者識別，用來把 job 綁在建立者身上。
+    /// </summary>
+    /// <remarks>
+    /// JwtBearer 預設 MapInboundClaims=true 會把 "sub" 映射成 ClaimTypes.NameIdentifier，
+    /// 所以要先查 NameIdentifier；直接查 "sub" 會拿到 null。見 docs/gotchas.md。
+    /// </remarks>
+    private string OwnerSub()
+        => User.FindFirstValue(ClaimTypes.NameIdentifier)
+           ?? User.FindFirstValue(JwtRegisteredClaimNames.Sub)
+           ?? string.Empty;
 }

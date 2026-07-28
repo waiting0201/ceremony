@@ -17,3 +17,24 @@ export interface ReportPdf {
   fileName: string;
   signupCount?: number;
 }
+
+/** POST /reports/batch/jobs 的回應：job 已建立，總筆數在此就是確定值。 */
+export interface BatchJobCreated {
+  jobId: string;
+  total: number;
+  fileName: string;
+  reportType: SingleReportType;
+}
+
+export type BatchJobStatus = 'running' | 'completed' | 'failed' | 'canceled';
+
+/** GET /reports/batch/jobs/{id} 的回應。 */
+export interface BatchJobState {
+  jobId: string;
+  status: BatchJobStatus;
+  total: number;
+  completed: number;
+  fileName: string;
+  errorCode?: string;
+  message?: string;
+}

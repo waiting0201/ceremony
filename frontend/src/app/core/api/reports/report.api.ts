@@ -2,7 +2,13 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../environments/environment';
-import type { BatchReportRequest, ReportPdf, SingleReportType } from './report.models';
+import type {
+  BatchJobCreated,
+  BatchJobState,
+  BatchReportRequest,
+  ReportPdf,
+  SingleReportType,
+} from './report.models';
 
 @Injectable({ providedIn: 'root' })
 export class ReportApi {
@@ -24,23 +30,39 @@ export class ReportApi {
     };
   }
 
-  async batch(req: BatchReportRequest): Promise<ReportPdf> {
+  // ── 批次列印 job（有進度回報與取消）───────────────────────────────
+  // 舊的同步 POST /reports/batch 後端仍保留（相容契約 + 整合測試），但前端一律走 job 版，
+  // 所以這裡不再提供 batch()。Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
+
+  /** 建立批次列印工作。驗證與查詢仍是同步的 → 錯誤碼／訊息與同步版完全相同。 */
+  createBatchJob(req: BatchReportRequest): Promise<BatchJobCreated> {
+    return firstValueFrom(this.http.post<BatchJobCreated>(`${this.base}/batch/jobs`, req));
+  }
+
+  getBatchJob(jobId: string): Promise<BatchJobState> {
+    return firstValueFrom(this.http.get<BatchJobState>(`${this.base}/batch/jobs/${jobId}`));
+  }
+
+  /** 取出成品 PDF。伺服器端取完即釋放，同一個 job 只能取一次。 */
+  async getBatchJobFile(jobId: string, fallbackName: string): Promise<ReportPdf> {
     const resp = await firstValueFrom(
-      this.http.post(`${this.base}/batch`, req, {
+      this.http.get(`${this.base}/batch/jobs/${jobId}/file`, {
         observe: 'response',
         responseType: 'blob',
       }),
     );
     const countHeader = resp.headers.get('x-signup-count');
-    const fallbackName =
-      req.signupIds?.length
-        ? `batch-${req.reportType}-selected-${req.signupIds.length}.pdf`
-        : `batch-${req.reportType}-${req.numberStart}-${req.numberEnd}.pdf`;
     return {
       blob: resp.body!,
+      // job 已經給過檔名，header 只是備援（跨源時需要後端 WithExposedHeaders 才讀得到）
       fileName: extractFileName(resp.headers.get('content-disposition')) ?? fallbackName,
       signupCount: countHeader ? Number(countHeader) : undefined,
     };
+  }
+
+  /** 取消工作。冪等，失敗與否呼叫端不需在意。 */
+  cancelBatchJob(jobId: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${this.base}/batch/jobs/${jobId}`));
   }
 }
 

@@ -12,7 +12,7 @@ related_docs:
   - ../blueprints/signup-management.md
   - ../blueprints/printing-reports.md
 keywords: [performance, 效能, 索引, index, cache, dapper, query, paging, virtualization, signals]
-last_updated: 2026-06-29 (DB 解除凍結：索引改為可走 migration 的待評估選項)
+last_updated: 2026-07-28 (§8 列印批次改寫成 job 模型：補實測數據〔799 筆 datacard 渲染 5.4s／合併 1.6s／成品 107 MB〕、記錄 PdfSharp 合併的 2 GB MemoryStream 上限〔19018 筆會爆，屬既有限制〕、250ms 輪詢的成本與理由、記憶體保留策略；SLA 表加「進度回報延遲」一列。先前 2026-06-29 DB 解除凍結：索引改為可走 migration 的待評估選項)
 ---
 
 ## ⚠️ 重要前提
@@ -53,6 +53,7 @@ last_updated: 2026-06-29 (DB 解除凍結：索引改為可走 migration 的待�
 | 編輯報名 | < 300ms | < 700ms | > 3s |
 | 載入預繳（單 case ~200 筆）| < 1s | < 3s | > 10s |
 | 批次列印 100 筆 PDF | < 5s | < 15s | > 60s |
+| 批次列印進度回報延遲（輪詢一輪） | < 300ms | < 500ms | > 2s |
 | Excel 匯出 5k 列 | < 3s | < 8s | > 30s |
 | 登入 | < 200ms | < 500ms | > 2s |
 | Electron app 啟動到登入 | < 2s | < 4s | > 8s |
@@ -205,22 +206,34 @@ FROM @Buffer; -- TVP
 ```
 - 配合 `SqlBulkCopy` 對 10k+ 筆有顯著速度差距
 
-### 8. 列印 PDF 批次
+### 8. 列印 PDF 批次（**2026-07-28 改 job 模型**）
 
-QuestPDF 內建 multi-page document：
+實作是「逐筆 QuestPDF 渲染 → PdfSharp 合併」（`BatchReportComposer.Render`），
+不是單一 multi-page document。
 
-```csharp
-Document.Create(container => {
-    foreach (var signup in signups) {
-        container.Page(page => RenderTablet(page, signup));
-    }
-}).GeneratePdf(stream);
-```
+**實測數據**（本機 sidecar，datacard，2026-07-28）
 
-- 100 筆 PDF 預期 < 5s
-- 1000 筆預期 < 30s（測試後決定是否拆批）
+| 筆數 | 渲染耗時 | 合併耗時 | 成品大小 |
+|---|---|---|---|
+| 508 | ~6.6s | ~1s | – |
+| 799 | ~5.4s（約 6.5ms/筆） | ~1.6s | **107 MB** |
+| 19018 | ~2min | **失敗** | – |
+
 - 預載字型至 process（避免每次重 load）
-- PDF 串流到 HTTP response（不寫暫存檔）
+- 100 筆 PDF 預期 < 5s、1000 筆 < 30s
+
+**⚠️ 合併的 2 GB 上限**：19018 筆時 PdfSharp 在 `MemoryStream` 觸發
+`System.IO.IOException: Stream was too long`。這是**既有限制**（改 job 前的同步 endpoint 一樣會爆），
+job 化只是讓它從「畫面凍結數分鐘後無聲失敗」變成可見的 `INTERNAL_ERROR` + 進度條停住。
+目前**不加**每 job 筆數上限（維持與同步版相同行為）；若要處理，方向是分段輸出多個 PDF
+或改用檔案串流合併。
+
+**進度回報成本**：前端每 250ms 輪詢一次 `GET /reports/batch/jobs/{id}`（實測回應 0.15ms）。
+選輪詢而非 SSE 的理由見 [api-design.md](api-design.md)。250ms 已比「渲染完一筆」（6.5ms）稀疏，
+但比人眼可辨的更新頻率密；進度條加 `transition: width 200ms` 後視覺上與推送不可區分。
+
+**記憶體**：成品 PDF 常駐在 job 物件裡直到被取走，故 `/file` 取走即釋放（one-shot）+
+TTL 10 分鐘 + 最多保留 4 個 job。見 [backend-design.md](backend-design.md)。
 
 ### 9. Excel 匯出
 

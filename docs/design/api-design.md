@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-07-27 (GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)
+last_updated: 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)
 ---
 
 ## 通則
@@ -92,6 +92,10 @@ HTTP status 映射：
 | CATEGORY_HAS_DEPENDENCIES | 已有報名或還有下層法會，無法刪除 | 409 | 刪除法會分類 |
 | SEARCH_NO_CRITERIA | 請輸入搜尋條件 | 400 | 信眾搜尋未填 |
 | SEARCH_NO_RESULTS | 無資料，請重新搜尋！ | 200（空清單） | – |
+| BATCH_NO_SIGNUPS | 查無符合條件的報名資料 | 404 | 批次列印查無資料 |
+| BATCH_JOB_NOT_FOUND | 批次列印工作不存在或已逾期 | 404 | job 未知／TTL 逾期／已取走／已取消／**非本人**（不洩漏是否存在） |
+| BATCH_JOB_NOT_READY | 批次列印尚未完成 | 409 | 仍在渲染時取 `/file` |
+| BATCH_JOB_LIMIT | 批次列印工作過多，請稍後再試 | 409 | 同一使用者已有 2 個 running job |
 
 ## Endpoint 清單
 
@@ -181,9 +185,26 @@ HTTP status 映射：
 | POST | `/reports/text` | body: `{signupIds[]}` → application/pdf（含垂直地址 PNG） |
 | POST | `/reports/worship` | body: `{signupIds[]}` → application/pdf（不限 signupType，2026-07-18 解鎖） |
 | GET | `/reports/worshipcard` | `?signupId=` → application/pdf（普桌資料卡，A5 橫預印卡紙套印；不限 signupType（2026-07-18 解鎖）；支援 dev-only `?debugOverlay=true`）。2026-07-04 新增（全新報表，直接以實際 GET 簽章記載）。Blueprint: [get-reports-worshipcard.md](../blueprints/api-endpoints/get-reports-worshipcard.md) |
-| POST | `/reports/batch` | body: `{reportType, numberStart?, numberEnd?, signupIds?[], year?, yearGte?, ceremonyCategoryId?, signupType?}` → 統一入口（`signupIds` 有值時精準印該幾筆，優先於 `numberStart`/`numberEnd` 編號區間；兩者皆缺回 400 `編號錯誤`） |
+| POST | `/reports/batch` | body: `{reportType, numberStart?, numberEnd?, signupIds?[], year?, yearGte?, ceremonyCategoryId?, signupType?}` → 統一入口（`signupIds` 有值時精準印該幾筆，優先於 `numberStart`/`numberEnd` 編號區間；兩者皆缺回 400 `編號錯誤`）。**同步阻塞版**：2026-07-28 起 UI 已改走下方 job 版，本 endpoint 保留為相容契約與批次渲染路徑的整合測試覆蓋 |
+| POST | `/reports/batch/jobs` | body 同 `/reports/batch` → **202** `{jobId, total, fileName, reportType}`。驗證與 DB 查詢仍同步執行，只有 render+merge 進背景 |
+| GET | `/reports/batch/jobs/{jobId}` | → `{jobId, status, total, completed, fileName, errorCode?, message?}`，`status ∈ running/completed/failed/canceled`。前端每 250ms 輪詢 |
+| GET | `/reports/batch/jobs/{jobId}/file` | → application/pdf + `Content-Disposition` + `X-Signup-Count`。**one-shot**：取走即釋放 job |
+| DELETE | `/reports/batch/jobs/{jobId}` | → 204。取消渲染，冪等（未知 id 也回 204，避開「剛好完成」競態） |
 
-每個 endpoint 支援：
+**批次列印 job 版（2026-07-28）**：讓 UI 能顯示真實的「第 i / 共 N 筆」百分比進度並中途取消。
+Blueprint: [post-reports-batch-jobs.md](../blueprints/api-endpoints/post-reports-batch-jobs.md)。
+
+- **為何驗證留在 POST**：`VALIDATION_INVALID` / `BATCH_NO_SIGNUPS` 的狀態碼與繁中訊息因此與同步版
+  **完全相同**（照舊走 `ExceptionMiddleware`），前端錯誤處理零改動；且 `total` 在建立時就是確定值，
+  進度條不需要 indeterminate 過渡態。
+- **為何是輪詢而非 SSE**：`Program.cs` 是純 JWT Bearer，瀏覽器 `EventSource` 無法帶 `Authorization`
+  header；唯一繞法（token 進 query string）會被 `UseSerilogRequestLogging()` 把 JWT 寫進 log
+  （見 [security.md](security.md)）。本系統是 localhost 回圈、單一使用者，250ms 輪詢成本可忽略，
+  且比「渲染完一筆」（實測約 6.5ms）還密。job 資源模型與 SSE 完全相容，日後可無痛改推送。
+- **CORS**：`Content-Disposition` 與 `X-Signup-Count` 不在 CORS safelist，已在 `Program.cs` 加
+  `WithExposedHeaders`（修正一個既有 bug：先前前端讀不到這兩個 header，檔名一直退回 fallback）。
+
+每個單筆 endpoint 支援：
 - `?format=pdf|preview`（preview 走相同格式但加 watermark「預覽」）
 - `?variant=auto|tabletOne|tabletOneOne|...` 強制指定模板變體（auto 走 server 端邏輯）
 
