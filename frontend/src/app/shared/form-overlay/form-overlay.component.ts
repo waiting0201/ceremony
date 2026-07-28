@@ -62,9 +62,11 @@ import { ConfirmDialogService } from '../confirm-dialog/confirm-dialog.service';
         <div class="overlay-body">
           <ng-content />
         </div>
-        <div class="overlay-actions">
-          <ng-content select="[overlay-actions]" />
-        </div>
+        @if (showActions()) {
+          <div class="overlay-actions">
+            <ng-content select="[overlay-actions]" />
+          </div>
+        }
       </div>
     </div>
   `,
@@ -80,6 +82,13 @@ export class FormOverlayComponent {
    * 一張 19 欄的表就能把整個視窗撐滿。全域 `max-width: 92vw` 仍在，小視窗會自動縮。
    */
   readonly width = input<string | null>(null);
+  /**
+   * 是否顯示 panel 底部的 actions footer（預設顯示）。
+   * 給 `false` 用在「按鈕由內層表單自己排版」的場合——例如報名表單把
+   * 列印資料卡/取消/確認移到備註下方（2026-07-28）；此時 footer 若留著會是一條
+   * 只有 padding + 上框線的空灰帶。
+   */
+  readonly showActions = input<boolean>(true);
   readonly close = output<void>();
 
   @HostListener('document:keydown.escape')

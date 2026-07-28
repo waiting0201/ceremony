@@ -8,24 +8,26 @@
     </div>
   </header>
 
+  <!-- 按鈕列投影進表單內部（備註下方，2026-07-28 使用者指定），不再是頁面最下方獨立一列；
+       按鈕仍由本頁提供（handler 與 disabled 條件在這裡），排版由表單的 form-actions slot 負責。 -->
   <app-signup-edit-form
     [signupId]="signupId()"
     [fromSignupId]="fromSignupId()"
     (saved)="onSaved($event)"
     (cancelled)="onCancel()"
-  />
-
-  <div class="form-actions">
-    <!-- 列印資料卡：新增模式才有，存檔前 disabled、新增成功後可按（對齊舊 btnPrintDataCard） -->
-    @if (!signupId()) {
-      <button
-        type="button"
-        class="btn"
-        [disabled]="!formRef()?.lastCreatedSignupId() || !!formRef()?.printingDataCard()"
-        (click)="onPrintDataCard()"
-      >{{ formRef()?.printingDataCard() ? '產生中…' : '列印資料卡' }}</button>
-    }
-    <button type="button" class="btn" (click)="onCancel()">取消</button>
-    <button type="button" class="btn btn-primary" (click)="onSubmit()">確認</button>
-  </div>
+  >
+    <ng-container form-actions>
+      <!-- 列印資料卡：新增模式才有，存檔前 disabled、新增成功後可按（對齊舊 btnPrintDataCard） -->
+      @if (!signupId()) {
+        <button
+          type="button"
+          class="btn"
+          [disabled]="!formRef()?.lastCreatedSignupId() || !!formRef()?.printingDataCard()"
+          (click)="onPrintDataCard()"
+        >{{ formRef()?.printingDataCard() ? '產生中…' : '列印資料卡' }}</button>
+      }
+      <button type="button" class="btn" (click)="onCancel()">取消</button>
+      <button type="button" class="btn btn-primary" (click)="onSubmit()">確認</button>
+    </ng-container>
+  </app-signup-edit-form>
 </div>

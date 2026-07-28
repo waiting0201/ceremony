@@ -14,9 +14,5 @@
   .breadcrumb code { font-family: ui-monospace, monospace; background: var(--c-bg-darker); padding: 0 4px; border-radius: 2px; }
 }
 
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  a.btn { display: inline-flex; align-items: center; text-decoration: none; }
-}
+// 按鈕列（列印資料卡/取消/確認）2026-07-28 起投影進表單內部的 .form-actions-slot（備註下方），
+// 排版由 signup-edit-form.component.scss 負責，本頁不再有獨立的 .form-actions 區塊。

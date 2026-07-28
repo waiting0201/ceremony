@@ -109,12 +109,26 @@
   cursor: pointer;
   input { width: 16px; height: 16px; }
 
-  // 「同寄件地址」與文牒地址同列（省一列高度）：對齊該列輸入框的底部
-  &.addr-check {
-    align-self: end;
-    height: var(--control-height);
-    white-space: nowrap;
-  }
+}
+
+// 「同寄件地址」自成一列，夾在寄件段與文牒段之間、**靠右對齊**（2026-07-28 使用者指定；
+// 先前是與文牒地址同列，再先前試過放文牒郵遞區號正上方）
+.same-mail-row {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+
+  .field-check { white-space: nowrap; }
+}
+
+// 表單內的按鈕列（列印資料卡 / 取消 / 確認），位置在右欄「備註」下方（2026-07-28 使用者指定）。
+// 內容由 host 投影（見 form-actions slot），這裡只負責靠右對齊與間距。
+.form-actions-slot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 2px;
 }
 
 .believer-card {
@@ -144,7 +158,7 @@
 // 地址：寄件在上、文牒在下（對齊舊 Designer 版面 Y=222/311）；文牒段與寄件段留一點間距
 .addr-text { margin-top: 6px; }
 
-// 陽上／往生名單：往生在上、陽上在下（對齊舊 Designer 版面 Y=401/517）；
+// 陽上／往生名單：往生在上、陽上在下（對齊舊 Designer 版面 Y=401/517），位置在左欄地址下方（2026-07-28）；
 // 兩者輸入框皆不加背景色（舊系統無 BackColor，2026-07-17 使用者指定）
 .names {
   .name-grid {
@@ -214,6 +228,9 @@
   border: 1px solid var(--c-border);
   border-radius: 2px;
   font-family: inherit;
+  // 搜尋框文字大小對齊地址輸入框（＝全域 .field input 的 --font-size-base，2026-07-28 客訴）：
+  // 這個 input 不在 .field 內，只繼承 font-family，字級仍是 UA 預設的 13.33px 才會偏小
+  font-size: var(--font-size-base);
 }
 // 結果表格高度＝表頭 + 4 列（2026-07-27 使用者指定，同日先前為 3 列）。
 // 列高以「padding ×2 + line-height」寫死才算得準（原本靠字型 line-height 推估，140px≈5 列）。

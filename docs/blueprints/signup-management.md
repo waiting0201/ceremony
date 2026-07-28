@@ -16,7 +16,7 @@ related_docs:
   - prepay-loading.md
   - printing-reports.md
 keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印, 勾選列印, signupIds]
-last_updated: 2026-07-27 (清單列選取補齊 shift 範圍選取：一般點擊 toggle 並設錨點、shift 點擊選錨點~本列整段，錨點在 shift 期間不動且以「錨點當下選取」為基準重算故範圍可縮小、更早的選取不被吃掉；列首 checkbox 從 (change) 改綁 (click) 才拿得到 shiftKey〔change 事件無此旗標，原本從 checkbox 點永遠吃不到 shift〕、mousedown preventDefault 擋掉 shift 文字反白；新增 signup-list-page.spec.ts 7 案回歸鎖；同日先前搜尋面板新增「全部」checkbox〔置於「範圍」上方〕：勾選＝忽略所有條件顯示全部報名供比對、條件值保留但停用變灰，取消勾選即以原條件重查還原；匯出 Excel 同步跟著模式走；isAll + searchedBeforeAll 併入 SignupSearchState 跨路由保存——取代舊系統「另開一個 SignupForm 視窗並排比對」的做法；同日先前補回「列印資料卡」按鈕（存檔前 disabled、新增成功後啟用，印剛新增那筆，對齊舊 btnPrintDataCard）＋報名維護 overlay 固定 1100px＝對齊新增報名頁 .page max-width（form-overlay 新增 width input；19 欄結果表原本把 panel 撐到 92vw）；同日版面續調三項：重複報名警示移到左欄法會資料下方、編號 disabled 補灰底（全域 .field 補 :disabled 樣式）、信眾結果高度改表頭+4 列；同日先前新增報名版面三項：法會資料改放左側直立窄欄（回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列、編號欄恆顯示改以 disabled/enabled 切換（回舊 cbKeepNumber_CheckedChanged）；同日往生/陽上名單 input 文字色/底色對齊地址欄（.field 外吃不到全域 color，UA fieldtext 純黑），報名+信眾兩表單同步；同日改選信眾不再清空「費用」（使用者輸入的金額保留，對齊舊 BelieverSelected 未碰 txtFee）；同日新增成功後不清表單/不關閉、跳單按鈕結果 dialog「編號X，新增報名成功」、草稿記憶清掉——saved output 改帶 SignupSavedEvent{keepOpen}，對齊舊 NewSignupForm:355-361；同日先前改選信眾 in-flight race guard〔pickToken/isStale，慢回應不再蓋掉後選的、地址區域下拉不再錯亂〕＋選信眾即標髒〔沒打字也會存草稿〕＋改選時清錯誤訊息；同日新增報名跨路由草稿：填到一半切到其他功能頁再回來資料保留——root singleton SignupDraftState，僅純新增模式、僅存記憶體、靜默還原，儲存成功/按取消才作廢，純新增模式關閉 overlay 不再跳「未儲存的變更」確認；同日先前信眾搜尋補回舊 BelieverView 語意：併查 GET /believers?searchKey=（既有端點新加 14 欄 OR 參數）補「從未報名過的信眾」列，排在報名列後、獨立額度 50 列；同日先前「信眾搜尋選定回填」客訴修正：清單一列＝一筆報名，點列改帶「該筆報名」的姓名/電話/寄件+文牒地址/往生+陽上名單/備註，信眾主檔 `GET /believers/{id}` 降為欄位為空時的 fallback 與摘要卡資料源，對齊舊 BelieverSelected:991-1101；年份/法會/類型/編號/費用仍不帶、費用清空、預繳仍走 prefillPrepayHistory 條件回填；同日先前 2026-07-21 報名維護 UI 客訴四項：編號＋批次列印起迄加 .num-stepper ▲▼ ±1（對齊舊 NumericUpDown）、編輯表單「預繳民國年」移到下一行且置於「預繳法會」之前、搜尋/列印按鈕補 align-self:stretch 撐滿列高（對齊舊 btnSearch 75×99 / btnPrint 75×63）、清單垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上一頁/下一頁/向上/向下捲動〕對齊舊 WinForms 原生捲軸選單；同日先前：員工類型/固定編號/堂號改 per-signup 可編輯（方案 A）：Signups 加自有欄＋DbUp 回填＋SignupView COALESCE，報名表單三欄可編輯只改這筆、不回寫信眾、預繳保號仍讀信眾；同日新增報名頁客訴六項：取消＝清成新的一筆不跳頁、改選信眾殘留欄位修復、搜尋結果與名單文字大小對齊地址、勾指定編號後編號欄移至勾選文字右邊、地址非必填（前後端同步放寬）；先前 2026-07-18 右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
+last_updated: 2026-07-28 (新增報名版面客訴第二輪四項：「同寄件地址」改夾在寄件段與文牒段中間（自成一列、靠右對齊）、文牒郵遞區號回到文牒區域右邊、文牒地址加寬佔滿三欄、「列印資料卡/取消/確認」移到備註下方〔表單新增 form-actions 投影 slot，overlay 端 [showActions]=false 收掉 footer，路由頁 .form-actions 移除〕；同日先前四項：信眾搜尋框字級對齊地址輸入框〔.search-input 不在 .field 內、只繼承 font-family，字級仍是 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄「地址」下方、「同寄件地址」由文牒地址同列移到文牒**郵遞區號正上方**〔第一列第三欄，郵遞區號下移到文牒地址右側，不多佔列高〕、備註 textarea rows=1→4〔約再加兩行〕；先前 2026-07-27 清單列選取補齊 shift 範圍選取：一般點擊 toggle 並設錨點、shift 點擊選錨點~本列整段，錨點在 shift 期間不動且以「錨點當下選取」為基準重算故範圍可縮小、更早的選取不被吃掉；列首 checkbox 從 (change) 改綁 (click) 才拿得到 shiftKey〔change 事件無此旗標，原本從 checkbox 點永遠吃不到 shift〕、mousedown preventDefault 擋掉 shift 文字反白；新增 signup-list-page.spec.ts 7 案回歸鎖；同日先前搜尋面板新增「全部」checkbox〔置於「範圍」上方〕：勾選＝忽略所有條件顯示全部報名供比對、條件值保留但停用變灰，取消勾選即以原條件重查還原；匯出 Excel 同步跟著模式走；isAll + searchedBeforeAll 併入 SignupSearchState 跨路由保存——取代舊系統「另開一個 SignupForm 視窗並排比對」的做法；同日先前補回「列印資料卡」按鈕（存檔前 disabled、新增成功後啟用，印剛新增那筆，對齊舊 btnPrintDataCard）＋報名維護 overlay 固定 1100px＝對齊新增報名頁 .page max-width（form-overlay 新增 width input；19 欄結果表原本把 panel 撐到 92vw）；同日版面續調三項：重複報名警示移到左欄法會資料下方、編號 disabled 補灰底（全域 .field 補 :disabled 樣式）、信眾結果高度改表頭+4 列；同日先前新增報名版面三項：法會資料改放左側直立窄欄（回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列、編號欄恆顯示改以 disabled/enabled 切換（回舊 cbKeepNumber_CheckedChanged）；同日往生/陽上名單 input 文字色/底色對齊地址欄（.field 外吃不到全域 color，UA fieldtext 純黑），報名+信眾兩表單同步；同日改選信眾不再清空「費用」（使用者輸入的金額保留，對齊舊 BelieverSelected 未碰 txtFee）；同日新增成功後不清表單/不關閉、跳單按鈕結果 dialog「編號X，新增報名成功」、草稿記憶清掉——saved output 改帶 SignupSavedEvent{keepOpen}，對齊舊 NewSignupForm:355-361；同日先前改選信眾 in-flight race guard〔pickToken/isStale，慢回應不再蓋掉後選的、地址區域下拉不再錯亂〕＋選信眾即標髒〔沒打字也會存草稿〕＋改選時清錯誤訊息；同日新增報名跨路由草稿：填到一半切到其他功能頁再回來資料保留——root singleton SignupDraftState，僅純新增模式、僅存記憶體、靜默還原，儲存成功/按取消才作廢，純新增模式關閉 overlay 不再跳「未儲存的變更」確認；同日先前信眾搜尋補回舊 BelieverView 語意：併查 GET /believers?searchKey=（既有端點新加 14 欄 OR 參數）補「從未報名過的信眾」列，排在報名列後、獨立額度 50 列；同日先前「信眾搜尋選定回填」客訴修正：清單一列＝一筆報名，點列改帶「該筆報名」的姓名/電話/寄件+文牒地址/往生+陽上名單/備註，信眾主檔 `GET /believers/{id}` 降為欄位為空時的 fallback 與摘要卡資料源，對齊舊 BelieverSelected:991-1101；年份/法會/類型/編號/費用仍不帶、費用清空、預繳仍走 prefillPrepayHistory 條件回填；同日先前 2026-07-21 報名維護 UI 客訴四項：編號＋批次列印起迄加 .num-stepper ▲▼ ±1（對齊舊 NumericUpDown）、編輯表單「預繳民國年」移到下一行且置於「預繳法會」之前、搜尋/列印按鈕補 align-self:stretch 撐滿列高（對齊舊 btnSearch 75×99 / btnPrint 75×63）、清單垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上一頁/下一頁/向上/向下捲動〕對齊舊 WinForms 原生捲軸選單；同日先前：員工類型/固定編號/堂號改 per-signup 可編輯（方案 A）：Signups 加自有欄＋DbUp 回填＋SignupView COALESCE，報名表單三欄可編輯只改這筆、不回寫信眾、預繳保號仍讀信眾；同日新增報名頁客訴六項：取消＝清成新的一筆不跳頁、改選信眾殘留欄位修復、搜尋結果與名單文字大小對齊地址、勾指定編號後編號欄移至勾選文字右邊、地址非必填（前後端同步放寬）；先前 2026-07-18 右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
 ---
 
 ## 背景與動機
@@ -139,15 +139,23 @@ last_updated: 2026-07-27 (清單列選取補齊 shift 範圍選取：一般點�
             取代 2026-07-17 的「提到表單最上方全寬」。以下欄位皆在右側主體區）
 信眾       常駐搜尋列 + 結果列表直接顯示（2026-07-17 改，對齊舊常駐 dgvBelievers；
            選定後列表保留、可隨時點別筆改選覆蓋欄位；未選信眾也可送出 → 自動建新信眾）
+           （搜尋框字級 2026-07-28 對齊地址輸入框 --font-size-base）
 基本資料   員工類型(可編輯 select) / 固定編號(可編輯 checkbox) / 堂號(可編輯 input) / 姓名 / 聯絡電話（三欄 2026-07-21 改 per-signup 可編輯）
 地址       寄件在上：寄件城市→區域(連動下拉)→郵遞區號(唯讀) / 寄件地址
-           文牒在下：文牒城市→區域→郵遞區號 / 文牒地址 + ☑ 同寄件地址（同列；
-           複製 mail→text；mail 空 → 「請先輸入寄件地址」）
+           ☑ 同寄件地址（自成一列，夾在寄件段與文牒段中間、**靠右對齊**；勾選＝複製 mail→text；
+             mail 空 → 「請先輸入寄件地址」）
+           文牒在下：文牒城市→區域→郵遞區號 / 文牒地址（佔滿三欄）
+           （2026-07-28 使用者指定定案：勾選框放兩段中間、郵遞區號回到文牒區域右邊、文牒地址加寬；
+            同日稍早曾試「勾選框放郵遞區號正上方」，客訴後改為此版）
            （2026-07-17 改回上下堆疊，對齊舊 Designer 寄件 Y≈222 / 文牒 Y≈311）
 名單       往生 ×6 在上、陽上 ×6 在下（2026-07-17 對齊舊 Designer 往生 Y≈401 / 陽上 Y≈517）；
            往生輸入框不加底色（舊系統兩組皆無 BackColor，使用者指定）
+           （2026-07-28 使用者指定：由右欄移到**左欄地址下方**，填地址與填名單是同一段連續動作）
 編號/費用  ☑ 指定編號 + 編號 / 費用
-備註/預繳  備註 / 預繳民國年 / 預繳法會
+備註/預繳  備註（2026-07-28 高度加兩行，rows=4）/ 預繳民國年 / 預繳法會
+按鈕列     列印資料卡 / 取消 / 確認（2026-07-28 使用者指定移到**備註下方**，
+           不再是 overlay panel 底部 footer 或路由頁最下方；按鈕仍由 host 提供，
+           投影進表單的 `form-actions` slot，overlay 端另給 `[showActions]="false"` 收掉 footer）
 ```
 
 - **法會分類依當月自動帶季別（新版加值，2026-06-23）**：新增模式下載完分類樹後，依當前月份自動把「法會分類」預設為對應季別 root（1-4月→春季 / 5-8月→中元 / 9-12月→秋季，見 [business-rules-implicit.md](../business-rules-implicit.md) §月→季）。為**可編輯的預設**：使用者仍可改選任何季別或子法會（子法會仍人工挑選，月份只決定季別）。僅在 create 模式且使用者尚未選值時帶入；編輯模式不覆蓋既有 ceremony。實作：`util/ceremony-season.ts`（`currentSeason` / `resolveSeasonRootId`，GUID 優先、title 退場）+ `signup-edit-form` `applySeasonDefault()`

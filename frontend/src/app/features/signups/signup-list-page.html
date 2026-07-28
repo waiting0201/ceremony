@@ -248,6 +248,7 @@
       [title]="o.signupId ? '編輯報名' : (o.insertAt ? '插入報名（後續順移）' : '新增報名')"
       [dirty]="editFormDirty() && overlayGuardsDirty()"
       width="1100px"
+      [showActions]="false"
       (close)="onOverlayClose()"
     >
       <app-signup-edit-form
@@ -256,21 +257,24 @@
         [insertAt]="o.insertAt ?? null"
         (saved)="onOverlaySaved($event)"
         (dirtyChange)="onEditFormDirtyChange($event)"
-      />
-      <ng-container overlay-actions>
-        <!-- 列印資料卡（對齊舊 btnPrintDataCard）：新增類才有，存檔前 disabled、新增成功後可按，
-             印的是剛新增那一筆。位置在「取消」左邊（2026-07-27 使用者指定）。 -->
-        @if (!o.signupId) {
-          <button
-            type="button"
-            class="btn"
-            [disabled]="!editForm()?.lastCreatedSignupId() || !!editForm()?.printingDataCard()"
-            (click)="onPrintDataCard()"
-          >{{ editForm()?.printingDataCard() ? '產生中…' : '列印資料卡' }}</button>
-        }
-        <button type="button" class="btn" (click)="onOverlayCancel()">取消</button>
-        <button type="button" class="btn btn-primary" (click)="onOverlaySubmit()">確認</button>
-      </ng-container>
+      >
+        <!-- 按鈕列改由表單內部排版（備註下方，2026-07-28 使用者指定），故 overlay footer 關閉
+             （[showActions]="false"）、按鈕改投影到表單的 form-actions slot。
+             列印資料卡（對齊舊 btnPrintDataCard）：新增類才有，存檔前 disabled、新增成功後可按，
+             印的是剛新增那一筆；位置在「取消」左邊（2026-07-27 使用者指定）。 -->
+        <ng-container form-actions>
+          @if (!o.signupId) {
+            <button
+              type="button"
+              class="btn"
+              [disabled]="!editForm()?.lastCreatedSignupId() || !!editForm()?.printingDataCard()"
+              (click)="onPrintDataCard()"
+            >{{ editForm()?.printingDataCard() ? '產生中…' : '列印資料卡' }}</button>
+          }
+          <button type="button" class="btn" (click)="onOverlayCancel()">取消</button>
+          <button type="button" class="btn btn-primary" (click)="onOverlaySubmit()">確認</button>
+        </ng-container>
+      </app-signup-edit-form>
     </app-form-overlay>
   }
 </div>
