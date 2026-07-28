@@ -85,7 +85,7 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
         },
       ],
     });
-    TestBed.inject(SignupDraftState).clear();
+    TestBed.inject(SignupDraftState).draft.set(null); // 草稿是 root singleton，逐案重置
     httpMock = TestBed.inject(HttpTestingController);
   });
 
@@ -111,7 +111,7 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     expect((val(second, 'deadNames') as string[])[0]).toBe('往生乙');
   });
 
-  it('沒動過的空白表單不會覆蓋既有草稿', async () => {
+  it('開了沒改就離開：內容不會被洗掉（快照＝剛還原回來的同一份）', async () => {
     const draftState = TestBed.inject(SignupDraftState);
 
     const first = await open();
@@ -123,25 +123,24 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     second.destroy(); // 開了沒改就離開
 
     expect(draftState.draft()?.value.name).toBe('李小華');
+
+    const third = await open();
+    expect(val(third, 'name')).toBe('李小華');
   });
 
-  it('按「取消」（清成新的一筆）會把草稿一併作廢', async () => {
-    const draftState = TestBed.inject(SignupDraftState);
-
+  it('按「取消」後切走再回來＝取消後的畫面（法會資料＋費用留著，其餘空）', async () => {
     const first = await open();
-    probe(first).form.patchValue({ name: '陳小美' });
+    probe(first).form.patchValue({ year: 113, ceremonyCategoryId: 'c1', name: '陳小美', fee: 900 });
     probe(first).form.markAsDirty();
-    first.destroy();
-    expect(draftState.draft()).not.toBeNull();
+
+    probe(first).resetBelow(); // 清成新的一筆（此後表單為 pristine）
+    first.destroy();           // ＝切到其他功能頁
 
     const second = await open();
-    expect(val(second, 'name')).toBe('陳小美');
-    probe(second).resetBelow();
-    expect(draftState.draft()).toBeNull();
-    expect(val(second, 'name')).toBe('');
-
-    second.destroy();
-    expect(draftState.draft()).toBeNull(); // resetBelow 後表單已 pristine，不會再存回去
+    expect(val(second, 'name')).toBe('');   // 取消清掉的不會復活
+    expect(val(second, 'fee')).toBe(900);   // 取消保留的要跟著回來
+    expect(val(second, 'year')).toBe(113);
+    expect(val(second, 'ceremonyCategoryId')).toBe('c1');
   });
 
   it('按「取消」保留法會資料與費用，其餘欄位清空（2026-07-28 使用者指定：金額不用重打）', async () => {
@@ -222,9 +221,7 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     httpMock.expectNone((r) => r.url.includes('/prepay')); // 作廢的甲不再往下查預繳
   });
 
-  it('新增成功：表單資料留著、草稿記憶清掉、跳「編號X，新增報名成功」', async () => {
-    const draftState = TestBed.inject(SignupDraftState);
-
+  it('新增成功：表單資料留著、跳「編號X，新增報名成功」，切走再回來仍是同一份', async () => {
     const f = await open();
     probe(f).form.patchValue({ ceremonyCategoryId: 'c1', name: '王小明', remark: '第一筆' });
     probe(f).form.markAsDirty();
@@ -244,12 +241,15 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     expect(val(f, 'name')).toBe('王小明');       // 資料不清除
     expect(val(f, 'remark')).toBe('第一筆');
     expect(savedEvent?.keepOpen).toBe(true);      // host 不關閉表單、只重查列表
-    expect(draftState.draft()).toBeNull();        // 但草稿記憶要清掉
     expect(dialogCalls.at(-1)?.message).toBe('編號123，新增報名成功');
     expect(dialogCalls.at(-1)?.hideCancel).toBe(true);
 
-    f.destroy(); // 存檔後表單已 pristine → 不會把剛存好的內容又記成草稿
-    expect(draftState.draft()).toBeNull();
+    // 存檔後表單是 pristine，但畫面上有東西 → 一律快照，回來要跟離開前一樣（2026-07-28）
+    f.destroy();
+    const again = await open();
+    expect(val(again, 'name')).toBe('王小明');
+    expect(val(again, 'remark')).toBe('第一筆');
+    expect(probe(again).lastCreatedSignupId()).toBe('s9'); // 「列印資料卡」維持可按
   });
 
   it('列印資料卡：存檔前不可按，新增成功後印的是剛新增的那一筆', async () => {

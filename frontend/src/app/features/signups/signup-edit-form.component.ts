@@ -279,6 +279,7 @@ export class SignupEditFormComponent implements OnInit {
     this.believerSearchTerm.set(draft.believerSearchTerm);
     this.believerSearchResults.set(draft.believerSearchResults);
     this.believerHasSearched.set(draft.believerHasSearched);
+    this.lastCreatedSignupId.set(draft.lastCreatedSignupId);
     this.form.patchValue(v);
     this.livingArray.setValue(pad6(v.livingNames));
     this.deadArray.setValue(pad6(v.deadNames));
@@ -292,15 +293,20 @@ export class SignupEditFormComponent implements OnInit {
       null, v.textAddress,
     );
     this.form.controls.sameMailAddress.setValue(v.sameMailAddress);
-    // 還原回來的內容視同「有未儲存的變更」，讓 host 的 dirty 狀態與畫面一致。
-    this.form.markAsDirty();
-    this.dirtyChange.emit(true);
+    // 髒/乾淨照離開當下還原（patchValue 本身不會標髒），讓 host 的 dirty 狀態與畫面一致。
+    if (draft.dirty) this.form.markAsDirty();
+    else this.form.markAsPristine();
+    this.dirtyChange.emit(draft.dirty);
     // 重複報名警示由 valueChanges → checkDuplicates 自動重查，不需入草稿。
   }
 
-  /** 純新增模式且有動過欄位才存草稿；乾淨表單不覆蓋（避免把既有草稿清成空的）。 */
+  /**
+   * 純新增模式離開時**無條件**快照當下畫面（2026-07-28 使用者定案：回來要跟離開前一樣）。
+   * 不再看 `form.dirty`——存檔成功後與按「取消」後的表單都是 pristine，但畫面上有東西，
+   * 過門檻擋掉就會「看得到卻帶不回來」。空白表單被存起來也無妨（還原＝一樣是空白）。
+   */
   private saveDraft(): void {
-    if (!this.isPlainCreate() || !this.form.dirty) return;
+    if (!this.isPlainCreate()) return;
     this.draftState.save({
       value: this.form.getRawValue(),
       selectedBeliever: this.selectedBeliever(),
@@ -308,6 +314,8 @@ export class SignupEditFormComponent implements OnInit {
       believerSearchTerm: this.believerSearchTerm(),
       believerSearchResults: this.believerSearchResults(),
       believerHasSearched: this.believerHasSearched(),
+      lastCreatedSignupId: this.lastCreatedSignupId(),
+      dirty: this.form.dirty,
     });
   }
 
@@ -799,9 +807,8 @@ export class SignupEditFormComponent implements OnInit {
       // markAsPristine 不會走 valueChanges，host 的 dirty 旗標要主動同步——否則存完仍留在
       // 表單上的資料會讓代入新增/插入模式關閉時誤跳「未儲存的變更」。
       this.dirtyChange.emit(false);
-      // 這筆已經存進去了，草稿記憶要作廢（否則下次開新增報名會把剛存好的內容再帶回來一次）。
-      // 表單畫面上的資料仍原樣留著（見下方 keepOpen），只是不再被記到跨路由草稿。
-      if (this.isPlainCreate()) this.draftState.clear();
+      // 草稿不在此作廢（2026-07-28 反轉 07-27 的作法）：存完資料仍原樣留在畫面上（見下方
+      // keepOpen），切走再回來也要看到同一份，故交給離開時的 saveDraft 一律快照。
       // 存完可接著印這一筆的資料卡（舊 btnPrintDataCard 於此刻 Enabled = true）
       if (created) this.lastCreatedSignupId.set(created.id);
       // 新增類（非編輯、非插入）＝存完不關閉、資料留著；插入/編輯維持關閉。
@@ -911,8 +918,8 @@ export class SignupEditFormComponent implements OnInit {
     this.livingArray.setValue(Array.from({ length: 6 }, () => ''));
     this.deadArray.setValue(Array.from({ length: 6 }, () => ''));
     this.form.markAsPristine();
-    // 「取消」＝使用者明確要丟掉這筆未完成的內容 → 草稿一併作廢（2026-07-27）。
-    this.draftState.clear();
+    // 草稿不在此作廢（2026-07-28 反轉 07-27 的作法）：取消後畫面上還留著法會資料與費用，
+    // 切走再回來也要是這個狀態，故交給離開時的 saveDraft 一律快照。
   }
 }
 
