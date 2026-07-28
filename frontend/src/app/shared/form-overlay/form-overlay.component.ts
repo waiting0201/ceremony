@@ -30,6 +30,7 @@ import { ConfirmDialogService } from '../confirm-dialog/confirm-dialog.service';
  *
  * 行為：
  * - backdrop click / `Esc` / × button 觸發 `tryClose()`
+ *   （`[dismissible]="false"` 時 backdrop 與 `Esc` 不再關閉，只剩 × 與表單自己的取消按鈕）
  * - 若 `dirty=true` 顯示「未儲存的變更」確認；否則直接 emit `close`
  * - panel 寬高 content-adaptive（max 92vw × 92vh）
  */
@@ -39,7 +40,7 @@ import { ConfirmDialogService } from '../confirm-dialog/confirm-dialog.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   encapsulation: ViewEncapsulation.None,
   template: `
-    <div class="overlay-backdrop" (click)="tryClose()">
+    <div class="overlay-backdrop" (click)="onBackdropClick()">
       <div
         class="overlay-panel"
         role="dialog"
@@ -89,10 +90,23 @@ export class FormOverlayComponent {
    * 只有 padding + 上框線的空灰帶。
    */
   readonly showActions = input<boolean>(true);
+  /**
+   * 是否允許「點 backdrop / 按 Esc」關閉（預設允許）。
+   * 給 `false` 用在「誤關代價高」的表單——例如報名維護的新增／編輯報名
+   * （2026-07-28 客訴：打字時手滑點到旁邊整張表就沒了），此時只有右上 × 與
+   * 表單自己的「取消」按鈕能關；兩者一樣走 `tryClose()`，dirty 仍會先問。
+   */
+  readonly dismissible = input<boolean>(true);
   readonly close = output<void>();
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {
+    if (!this.dismissible()) return;
+    void this.tryClose();
+  }
+
+  protected onBackdropClick(): void {
+    if (!this.dismissible()) return;
     void this.tryClose();
   }
 

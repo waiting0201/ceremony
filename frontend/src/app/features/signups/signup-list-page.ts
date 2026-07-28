@@ -180,7 +180,8 @@ export class SignupListPage implements OnInit {
   protected readonly exporting = signal(false);
   protected readonly printing = signal(false);
   protected readonly hasSearched = signal(false);
-  protected readonly keyEnabled = signal(false);
+  /** 關鍵字欄可否輸入＝範圍 5 項是否至少勾一個；預設全勾故初值 true。 */
+  protected readonly keyEnabled = signal(true);
 
   /** 「全部」模式是否啟用（鏡射 form.isAll，供模板做樣式綁定；OnPush + zoneless 下 control.value 不是 reactive）。 */
   protected readonly allMode = signal(false);
@@ -233,12 +234,14 @@ export class SignupListPage implements OnInit {
     signupType: [-1],
     number: [null as number | null],
     isFixedNumber: [false],
-    searchKey: [{ value: '', disabled: true }],
-    scopeName: [false],
-    scopeLivingName: [false],
-    scopeDeadName: [false],
-    scopePhone: [false],
-    scopeRemark: [false],
+    // 範圍 5 項預設全勾（2026-07-28 使用者指定，刻意不同於舊系統的全不勾）：
+    // 打關鍵字就能搜，不必先勾欄位；關鍵字欄因此一開始就是啟用狀態（見 keyEnabled 初值）
+    searchKey: [''],
+    scopeName: [true],
+    scopeLivingName: [true],
+    scopeDeadName: [true],
+    scopePhone: [true],
+    scopeRemark: [true],
   });
 
   protected readonly batchForm = this.fb.nonNullable.group({
@@ -587,14 +590,14 @@ export class SignupListPage implements OnInit {
       number: null,
       isFixedNumber: false,
       searchKey: '',
-      scopeName: false,
-      scopeLivingName: false,
-      scopeDeadName: false,
-      scopePhone: false,
-      scopeRemark: false,
+      scopeName: true,
+      scopeLivingName: true,
+      scopeDeadName: true,
+      scopePhone: true,
+      scopeRemark: true,
     });
-    this.form.controls.searchKey.disable({ emitEvent: false });
-    this.keyEnabled.set(false);
+    this.form.controls.searchKey.enable({ emitEvent: false });
+    this.keyEnabled.set(true);
     this.allMode.set(false);
     this.applyAllMode(false);
   }

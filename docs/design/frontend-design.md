@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本, num-stepper, 捲軸, scrollbar, NumericUpDown, 草稿, draft, 未儲存]
-last_updated: 2026-07-28 (新增「Enter 就送出的開關是那顆隱藏 submit 按鈕」段（報名表單改為 Enter 不送出：移除隱藏鈕＋ngSubmit＋form 層攔 Enter 放行 textarea；其他三個 edit-form 不跟進）；同日先前版面客訴第二輪：地址段「同寄件地址」改夾在寄件/文牒之間、文牒郵遞區號回到區域右邊、文牒地址加寬；按鈕列（列印資料卡/取消/確認）移到備註下方——signup-edit-form 新增 form-actions 投影 slot、form-overlay 新增 showActions input 收掉底部 footer、路由頁 .form-actions 移除；同日先前四項：信眾搜尋框字級對齊地址欄〔.search-input 不在 .field 內、只繼承 font-family，字級落回 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄地址下方、「同寄件地址」移到文牒郵遞區號正上方〔第一列第三欄，郵遞區號下移到文牒地址同列，不多佔列高〕、備註 rows=1→4；ng build 綠，待實機複驗；先前 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣))
+last_updated: 2026-07-28 (form-overlay 新增 dismissible input（false＝backdrop click / Esc 不再關閉，只剩 × 與 host 自己的取消鈕；報名維護新增/編輯 overlay 指定 false，其餘三個 feature 不變）；同日先前新增「Enter 就送出的開關是那顆隱藏 submit 按鈕」段（報名表單改為 Enter 不送出：移除隱藏鈕＋ngSubmit＋form 層攔 Enter 放行 textarea；其他三個 edit-form 不跟進）；同日先前版面客訴第二輪：地址段「同寄件地址」改夾在寄件/文牒之間、文牒郵遞區號回到區域右邊、文牒地址加寬；按鈕列（列印資料卡/取消/確認）移到備註下方——signup-edit-form 新增 form-actions 投影 slot、form-overlay 新增 showActions input 收掉底部 footer、路由頁 .form-actions 移除；同日先前四項：信眾搜尋框字級對齊地址欄〔.search-input 不在 .field 內、只繼承 font-family，字級落回 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄地址下方、「同寄件地址」移到文牒郵遞區號正上方〔第一列第三欄，郵遞區號下移到文牒地址同列，不多佔列高〕、備註 rows=1→4；ng build 綠，待實機複驗；先前 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣))
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -352,7 +352,7 @@ export class NewSignupComponent {
 - [admins-page](../../frontend/src/app/features/admins/admins-page.ts) → `<app-form-overlay>` 包 `<app-admin-edit-form>`
 
 理由：
-- **視覺一致**：四個 feature 用同一 shell（標題列、× 關閉、ESC、backdrop click），使用者只需學一套互動
+- **視覺一致**：四個 feature 用同一 shell（標題列、× 關閉、ESC、backdrop click；報名維護以 `[dismissible]="false"` 關掉後兩者），使用者只需學一套互動
 - **空間有彈性**：`min-width: min(420px, 92vw); max-width: 92vw; max-height: 92vh`，2 欄 form 自動縮成小窗、25 欄 form 自動撐大
 - **列表狀態保留**：開 overlay 時列表不切換、不重 mount、不重打 API；存檔成功後 inline refresh
 - **route 仍可 deep link**：[signup-edit-page](../../frontend/src/app/features/signups/signup-edit-page.ts) 保留 `/signups/new`、`/signups/:id/edit` 作獨立頁面 fallback（內部仍重用 `<app-signup-edit-form>`）
@@ -368,9 +368,12 @@ export class FormOverlayComponent {
   readonly dirty = input<boolean>(false);   // 關閉前是否需要「未儲存變更」確認
   readonly width = input<string | null>(null); // panel 寬度（如 '900px'）；不給＝content-adaptive
   readonly showActions = input<boolean>(true); // 是否顯示 panel 底部 actions footer
-  readonly close = output<void>();          // ESC / × / backdrop click 三路皆觸發
+  readonly dismissible = input<boolean>(true); // false＝backdrop / Esc 不關，只剩 × 與表單自己的取消
+  readonly close = output<void>();          // ESC / × / backdrop click 三路皆觸發（dismissible=false 時只剩 ×）
 }
 ```
+
+**`dismissible=false` 何時用（2026-07-28）**：表單長、誤關代價高的場合——報名維護的「新增報名 / 編輯報名」overlay（使用者指定：**只有點 × 或取消才關**）。輸入中手滑點到 panel 以外、或按 Esc 想取消輸入法組字，都會整張表單收掉；新增報名雖有跨路由草稿保護（見下方段落），編輯模式沒有。實作是 backdrop click 與 `document:keydown.escape` 兩個入口各自 early-return，**不改 `tryClose()`**，× 與 host 的取消鈕仍走同一條路（dirty 時照樣跳確認）。
 
 **`showActions=false` 何時用（2026-07-28）**：按鈕列改由內層表單自己排版時關掉 footer——報名表單把「列印資料卡/取消/確認」移到**備註下方**（使用者指定），host 改用 `<ng-container form-actions>` 投影進 `app-signup-edit-form` 的 `.form-actions-slot`。footer 若留著會是一條只有 padding + 上框線的空灰帶（不能靠 `:empty` 賭 Angular 的註解錨點/空白節點，故走顯式 input）。**按鈕仍由 host 提供**（handler 與 disabled 條件都在 host，投影內容沿用 host 的 template context 與樣式封裝），表單只出借位置。路由頁 `/signups/new` 走同一個 slot（原本頁面最下方的 `.form-actions` 已移除）。
 

@@ -19,7 +19,7 @@ related_docs:
   - ../printing-reports-positions.md
   - README.md
 keywords: [legacy, coverage, signup, rdlc, variant]
-last_updated: 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統)
+last_updated: 2026-07-28 (row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統))
 ---
 
 > ✅ **完成 (2026-06-02)**：43 個方法中 39 個已實作、4 個故意捨棄（WinForms printDocument 內部 :34-37，改走 Web/PDF 路徑）。查詢 / 列印（5 類 + RDLC 變體）/ 右鍵選單 / 搜尋範圍切換 / 顯示完整欄位 / 歷程 全 ship。
@@ -61,7 +61,7 @@ last_updated: 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TY
 | 15 | `tsmiLog_Click` | 428-445 | 顯示報名修改日誌 | ✅ 已實作 | 前端 nav `/signups/:id/logs` + `GET /api/v1/signups/:id/logs` | 選單「瀏覽歷程」`actionLogs(item)` → `navigateByUrl('/signups/:id/logs')` → `signup-logs-page` + `ListSignupLogsHandler` |
 | 16 | `btnPrint_Click` | 447-653 | **複合邏輯：編號範圍查詢 + 5 種列印類型**（206 行；含 1148-1228 RDLC 薦牌 9 變體選擇、1335-1357 文牒 2 變體、1554-1593 普桌動態字級） | ✅ 已實作 | `POST /api/v1/reports/batch` | `BatchReportHandler` + `SignupRepository.SearchByNumberRangeAsync`（編號範圍 + year/yearGte/ceremony/signupType 篩選）+ 5 種 reportType（reuse `ReportModelBuilders` 共享單筆 handler 邏輯）+ `PdfSharpMerger` 合併；worship 不另限 SignupType、只跟隨呼叫端篩選（2026-07-18 解鎖，同舊 case 5）；錯誤碼 `編號錯誤` / `報表類型錯誤` / `BATCH_NO_SIGNUPS` |
 | 17 | `btnExportExcel_Click` | 655-728 | 匯出搜尋結果為 Excel | ✅ 已實作 | `POST /api/v1/signups/export` | `ExportSignupsHandler` 用 ClosedXML (.xlsx)；32 欄對齊舊順序；reuse `SearchSignupsHandler` |
-| 18 | `cbSearchName_CheckedChanged` | 730-741 | 切換姓名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `signup-list-page` `scopeName` checkbox；任一 scope* 勾選 → 啟用 `searchKey` 輸入（見 #43）|
+| 18 | `cbSearchName_CheckedChanged` | 730-741 | 切換姓名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `signup-list-page` `scopeName` checkbox；任一 scope* 勾選 → 啟用 `searchKey` 輸入（見 #43）。**刻意偏離：5 個 scope 預設全勾**（舊 Designer 未設 `Checked`＝全不勾），2026-07-28 使用者指定 |
 | 19 | `cbSearchLivingName_CheckedChanged` | 743-754 | 切換陽上名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopeLivingName` checkbox 驅動 searchKey 啟用 |
 | 20 | `cbSearchDeadName_CheckedChanged` | 756-767 | 切換亡名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopeDeadName` checkbox 驅動 searchKey 啟用 |
 | 21 | `cbSearchPhone_CheckedChanged` | 769-780 | 切換電話搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopePhone` checkbox 驅動 searchKey 啟用 |

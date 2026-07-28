@@ -113,3 +113,47 @@ describe('SignupListPage（列選取 / shift 範圍選取）', () => {
     expect(selected(p)).toEqual(['r2']);
   });
 });
+
+/**
+ * 搜尋面板預設值的行為鎖：範圍 5 項預設全勾、關鍵字欄開頁即可輸入（2026-07-28 使用者指定，
+ * 刻意偏離舊 SignupForm 的全不勾）。resetForm() 也要回到同一組預設。
+ */
+describe('SignupListPage（搜尋範圍預設）', () => {
+  type FormProbe = {
+    form: {
+      getRawValue(): Record<string, unknown>;
+      controls: { searchKey: { disabled: boolean } };
+      patchValue(v: Record<string, unknown>): void;
+    };
+    keyEnabled: () => boolean;
+    resetForm(): void;
+  };
+
+  const scopes = ['scopeName', 'scopeLivingName', 'scopeDeadName', 'scopePhone', 'scopeRemark'];
+
+  let p: FormProbe;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    p = TestBed.createComponent(SignupListPage).componentInstance as unknown as FormProbe;
+  });
+
+  it('姓名/陽上/往生/電話/備註 預設全勾，關鍵字欄可輸入', () => {
+    const v = p.form.getRawValue();
+    for (const name of scopes) expect(v[name]).toBe(true);
+    expect(p.form.controls.searchKey.disabled).toBe(false);
+    expect(p.keyEnabled()).toBe(true);
+  });
+
+  it('清除條件後仍回到「全勾 + 關鍵字可輸入」', () => {
+    p.form.patchValue(Object.fromEntries(scopes.map((n) => [n, false])));
+    p.resetForm();
+
+    const v = p.form.getRawValue();
+    for (const name of scopes) expect(v[name]).toBe(true);
+    expect(p.form.controls.searchKey.disabled).toBe(false);
+    expect(p.keyEnabled()).toBe(true);
+  });
+});
