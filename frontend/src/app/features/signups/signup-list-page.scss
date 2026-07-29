@@ -124,10 +124,11 @@
   .hint { flex: 0 0 auto; }
 }
 
-/* 2026-07-17 使用者要求：list 欄位字級對齊左側欄 nav-label（--font-size-md），僅限本頁 */
+/* 2026-07-17 使用者要求：list 欄位字級對齊左側欄 nav-label（--font-size-md），僅限本頁。
+   2026-07-29 全站清單 +1px，本頁跟著進位到 --font-size-md-plus。 */
 .vgrid-header,
 .vgrid-row {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-md-plus);
 }
 
 /* 自繪垂直捲軸（2026-07-21）：原生捲軸右鍵事件攔不到、macOS 又是 0 寬懸浮捲軸，

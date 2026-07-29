@@ -42,6 +42,14 @@ html {
   --font-size-lg: 18px;
   --font-size-xl: 22px;
 
+  /* +1px 級距（2026-07-29 使用者指定）：輸入框 / 搜尋結果清單 / 按鈕一律改用 *-plus；
+     標題（h1/h2/h3、legend、欄位 label、頁面副標）維持原級距不加大。
+     每個 token 就是同名基礎級距 +1px，之後調整基礎級距時兩邊要一起動。 */
+  --font-size-xs-plus: 14px;   /* = xs 13 + 1 */
+  --font-size-sm-plus: 15px;   /* = sm 14 + 1 */
+  --font-size-base-plus: 16px; /* = base 15 + 1 */
+  --font-size-md-plus: 17px;   /* = md 16 + 1 */
+
   --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 12px;
@@ -94,7 +102,7 @@ a {
   color: var(--c-text-primary);
   border-radius: 2px;
   cursor: pointer;
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-base-plus);
   font-family: inherit;
 
   &:hover:not(:disabled) { background: var(--c-bg-darker); }
@@ -136,7 +144,7 @@ a {
 .btn-sm {
   height: 24px;
   padding: 0 var(--space-sm);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-xs-plus);
 }
 
 .alert {
@@ -182,7 +190,7 @@ a {
 .data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-sm-plus);
 
   thead th {
     text-align: left;
@@ -243,7 +251,9 @@ a {
     padding: 0 6px;
     border: 1px solid var(--c-border);
     border-radius: 2px;
-    font: inherit;
+    // 原為 `font: inherit`（＝body 的 --font-size-base）；改成分開寫才能只把字級提到 +1 級距
+    font-family: inherit;
+    font-size: var(--font-size-base-plus);
     width: 100%;
     min-width: 0;
     box-sizing: border-box;
@@ -430,7 +440,7 @@ a {
 }
 .vgrid-header {
   display: grid;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-sm-plus);
   font-weight: 600;
   color: var(--c-text-primary);
   will-change: transform;
@@ -487,7 +497,7 @@ a {
 }
 .vgrid-row {
   display: grid;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-sm-plus);
   border-bottom: 1px solid var(--c-border-soft);
   box-sizing: border-box;
 
@@ -512,7 +522,7 @@ a {
     background: var(--c-dead-name-bg);
     border-right-color: var(--c-text-disabled);
   }
-  &.meta-date { font-size: var(--font-size-xs); color: var(--c-text-secondary); }
+  &.meta-date { font-size: var(--font-size-xs-plus); color: var(--c-text-secondary); }
   input[type='checkbox'] { width: 14px; height: 14px; margin: 0; cursor: pointer; }
 }
 .vgrid-row.is-selected .vgrid-td.dead {
@@ -530,7 +540,7 @@ a {
     padding: 0 var(--space-sm);
     border: 1px solid var(--c-border);
     border-radius: 2px;
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-base-plus);
     font-family: inherit;
     background: var(--c-surface);
     color: var(--c-text-primary);

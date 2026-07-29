@@ -78,7 +78,7 @@ import { ceremony, DbConfigInput } from '../../core/platform/electron';
     .field { display: flex; flex-direction: column; gap: 6px; font-size: var(--font-size-base); }
     .field.span2 { grid-column: 1 / -1; }
     .field span { color: var(--c-text-secondary); }
-    input { border: 1px solid var(--c-border); border-radius: 5px; padding: 8px 10px; font-size: var(--font-size-base); background: var(--c-surface); color: var(--c-text-primary); }
+    input { border: 1px solid var(--c-border); border-radius: 5px; padding: 8px 10px; font-size: var(--font-size-base-plus); background: var(--c-surface); color: var(--c-text-primary); }
     input:focus { outline: none; border-color: var(--c-primary); }
     .actions { display: flex; gap: 10px; }
     .msg { margin: 14px 0 0; font-size: var(--font-size-base); color: var(--c-success); }

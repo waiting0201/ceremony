@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-28 (新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
+last_updated: 2026-07-29 (新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
 ---
 
 ## 設計原則
@@ -41,6 +41,24 @@ last_updated: 2026-07-28 (新增「進度 Overlay」元件規格〔批次列印�
 ```
 
 對應舊 WinForms 9pt~12pt（96 DPI 下 9pt ≈ 12px）；**再 +1px 理由**：2026-07-02 已加過 1px，使用者仍反映「文字太小、顏色不清楚」，複測發現主要瓶頸其實是對比度（見下方色彩段），但字級本身也再拉近一階觀感。單一來源：[frontend/src/styles.scss](../../../frontend/src/styles.scss)，改此處全站生效，無需逐頁調整。
+
+### 互動元素 +1px 級距（2026-07-29 決策）
+
+使用者要求「輸入欄位、搜尋結果 list、按鈕再大 1px，**標題不用**」。因為基礎級距是標題與內文共用的，直接調 `--font-size-*` 會連標題一起變大，故**另開一組 `*-plus` 平行 token**，只給互動元素用：
+
+```css
+--font-size-xs-plus: 14px;   /* = xs + 1：.btn-sm、清單內 meta 小字 */
+--font-size-sm-plus: 15px;   /* = sm + 1：.data-table / .vgrid-header / .vgrid-row */
+--font-size-base-plus: 16px; /* = base + 1：.field input/select/textarea、.dense-controls 控件、.btn */
+--font-size-md-plus: 17px;   /* = md + 1：報名維護 vgrid、登入頁輸入框與主按鈕、報表 mode-tab */
+```
+
+**規則**：
+- **用 `*-plus`**：所有可輸入控件（input / select / textarea）、所有按鈕、所有清單/表格的**列與欄頭**
+- **維持基礎 token**：h1/h2/h3、`legend`、欄位 label（`.field > span`、`.lbl`）、副標、提示文字、badge/tag——即使它們在同一張卡片裡
+- 兩組 token **必須同步**：日後調整任一基礎級距，對應的 `*-plus` 要一起 +1，不可只改一邊
+
+清單列高不動（vgrid `ROW_HEIGHT = 26px`、信眾搜尋結果 `$result-row-h = 25px`）：17px 字仍落在 `padding 4px×2` 後的內容高度內，量測後無裁切。
 
 **已知例外（未跟上 token）**：登入頁品牌標題（34px/28px/24px，[login-page.scss](../../../frontend/src/app/features/login/login-page.scss)）與各處純裝飾用大型 icon glyph（如 `.close-btn` 24px、空狀態插圖 48px）刻意不用字級 token，因為它們是品牌/圖示尺寸而非內容字級，見「登入頁設計」段說明。
 
@@ -147,7 +165,7 @@ last_updated: 2026-07-28 (新增「進度 Overlay」元件規格〔批次列印�
 **實作載體（兩套共用同一組 token，改 token 兩邊自動連動）**：
 - 虛擬捲動 vgrid：`styles.scss` `.vgrid-header-clip / .vgrid-th / .vgrid-row / .vgrid-td`（報名維護、信眾維護）
 - 一般 table：`styles.scss` `.data-table.dense`（新增報名信眾搜尋結果）——2026-07-17 已補直向格線/表頭底線/往生欄右框線與 vgrid 一一對應
-- 字級例外：報名維護頁 vgrid 為 `--font-size-md`（2026-07-17 使用者指定對齊左側欄，page-scoped）；其餘清單維持 `--font-size-sm`
+- 字級例外：報名維護頁 vgrid 為 `--font-size-md-plus`（2026-07-17 使用者指定對齊左側欄，page-scoped；2026-07-29 隨全站互動元素 +1px 進位）；其餘清單為 `--font-size-sm-plus`
 
 ### Tree（CeremonyCategoryForm）
 
@@ -369,7 +387,7 @@ Row 2: [報表類型 ▼]                  │ [列印]
 **列順序**：年份 → 法會 → 類型 → 編號 → [費用 → 員工] → 姓名 → 備註 → [堂號] → 往生 6 欄 → 陽上 6 欄 → 預繳 → 電話 → 寄件 3 → 文牒 3 → 編輯者 → 編輯日期 → 列尾 ⋮
 
 **樣式**：
-- font-size `--font-size-md`（**僅報名維護 list**：2026-07-17 使用者要求對齊左側欄 nav-label 字級，在 `signup-list-page.scss` 覆蓋全域 `.vgrid-row`/`.vgrid-header` 的 `--font-size-sm`；其他 vgrid 頁（如信眾維護）仍為 sm）
+- font-size `--font-size-md-plus`（**僅報名維護 list**：2026-07-17 使用者要求對齊左側欄 nav-label 字級，在 `signup-list-page.scss` 覆蓋全域 `.vgrid-row`/`.vgrid-header` 的 `--font-size-sm-plus`；其他 vgrid 頁（如信眾維護）為 sm-plus。2026-07-29 兩者同步 +1px）
 - 列高 ≈ 26px (`padding: 4px 6px`)
 - 往生欄背景 `--c-dead-name-bg`（= `--c-primary-soft`，2026-07-17 使用者指定跟左側選單 active 同色，變更歷程與 trade-off 見色彩 token 表）
 - 選取列覆蓋層 `--c-row-selected` (#E9C79C)；選取列且往生欄走 mix

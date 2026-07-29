@@ -173,8 +173,8 @@
       border: 1px solid var(--c-border);
       border-radius: 2px;
       font-family: inherit;
-      // 往生／陽上名單文字大小對齊地址輸入框（＝全域 .field input 的 --font-size-base，2026-07-21 客訴）
-      font-size: var(--font-size-base);
+      // 往生／陽上名單文字大小對齊地址輸入框（＝全域 .field input 的 --font-size-base-plus，2026-07-21 客訴）
+      font-size: var(--font-size-base-plus);
       // 文字/底色也要對齊地址輸入框（2026-07-27 客訴「名單的字比較黑」）：
       // 這些 input 不在 .field 內，拿不到全域 .field input 的 color/background；而 UA 樣式表對 input
       // 直接設了 `color: fieldtext`（純黑 #000）——是設在元素上、不是繼承 body，所以不補就會偏黑。
@@ -228,9 +228,9 @@
   border: 1px solid var(--c-border);
   border-radius: 2px;
   font-family: inherit;
-  // 搜尋框文字大小對齊地址輸入框（＝全域 .field input 的 --font-size-base，2026-07-28 客訴）：
+  // 搜尋框文字大小對齊地址輸入框（＝全域 .field input 的 --font-size-base-plus，2026-07-28 客訴）：
   // 這個 input 不在 .field 內，只繼承 font-family，字級仍是 UA 預設的 13.33px 才會偏小
-  font-size: var(--font-size-base);
+  font-size: var(--font-size-base-plus);
 }
 // 結果表格高度＝表頭 + 4 列（2026-07-27 使用者指定，同日先前為 3 列）。
 // 列高以「padding ×2 + line-height」寫死才算得準（原本靠字型 line-height 推估，140px≈5 列）。
@@ -252,8 +252,8 @@ $result-visible-rows: 4;
   }
   tbody tr { cursor: pointer; }
 
-  // 搜尋結果文字大小對齊地址輸入框（＝ --font-size-base，蓋過 .data-table 預設的 --font-size-sm，2026-07-21 客訴）
-  table.data-table { font-size: var(--font-size-base); }
+  // 搜尋結果文字大小對齊地址輸入框（＝ --font-size-base-plus，蓋過 .data-table 預設的 --font-size-sm-plus，2026-07-21 客訴）
+  table.data-table { font-size: var(--font-size-base-plus); }
 }
 
 // 重複報名警示清單（.alert-warn 內）
