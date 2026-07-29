@@ -147,6 +147,13 @@ a {
   font-size: var(--font-size-xs-plus);
 }
 
+/* 主要動作鈕加寬一倍（2026-07-29 使用者指定：報名表單的「確認」、新增成功提示的「確定」）。
+   兩字鈕的自然寬 = 12(padding) + 2×16(字) + 12 = 56px，故 min-width 給 112px ＝ ×2。
+   用 min-width 而非固定 width：字多的按鈕（如「確認並列印」）仍會自然撐開，不會被截字。 */
+.btn-wide {
+  min-width: 112px;
+}
+
 .alert {
   padding: var(--space-sm) var(--space-md);
   border: 1px solid;

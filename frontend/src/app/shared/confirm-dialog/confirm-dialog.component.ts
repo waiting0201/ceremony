@@ -16,6 +16,7 @@ import type { ConfirmDialogConfig } from './confirm-dialog.types';
     <div class="confirm-backdrop" (click)="cancel.emit()">
       <div
         class="confirm-dialog"
+        [class.is-emphasis]="config().emphasis"
         role="dialog"
         aria-modal="true"
         [attr.aria-labelledby]="'confirm-title'"
@@ -38,6 +39,7 @@ import type { ConfirmDialogConfig } from './confirm-dialog.types';
             class="btn"
             [class.btn-danger]="config().danger"
             [class.btn-primary]="!config().danger"
+            [class.btn-wide]="config().emphasis"
             (click)="confirm.emit()"
           >
             {{ config().confirmLabel ?? '確認' }}
@@ -80,6 +82,11 @@ import type { ConfirmDialogConfig } from './confirm-dialog.types';
       font-size: var(--font-size-md);
       line-height: 1.55;
       p { margin: 0; white-space: pre-wrap; }
+    }
+    /* 強調樣式（config.emphasis）：訊息 20px（2026-07-29 使用者指定「報名成功的訊息字體加大至
+       20px」），確認鈕的加寬由 .btn-wide 負責。只有帶 emphasis 的提示會變大，一般確認框不受影響。 */
+    .confirm-dialog.is-emphasis .confirm-body {
+      font-size: 20px;
     }
     .confirm-actions {
       display: flex;

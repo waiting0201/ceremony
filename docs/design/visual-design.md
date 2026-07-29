@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-29 (新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)
+last_updated: 2026-07-29 (報名表單版面客訴第三輪：Button 表新增 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2，只給送出/結果確認鈕〕；MessageBox 段新增「結果型提示可再放大」〔ConfirmDialog `emphasis`：訊息 20px + 確認鈕加寬，僅「新增報名成功」〕；NewSignupForm 段補新版版面圖〔基本資料改全寬單列、按鈕列靠左、右側五個區塊全部拿掉 fieldset 外框與 legend——只剩「法會資料」保留外框〕。同日先前新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次))
 ---
 
 ## 設計原則
@@ -137,6 +137,9 @@ last_updated: 2026-07-29 (新增「互動元素 +1px 級距」段：另開 --fon
 | `secondary` | 取消 / 上一步 / 清除 | 白底框線、深字 |
 | `danger` | 刪除 | 文字紅 `--c-danger`，hover 紅底白字 |
 | `large` | btnSearch / btnNextStep | 高 99px、寬 ≥ 110 |
+| `.btn-wide`（**2026-07-29**） | 要好按的主要動作鈕 | `min-width: 112px`；疊加在 `.btn` 上，不改高度/配色 |
+
+**`.btn-wide` 的來源與判準（2026-07-29 使用者指定）**：報名表單的「確認」與「新增報名成功」提示的「確定」都要**寬度加倍**。兩字鈕的自然寬 = 12(padding) + 2×16(字) + 12 = 56px，故 `min-width` 取 112px。用 `min-width` 而非固定 `width`，字多的按鈕仍會自然撐開不截字。只給「一次操作的終點鈕」用（送出、結果確認），一般次要鈕維持預設寬度——全部加寬就等於沒有強調。
 
 ### TextBox / ComboBox / DateInput
 
@@ -201,6 +204,7 @@ last_updated: 2026-07-29 (新增「互動元素 +1px 級距」段：另開 --fon
 - 短期提示：bottom-center snackbar，3 秒自動消失
 - 阻斷型：modal dialog（OK / Yes-No）
 - **文字 verbatim**：「新增信眾成功！」「刪除成功！」「請輸入姓名」等
+- **結果型提示可再放大（2026-07-29）**：`ConfirmDialogConfig.emphasis = true` → 訊息 **20px** + 確認鈕套 `.btn-wide`。目前唯一使用者是「編號X，新增報名成功」（編號要一眼看到）。一般二選一確認框維持 `--font-size-md`（2026-07-28 已全站放大過一次），**不要**把 20px 直接寫進 `.confirm-body`
 
 ### 進度 Overlay（**2026-07-28 新增**，批次列印用）
 
@@ -502,6 +506,28 @@ Row 2: [報表類型 ▼]                  │ [列印]
 
 Step1（左側 175 寬）：年份 / 法會 / 類型 / 下一步
 Step2（右側 637 寬）：信眾搜尋 + 編輯區（含所有欄位）
+
+**新版對應版面（2026-07-29 客訴第三輪後的現況）**：
+
+```
+┌ 法會資料 ┐┌─────────────── 右側主體 ────────────────────────┐
+│ 民國年   ││ 信眾（搜尋列 + 結果表，編輯模式為摘要卡）          │
+│ 法會分類 │├─────────────────────────────────────────────────┤
+│ 報名類型 ││ 基本資料：員工類型 固定編號 堂號 姓名 聯絡電話 ←一整列 │
+├─────────┤├──────────────────────┬──────────────────────────┤
+│ 重複警示 ││ 地址                  │ 編號 / 費用 / 備註 / 預繳   │
+│（有才顯示）││ 往生名單              │                          │
+│         ││ 陽上名單              │ [列印資料卡][取消][ 確認 ] ←靠左 │
+└─────────┘└──────────────────────┴──────────────────────────┘
+   ↑唯一保留      ↑右側五個區塊一律無外框、無 legend（.bare-block）
+    外框的區塊
+```
+
+- 基本資料是**全寬單列**（不進左右欄），右欄的「編號/費用/備註/預繳」因此從它下方才開始
+- **只有「法會資料」保留 fieldset 外框**；右側五區（基本資料/地址/往生名單/陽上名單/編號·費用·備註·預繳）外框與 legend 全拿掉，欄位自己的 label 就足以辨識，框線只是噪音
+  - 例外風險：往生/陽上名單沒有 per-field label，填字後 placeholder 消失即無標示（使用者指定，已知取捨）
+- 按鈕列靠左、「確認」套 `.btn-wide`
+- 細節與理由見 [frontend-design.md「報名表單版面」段](frontend-design.md)
 
 ### Form Overlay（編輯彈窗，**2026-05-28.e 取代 Side Sheet 成為 create/edit 唯一 pattern**）
 

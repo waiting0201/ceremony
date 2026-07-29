@@ -129,51 +129,54 @@
 
   </fieldset>
 
+  <!-- 基本資料（對齊舊 dlEmployeeType / txtHallName / txtName / txtPhone）。
+       員工類型/固定編號/堂號改為 per-signup 可編輯（2026-07-21）：選信眾帶入現值當預設，
+       只改這筆報名、不回寫 Believer。
+       2026-07-29 使用者指定：五個欄位排成**一整列**、且整塊移出左欄改為 .form-cols 上方的全寬列
+       ——五欄擠在半寬的左欄會被壓到不能看，全寬才排得下；右欄的「編號/費用/備註/預繳」隨之下移。
+       同日再指定拿掉外框與 legend（同地址段），改用無框的 .bare-block。 -->
+  <div class="bare-block">
+    <div class="grid basic-row">
+      <label class="field">
+        <span>員工類型</span>
+        <select formControlName="employeeType">
+          <option [value]="1">非員工</option>
+          <option [value]="2">大殿員工</option>
+          <option [value]="3">地藏殿員工</option>
+        </select>
+      </label>
+      <label class="field-check">
+        <input type="checkbox" formControlName="isFixedNumber" />
+        <span>固定編號</span>
+      </label>
+      <label class="field">
+        <span>堂號</span>
+        <input type="text" formControlName="hallName" maxlength="10" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>姓名 *</span>
+        <input type="text" formControlName="name" maxlength="50" />
+      </label>
+      <label class="field">
+        <span>聯絡電話</span>
+        <input type="text" formControlName="phone" />
+      </label>
+    </div>
+  </div><!-- /.bare-block 基本資料 -->
+
   <!-- 雙欄密集排版節省高度（2026-07-04 起，避免整頁垂直捲動）：
-       左欄 基本資料→地址（寄件上、文牒下，對齊舊 Designer Y=222/311）→往生/陽上名單
+       左欄 地址（寄件上、文牒下，對齊舊 Designer Y=222/311）→往生/陽上名單
        （往生上、陽上下，對齊舊 Designer Y=401/517；2026-07-28 使用者指定移到地址下），
        右欄 編號/費用/備註/預繳。
-       法會資料已提到表單最上方（2026-07-17 使用者指定）。
-       Tab 順序＝DOM 順序＝法會資料→信眾→左欄由上到下再右欄由上到下。 -->
+       法會資料已提到表單最上方（2026-07-17 使用者指定）、基本資料為上方全寬列（2026-07-29）。
+       Tab 順序＝DOM 順序＝法會資料→信眾→基本資料→左欄由上到下再右欄由上到下。 -->
   <div class="form-cols">
     <div class="col">
-      <!-- 基本資料（對齊舊 dlEmployeeType / txtHallName / txtName / txtPhone）。
-           員工類型/固定編號/堂號改為 per-signup 可編輯（2026-07-21）：選信眾帶入現值當預設，
-           只改這筆報名、不回寫 Believer。 -->
-      <fieldset class="block">
-        <legend>基本資料</legend>
-        <div class="grid three">
-          <label class="field">
-            <span>員工類型</span>
-            <select formControlName="employeeType">
-              <option [value]="1">非員工</option>
-              <option [value]="2">大殿員工</option>
-              <option [value]="3">地藏殿員工</option>
-            </select>
-          </label>
-          <label class="field-check">
-            <input type="checkbox" formControlName="isFixedNumber" />
-            <span>固定編號</span>
-          </label>
-          <label class="field">
-            <span>堂號</span>
-            <input type="text" formControlName="hallName" maxlength="10" autocomplete="off" />
-          </label>
-          <label class="field">
-            <span>姓名 *</span>
-            <input type="text" formControlName="name" maxlength="50" />
-          </label>
-          <label class="field">
-            <span>聯絡電話</span>
-            <input type="text" formControlName="phone" />
-          </label>
-        </div>
-      </fieldset>
-
       <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 dlMailCity/dlMailZone/cbSameMailAddress；
-           寄件在上、文牒在下，對齊舊 Designer 版面 -->
-      <fieldset class="block">
-        <legend>地址</legend>
+           寄件在上、文牒在下，對齊舊 Designer 版面。
+           2026-07-29 使用者指定拿掉「地址」外框與 legend：每個欄位自己已標明寄件/文牒，
+           外框只是多一層視覺噪音，故改為無框的 .bare-block（不再是 fieldset/.block）。 -->
+      <div class="bare-block">
         <div class="grid addr">
           <label class="field">
             <span>寄件城市</span>
@@ -237,33 +240,34 @@
             <input type="text" formControlName="textAddress" maxlength="200" />
           </label>
         </div>
-      </fieldset>
+      </div><!-- /.bare-block 地址 -->
 
       <!-- 名單：往生在上、陽上在下（對齊舊 Designer 版面）；往生欄不加背景色（舊系統兩者皆無 BackColor）。
-           2026-07-28 使用者指定：從右欄移到左欄「地址」下方——填地址與填名單是同一段連續動作。 -->
-      <fieldset class="block names" formArrayName="deadNames">
-        <legend>往生名單</legend>
+           2026-07-28 使用者指定：從右欄移到左欄「地址」下方——填地址與填名單是同一段連續動作。
+           2026-07-29 使用者指定拿掉外框與 legend（同地址/基本資料）：改無框 .bare-block；
+           `formArrayName` 是屬性選擇器，掛在 div 上與掛在 fieldset 上等效。
+           ⚠ 兩組名單少了 legend 就只剩 placeholder 在區分往生/陽上，填字後標示會消失（使用者指定，已知取捨）。 -->
+      <div class="bare-block names" formArrayName="deadNames">
         <div class="name-grid">
           @for (ctrl of deadArray.controls; track $index) {
             <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
           }
         </div>
-      </fieldset>
+      </div>
 
-      <fieldset class="block names" formArrayName="livingNames">
-        <legend>陽上名單</legend>
+      <div class="bare-block names" formArrayName="livingNames">
         <div class="name-grid">
           @for (ctrl of livingArray.controls; track $index) {
             <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />
           }
         </div>
-      </fieldset>
+      </div>
     </div>
 
     <div class="col">
-      <!-- 編號 / 費用 / 備註 / 預繳 合併一個 fieldset 節省一組 padding+legend（對齊舊 cbKeepNumber+txtNumber/txtFee、txtRemark/txtPrepayYear/dlPrepayCeremony） -->
-      <fieldset class="block">
-        <legend>編號 / 費用 / 備註 / 預繳</legend>
+      <!-- 編號 / 費用 / 備註 / 預繳 合併一區（對齊舊 cbKeepNumber+txtNumber/txtFee、txtRemark/txtPrepayYear/dlPrepayCeremony）。
+           2026-07-29 使用者指定拿掉外框與 legend（同其他四區）：改無框 .bare-block。 -->
+      <div class="bare-block">
         <div class="grid three">
           @if (isInsert()) {
             <p class="hint span-row">
@@ -318,7 +322,7 @@
             <textarea formControlName="remark" rows="4"></textarea>
           </label>
         </div>
-      </fieldset>
+      </div><!-- /.bare-block 編號/費用/備註/預繳 -->
 
       <!-- 「列印資料卡 / 取消 / 確認」按鈕列（2026-07-28 使用者指定移到備註下方，
            取代原本 overlay panel 底部的 footer / 路由頁最下方的 .form-actions）。

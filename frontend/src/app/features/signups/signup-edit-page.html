@@ -27,7 +27,8 @@
         >{{ formRef()?.printingDataCard() ? '產生中…' : '列印資料卡' }}</button>
       }
       <button type="button" class="btn" (click)="onCancel()">取消</button>
-      <button type="button" class="btn btn-primary" (click)="onSubmit()">確認</button>
+      <!-- 確認鈕加寬一倍（.btn-wide，2026-07-29 使用者指定） -->
+      <button type="button" class="btn btn-primary btn-wide" (click)="onSubmit()">確認</button>
     </ng-container>
   </app-signup-edit-form>
 </div>

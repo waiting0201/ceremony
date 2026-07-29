@@ -822,6 +822,8 @@ export class SignupEditFormComponent implements OnInit {
           message: `編號${created.number ?? ''}，新增報名成功`,
           confirmLabel: '確定',
           hideCancel: true,
+          // 訊息 20px + 確定鈕加寬一倍（2026-07-29 使用者指定）：編號要一眼看得到、確定要好按
+          emphasis: true,
         });
       }
     } catch (err) {
