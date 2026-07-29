@@ -7,7 +7,7 @@ legacy_path: reference/old/Ceremony/SignupForm.cs
 legacy_lines: 1944
 audit_status: complete
 coverage_percentage: 100
-last_audited: 2026-07-28
+last_audited: 2026-07-29
 baseline_completed: 2026-05-27
 total_methods: 43
 related_agents:
@@ -19,7 +19,7 @@ related_docs:
   - ../printing-reports-positions.md
   - README.md
 keywords: [legacy, coverage, signup, rdlc, variant]
-last_updated: 2026-07-28 (rows 16/33 補上批次列印 job 版對應〔UI 改走 POST /reports/batch/jobs，查詢/驗證邏輯不變，進度與取消為新版加值、舊系統無對應〕；同日先前 row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統))
+last_updated: 2026-07-29 (rows 22/42 更新：`showAll`（顯示完整表格）取消 localStorage 持久化、每次開頁不勾〔反而更貼近舊 cbShowAll 每次開 Form 未勾〕；「全部」新版增強收斂為只解除年份/法會/類型，其餘條件仍可搜尋。先前 2026-07-28 rows 16/33 補上批次列印 job 版對應〔UI 改走 POST /reports/batch/jobs，查詢/驗證邏輯不變，進度與取消為新版加值、舊系統無對應〕；同日先前 row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統))
 ---
 
 > ✅ **完成 (2026-06-02)**：43 個方法中 39 個已實作、4 個故意捨棄（WinForms printDocument 內部 :34-37，改走 Web/PDF 路徑）。查詢 / 列印（5 類 + RDLC 變體）/ 右鍵選單 / 搜尋範圍切換 / 顯示完整欄位 / 歷程 全 ship。
@@ -65,7 +65,7 @@ last_updated: 2026-07-28 (rows 16/33 補上批次列印 job 版對應〔UI 改�
 | 19 | `cbSearchLivingName_CheckedChanged` | 743-754 | 切換陽上名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopeLivingName` checkbox 驅動 searchKey 啟用 |
 | 20 | `cbSearchDeadName_CheckedChanged` | 756-767 | 切換亡名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopeDeadName` checkbox 驅動 searchKey 啟用 |
 | 21 | `cbSearchPhone_CheckedChanged` | 769-780 | 切換電話搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopePhone` checkbox 驅動 searchKey 啟用 |
-| 22 | `cbShowAll_CheckedChanged` | 782-793 | 切換完整欄位顯示 | ✅ 已實作 | 前端 grid columns | `showAll` signal（`toggleShowAll`）；經 effect 寫入 `localStorage['ceremony.signupList.showAll']` 持久化偏好 |
+| 22 | `cbShowAll_CheckedChanged` | 782-793 | 切換完整欄位顯示 | ✅ 已實作 | 前端 grid columns | `showAll` signal（`toggleShowAll`）。**2026-07-29 起不持久化**：原本用 effect 寫 `localStorage['ceremony.signupList.showAll']`，客訴「不用預設勾選」→ 每次開頁一律不勾（舊系統 `cbShowAll` 同樣是每次開 Form 都未勾，此改動反而更貼近舊行為） |
 | 23 | `dgvSignups_DataBindingComplete` | 795-805 | 資料繫結完成後調整欄位顯示 | ✅ 已實作 | 前端 grid hook | 欄位可見性由 `showAll` signal + computed 欄位清單驅動（取代繫結後 hook）|
 | 24 | `LoadSearchSignups()` public | 807-864 | **複合邏輯：動態述詞搜尋 + 結果繫結** (OR/AND 組合，PredicateBuilder) | ✅ 已實作 | `GET /api/v1/signups` | `SignupRepository.SearchAsync` 用 Dapper StringBuilder 動態組 WHERE；AND/OR 兩群組邏輯逐條對齊；用既有 `dbo.SignupView` view；LIKE wildcard escape；TOP 200 限制；ORDER BY Year/CeremonySort/NumberTitle/Number |
 | 25 | `LoadCeremony()` helper | 866-883 | 載入法會下拉清單 | ✅ 已實作 | `GET /api/v1/categories` | `signup-list-page.loadCategories()` 填法會篩選下拉 |
@@ -85,5 +85,5 @@ last_updated: 2026-07-28 (rows 16/33 補上批次列印 job 版對應〔UI 改�
 | 39 | `PanelPrintSwitch()` helper | 1840-1874 | 切換列印面板控制項狀態 | ✅ 已實作 | 前端 form mode | 列印改右鍵選單項 `enabledWhen`（依選取筆數啟用/禁用），取代列印面板控制項切換 |
 | 40 | `PanelControlSwitch()` helper | 1876-1910 | 切換控制面板控制項狀態 | ✅ 已實作 | 前端 form mode | 控制按鈕（修改/刪除/歷程）以選取狀態 computed 控制可用性 |
 | 41 | `GetNumberText()` helper | 1912-1927 | **避 4 規則** (個位 4 → "3-1") | ✅ 已實作 | `Domain.Services.AvoidFourFormatter` | 純函式；單元測試覆蓋 |
-| 42 | `ShowCompleteColumn()` helper | 1929-1936 | 切換進階欄位可見性 | ✅ 已實作 | 前端 grid columns | `showAll` signal 控制進階欄位顯示 + computed 欄位清單（偏好存 localStorage）。**⚠️ 新版增強（2026-07-27，無舊對應）**：搜尋面板另加「全部」checkbox（置於「範圍」上方），勾選＝忽略所有搜尋條件顯示全部報名供比對、條件值保留但停用，取消勾選即以原條件重查還原。舊系統達成同一目的的做法是從 `MainForm.btnSignup_Click` 再 `Show()` 一個 SignupForm 視窗並排比對；新版為 SPA 單一 `/signups` 路由，改用同頁模式切換。詳見 [signup-management.md](../signup-management.md) §「全部」checkbox |
+| 42 | `ShowCompleteColumn()` helper | 1929-1936 | 切換進階欄位可見性 | ✅ 已實作 | 前端 grid columns | `showAll` signal 控制進階欄位顯示 + computed 欄位清單（**不持久化**，見 row 22）。**⚠️ 新版增強（2026-07-27，2026-07-29 收斂，無舊對應）**：搜尋面板另加「全部」checkbox（置於「範圍」上方），勾選＝解除年份/法會/類型三個範圍限制（其餘條件仍生效、仍可按搜尋），三者值保留但停用，取消勾選即以原條件重查還原。舊系統達成同一目的的做法是從 `MainForm.btnSignup_Click` 再 `Show()` 一個 SignupForm 視窗並排比對；新版為 SPA 單一 `/signups` 路由，改用同頁模式切換。詳見 [signup-management.md](../signup-management.md) §「全部」checkbox |
 | 43 | `EnabledSearchKey()` helper | 1938-1942 | 啟用/禁用搜尋鍵欄位 | ✅ 已實作 | 前端 form logic | `signup-list-page` effect：任一 scope*（姓名/陽上/亡名/電話）勾選 → `searchKey.enable()`，全不勾 → `disable()` |

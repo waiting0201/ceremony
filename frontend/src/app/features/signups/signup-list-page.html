@@ -19,7 +19,7 @@
         [formGroup]="form"
         (ngSubmit)="search()"
       >
-        <label class="chk r1c1 all-chk" title="忽略所有搜尋條件，顯示全部報名資料；條件會保留，取消勾選即還原">
+        <label class="chk r1c1 all-chk" title="不限年份／法會／類型，其餘條件仍可搜尋；三者的值會保留，取消勾選即還原">
           <input type="checkbox" formControlName="isAll" /><span>全部</span>
         </label>
         <label class="lbl r1c2">年份</label>

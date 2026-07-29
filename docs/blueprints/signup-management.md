@@ -16,7 +16,7 @@ related_docs:
   - prepay-loading.md
   - printing-reports.md
 keywords: [signup, 報名, 報名維護, 編號, NumberTitle, 避4, PredicateBuilder, SignupForm, context-menu, 右鍵, 多選, 批次列印, 勾選列印, signupIds]
-last_updated: 2026-07-28 (搜尋面板「姓名/陽上/往生/電話/備註」5 個 checkbox 預設改全勾（關鍵字欄一開始就可輸入；刻意偏離舊系統全不勾）；同日先前新增/編輯報名 overlay 改「只有 × 或取消才關」——form-overlay 新增 dismissible input，報名維護給 false 停用 backdrop click 與 Esc；同日先前新增報名草稿改「一律快照」：離開時無條件存當下畫面、不再有清除時機——拿掉 saveDraft 的 form.dirty 門檻、submit 成功與 resetBelow 不再 clear()（SignupDraftState.clear 移除），草稿加存 lastCreatedSignupId 與 dirty 旗標，補上原本兩個破口〔存檔成功後／按取消後畫面有東西但表單 pristine，切走再回來會不見〕；同日先前按「取消」（清成新的一筆）不再清空「費用」——同場法會連續輸入金額多半固定，與「改選信眾不清費用」同一取捨；resetBelow 的 patchValue 拿掉 fee: null，回歸鎖 1 案；同日先前新增報名 Enter 不送出（移除隱藏 submit 鈕＋(ngSubmit)，另加 form 層 Enter 攔截、textarea 放行；回歸鎖 1 案）＋成功提示 dialog 內文放大到 --font-size-md（＝側欄選單字級，改共用 .confirm-body）；同日先前版面客訴第二輪四項：「同寄件地址」改夾在寄件段與文牒段中間（自成一列、靠右對齊）、文牒郵遞區號回到文牒區域右邊、文牒地址加寬佔滿三欄、「列印資料卡/取消/確認」移到備註下方〔表單新增 form-actions 投影 slot，overlay 端 [showActions]=false 收掉 footer，路由頁 .form-actions 移除〕；同日先前四項：信眾搜尋框字級對齊地址輸入框〔.search-input 不在 .field 內、只繼承 font-family，字級仍是 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄「地址」下方、「同寄件地址」由文牒地址同列移到文牒**郵遞區號正上方**〔第一列第三欄，郵遞區號下移到文牒地址右側，不多佔列高〕、備註 textarea rows=1→4〔約再加兩行〕；先前 2026-07-27 清單列選取補齊 shift 範圍選取：一般點擊 toggle 並設錨點、shift 點擊選錨點~本列整段，錨點在 shift 期間不動且以「錨點當下選取」為基準重算故範圍可縮小、更早的選取不被吃掉；列首 checkbox 從 (change) 改綁 (click) 才拿得到 shiftKey〔change 事件無此旗標，原本從 checkbox 點永遠吃不到 shift〕、mousedown preventDefault 擋掉 shift 文字反白；新增 signup-list-page.spec.ts 7 案回歸鎖；同日先前搜尋面板新增「全部」checkbox〔置於「範圍」上方〕：勾選＝忽略所有條件顯示全部報名供比對、條件值保留但停用變灰，取消勾選即以原條件重查還原；匯出 Excel 同步跟著模式走；isAll + searchedBeforeAll 併入 SignupSearchState 跨路由保存——取代舊系統「另開一個 SignupForm 視窗並排比對」的做法；同日先前補回「列印資料卡」按鈕（存檔前 disabled、新增成功後啟用，印剛新增那筆，對齊舊 btnPrintDataCard）＋報名維護 overlay 固定 1100px＝對齊新增報名頁 .page max-width（form-overlay 新增 width input；19 欄結果表原本把 panel 撐到 92vw）；同日版面續調三項：重複報名警示移到左欄法會資料下方、編號 disabled 補灰底（全域 .field 補 :disabled 樣式）、信眾結果高度改表頭+4 列；同日先前新增報名版面三項：法會資料改放左側直立窄欄（回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列、編號欄恆顯示改以 disabled/enabled 切換（回舊 cbKeepNumber_CheckedChanged）；同日往生/陽上名單 input 文字色/底色對齊地址欄（.field 外吃不到全域 color，UA fieldtext 純黑），報名+信眾兩表單同步；同日改選信眾不再清空「費用」（使用者輸入的金額保留，對齊舊 BelieverSelected 未碰 txtFee）；同日新增成功後不清表單/不關閉、跳單按鈕結果 dialog「編號X，新增報名成功」、草稿記憶清掉——saved output 改帶 SignupSavedEvent{keepOpen}，對齊舊 NewSignupForm:355-361；同日先前改選信眾 in-flight race guard〔pickToken/isStale，慢回應不再蓋掉後選的、地址區域下拉不再錯亂〕＋選信眾即標髒〔沒打字也會存草稿〕＋改選時清錯誤訊息；同日新增報名跨路由草稿：填到一半切到其他功能頁再回來資料保留——root singleton SignupDraftState，僅純新增模式、僅存記憶體、靜默還原，儲存成功/按取消才作廢，純新增模式關閉 overlay 不再跳「未儲存的變更」確認；同日先前信眾搜尋補回舊 BelieverView 語意：併查 GET /believers?searchKey=（既有端點新加 14 欄 OR 參數）補「從未報名過的信眾」列，排在報名列後、獨立額度 50 列；同日先前「信眾搜尋選定回填」客訴修正：清單一列＝一筆報名，點列改帶「該筆報名」的姓名/電話/寄件+文牒地址/往生+陽上名單/備註，信眾主檔 `GET /believers/{id}` 降為欄位為空時的 fallback 與摘要卡資料源，對齊舊 BelieverSelected:991-1101；年份/法會/類型/編號/費用仍不帶、費用清空、預繳仍走 prefillPrepayHistory 條件回填；同日先前 2026-07-21 報名維護 UI 客訴四項：編號＋批次列印起迄加 .num-stepper ▲▼ ±1（對齊舊 NumericUpDown）、編輯表單「預繳民國年」移到下一行且置於「預繳法會」之前、搜尋/列印按鈕補 align-self:stretch 撐滿列高（對齊舊 btnSearch 75×99 / btnPrint 75×63）、清單垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上一頁/下一頁/向上/向下捲動〕對齊舊 WinForms 原生捲軸選單；同日先前：員工類型/固定編號/堂號改 per-signup 可編輯（方案 A）：Signups 加自有欄＋DbUp 回填＋SignupView COALESCE，報名表單三欄可編輯只改這筆、不回寫信眾、預繳保號仍讀信眾；同日新增報名頁客訴六項：取消＝清成新的一筆不跳頁、改選信眾殘留欄位修復、搜尋結果與名單文字大小對齊地址、勾指定編號後編號欄移至勾選文字右邊、地址非必填（前後端同步放寬）；先前 2026-07-18 右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
+last_updated: 2026-07-29 (報名維護清單客訴三項：法會欄預設寬度 100→64px〔＝三個字〕；「顯示完整表格」取消 localStorage 記憶、每次開頁一律不勾；「全部」語意收斂為**只解除年份/法會/類型**〔＋年份修飾條件「範圍」〕，關鍵字/範圍 5 項/編號/固定編號在全部模式下仍可改、仍可按搜尋，取消勾選回到原本三個條件。先前 2026-07-28 搜尋面板「姓名/陽上/往生/電話/備註」5 個 checkbox 預設改全勾（關鍵字欄一開始就可輸入；刻意偏離舊系統全不勾）；同日先前新增/編輯報名 overlay 改「只有 × 或取消才關」——form-overlay 新增 dismissible input，報名維護給 false 停用 backdrop click 與 Esc；同日先前新增報名草稿改「一律快照」：離開時無條件存當下畫面、不再有清除時機——拿掉 saveDraft 的 form.dirty 門檻、submit 成功與 resetBelow 不再 clear()（SignupDraftState.clear 移除），草稿加存 lastCreatedSignupId 與 dirty 旗標，補上原本兩個破口〔存檔成功後／按取消後畫面有東西但表單 pristine，切走再回來會不見〕；同日先前按「取消」（清成新的一筆）不再清空「費用」——同場法會連續輸入金額多半固定，與「改選信眾不清費用」同一取捨；resetBelow 的 patchValue 拿掉 fee: null，回歸鎖 1 案；同日先前新增報名 Enter 不送出（移除隱藏 submit 鈕＋(ngSubmit)，另加 form 層 Enter 攔截、textarea 放行；回歸鎖 1 案）＋成功提示 dialog 內文放大到 --font-size-md（＝側欄選單字級，改共用 .confirm-body）；同日先前版面客訴第二輪四項：「同寄件地址」改夾在寄件段與文牒段中間（自成一列、靠右對齊）、文牒郵遞區號回到文牒區域右邊、文牒地址加寬佔滿三欄、「列印資料卡/取消/確認」移到備註下方〔表單新增 form-actions 投影 slot，overlay 端 [showActions]=false 收掉 footer，路由頁 .form-actions 移除〕；同日先前四項：信眾搜尋框字級對齊地址輸入框〔.search-input 不在 .field 內、只繼承 font-family，字級仍是 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄「地址」下方、「同寄件地址」由文牒地址同列移到文牒**郵遞區號正上方**〔第一列第三欄，郵遞區號下移到文牒地址右側，不多佔列高〕、備註 textarea rows=1→4〔約再加兩行〕；先前 2026-07-27 清單列選取補齊 shift 範圍選取：一般點擊 toggle 並設錨點、shift 點擊選錨點~本列整段，錨點在 shift 期間不動且以「錨點當下選取」為基準重算故範圍可縮小、更早的選取不被吃掉；列首 checkbox 從 (change) 改綁 (click) 才拿得到 shiftKey〔change 事件無此旗標，原本從 checkbox 點永遠吃不到 shift〕、mousedown preventDefault 擋掉 shift 文字反白；新增 signup-list-page.spec.ts 7 案回歸鎖；同日先前搜尋面板新增「全部」checkbox〔置於「範圍」上方〕：勾選＝忽略所有條件顯示全部報名供比對、條件值保留但停用變灰，取消勾選即以原條件重查還原；匯出 Excel 同步跟著模式走；isAll + searchedBeforeAll 併入 SignupSearchState 跨路由保存——取代舊系統「另開一個 SignupForm 視窗並排比對」的做法；同日先前補回「列印資料卡」按鈕（存檔前 disabled、新增成功後啟用，印剛新增那筆，對齊舊 btnPrintDataCard）＋報名維護 overlay 固定 1100px＝對齊新增報名頁 .page max-width（form-overlay 新增 width input；19 欄結果表原本把 panel 撐到 92vw）；同日版面續調三項：重複報名警示移到左欄法會資料下方、編號 disabled 補灰底（全域 .field 補 :disabled 樣式）、信眾結果高度改表頭+4 列；同日先前新增報名版面三項：法會資料改放左側直立窄欄（回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列、編號欄恆顯示改以 disabled/enabled 切換（回舊 cbKeepNumber_CheckedChanged）；同日往生/陽上名單 input 文字色/底色對齊地址欄（.field 外吃不到全域 color，UA fieldtext 純黑），報名+信眾兩表單同步；同日改選信眾不再清空「費用」（使用者輸入的金額保留，對齊舊 BelieverSelected 未碰 txtFee）；同日新增成功後不清表單/不關閉、跳單按鈕結果 dialog「編號X，新增報名成功」、草稿記憶清掉——saved output 改帶 SignupSavedEvent{keepOpen}，對齊舊 NewSignupForm:355-361；同日先前改選信眾 in-flight race guard〔pickToken/isStale，慢回應不再蓋掉後選的、地址區域下拉不再錯亂〕＋選信眾即標髒〔沒打字也會存草稿〕＋改選時清錯誤訊息；同日新增報名跨路由草稿：填到一半切到其他功能頁再回來資料保留——root singleton SignupDraftState，僅純新增模式、僅存記憶體、靜默還原，儲存成功/按取消才作廢，純新增模式關閉 overlay 不再跳「未儲存的變更」確認；同日先前信眾搜尋補回舊 BelieverView 語意：併查 GET /believers?searchKey=（既有端點新加 14 欄 OR 參數）補「從未報名過的信眾」列，排在報名列後、獨立額度 50 列；同日先前「信眾搜尋選定回填」客訴修正：清單一列＝一筆報名，點列改帶「該筆報名」的姓名/電話/寄件+文牒地址/往生+陽上名單/備註，信眾主檔 `GET /believers/{id}` 降為欄位為空時的 fallback 與摘要卡資料源，對齊舊 BelieverSelected:991-1101；年份/法會/類型/編號/費用仍不帶、費用清空、預繳仍走 prefillPrepayHistory 條件回填；同日先前 2026-07-21 報名維護 UI 客訴四項：編號＋批次列印起迄加 .num-stepper ▲▼ ±1（對齊舊 NumericUpDown）、編輯表單「預繳民國年」移到下一行且置於「預繳法會」之前、搜尋/列印按鈕補 align-self:stretch 撐滿列高（對齊舊 btnSearch 75×99 / btnPrint 75×63）、清單垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上一頁/下一頁/向上/向下捲動〕對齊舊 WinForms 原生捲軸選單；同日先前：員工類型/固定編號/堂號改 per-signup 可編輯（方案 A）：Signups 加自有欄＋DbUp 回填＋SignupView COALESCE，報名表單三欄可編輯只改這筆、不回寫信眾、預繳保號仍讀信眾；同日新增報名頁客訴六項：取消＝清成新的一筆不跳頁、改選信眾殘留欄位修復、搜尋結果與名單文字大小對齊地址、勾指定編號後編號欄移至勾選文字右邊、地址非必填（前後端同步放寬）；先前 2026-07-18 右鍵「列印普桌／普桌資料卡」解鎖：前端不再檢查選取列型別、恆啟用，防呆交後端過濾/驗證；2026-07-17 新增報名表單對齊舊系統四項：信眾搜尋改常駐 in-form 結果列表、地址寄件上/文牒下、名單往生上/陽上下且無底色、未選信眾自動先建新信眾（前端 POST /believers orchestration）)
 ---
 
 ## 背景與動機
@@ -50,7 +50,7 @@ last_updated: 2026-07-28 (搜尋面板「姓名/陽上/往生/電話/備註」5 
 2. 篩選區：年份 / 範圍勾選 / 法會 / 類型 / 編號 / 關鍵字
    勾選任一搜尋欄位（姓名/陽上/往生/電話/備註）才能填關鍵字——這 5 項**預設全勾**（見下方段落）
 3. 「搜尋」→ 後端套 PredicateBuilder AND/OR
-3b.「全部」勾選 → 忽略所有條件、grid 直接顯示全部報名（供比對）；取消勾選還原原條件結果
+3b.「全部」勾選 → 解除年份/法會/類型限制（其餘條件仍生效、仍可按搜尋）；取消勾選還原原本三個條件
 4. DataGrid 顯示 40 欄（預設 32 顯示）
 5. 「顯示完整表格」勾選顯示額外 5 欄
 6. 列首 checkbox 多選（點列或點 checkbox 皆可）；一般點擊＝toggle 並設錨點，shift-click＝選取「錨點 ~ 本列」整段
@@ -63,20 +63,21 @@ last_updated: 2026-07-28 (搜尋面板「姓名/陽上/往生/電話/備註」5 
 
 - 姓名 / 陽上 / 往生 / 電話 / 備註 五個 checkbox 的初值由全不勾改為**全勾**（`signup-list-page.ts` form 預設值 + `resetForm()` 的 reset 值兩處都要改），關鍵字欄因此**一開始就可以輸入**（`searchKey` 不再以 `disabled` 起手、`keyEnabled` 初值改 `true`）。
 - 舊系統 [SignupForm.Designer.cs](../../reference/old/Ceremony/SignupForm.Designer.cs) 這 5 個 `cbSearch*` 皆未設 `Checked`（＝預設全不勾，必須先勾欄位才能打關鍵字）。這裡刻意偏離：實務上使用者九成是「打個名字/電話找人」，先勾欄位是多一道手續；全勾＝打什麼都找得到，要縮小範圍再自己取消。
-- 連動規則不變：勾選歸零時關鍵字欄仍會停用並清空（`bindScopeKeyToggle`）；「全部」模式下條件一律停用。跨路由還原（`SignupSearchState`）讀的是快照值，不受預設值影響。
+- 連動規則不變：勾選歸零時關鍵字欄仍會停用並清空（`bindScopeKeyToggle`）；「全部」模式下這 5 項**仍可用**（2026-07-29 起，見下段）。跨路由還原（`SignupSearchState`）讀的是快照值，不受預設值影響。
 
 #### 「全部」checkbox（新版增強，2026-07-27，無舊對應）
 
 - **需求**：使用者要「額外顯示全部的資料，提供比對用」——手上留著一組搜尋條件，想暫時看全部資料對照，再切回原條件。舊系統的做法是從主選單再開一個 `SignupForm` 視窗（modeless `Show()`，見 [MainForm.cs:60-70](../../reference/old/Ceremony/MainForm.cs#L60-L70)）並排比對；新版是 SPA 單一 `/signups` 路由，改用同頁的模式切換達成同一目的。
 - **位置**：搜尋面板左側 checkbox 欄最上方（`全部` / `範圍` / `顯示完整表格` 由上而下），沿用既有三列 grid、**不增加面板高度**。
-- **行為**：
-  - 勾選 → 立即以**空條件**重查（後端 `WHERE 1=1` 回傳全部報名），條件控制項全部 `disable()`（**值保留、不清空**、原生變灰＋label 淡化 0.5）
-  - 取消勾選 → 立即以保留下來的條件重查還原；若進入全部模式前根本沒搜尋過，則回到「請設定搜尋條件後點『搜尋』」的空狀態，不憑空跑一次無條件查詢
-  - 全部模式下按「搜尋」＝重新抓一次全部（refresh）；「匯出 Excel」＝匯出全部（`buildQuery()` 統一短路，兩條路徑一致）
+- **行為**（2026-07-29 客訴修正後：全部＝**只解除三個範圍限制**，不是「忽略所有條件」）：
+  - 勾選 → 立即重查，查詢中把 `year` / `ceremonyCategoryId` / `signupType` 放掉（送 null / -1），**其餘條件照送**；被停用的控制項只有這三個＋`isScope`（`isScope` 是年份的修飾條件 `Year >=`，年份鎖住時無作用故一併停用），值一律**保留、不清空**（原生變灰＋對應 label 淡化 0.5）
+  - 全部模式下**仍可搜尋**：關鍵字、範圍 5 項、編號、固定編號都還能改、按「搜尋」即以「全年份/全法會/全類型 + 這些條件」重查（例：想跨年份找某個人名）
+  - 取消勾選 → 立即以保留下來的年份/法會/類型重查還原；若進入全部模式前根本沒搜尋過，則回到「請設定搜尋條件後點『搜尋』」的空狀態，不憑空跑一次無年份/法會/類型的查詢
+  - 「匯出 Excel」跟著模式走（與搜尋共用 `buildQuery()`，兩條路徑一致）
   - `顯示完整表格` 不受影響（欄位顯隱與搜尋條件正交，全部模式下仍可自由切換）
 - **狀態保存**：`isAll` 併入 `SignupSearchFormSnapshot`，另存 `searchedBeforeAll` 於 `SignupSearchState` → 進 edit / logs 頁再返回時模式與條件一併還原；stale 重查也會沿用全部模式。
-- **取捨**：條件選擇「停用」而非「清空」，是需求明寫的「原本搜尋條件不能清掉」；停用（而非放著可編輯）則是為了讓「條件還在、但此刻不生效」一眼可辨，避免使用者以為改了條件卻沒反應。
-- ⚠ **無筆數上限**：全部模式會拉回整張 `SignupView`（`SearchAsync` 沒有 TOP，與舊系統一致）。前端靠 `cdk-virtual-scroll-viewport` 撐住渲染，但傳輸量隨資料成長。若日後實測過慢，處理方向見 [performance.md](../design/performance.md) §2（server-side 分頁），**不要**改成靜默截斷。
+- **取捨**：條件選擇「停用」而非「清空」，是需求明寫的「原本搜尋條件不能清掉」；停用（而非放著可編輯）則是為了讓「條件還在、但此刻不生效」一眼可辨，避免使用者以為改了條件卻沒反應。停用範圍 2026-07-29 由「全部條件」收斂為「年份/法會/類型（＋範圍）」——原設計把全部當成「純比對快照」，實際使用是「拿掉年份/法會/類型的框，再在全部資料裡找人」，條件全鎖等於逼使用者取消勾選才能搜、搜完又得重勾。
+- ⚠ **無筆數上限**：全部模式（且未給其他條件時）會拉回整張 `SignupView`（`SearchAsync` 沒有 TOP，與舊系統一致）。前端靠 `cdk-virtual-scroll-viewport` 撐住渲染，但傳輸量隨資料成長。若日後實測過慢，處理方向見 [performance.md](../design/performance.md) §2（server-side 分頁），**不要**改成靜默截斷。
 
 #### Grid Context Menu（cmsSignups 等價，**新版重現**）
 
@@ -301,8 +302,8 @@ last_updated: 2026-07-28 (搜尋面板「姓名/陽上/往生/電話/備註」5 
 ## 驗收標準
 
 - [ ] SignupForm 四面板版型與舊系統一致
-- [ ] 40 欄 grid 預設 32 顯示；cbShowAll 控制 5 欄；10 內部欄永遠隱藏
-- [ ] 「全部」勾選＝忽略條件顯示全部、條件值保留且變灰；取消勾選還原原條件結果；匯出 Excel 跟著模式走
+- [ ] 40 欄 grid 預設 32 顯示；cbShowAll 控制 5 欄；10 內部欄永遠隱藏；cbShowAll **每次開頁一律不勾**（不記憶）
+- [ ] 「全部」勾選＝只解除年份/法會/類型（值保留且變灰），其餘條件仍可改、仍可按搜尋；取消勾選還原原本三個條件；匯出 Excel 跟著模式走
 - [ ] DeadName 1..5 欄背景 `#FFE0C0`
 - [ ] AND/OR 搜尋邏輯與舊系統一致（全空 → 全部、勾選任一才能填 key）
 - [ ] 「列印普桌」「列印普桌資料卡」有選取列即啟用，任何型別皆可印（前後端均不限 type）

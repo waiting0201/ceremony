@@ -40,7 +40,8 @@ const formatDate = (s: string | null): string => {
 export const SIGNUP_COLUMNS: SignupColumnDef[] = [
   { id: 'check', label: '', width: 28 },
   { id: 'year', label: '年份', width: 56, accessor: (i) => String(i.year), resizable: true },
-  { id: 'ceremonyTitle', label: '法會', width: 100, accessor: (i) => i.ceremonyTitle ?? '', resizable: true },
+  // 法會預設只需顯示三個字（2026-07-29 使用者指定）：17px CJK × 3 ＋ 左右 padding/框線 ≈ 64px；不夠看可拖寬（欄寬會記住）
+  { id: 'ceremonyTitle', label: '法會', width: 64, accessor: (i) => i.ceremonyTitle ?? '', resizable: true },
   { id: 'numberTitle', label: '類型', width: 50, accessor: (i) => i.numberTitle ?? '', resizable: true },
   { id: 'number', label: '編號', width: 64, accessor: (i) => formatAvoidFour(i.number), resizable: true },
   { id: 'fee', label: '費用', width: 60, toggleOnly: true, accessor: (i) => i.fee == null ? '' : String(i.fee), resizable: true },

@@ -54,13 +54,13 @@
   // 搜尋鈕撐滿三列高（對齊舊系統 btnSearch 75×99，幾乎滿版）——grid align-items:center 會讓按鈕只以自然高置中，故單獨 stretch
   .search-btn { grid-column: 6; grid-row: 1 / 4; align-self: stretch; height: auto; padding: 0 var(--space-md); min-width: 64px; }
 
-  // 「全部」模式：條件控制項本身已 disabled（原生變灰），這裡連 label / checkbox 文字一起淡化，
-  // 讓「條件還在、只是此刻不生效」一眼可辨。全部 + 顯示完整表格兩個 checkbox 仍作用中，不淡化。
+  // 「全部」模式：被停用的只有年份 / 法會 / 類型（＋年份的修飾條件「範圍」），控制項本身已 disabled
+  // （原生變灰），這裡連對應的 label 一起淡化。其餘條件仍可搜尋，故不淡化。
   &.all-mode {
-    .lbl,
-    .scope-row,
-    .r2c1,
-    .r2c5 {
+    .r1c2,  // 年份
+    .r2c2,  // 法會
+    .r3c2,  // 類型
+    .r2c1 { // 範圍（年份 >=）
       opacity: 0.5;
     }
   }

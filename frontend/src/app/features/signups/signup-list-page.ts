@@ -69,11 +69,15 @@ const REPORT_TYPES: { value: SingleReportType; label: string }[] = [
 ];
 
 const ROW_HEIGHT = 26;
-const LS_SHOW_ALL = 'ceremony.signupList.showAll';
 const LS_COL_WIDTHS = 'ceremony.signupList.colWidths';
 
 /**
  * 「全部」模式下要被停用的搜尋條件控制項（值保留、只是不生效）。
+ *
+ * 2026-07-29 使用者指定：「全部」只解除**年份 / 法會 / 類型**這三個範圍限制，
+ * 其餘條件（關鍵字、範圍 5 項、編號、固定編號）仍然生效、仍可按搜尋；
+ * 取消勾選就回到原本選的年份 / 法會 / 類型。
+ * isScope（範圍）是年份的修飾條件（Year >= 而非 =），年份鎖住時它無作用故一併停用。
  * 不含 isAll 本身；showAll（顯示完整表格）是欄位顯隱、與條件無關故不停用。
  */
 const CONDITION_CONTROLS = [
@@ -81,18 +85,7 @@ const CONDITION_CONTROLS = [
   'isScope',
   'ceremonyCategoryId',
   'signupType',
-  'number',
-  'isFixedNumber',
-  'searchKey',
-  'scopeName',
-  'scopeLivingName',
-  'scopeDeadName',
-  'scopePhone',
-  'scopeRemark',
 ] as const;
-
-/** 「全部」模式送出的查詢：所有條件留空 → 後端 WHERE 1=1，回傳全部報名。 */
-const ALL_QUERY: SignupSearchQuery = {};
 
 interface EditOverlayState {
   signupId: string | null;
@@ -190,7 +183,11 @@ export class SignupListPage implements OnInit {
   /** 進入「全部」模式前是否已搜尋過 → 決定取消勾選時要重查條件、還是回到未搜尋的空狀態。 */
   private searchedBeforeAll = false;
 
-  protected readonly showAll = signal(loadShowAll());
+  /**
+   * 顯示完整表格：每次開頁一律不勾（2026-07-29 使用者指定）。
+   * 原本會記到 localStorage，勾過一次之後每次開軟體都是完整表格 → 改成不記憶。
+   */
+  protected readonly showAll = signal(false);
   protected readonly columnWidths = signal<Record<string, number>>(loadColumnWidths());
 
   protected readonly selectedIds = signal<ReadonlySet<string>>(new Set());
@@ -228,7 +225,7 @@ export class SignupListPage implements OnInit {
   });
 
   protected readonly form = this.fb.nonNullable.group({
-    // 「全部」：忽略下方所有搜尋條件、grid 直接顯示全部報名（條件值保留，取消勾選即還原）
+    // 「全部」：解除年份 / 法會 / 類型限制（三者值保留，取消勾選即還原）；其餘條件仍生效、仍可搜尋
     isAll: [false],
     year: [null as number | null, [Validators.min(1), Validators.max(999)]],
     isScope: [false],
@@ -255,13 +252,6 @@ export class SignupListPage implements OnInit {
   protected readonly signupTypeLabel = signupTypeLabel;
 
   constructor() {
-    effect(() => {
-      try {
-        localStorage.setItem(LS_SHOW_ALL, this.showAll() ? '1' : '0');
-      } catch {
-        /* noop */
-      }
-    });
     effect(() => {
       try {
         localStorage.setItem(LS_COL_WIDTHS, JSON.stringify(this.columnWidths()));
@@ -375,8 +365,8 @@ export class SignupListPage implements OnInit {
   }
 
   /**
-   * 「全部」勾選 → 立即以空條件重查（grid 顯示全部報名）；取消勾選 → 立即用原條件重查還原。
-   * 條件值全程保留在表單，只是在全部模式下被停用（getRawValue 仍讀得到）。
+   * 「全部」勾選 → 立即以「不限年份 / 法會 / 類型」重查；取消勾選 → 立即用原本的三個條件重查還原。
+   * 三個值全程保留在表單，只是在全部模式下被停用（getRawValue 仍讀得到）。
    */
   private bindAllModeToggle(): void {
     this.form.controls.isAll.valueChanges
@@ -398,7 +388,7 @@ export class SignupListPage implements OnInit {
       await this.search(); // 還原：用保留下來的條件重查
       return;
     }
-    // 進全部模式前根本沒搜尋過 → 回到「請設定搜尋條件後點搜尋」的空狀態，不憑空跑一次無條件查詢
+    // 進全部模式前根本沒搜尋過 → 回到「請設定搜尋條件後點搜尋」的空狀態，不憑空跑一次無年份/法會/類型的查詢
     this.results.set([]);
     this.total.set(0);
     this.hasSearched.set(false);
@@ -406,16 +396,12 @@ export class SignupListPage implements OnInit {
     this.saveToState();
   }
 
-  /** 全部模式：停用（而非清空）所有條件控制項，讓「條件仍在、但此刻不生效」一目了然。 */
+  /** 全部模式：停用（而非清空）年份 / 法會 / 類型，讓「條件仍在、但此刻不生效」一目了然。 */
   private applyAllMode(on: boolean): void {
     for (const name of CONDITION_CONTROLS) {
       const ctrl = this.form.controls[name];
       if (on) ctrl.disable({ emitEvent: false });
       else ctrl.enable({ emitEvent: false });
-    }
-    // 離開全部模式時，關鍵字仍須依 scope* 勾選狀態決定可否輸入（見 bindScopeKeyToggle）
-    if (!on && !this.keyEnabled()) {
-      this.form.controls.searchKey.disable({ emitEvent: false });
     }
   }
 
@@ -545,13 +531,14 @@ export class SignupListPage implements OnInit {
 
   private buildQuery(): SignupSearchQuery {
     const v = this.form.getRawValue();
-    // 「全部」模式：忽略所有條件（搜尋與匯出 Excel 皆然），條件值仍留在表單供取消勾選後還原
-    if (v.isAll) return ALL_QUERY;
+    // 「全部」模式：只把年份 / 法會 / 類型放掉（搜尋與匯出 Excel 皆然），
+    // 其餘條件照常送；三個值仍留在表單，取消勾選即還原（見 CONDITION_CONTROLS）
+    const all = v.isAll;
     return {
-      year: v.year ?? null,
-      isScope: v.isScope,
-      ceremonyCategoryId: v.ceremonyCategoryId || null,
-      signupType: v.signupType,
+      year: all ? null : (v.year ?? null),
+      isScope: all ? false : v.isScope,
+      ceremonyCategoryId: all ? null : v.ceremonyCategoryId || null,
+      signupType: all ? -1 : v.signupType,
       number: v.number,
       searchKey: v.searchKey?.trim() || null,
       scopeName: v.scopeName,
@@ -1071,14 +1058,6 @@ function reportTypeLabel(type: SingleReportType): string {
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, v));
-}
-
-function loadShowAll(): boolean {
-  try {
-    return localStorage.getItem(LS_SHOW_ALL) === '1';
-  } catch {
-    return false;
-  }
 }
 
 function loadColumnWidths(): Record<string, number> {
