@@ -30,7 +30,11 @@ function createWindow(): void {
       nodeIntegration: false,
     },
   });
-  mainWindow.once('ready-to-show', () => mainWindow?.show());
+  // 啟動即最大化；width/height 保留為還原（un-maximize）後的預設尺寸。
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.maximize();
+    mainWindow?.show();
+  });
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
