@@ -188,6 +188,8 @@ public sealed class PrepayRepository(IDbConnectionFactory factory) : IPrepayRepo
                   LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
                   DeadNameOne, DeadNameTwo, DeadNameThree, DeadNameFour, DeadNameFive, DeadNameSix,
                   MailZipcodeID, MailAddress, TextZipcodeID, TextAddress,
+                  -- 郵遞區號文字快照，與 FK 一起寫（SignupView 的 MailZipcode/TextZipcode 讀的是這兩欄）
+                  MailZipcode, TextZipcode,
                   Remark, PrepayYear, PrepayCeremonyCategoryID, AdminID, Createdate
                 ) VALUES (
                   @SignupId, @Year, @CeremonyCategoryId, @SignupType, @BelieverId,
@@ -195,6 +197,8 @@ public sealed class PrepayRepository(IDbConnectionFactory factory) : IPrepayRepo
                   @L1, @L2, @L3, @L4, @L5, @L6,
                   @D1, @D2, @D3, @D4, @D5, @D6,
                   @MailZipcodeId, @MailAddress, @TextZipcodeId, @TextAddress,
+                  (SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@MailZipcodeId),
+                  (SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@TextZipcodeId),
                   @Remark, @PrepayYear, @PrepayCeremonyCategoryId, @AdminId, @CreateDate
                 )
                 """;

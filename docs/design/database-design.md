@@ -11,7 +11,7 @@ related_docs:
   - security.md
   - ../blueprints/signup-management.md
 keywords: [database, db, schema, 資料庫, 索引, 法會, ceremony, signup, believer, MSSQL, EF Core, Database First]
-last_updated: 2026-07-21 (Signups 加三個 per-signup 覆寫欄 HallName/EmployeeType/IsFixedNumber、SignupView 改 COALESCE 回退＋新增數值 EmployeeType；`Ceremony.Migrations` DbUp 專案首次落地 0001 加欄/0002 回填/0003 改 view；先前 2026-06-29 解除 DB 凍結、導入 DbUp)
+last_updated: 2026-07-29 (Signups 郵遞區號兩欄的真相更正：`MailZipcode`/`TextZipcode` **不是保留欄位**，而是 `SignupView.MailZipcode`/`TextZipcode` 的實際來源，寫入時必須由 FK 現查一起寫〔新增「郵遞區號兩欄必須同進同出」規則、SignupView 欄位來源標註〕；DbUp 0004 回填歷史空值。先前 2026-07-21 Signups 加三個 per-signup 覆寫欄 HallName/EmployeeType/IsFixedNumber、SignupView 改 COALESCE 回退＋新增數值 EmployeeType；`Ceremony.Migrations` DbUp 專案首次落地 0001 加欄/0002 回填/0003 改 view；先前 2026-06-29 解除 DB 凍結、導入 DbUp)
 ---
 
 ## ⚠️ 重要決策：DB schema 可變更，導入 DbUp migration（**2026-06-29 解除凍結**）
@@ -254,11 +254,11 @@ Navigation properties（EF 自動命名）：
 | `IsFixedNumber` | bit | NULL | – | **per-signup 固定編號覆寫**（同上）；null → 回退。預繳保號仍讀 Believers.IsFixedNumber |
 | `LivingNameOne`～`LivingNameSix` | nvarchar(30) × 6 | NULL | – | 快照陽上 |
 | `DeadNameOne`～`DeadNameSix` | nvarchar(30) × 6 | NULL | – | 快照往生 |
-| `MailZipcodeID` | int | NULL | FK→Zipcodes | |
-| `MailZipcode` | nvarchar(10) | NULL | – | （保留欄位，UI 未填） |
+| `MailZipcodeID` | int | NULL | FK→Zipcodes | 郵寄區域；view 由此 join 出 `MailCity`/`MailZone` |
+| `MailZipcode` | nvarchar(10) | NULL | – | ⚠**非保留欄位**：郵遞區號**文字快照**，`SignupView.MailZipcode` 讀的就是它（不是 join 來的）。必須與 FK 一起寫，見下方規則 |
 | `MailAddress` | nvarchar(250) | NULL | – | |
 | `TextZipcodeID` | int | NULL | FK→Zipcodes | |
-| `TextZipcode` | nvarchar(10) | NULL | – | （保留欄位） |
+| `TextZipcode` | nvarchar(10) | NULL | – | ⚠同上，`SignupView.TextZipcode` 的來源 |
 | `TextAddress` | nvarchar(250) | NULL | – | |
 | `Remark` | nvarchar(250) | NULL | – | |
 | `PrepayYear` | int | NULL | – | 預繳至年份 |
@@ -267,6 +267,12 @@ Navigation properties（EF 自動命名）：
 | `Createdate` | datetime | NOT NULL | Precision=3 | 建立時間 |
 
 **Application-level 規則**：
+- **郵遞區號兩欄必須同進同出**（2026-07-29 客訴修正）：`MailZipcodeID`（FK）與 `MailZipcode`（文字）
+  是同一件事的兩個欄位，寫入時文字由 FK **現查** Zipcodes 產生（`(SELECT Zipcode FROM dbo.Zipcodes
+  WHERE ZipcodeID=@...)`），不由 client 傳、也不可只寫 FK。三個寫入點：`SignupRepository` 的
+  insert / update、`PrepayRepository` 載入預繳的 insert。漏寫 → API 與收據封面的郵遞區號空白；
+  update 漏寫 → 改了區域卻留舊號碼（更糟，會印錯）。DbUp `0004` 已回填歷史空值，踩雷紀錄見
+  [gotchas.md](../gotchas.md)
 - `(Year, CeremonyCategoryID, SignupType, Number)` 唯一性由 service 層在配號時驗證（DB 無 unique index）
 - `NumberTitle` 由 `SignupType` 推導（1→No, 2→寺, 3→觀, 4→普, 5→郵），service 層 enforce
 - `AdminID` 邏輯關聯 Admins，但 DB 無 FK；service 層讀取時手動 join
@@ -305,8 +311,8 @@ Navigation properties（EF 自動命名）：
 - Name, **HallName（`COALESCE(Signups.HallName, Believers.HallName)`）**, Phone, **IsFixedNumber（`COALESCE(Signups.IsFixedNumber, Believers.IsFixedNumber)`）**
 - （Name/Phone 早已是 `CASE WHEN Signups.X IS NULL THEN Believers.X ELSE Signups.X`，三欄比照此 pattern）
 - LivingNameOne～Six, DeadNameOne～Six
-- MailZipcode, MailCity, MailZone, MailAddress
-- TextZipcode, TextCity, TextZone, TextAddress
+- MailZipcode（**＝`Signups.MailZipcode` 文字欄，不是 join Zipcodes**）, MailCity / MailZone（join `Zipcodes MZ` on `MailZipcodeID`）, MailAddress
+- TextZipcode（同上，來自 `Signups.TextZipcode`）, TextCity / TextZone（join `Zipcodes TZ`）, TextAddress
 - PrepayYear, PrepayCeremonyCategoryID, PrepayCeremonyTitle
 - Remark, AdminName, Createdate
 

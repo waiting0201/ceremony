@@ -13,7 +13,7 @@ related_docs:
   - design/database-design.md
   - design/security.md
 keywords: [pending, 待確認, 業務輸入, 客戶確認, gap]
-last_updated: 2026-07-21 (B13 反轉為報名層級／方案 A：三欄 per-signup 可編輯，已實作；先前 2026-06-29 曾定案信眾層級/方案 C)
+last_updated: 2026-07-29 (新增 B14：郵遞區號文字快照與區域 FK 不一致的 277/275 筆歷史列要不要重新對齊〔本次修正只回填「文字為空」的 164 筆，不一致者一律不動〕。先前 2026-07-21 B13 反轉為報名層級／方案 A：三欄 per-signup 可編輯，已實作；先前 2026-06-29 曾定案信眾層級/方案 C)
 ---
 
 > 本檔列出**需要業務 / 客戶 / DBA 提供資訊**才能完成的項目。每項含：問題、為何重要、影響哪些 docs、預計確認時機。
@@ -156,6 +156,23 @@ last_updated: 2026-07-21 (B13 反轉為報名層級／方案 A：三欄 per-sign
 - **確認時機**：實作此修正前
 - **狀態**：🔄 **2026-07-21 使用者反轉為「報名層級」→ 改採方案 A**（Signups 加自有 HallName/EmployeeType/IsFixedNumber、DbUp 加欄＋回填、SignupView COALESCE 回退；報名表單三欄可編輯只改這筆、不回寫 Believer；預繳保號仍讀信眾）。已實作並回填 [signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md) / [business-rules-implicit.md §3.1](business-rules-implicit.md) / [glossary.md](glossary.md) / [database-design.md](design/database-design.md)。（2026-06-29 曾定案信眾層級/方案 C，已被本次需求推翻。）
 
+### B14. 郵遞區號文字與區域 FK 不一致的歷史報名，要不要重新對齊？
+
+- **背景**：`Signups` 的郵遞區號存兩份——`MailZipcodeID`（FK → `Zipcodes`）與 `MailZipcode`（文字快照）。
+  修 2026-07-29 客訴（新版只寫 FK 導致郵遞區號空白）時清點本機 DB 發現三類列：
+  | 類型 | 寄件 | 文牒 | 處置 |
+  |---|---|---|---|
+  | FK 有值、文字為空 | 164 | 164 | ✅ DbUp `0004` 已回填 |
+  | FK 有值、文字**與 FK 對應號碼不同** | 277 | 275 | ⬜ **本項待確認** |
+  | 只有文字、無 FK | 8 | 61 | ⬜ 連帶確認（區域下拉會是空的） |
+- **需要**：業務/DBA 確認不一致那批的正確值該以哪邊為準——
+  - 「以現在的區域為準」→ 補一支 migration 用 FK 現值覆寫文字（但會改掉當年印出去的號碼）
+  - 「文字是當年的真實快照，不要動」→ 維持現狀（本次即採此保守做法，未動任何一列）
+- **為何重要**：兩者不一致時，收據郵寄封面印文字欄、報名畫面顯示 FK 對應的區域，同一筆資料兩處看起來會兜不起來。
+- **影響**：[design/database-design.md](design/database-design.md) §Signups、[blueprints/data-migration.md](blueprints/data-migration.md)
+- **確認時機**：上線前（不影響新資料正確性，只影響歷史列）
+- **狀態**：⬜
+
 ## C. 環境部署需求
 
 ### C1. 部署位置與 IP
@@ -210,11 +227,11 @@ last_updated: 2026-07-21 (B13 反轉為報名層級／方案 A：三欄 per-sign
 
 ```
 A. DB 技術性（自己跑）      ⬜⬜⬜⬜⬜⬜⬜⬜ 0/8
-B. 業務需求                ✅⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 1/13 (B13)
+B. 業務需求                ✅⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜⬜ 1/14 (B13)
 C. 環境部署                ⬜⬜⬜⬜ 0/4
 D. 訓練導入                ⬜⬜⬜ 0/3
                           ──────────────────
-                          1/28
+                          1/29
 ```
 
 ## 確認流程建議
@@ -223,7 +240,7 @@ D. 訓練導入                ⬜⬜⬜ 0/3
    - 連你本機 DB 跑 SQL
    - 回填數據至 database-design.md / performance.md
 2. **B 系列**安排一次業務會議集中問
-   - 把 B1-B12 整理成議程
+   - 把 B1-B14 整理成議程
    - 預估 1.5 小時可問完
 3. **C 系列**併入部署規劃會議
 4. **D 系列**併入訓練規劃會議

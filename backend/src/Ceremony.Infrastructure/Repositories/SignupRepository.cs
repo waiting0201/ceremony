@@ -247,6 +247,11 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
                   DeadNameOne=@D1, DeadNameTwo=@D2, DeadNameThree=@D3, DeadNameFour=@D4, DeadNameFive=@D5, DeadNameSix=@D6,
                   MailZipcodeID=@MailZipcodeId, MailAddress=@MailAddress,
                   TextZipcodeID=@TextZipcodeId, TextAddress=@TextAddress,
+                  -- 郵遞區號「文字快照」必須跟著 FK 一起寫（SignupView 曝的 MailZipcode/TextZipcode
+                  -- 就是這兩欄，不是 join Zipcodes 來的）。由 FK 現查而非由 client 傳，才不會漂移；
+                  -- FK 為 NULL / 查無 → 子查詢回 NULL。見 docs/gotchas.md「Signups 郵遞區號有兩欄」
+                  MailZipcode=(SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@MailZipcodeId),
+                  TextZipcode=(SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@TextZipcodeId),
                   Remark=@Remark, PrepayYear=@PrepayYear, PrepayCeremonyCategoryID=@PrepayCeremonyCategoryId,
                   AdminID=@AdminId, Createdate=@CreateDate
                 WHERE SignupID = @SignupId
@@ -443,6 +448,8 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
               LivingNameOne, LivingNameTwo, LivingNameThree, LivingNameFour, LivingNameFive, LivingNameSix,
               DeadNameOne, DeadNameTwo, DeadNameThree, DeadNameFour, DeadNameFive, DeadNameSix,
               MailZipcodeID, MailAddress, TextZipcodeID, TextAddress,
+              -- 郵遞區號文字快照，與 FK 一起寫（SignupView 的 MailZipcode/TextZipcode 讀的是這兩欄）
+              MailZipcode, TextZipcode,
               Remark, PrepayYear, PrepayCeremonyCategoryID, AdminID, Createdate
             ) VALUES (
               @SignupId, @Year, @CeremonyCategoryId, @SignupType, @BelieverId,
@@ -451,6 +458,8 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
               @L1, @L2, @L3, @L4, @L5, @L6,
               @D1, @D2, @D3, @D4, @D5, @D6,
               @MailZipcodeId, @MailAddress, @TextZipcodeId, @TextAddress,
+              (SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@MailZipcodeId),
+              (SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@TextZipcodeId),
               @Remark, @PrepayYear, @PrepayCeremonyCategoryId, @AdminId, @CreateDate
             )
             """;

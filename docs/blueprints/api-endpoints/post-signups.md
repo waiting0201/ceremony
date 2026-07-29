@@ -17,7 +17,7 @@ related_docs:
   - post-believers.md
   - get-signups.md
 keywords: [signups, create, post, updlock, number, avoid4, signuplog]
-last_updated: 2026-07-21 (三欄 per-signup 化：request 加 employeeType/isFixedNumber（hallName 已有），寫 Signups 自有欄不回寫 Believer，SignupListItem 回傳加數值 employeeType，SignupView COALESCE 回退；同日稍早地址非必填客訴：mailAddress 由 required 改可空，空白 normalize 為空字串，移除「請輸入寄件地址」400)
+last_updated: 2026-07-29 (新增 §4b 郵遞區號文字快照：INSERT 必須一併寫 Signups.MailZipcode/TextZipcode〔由 FK 現查、不吃 client 值〕，SignupView 曝的郵遞區號讀的是這兩欄；先前 2026-07-21 三欄 per-signup 化：request 加 employeeType/isFixedNumber（hallName 已有），寫 Signups 自有欄不回寫 Believer，SignupListItem 回傳加數值 employeeType，SignupView COALESCE 回退；同日稍早地址非必填客訴：mailAddress 由 required 改可空，空白 normalize 為空字串，移除「請輸入寄件地址」400)
 ---
 
 ## 規格
@@ -98,6 +98,13 @@ last_updated: 2026-07-21 (三欄 per-signup 化：request 加 employeeType/isFix
    - textAddress 空 → 取 mailAddress 為值
    - textZipcodeId 空 + textAddress 空 → 取 mailZipcodeId
    - 此 fallback 用在「印疏文用同寄件地址」場景
+
+4b. **郵遞區號文字快照**（舊 line 248-250 `signup.MailZipcode = txtMailZipcode.Text`，**2026-07-29 補回**）：
+   - `Signups` 有 `MailZipcode`/`TextZipcode` 兩個 `nvarchar(10)` 文字欄，**`SignupView` 曝的郵遞區號讀的就是它們**
+   - 請求**不**收郵遞區號文字（沒有這個欄位）：INSERT 時由 FK 現查
+     `(SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@MailZipcodeId)`，永遠與 FK 一致、不吃 client 值
+   - 早期只寫 FK → 回應與收據郵寄封面的郵遞區號一律空白（客訴根因）；回歸鎖見
+     `SignupsEndpointsTests.Signup_zipcode_text_is_written_and_follows_area_changes`
 
 5. **SignupLog 同步寫入**（舊 line 309-348）：
    - 與 Signup 同一交易；Admin/Createdate 從 JWT claim + DateTime.UtcNow

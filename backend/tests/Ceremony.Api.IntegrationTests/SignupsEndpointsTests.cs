@@ -416,4 +416,70 @@ public sealed class SignupsEndpointsTests(CeremonyApiFactory factory) : IClassFi
         believerGet.EmployeeType.Should().Be(1);
         believerGet.IsFixedNumber.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Signup_zipcode_text_is_written_and_follows_area_changes()
+    {
+        // Signups 的郵遞區號有兩欄：MailZipcodeID（FK）與 MailZipcode（文字快照），SignupView 曝的是**文字欄**。
+        // 早期只寫 FK → 新系統建立的報名，API 與收據郵寄封面的郵遞區號一律空白（2026-07-29 客訴）。
+        // 寫入端改由 FK 現查文字，這裡鎖住「新增有值」與「改區域後跟著變」兩件事。
+        var client = await AuthedAsync();
+
+        // 取兩個不同區域（不寫死 ID：Zipcodes 是客戶資料，各環境可能不同）
+        var cities = await (await client.GetAsync("/api/v1/zipcodes/cities"))
+            .Content.ReadFromJsonAsync<Application.Zipcodes.ZipcodeCitiesResponse>();
+        var city = cities!.Items.First();
+        var areas = await (await client.GetAsync($"/api/v1/zipcodes?city={Uri.EscapeDataString(city)}"))
+            .Content.ReadFromJsonAsync<Application.Zipcodes.ZipcodeAreasResponse>();
+        areas!.Items.Count.Should().BeGreaterThan(1, because: "本測試需要兩個不同區域");
+        var first = areas.Items[0];
+        var second = areas.Items[1];
+
+        var believerName = $"itest_zip_{DateTime.UtcNow:yyMMddHHmmssfff}";
+        var believer = await (await client.PostAsJsonAsync("/api/v1/believers", new
+        {
+            employeeType = 1,
+            name = believerName,
+            mailAddress = "整合測試地址",
+        })).Content.ReadFromJsonAsync<Application.Believers.BelieverListItem>();
+
+        const int year = 996;                                                    // 專用年份，避開真實資料
+        var ceremonyId = Guid.Parse("18927907-dcad-42b2-8f2a-635c2e0fa98d");     // 春季
+
+        var createResp = await client.PostAsJsonAsync("/api/v1/signups", new
+        {
+            year,
+            ceremonyCategoryId = ceremonyId,
+            signupType = 1,
+            believerId = believer!.Id,
+            name = believerName,
+            mailAddress = "整合測試地址",
+            mailZipcodeId = first.ZipcodeId,
+            textZipcodeId = second.ZipcodeId,
+            textAddress = "整合測試文牒地址",
+        });
+        createResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = (await createResp.Content.ReadFromJsonAsync<SignupListItem>())!;
+        created.MailZipcode.Should().Be(first.Zipcode, because: "新增時文字快照要跟著 FK 一起寫");
+        created.TextZipcode.Should().Be(second.Zipcode);
+
+        // 改區域（寄件換成 second）→ 文字快照要跟著換，不能留舊值
+        var updateResp = await client.PutAsJsonAsync($"/api/v1/signups/{created.Id}", new
+        {
+            year,
+            ceremonyCategoryId = ceremonyId,
+            signupType = 1,
+            believerId = believer.Id,
+            name = believerName,
+            mailAddress = "整合測試地址",
+            customNumber = created.Number,
+            mailZipcodeId = second.ZipcodeId,
+            textZipcodeId = second.ZipcodeId,
+            textAddress = "整合測試文牒地址",
+        });
+        updateResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var updated = (await (await client.GetAsync($"/api/v1/signups/{created.Id}"))
+            .Content.ReadFromJsonAsync<SignupListItem>())!;
+        updated.MailZipcode.Should().Be(second.Zipcode, because: "改區域後文字快照必須同步，否則印出舊號碼");
+    }
 }

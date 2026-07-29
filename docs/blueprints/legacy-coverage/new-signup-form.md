@@ -7,7 +7,7 @@ legacy_path: reference/old/Ceremony/NewSignupForm.cs
 legacy_lines: 1118
 audit_status: complete
 coverage_percentage: 100
-last_audited: 2026-06-02
+last_audited: 2026-07-29
 baseline_completed: 2026-05-27
 total_methods: 34
 related_agents:
@@ -18,7 +18,7 @@ related_docs:
   - ../signup-management.md
   - README.md
 keywords: [legacy, coverage, new-signup, 報名建立]
-last_updated: 2026-07-27 (row 8 補回表單內「列印資料卡」按鈕（存檔前 disabled、成功後啟用，印剛新增那筆）；同日 row 5 改回 1:1 對齊：編號欄恆顯示、依 keepNumber 切 disabled/enable（先前「勾了才顯示」是自行簡化）；同日 row 6 補齊 btnConfirm 成功後行為 355-361：重查列表→「編號X，新增報名成功」單按鈕 dialog→表單資料留著不關閉；同日先前客訴：選定信眾回填來源改為「點到的那筆報名」快照；同日補回舊 BelieverView 語意——信眾搜尋併查 GET /believers?searchKey=（新參數，14 欄 OR）讓「從未報名過的信眾」也搜得到，rows 3/24 更新、信眾主檔降為 fallback，1:1 對齊舊 BelieverSelected:991-1101 分支語意——rows 4/34 更新；先前 2026-07-17 信眾搜尋改常駐 in-form 列表對齊舊 dgvBelievers；未選信眾自動建信眾由前端 orchestration 補齊——rows 3/4/6/24 與頂部註記更新)
+last_updated: 2026-07-29 (row 6 補回郵遞區號文字快照〔舊 248-250 兩欄都寫，新版原本只寫 FK ID，導致新增的報名郵遞區號空白〕；先前 2026-07-27 row 8 補回表單內「列印資料卡」按鈕（存檔前 disabled、成功後啟用，印剛新增那筆）；同日 row 5 改回 1:1 對齊：編號欄恆顯示、依 keepNumber 切 disabled/enable（先前「勾了才顯示」是自行簡化）；同日 row 6 補齊 btnConfirm 成功後行為 355-361：重查列表→「編號X，新增報名成功」單按鈕 dialog→表單資料留著不關閉；同日先前客訴：選定信眾回填來源改為「點到的那筆報名」快照；同日補回舊 BelieverView 語意——信眾搜尋併查 GET /believers?searchKey=（新參數，14 欄 OR）讓「從未報名過的信眾」也搜得到，rows 3/24 更新、信眾主檔降為 fallback，1:1 對齊舊 BelieverSelected:991-1101 分支語意——rows 4/34 更新；先前 2026-07-17 信眾搜尋改常駐 in-form 列表對齊舊 dgvBelievers；未選信眾自動建信眾由前端 orchestration 補齊——rows 3/4/6/24 與頂部註記更新)
 ---
 
 > ✅ **完成 (2026-06-02 交叉稽核)**：核心 POST /signups + 表單編排對齊舊版 + 地址 city/area 連動下拉皆 shipped；剩餘 WinForms 列印內部事件（PrintDocument/EMF/列印對話）統一 ❌ 故意捨棄（改 server-side QuestPDF→PDF + 瀏覽器預覽，與 SignupForm rows 34-37 一致，不受列印 PoC 影響）。
@@ -53,7 +53,7 @@ last_updated: 2026-07-27 (row 8 補回表單內「列印資料卡」按鈕（存
 | 3 | `btnBelieverSearch_Click` | 114-124 | 驗證搜尋條件後查詢信眾 | ✅ 已實作 | `GET /api/v1/signups`（`searchKey`+4 scope flags） | signup-edit-form 信眾**常駐 in-form 搜尋**（2026-07-17 改：搜尋列+結果列表直接常駐於表單頂部，對齊舊 txtQ+dgvBelievers 常駐面板型態，取代 modal picker；最多 render 前 200 列+總數提示防 DOM 卡頓）。搜尋語意沿用 2026-07-02：單一輸入框 OR 比對 Name/Phone/6組陽上/6組往生共 14 欄，按鈕/Enter 觸發。2026-07-27：同一把關鍵字**並行**再查 `GET /api/v1/believers?searchKey=`，補回舊 BelieverView 才有的「未報名過的信眾」（見 row 24） |
 | 4 | `dgvBelievers_CellClick` | 126-137 | 選擇信眾行並加載其資料 | ✅ 已實作 | 前端 row select + `GET /api/v1/believers/{id}` | `pickBeliever` 選定後預填表單（基本資料 + 地址 city/area + 陽上/往生名單 + 備註）；2026-07-17：選定後**列表保留**、選定列高亮，可隨時再點別筆改選覆蓋（同舊 CellClick 重跑 BelieverSelected）；**2026-07-27 客訴修正**：帶入來源改為**該列自身的報名快照**（`SignupListItem`），`/believers/{id}` 降為欄位為空時的 fallback（同舊 BelieverSelected 分支語意，見 row 34） |
 | 5 | `cbKeepNumber_CheckedChanged` | 139-149 | 切換編號手動輸入啟用狀態 | ✅ 已實作 | 前端 form logic | **2026-07-27 起 1:1 對齊**：編號欄恆顯示，`keepNumber` 未勾＝`disabled`、勾選＝`enable`（`syncCustomNumberEnabled()`）；先前新版做成「勾了才顯示欄位」屬自行簡化，已改回 |
-| 6 | `btnConfirm_Click` | 151-362 | **複合邏輯：表單驗證 + 編號分配 + 新增報名**（211 行核心方法；186-223 未選信眾時自動 INSERT Believers） | ✅ 已實作 | `POST /api/v1/signups`（未選信眾時前端先 `POST /believers`） | `CreateSignupHandler` + `SignupRepository.InsertWithLogAsync` 含 UPDLOCK + HOLDLOCK + transaction + 同步寫 SignupLog；行為改善（舊系統無 lock，有 race window）。自動建信眾分支＝前端 orchestration（2026-07-17 補齊，見頂部註記）。**成功後行為 2026-07-27 補齊對齊 355-361**：先重查列表（舊 `signupForm.LoadSearchSignups()`）→ 跳單按鈕結果 dialog「編號{number}，新增報名成功」（舊 `CustomMessageForm`）→ **表單資料原樣留著、不關閉**（舊 `btnConfirm/btnPrintDataCard.Enabled = true`）；新版另清掉跨路由草稿記憶 |
+| 6 | `btnConfirm_Click` | 151-362 | **複合邏輯：表單驗證 + 編號分配 + 新增報名**（211 行核心方法；186-223 未選信眾時自動 INSERT Believers） | ✅ 已實作 | `POST /api/v1/signups`（未選信眾時前端先 `POST /believers`） | `CreateSignupHandler` + `SignupRepository.InsertWithLogAsync` 含 UPDLOCK + HOLDLOCK + transaction + 同步寫 SignupLog；行為改善（舊系統無 lock，有 race window）。自動建信眾分支＝前端 orchestration（2026-07-17 補齊，見頂部註記）。**成功後行為 2026-07-27 補齊對齊 355-361**：先重查列表（舊 `signupForm.LoadSearchSignups()`）→ 跳單按鈕結果 dialog「編號{number}，新增報名成功」（舊 `CustomMessageForm`）→ **表單資料原樣留著、不關閉**（舊 `btnConfirm/btnPrintDataCard.Enabled = true`）；新版另清掉跨路由草稿記憶。**2026-07-29 補回郵遞區號文字快照**：舊 248-250 除了 `MailZipcodeID` 還寫 `signup.MailZipcode/TextZipcode` 文字（`SignupView` 曝的郵遞區號讀的正是這兩欄），新版原本只寫 FK → 新增的報名郵遞區號一律空白；現於 INSERT 由 FK 現查補上 |
 | 7 | `btnCancel_Click` | 364-369 | 返回第一步並清空表單 | ✅ 已實作 | 前端 form reset | overlay 關閉 / `form.reset` + dirty 確認（form-overlay） |
 | 8 | `btnPrintDataCard_Click` | 371-404 | 列印剛新增報名的資料卡 | ✅ 已實作 | `GET /api/v1/reports/datacard` | **2026-07-27 補回表單內按鈕**：新增模式表單底部常駐「列印資料卡」，存檔前 disabled、新增成功後啟用，印的是剛新增那筆（`lastCreatedSignupId` ＝舊 `CurrentSignupID`），PDF 開新分頁預覽——對齊舊 Enabled 切換（:95 false → :361 true）。仍**不 auto-print**（舊系統也是按鈕觸發）；既有報名的列印走報名維護右鍵選單 |
 | 9 | `dlMailCity_SelectedIndexChanged` | 406-424 | 更新郵寄區域下拉清單 | ✅ 已實作 | `GET /api/v1/zipcodes?city=` | `onCityChange('mail')` 載入該城市區域（區域 option value=ZipcodeID） |

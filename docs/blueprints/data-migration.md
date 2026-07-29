@@ -9,7 +9,7 @@ related_agents:
 related_docs:
   - ../design/database-design.md
 keywords: [migration, 資料遷移, datatrans, 沿用, DbUp, schema]
-last_updated: 2026-07-21 (客戶端 migration 定案方案 B：Api sidecar 啟動自動跑 DbUp（Ceremony.Migrations 經 ProjectReference 隨 Api publish 打包）、fail-fast、可 config 關閉、CLI 保留；DDL 現用 sa，降權後改方案 A；先前 2026-06-29 解除 DB 凍結、導入 DbUp)
+last_updated: 2026-07-29 (新增「已有腳本」清單並加入 0004_BackfillSignupZipcodeText〔DML，補郵遞區號文字快照；不動文字與 FK 不一致的歷史列〕。先前 2026-07-21 客戶端 migration 定案方案 B：Api sidecar 啟動自動跑 DbUp（Ceremony.Migrations 經 ProjectReference 隨 Api publish 打包）、fail-fast、可 config 關閉、CLI 保留；DDL 現用 sa，降權後改方案 A；先前 2026-06-29 解除 DB 凍結、導入 DbUp)
 ---
 
 ## 範圍：零 ETL 搬遷 + DbUp schema migration
@@ -54,6 +54,15 @@ last_updated: 2026-07-21 (客戶端 migration 定案方案 B：Api sidecar 啟�
 - **fail-fast**：migration 失敗即中止啟動（不以殘缺 schema 服務），錯誤走既有 `/health`→`/setup` 呈現。可用 config `Migration:RunOnStartup=false` 關閉（整合測試工廠即設 false，測試 DB 由 CI/開發者預先套 migration）。
 - **CLI 仍保留**：`Ceremony.Migrations` console（`dotnet Ceremony.Migrations.dll "<連線字串>"`）供伺服器式部署或手動一次性套用。
 - **DDL 權限現況**：客戶端目前用 `sa` 連線（具 DDL），故 sidecar 啟動跑 `ALTER TABLE / CREATE VIEW` 可行。**注意**：此偏離 [security.md](../design/security.md)/[infrastructure.md](../design/infrastructure.md) 所述「runtime 低權限帳號無 DDL、migration 走獨立高權限帳號」的目標設計——若未來把 runtime 帳號降權成無 DDL，就要改走方案 A（Electron 啟 sidecar 前先以獨立高權限帳號跑 `Ceremony.Migrations.exe`）。
+
+### 已有腳本（`Ceremony.Migrations/Scripts/`，DbUp 依檔名排序執行）
+
+| # | 腳本 | 類型 | 內容 |
+|---|---|---|---|
+| 0001 | `AddSignupOverrideColumns` | DDL | `Signups` 加 HallName / EmployeeType / IsFixedNumber |
+| 0002 | `BackfillSignupOverrideColumns` | DML | 上三欄一次性凍結成當下信眾值 |
+| 0003 | `AlterSignupView` | DDL | `SignupView` 三欄改 COALESCE + 新增數值 EmployeeType |
+| 0004 | `BackfillSignupZipcodeText` | DML | 補 `MailZipcode`/`TextZipcode` 文字快照（FK 有值但文字為空者）——新版寫入端曾只寫 FK，見 [database-design.md](../design/database-design.md) §Signups 與 [gotchas.md](../gotchas.md)。**刻意不碰**文字與 FK 不一致的歷史列 |
 
 ## 切換上線流程（零資料遷移）
 

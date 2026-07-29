@@ -25,6 +25,23 @@ last_updated: 2026-07-28 (追加四條：背景 Task 不可綁 HttpContext.Reque
 
 ## 專案層級陷阱
 
+### `Signups` 的郵遞區號有**兩欄**，寫 FK 不等於寫好（2026-07-29）
+- **症狀**：新系統新增的報名，郵遞區號一律空白——API 回的 `mailZipcode`/`textZipcode` 是 `null`、
+  收據郵寄封面印不出號碼、舊系統打開該筆的 `txtMailZipcode` 也是空的。但**表單裡看得到號碼**
+  （前端是從區域下拉自己算的），所以在畫面上完全看不出問題。
+- **真因**：`dbo.Signups` 同時有 `MailZipcodeID`（FK → `Zipcodes`）與 `MailZipcode`
+  （`nvarchar(10)` 文字快照），`TextZipcodeID`/`TextZipcode` 同理。**`SignupView` 曝出去的
+  `MailZipcode` 讀的是文字欄**，不是 join `Zipcodes` 得來的——view 只用 FK join 取
+  `City`/`Area`。新版寫入端一直只寫 FK。
+  舊系統兩欄都寫（`NewSignupForm.cs:248-250`、`EditSignupForm.cs:264-266`）。
+- **修法**：寫入時由 FK 現查文字，**不要**讓 client 傳：
+  `MailZipcode=(SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@MailZipcodeId)`。
+  三個寫入點都要（`SignupRepository` insert / update、`PrepayRepository` 載入預繳的 insert）。
+  UPDATE 漏掉更毒——改了區域但文字欄留舊值，會印出**錯的**號碼而不是空白。
+- **預防**：改動 `Signups`/`Believers` 的欄位前先看 `SignupView` 定義（`0003_AlterSignupView.sql`），
+  確認每個對外欄位真正的來源；「FK 有值」不代表「view 讀得到」。同類的冗餘快照欄還有
+  `Believers.MailZipcode`（新舊系統皆未寫，目前無人讀，暫不處理）。
+
 ### 背景 `Task` 絕不能綁 `HttpContext.RequestAborted`（2026-07-28）
 - **症狀**：把工作丟到 `Task.Run` 背景執行、用 `RequestAborted` 當取消 token，結果工作一啟動就死。
 - **真因**：`RequestAborted` 在**回應送出時**就被 cancel。「立刻回 202、背景繼續做」的模式下，

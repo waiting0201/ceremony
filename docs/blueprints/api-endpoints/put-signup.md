@@ -13,7 +13,7 @@ related_docs:
   - post-signups.md
   - ../legacy-coverage/edit-signup-form.md
 keywords: [signups, update, put, signuplog]
-last_updated: 2026-06-29 (方案 C：不再回寫 Believer，堂號信眾層級)
+last_updated: 2026-07-29 (新增 §4b：UPDATE 必須同步 MailZipcode/TextZipcode 文字快照〔由 FK 現查〕，否則改區域後會印出舊號碼；先前 2026-06-29 方案 C：不再回寫 Believer，堂號信眾層級)
 ---
 
 ## 規格
@@ -48,6 +48,10 @@ last_updated: 2026-06-29 (方案 C：不再回寫 Believer，堂號信眾層級)
 2. **Number 重複檢查排除自己**（`SignupID != ParamSignupID`）
 3. **不回寫 Believer 任何欄位**（**故意偏離 legacy**）：堂號/員工類型/固定編號為信眾層級屬性，只在信眾維護頁修改；legacy 會回寫導致「改一筆報名堂號→連動同信眾全部報名」缺陷，新版不重演。堂號仍寫入 SignupLog 快照。回歸測試 `UpdateSignupHandlerTests.Edit_never_writes_back_to_Believer`
 4. **不重新分配 Number**：用 request 提供的；衝突就 409
+4b. **郵遞區號文字快照必須跟著改**（舊 line 264-266，**2026-07-29 補回**）：UPDATE 一併寫
+   `MailZipcode=(SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@MailZipcodeId)`（Text 同）。
+   這裡漏寫比 POST 漏寫更嚴重——改了區域但文字欄留舊值，收據封面會印出**錯的**號碼而不是空白。
+   詳見 [post-signups.md](post-signups.md) §4b 與 [gotchas.md](../../gotchas.md)
 5. **SignupLog 同步寫入**（新一筆 audit 紀錄）
 
 ## 驗收
