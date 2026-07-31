@@ -9,6 +9,15 @@ import { readConfig, writeConfig, readDefaultConfig, CeremonyConfig } from './co
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
+import {
+  listPrinters,
+  printBatchJob,
+  printPdfBuffer,
+  printReport,
+  PrintOverrides,
+  sweepTempDir,
+} from './print';
+import { readPrintSettings, savePrintSetting, ReportPrintSetting } from './print-config';
 
 let mainWindow: BrowserWindow | null = null;
 let prereqs: PrereqReport;
@@ -28,12 +37,31 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Chromium 內建 PDF viewer 需要 plugins:true 才會啟用（Electron 預設 false）。
+      // 沒開的話報表預覽頁的 <iframe src="blob:...pdf"> 是空白、window.open(blob:) 會變成下載——
+      // 使用者看到的就是「按列印卻叫不出印表機」。見 docs/gotchas.md。
+      plugins: true,
     },
   });
   // 啟動即最大化；width/height 保留為還原（un-maximize）後的預設尺寸。
   mainWindow.once('ready-to-show', () => {
     mainWindow?.maximize();
     mainWindow?.show();
+  });
+  // window.open 開出的子視窗（PDF 預覽）預設不繼承 parent 的 webPreferences，尤其 noopener 更是全新視窗；
+  // 這裡明示補上 plugins:true，否則子視窗一樣看不到 PDF。同時把非 blob:/file: 的外開導向系統瀏覽器。
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('blob:') || url.startsWith('file:')) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          autoHideMenuBar: true,
+          webPreferences: { plugins: true, contextIsolation: true, nodeIntegration: false },
+        },
+      };
+    }
+    void shell.openExternal(url);
+    return { action: 'deny' };
   });
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -61,6 +89,7 @@ async function loadAppWithApi(base: string): Promise<void> {
 }
 
 async function bootstrap(): Promise<void> {
+  void sweepTempDir(); // 清上次崩潰留下的列印暫存 PDF
   prereqs = await detectPrereqs();
   config = await readConfig();
   // default-config.json 為「連線權威」：每次啟動以出廠種子覆寫 config 的連線（保留既有 jwtKey），
@@ -89,7 +118,10 @@ app.on('window-all-closed', () => {
   stopSidecar();
   if (process.platform !== 'darwin') app.quit();
 });
-app.on('before-quit', () => stopSidecar());
+app.on('before-quit', () => {
+  stopSidecar();
+  void sweepTempDir();
+});
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) bootstrap();
 });
@@ -145,6 +177,43 @@ ipcMain.handle('ceremony:downloadBackup', async (_e, fileName: string, token: st
   if (!mainWindow || !apiBase) return { ok: false, error: '尚未連線' };
   return downloadBackup(mainWindow, apiBase, fileName, token);
 });
+
+// ── 列印通道 ──
+// 紙張 / 邊界 / 縮放由主行程指定，不再交給 PDF 檢視器與驅動自由發揮。
+// 契約見 docs/blueprints/print-channel-electron.md。
+
+ipcMain.handle('ceremony:listPrinters', () => listPrinters(mainWindow));
+
+ipcMain.handle('ceremony:getPrintSettings', () => readPrintSettings());
+
+ipcMain.handle('ceremony:savePrintSetting', (_e, reportType: string, s: ReportPrintSetting) =>
+  savePrintSetting(reportType, s),
+);
+
+/** 單筆報表：main 直接向 sidecar 取 PDF 再送印（大檔不經 IPC）。 */
+ipcMain.handle(
+  'ceremony:printReport',
+  async (_e, reportType: string, apiPath: string, token: string, o: PrintOverrides) => {
+    if (!apiBase) return { ok: false, error: '尚未連線' };
+    return printReport(apiBase, token, reportType, apiPath, o ?? {});
+  },
+);
+
+/** 批次：renderer 負責 job 進度與取消，完成後把 jobId 交給 main 取檔送印（/file 是 one-shot）。 */
+ipcMain.handle(
+  'ceremony:printBatchJob',
+  async (_e, reportType: string, jobId: string, token: string, o: PrintOverrides) => {
+    if (!apiBase) return { ok: false, error: '尚未連線' };
+    return printBatchJob(apiBase, token, reportType, jobId, o ?? {});
+  },
+);
+
+/** 報表預覽頁專用：PDF 已在 renderer 手上（job 已消耗），才走 IPC 傳 bytes。 */
+ipcMain.handle(
+  'ceremony:printPdfBuffer',
+  async (_e, reportType: string, bytes: Uint8Array, o: PrintOverrides) =>
+    printPdfBuffer(reportType, bytes, o ?? {}),
+);
 
 ipcMain.handle('ceremony:openExternal', async (_e, url: string) => {
   await shell.openExternal(url);

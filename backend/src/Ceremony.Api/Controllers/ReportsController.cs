@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Ceremony.Application.Reports;
+using Ceremony.Domain.Reports;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -35,6 +36,7 @@ public sealed class ReportsController(
         if (debugOverlay && !env.IsDevelopment()) return NotFound();
 
         var (pdf, fileName) = await dataCard.HandleAsync(signupId, debugOverlay, ct);
+        AppendPageSize("datacard");
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -46,6 +48,7 @@ public sealed class ReportsController(
     public async Task<IActionResult> Receipt([FromQuery] Guid signupId, CancellationToken ct)
     {
         var (pdf, fileName) = await receipt.HandleAsync(signupId, ct);
+        AppendPageSize("receipt");
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -62,6 +65,7 @@ public sealed class ReportsController(
         if (debugOverlay && !env.IsDevelopment()) return NotFound();
 
         var (pdf, fileName) = await tablet.HandleAsync(signupId, debugOverlay, ct);
+        AppendPageSize("tablet");
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -76,6 +80,7 @@ public sealed class ReportsController(
         if (!env.IsDevelopment()) return NotFound();
 
         var pdf = tabletSample.Handle(debugOverlay);
+        AppendPageSize("tablet");
         return File(pdf, "application/pdf", "tablet-sample-5dead-5living.pdf");
     }
 
@@ -91,6 +96,7 @@ public sealed class ReportsController(
         if (debugOverlay && !env.IsDevelopment()) return NotFound();
 
         var (pdf, fileName) = await text.HandleAsync(signupId, debugOverlay, ct);
+        AppendPageSize("text");
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -102,6 +108,7 @@ public sealed class ReportsController(
     public async Task<IActionResult> Worship([FromQuery] Guid signupId, CancellationToken ct)
     {
         var (pdf, fileName) = await worship.HandleAsync(signupId, ct);
+        AppendPageSize("worship");
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -117,6 +124,7 @@ public sealed class ReportsController(
         if (debugOverlay && !env.IsDevelopment()) return NotFound();
 
         var (pdf, fileName) = await worshipCard.HandleAsync(signupId, debugOverlay, ct);
+        AppendPageSize("worshipcard");
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -133,6 +141,7 @@ public sealed class ReportsController(
     {
         var (pdf, fileName, count) = await batch.HandleAsync(req, ct);
         Response.Headers.Append("X-Signup-Count", count.ToString());
+        AppendPageSize(req.ReportType);
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -158,8 +167,9 @@ public sealed class ReportsController(
     [HttpGet("batch/jobs/{jobId:guid}/file")]
     public IActionResult GetBatchJobFile(Guid jobId)
     {
-        var (pdf, fileName, total) = jobs.TakeFile(jobId, OwnerSub());
+        var (pdf, fileName, total, reportType) = jobs.TakeFile(jobId, OwnerSub());
         Response.Headers.Append("X-Signup-Count", total.ToString());
+        AppendPageSize(reportType);
         return File(pdf, "application/pdf", fileName);
     }
 
@@ -170,6 +180,21 @@ public sealed class ReportsController(
     {
         jobs.Cancel(jobId, OwnerSub());
         return NoContent();
+    }
+
+    /// <summary>
+    /// 掛上 X-Report-Page-Size（微米，如 "210000x148000"），供 Electron 主行程送印時指定 pageSize。
+    /// </summary>
+    /// <remarks>
+    /// 沒有這個 header，列印端只能猜紙張 → 檢視器/驅動各自套預設值，就是「有的印表機可以、有的要手動調」
+    /// 的根因。值的權威是 Ceremony.Domain.Reports.ReportPageSizes。
+    /// 不在 CORS safelist，Program.cs 需明示 WithExposedHeaders 前端才讀得到。
+    /// 契約見 docs/blueprints/print-channel-electron.md。
+    /// </remarks>
+    private void AppendPageSize(string reportType)
+    {
+        if (ReportPageSizes.TryGet(reportType, out var size))
+            Response.Headers.Append("X-Report-Page-Size", size.ToHeaderValue());
     }
 
     /// <summary>

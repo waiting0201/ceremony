@@ -71,7 +71,7 @@ public sealed class BatchPrintJobService(
     /// BATCH_JOB_NOT_FOUND（不存在／逾期／已取走／已取消／非本人）、
     /// BATCH_JOB_NOT_READY（仍在渲染中）、或該 job 失敗時原本的錯誤
     /// </exception>
-    public (byte[] Pdf, string FileName, int Total) TakeFile(Guid jobId, string ownerSub)
+    public (byte[] Pdf, string FileName, int Total, string ReportType) TakeFile(Guid jobId, string ownerSub)
     {
         var job = Require(jobId, ownerSub);
 
@@ -89,7 +89,8 @@ public sealed class BatchPrintJobService(
 
         var pdf = job.Pdf ?? throw new DomainException("INTERNAL_ERROR", "未預期的伺服器錯誤");
         Discard(job);
-        return (pdf, job.FileName, job.Total);
+        // ReportType 一併回傳：controller 要據此掛 X-Report-Page-Size（合併 PDF 的每頁尺寸都是同一種報表）。
+        return (pdf, job.FileName, job.Total, job.ReportType);
     }
 
     /// <summary>

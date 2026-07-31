@@ -22,9 +22,8 @@ import type {
 } from '../../core/api/signups/signup.models';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
-import { ReportApi } from '../../core/api/reports/report.api';
 import type { SingleReportType } from '../../core/api/reports/report.models';
-import { BatchPrintService } from '../../core/reports/batch-print.service';
+import { PrintService } from '../../core/print/print.service';
 import { ApiError } from '../../core/http/api-error';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { ContextMenuService } from '../../shared/context-menu/context-menu.service';
@@ -34,7 +33,6 @@ import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { FormOverlayComponent } from '../../shared/form-overlay/form-overlay.component';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
-import { openPdfInNewTab } from '../../shared/util/pdf';
 import {
   SignupEditFormComponent,
   type InsertAtContext,
@@ -131,8 +129,7 @@ export class SignupListPage implements OnInit {
 
   private readonly api = inject(SignupApi);
   private readonly categoryApi = inject(CategoryApi);
-  private readonly reportApi = inject(ReportApi);
-  private readonly batchPrint = inject(BatchPrintService);
+  private readonly print = inject(PrintService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly menu = inject(ContextMenuService);
@@ -940,8 +937,9 @@ export class SignupListPage implements OnInit {
     this.printing.set(true);
     this.errorMessage.set(null);
     try {
-      const { blob, fileName } = await this.reportApi.single(type, item.id);
-      openPdfInNewTab(blob);
+      // PrintService 內部分流：Electron 送印表機（紙張/縮放由主行程指定）、瀏覽器退回開新分頁
+      const sent = await this.print.printSingle(type, item.id);
+      if (sent) this.successMessage.set(`已送出列印${reportTypeLabel(type)}`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -954,15 +952,13 @@ export class SignupListPage implements OnInit {
     this.printing.set(true);
     this.errorMessage.set(null);
     try {
-      // 走 job 版：進度 overlay 由 BatchPrintService 負責；回 null 代表使用者取消
-      const resp = await this.batchPrint.run(
+      // 走 job 版：進度 overlay 由 BatchPrintService 負責；回 false 代表使用者取消
+      const sent = await this.print.printBatch(
         { reportType: type, signupIds: items.map((i) => i.id) },
         { detail: reportTypeLabel(type) },
       );
-      if (!resp) return;
-      openPdfInNewTab(resp.blob);
-      const count = resp.signupCount ?? items.length;
-      this.successMessage.set(`已列印 ${count} 筆 (${resp.fileName})`);
+      if (!sent) return;
+      this.successMessage.set(`已送出列印 ${items.length} 筆${reportTypeLabel(type)}`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -980,7 +976,7 @@ export class SignupListPage implements OnInit {
     this.errorMessage.set(null);
     const q = this.form.getRawValue();
     try {
-      const resp = await this.batchPrint.run(
+      const sent = await this.print.printBatch(
         {
           reportType: type,
           numberStart,
@@ -991,10 +987,8 @@ export class SignupListPage implements OnInit {
         },
         { detail: reportTypeLabel(type) },
       );
-      if (!resp) return;
-      openPdfInNewTab(resp.blob);
-      const count = resp.signupCount ?? '';
-      this.successMessage.set(`已列印批次 ${count} 筆 (${resp.fileName})`);
+      if (!sent) return;
+      this.successMessage.set(`已送出列印批次${reportTypeLabel(type)}（編號 ${numberStart}–${numberEnd}）`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {

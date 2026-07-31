@@ -58,9 +58,12 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:4200"])
      .AllowAnyHeader()
      .AllowAnyMethod()
-     // 這兩個不在 CORS safelist，不明示 expose 前端就讀不到（檔名會退回 fallback、筆數會是 undefined）。
+     // 這三個不在 CORS safelist，不明示 expose 前端就讀不到（檔名會退回 fallback、筆數會是 undefined、
+     // 紙張尺寸會退回 Electron 端的 fallback 表）。
      // dev 是 :4200→:5050 跨源，prod Electron renderer 走 file:// Origin=null 也算跨源，兩邊都需要。
-     .WithExposedHeaders("Content-Disposition", "X-Signup-Count")));
+     // 註：Electron 主行程送印時走 net.request（非瀏覽器 fetch），不受 CORS 限制，一定讀得到 header；
+     // 這裡的 expose 是給 renderer 直接讀的路徑（報表預覽頁、dev :4200）。
+     .WithExposedHeaders("Content-Disposition", "X-Signup-Count", "X-Report-Page-Size")));
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();

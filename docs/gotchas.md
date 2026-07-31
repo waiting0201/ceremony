@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-31 (追加兩條 RWD 陷阱：`container-type` 會讓元素變成 fixed 子孫的 containing block（設在 `.page`／`:host` 會害 form-overlay 遮罩縮在內容區）＋`@container` 不影響 specificity；`@media` 量頁面內容寬會量錯一整條側欄（Electron 1280px 視窗實際只有 1028px 可用，側欄收合更是無感）。先前 2026-07-28 (追加四條：背景 Task 不可綁 HttpContext.RequestAborted（回應一送出就被取消）＋CTS Cancel/Dispose 競態；JWT 的 sub 被 MapInboundClaims 映射成 ClaimTypes.NameIdentifier；CORS 沒 WithExposedHeaders 前端讀不到 Content-Disposition/X-Signup-Count（有 fallback 所以靜默失效很久）；CDK Overlay setInput 必須傳新物件否則 OnPush 不更新。同日先前：QuestPDF `Image` 位移為負或容器超出頁面 → **整張圖靜默消失**（不是裁切），且**不能**用「PDF 位元組數變大」證明圖畫出來了（圖片資源不管有沒有渲染都會被嵌進檔案），唯一可靠驗證是 raster 出來量墨跡；正解是把圖裁成合法尺寸／正值位移；同日先前：表單內 `<button type="submit" hidden>` 就是「按 Enter 就送出」的來源，拿掉才是關掉隱含送出；焦點在投影進 form 的按鈕上按 Enter 也會啟動，需 form 層攔 Enter 但放行 textarea；先前 2026-07-27 追加：客訴「距離 X 公分」是**間距**不是「移動 X 公分」——文牒往者 07-21 照字面做成 DeadShiftX=0.5 右移，實際間距變 0.793cm，客戶再度回報；含「跟…距離／離…／對齊…」的句子要先量參考物邊界再回推絕對座標；同日先前：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測))
+last_updated: 2026-07-31 (追加四條列印通道陷阱：舊系統「不用調設定」是 DrawImage 拉滿 PageBounds 的點陣圖，不是設定得準（連帶：舊寫死 PaperSize 與新 QuestPDF 頁面差最多 17mm，過去被拉伸吃掉）；Electron 沒開 `plugins: true` → PDF 變下載／空白，且 `noopener` 子視窗不繼承 webPreferences，只有 packaged 版才現形；`print({silent:false})` 不會把 pageSize/deviceName 帶進 Windows 原生 PrintDlgEx，且 pageSize 無 vendor_id 無法依名稱選 driver form；印 PDF 時 `did-finish-load` 早於 PDF OOPIF 渲染完成，且 print callback 前關窗會殺掉列印。同日先前：追加兩條 RWD 陷阱：`container-type` 會讓元素變成 fixed 子孫的 containing block（設在 `.page`／`:host` 會害 form-overlay 遮罩縮在內容區）＋`@container` 不影響 specificity；`@media` 量頁面內容寬會量錯一整條側欄（Electron 1280px 視窗實際只有 1028px 可用，側欄收合更是無感）。先前 2026-07-28 (追加四條：背景 Task 不可綁 HttpContext.RequestAborted（回應一送出就被取消）＋CTS Cancel/Dispose 競態；JWT 的 sub 被 MapInboundClaims 映射成 ClaimTypes.NameIdentifier；CORS 沒 WithExposedHeaders 前端讀不到 Content-Disposition/X-Signup-Count（有 fallback 所以靜默失效很久）；CDK Overlay setInput 必須傳新物件否則 OnPush 不更新。同日先前：QuestPDF `Image` 位移為負或容器超出頁面 → **整張圖靜默消失**（不是裁切），且**不能**用「PDF 位元組數變大」證明圖畫出來了（圖片資源不管有沒有渲染都會被嵌進檔案），唯一可靠驗證是 raster 出來量墨跡；正解是把圖裁成合法尺寸／正值位移；同日先前：表單內 `<button type="submit" hidden>` 就是「按 Enter 就送出」的來源，拿掉才是關掉隱含送出；焦點在投影進 form 的按鈕上按 Enter 也會啟動，需 form 層攔 Enter 但放行 textarea；先前 2026-07-27 追加：客訴「距離 X 公分」是**間距**不是「移動 X 公分」——文牒往者 07-21 照字面做成 DeadShiftX=0.5 右移，實際間距變 0.793cm，客戶再度回報；含「跟…距離／離…／對齊…」的句子要先量參考物邊界再回推絕對座標；同日先前：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測))
 ---
 
 ## 通用陷阱
@@ -170,6 +170,32 @@ last_updated: 2026-07-31 (追加兩條 RWD 陷阱：`container-type` 會讓元�
 - **真因**：RDLC 沿襲的座標把最左欄放在 Left=0.1cm、編號放在 0.1cm，落在使用者印表機的不可列印邊界（估 ≥0.4-0.5cm）內；QuestPDF/PDF 檢視器不會警告
 - **預防**：**滿版（Margin 0）報表的任何欄位離紙緣至少 0.5cm**；驗收不能只看 PDF，要實機列印。薦牌已把陽上矩陣左界改 0.5、編號 Left 改 0.5（見 [printing-reports-positions.md](blueprints/printing-reports-positions.md) §3 2026-07-17 條）
 - **殘留風險**：薦牌 2 位陽上變體（OneTwo/TwoTwo/UnderscoreTwo）l[1] Left=0.30611 也在風險區，尚未接獲客訴、未改；若再有「少印一欄」回報先查這裡
+
+### 「舊系統列印不用調設定」是因為它把點陣圖拉滿整張紙，不是設定得準（2026-07-31）
+- **症狀**：客訴「舊系統按列印資料卡不用手動調列印設定，新系統有的印表機可以、有的要手動調、有的卻讀不到印表機」
+- **真因**：舊系統 `SignupForm.cs:1737-1762` 把 RDLC render 成**點陣圖**後 `DrawImage(pageImage, new Rectangle(0,0, ev.PageBounds.Width, ev.PageBounds.Height))` —— 非等比拉伸到**整張紙**（`PageBounds` 不是可列印區）。驅動裡載入什麼紙都無所謂，內容一律貼合，所以永遠「不用調」
+- **推論**：任何「舊系統的列印尺寸是多少」的問題都不能只看程式碼寫死的 `PaperSize`。舊 fallback 值與新 QuestPDF 頁面差很多（資料卡 201.7×142.2 vs 210×148mm、文牒 348×251.5 vs 365×262mm），過去被拉伸吃掉；改 1:1 送印後這些差異會變成**真實裁切／位移**
+- **連帶**：歷次對位客訴都是在「檢視器預設縮放」下驗收的，切到 100% 有機會讓已驗收座標再次跑掉 → 上線前必須做「同一份 PDF × 三種縮放各印一張疊起來比」的對照組
+- **另外**：舊系統會用**紙張名稱**（`ps.PaperName == "資料卡"`）去驅動裡撈自訂 form，所以現場電腦可能留有舊尺寸的同名 form，**對新系統是錯的，要重建**。見 [design/infrastructure.md](design/infrastructure.md)「現場印表機自訂紙張設定」
+
+### Electron 沒開 `plugins: true` → PDF 變成下載，使用者以為「讀不到印表機」（2026-07-31）
+- **症狀**：同一個 packaged app，有的機器按列印會開 PDF 預覽、有的直接跳「另存新檔」、有的開出空白視窗；報表預覽頁的 iframe 也是空白
+- **真因**：Chromium 內建 PDF viewer 必須 `webPreferences.plugins = true` 才會啟用（**Electron 預設 false**）。沒開的話 `window.open('blob:...pdf')` 與 `<iframe src="blob:...pdf">` 都不會渲染。Playwright / `ng serve`（真瀏覽器）測不出來——這個 bug 只在 packaged Electron 才會現形
+- **加乘**：`window.open(url, '_blank', 'noopener')` 開出的子視窗**不繼承** parent 的 `webPreferences`，只在主視窗加 `plugins: true` 救不了它 → 必須用 `setWindowOpenHandler` 的 `overrideBrowserWindowOptions` 補上。而 `Menu.setApplicationMenu(null)` 是 application 級，子視窗連選單版的列印都沒有
+- **預防**：凡是「packaged Electron 才會走到」的路徑（`file://` 載入、子視窗、原生對話框），瀏覽器測試綠燈**不構成證據**，要在 packaged 版實測
+
+### Electron `print({silent:false})` 不會把你傳的設定帶進系統列印對話框（2026-07-31）
+- **症狀**：想做「跳系統列印對話框但紙張／印表機預設值已帶好」，傳了 `pageSize` / `deviceName` 卻完全沒作用
+- **真因**：`silent:false` 在 Windows 走 `PrintingContextWin::AskUserForSettings` → 原生 `PrintDlgEx`，建立 `PRINTDLGEX` 時 `hDevMode`/`hDevNames` 為 null → 初值來自**系統預設印表機 + 驅動預設 DEVMODE**；使用者按確定後回傳的 DEVMODE 還會**覆寫**先前設定。JS 傳入的選項在這條路徑上沒有注入點。Electron build 也不含 Chrome 的 print preview WebUI（`enable_print_preview = false`），沒有第三條路
+- **佐證**：官方型別註解只對 `silent:true` 保證「Electron will pick … the default settings for printing」，對 `silent:false` 隻字未提
+- **正解**：要「預設值一定正確」就自己畫對話框（選印表機／份數／縮放）再用 `silent:true` 送出。見 [blueprints/print-channel-electron.md](blueprints/print-channel-electron.md)
+- **另一個做不到的**：`pageSize` 只有 `{width, height}`、**沒有 `vendor_id`** → 無法依名稱指定驅動裡的自訂 form，只能靠尺寸命中。雷射機多半吃 `dmPaperWidth/Length`，點陣／標籤機常忽略 → 現場仍需建自訂紙張
+
+### 印 PDF 時 `did-finish-load` 不代表 PDF 已經渲染好（2026-07-31）
+- **症狀**：`loadFile('x.pdf')` → `did-finish-load` → `print()`，間歇性印出白紙
+- **真因**：Electron 的 PDF viewer 是 OOPIF，PDF 內容在**另一個 frame** 非同步渲染；主 frame 的 `did-finish-load` 早於它。另外隱藏視窗（`show: false`）會被 Chromium background throttling 影響
+- **正解**：`did-finish-load` → 輪詢 `webContents.mainFrame.framesInSubtree.length > 1`（上限 5s）→ 再 `delay(250)` 才 `print()`；`webPreferences.backgroundThrottling: false`。若仍印白紙，退路是畫面外顯示（`setPosition(-20000,-20000)` + `showInactive()`）而非隱藏
+- **還有一個**：一定要等 `print()` 的 callback 才關窗／刪 temp 檔——callback 代表 job 已交給 spooler，**提早關窗會殺掉列印**
 
 ### 表單裡那顆 `<button type="submit" hidden>` 就是「按 Enter 就送出」的來源（2026-07-28）
 - **症狀**：使用者客訴「打字打到一半按 Enter 就直接送出報名了」，但畫面上的「確認」按鈕明明是 `type="button"` + `(click)`，看起來跟 Enter 無關

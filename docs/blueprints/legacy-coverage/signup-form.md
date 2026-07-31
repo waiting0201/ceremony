@@ -19,7 +19,7 @@ related_docs:
   - ../printing-reports-positions.md
   - README.md
 keywords: [legacy, coverage, signup, rdlc, variant]
-last_updated: 2026-07-29 (rows 22/42 更新：`showAll`（顯示完整表格）取消 localStorage 持久化、每次開頁不勾〔反而更貼近舊 cbShowAll 每次開 Form 未勾〕；「全部」新版增強收斂為只解除年份/法會/類型，其餘條件仍可搜尋。先前 2026-07-28 rows 16/33 補上批次列印 job 版對應〔UI 改走 POST /reports/batch/jobs，查詢/驗證邏輯不變，進度與取消為新版加值、舊系統無對應〕；同日先前 row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統))
+last_updated: 2026-07-31 (rows 36/37 由「❌ 故意捨棄」改為「⚠️ 語意刻意不同／部分對應」：舊 printDocument_PrintPage 是 DrawImage 拉滿 PageBounds 的 fit-to-page，新版改 1:1 送印並提供 fit 退路；printPreview_PrintClick 的對話框改自建、紙張改 X-Report-Page-Size，但「依 PaperName 撈驅動自訂 form」做不到，現場仍需建同尺寸紙張。先前 2026-07-29 (rows 22/42 更新：`showAll`（顯示完整表格）取消 localStorage 持久化、每次開頁不勾〔反而更貼近舊 cbShowAll 每次開 Form 未勾〕；「全部」新版增強收斂為只解除年份/法會/類型，其餘條件仍可搜尋。先前 2026-07-28 rows 16/33 補上批次列印 job 版對應〔UI 改走 POST /reports/batch/jobs，查詢/驗證邏輯不變，進度與取消為新版加值、舊系統無對應〕；同日先前 row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統))
 ---
 
 > ✅ **完成 (2026-06-02)**：43 個方法中 39 個已實作、4 個故意捨棄（WinForms printDocument 內部 :34-37，改走 Web/PDF 路徑）。查詢 / 列印（5 類 + RDLC 變體）/ 右鍵選單 / 搜尋範圍切換 / 顯示完整欄位 / 歷程 全 ship。
@@ -77,10 +77,10 @@ last_updated: 2026-07-29 (rows 22/42 更新：`showAll`（顯示完整表格）�
 | 31 | `PrintText()` helper | **1335-1552** | **RDLC 文牒 2 變體邏輯**（陽上亡名判定） | ✅ 已實作 (selector + base render) | `GET /api/v1/reports/text` | `ChooseText` (2 dead → Two；其他 Base) + `TextRenderer` 36.5×26.2cm 橫；Number 1cm Bold；PhotoAddress 區塊以文字暫繪（25×605px PNG TODO）；地址用文牒地址（2026-07-18 對齊修正，先前誤用郵寄地址） |
 | 32 | `PrintWorship()` helper | **1554-1696** | **RDLC 普桌 5 變體邏輯**（動態字級調整） | ✅ 已實作 | `GET /api/v1/reports/worship` | `ChooseWorship` 6 變體（按 LivingName 最高位）+ `WorshipRenderer` 21×29.6cm 直；One/Two/Three 字級 3cm、其餘 2cm；**各變體各自座標**（One 單欄置中 / Two 雙欄 / Three 三角 / Four 2×2 / Five 上2下3 / Base 2×3 矩陣，右至左）；worship2.png 背景已嵌入 |
 | 33 | `CombinePDFs()` helper | 1698-1722 | 合併多個 PDF 流 (PdfSharp) | ✅ 已實作 | `Infrastructure.Reporting.PdfSharpMerger` | PdfSharp 6.2.4（.NET 10 cross-platform，等價舊 .NET Framework PdfSharp）；介面在 `Application.Reports.IPdfMerger`；行為對齊舊 CombinePDFs 逐頁 AddPage；**2026-07-28** 呼叫點由 `BatchReportHandler` 移到 `BatchReportComposer.Render`（合併前後各加一次 `ThrowIfCancellationRequested`），合併行為本身不變。已知規模上限：`MemoryStream` 2 GB（19018 筆 datacard 會爆），屬既有限制 |
-| 34 | `CreateStream()` helper | 1725-1730 | 建立列印用記憶流 | ❌ 故意捨棄 | – | WinForms RDLC/printDocument 內部；Web 改 QuestPDF → PDF 串流路徑，不重用 RDLC |
-| 35 | `printDocument_BeginPrint` event | 1732-1735 | 初始化列印頁面索引 | ❌ 故意捨棄 | – | 桌面 printDocument 生命週期；Web 改 PDF（無實體印表機分頁狀態）|
-| 36 | `printDocument_PrintPage` event | 1737-1762 | 繪製列印頁面 (EMF → 影像) | ❌ 故意捨棄 | – | 同上；EMF→影像繪製改為 QuestPDF 直接排版 |
-| 37 | `printPreview_PrintClick` | 1764-1799 | 啟動列印對話 (含紙張設定查詢) | ❌ 故意捨棄 | – | 桌面列印對話 / 紙張設定查詢；Web 由瀏覽器 / PDF.js 預覽與列印取代 |
+| 34 | `CreateStream()` helper | 1725-1730 | 建立列印用記憶流 | ❌ 故意捨棄 | – | WinForms RDLC/printDocument 內部；改 QuestPDF → PDF 串流路徑，不重用 RDLC |
+| 35 | `printDocument_BeginPrint` event | 1732-1735 | 初始化列印頁面索引 | ❌ 故意捨棄 | – | 桌面 printDocument 生命週期；改 PDF 多頁（無需自行維護分頁索引）|
+| 36 | `printDocument_PrintPage` event | 1737-1762 | 繪製列印頁面 (EMF → 影像) | ⚠️ 語意刻意不同 | `electron/print.ts` `printPdfFile` | 舊版是 `DrawImage(點陣圖, PageBounds)` **非等比拉滿整張紙**（＝永遠 fit-to-page，這才是「舊系統不用調設定」的真正原因）；新版改 1:1 送印（`marginType:none` + `scaleFactor:100`），並提供 `fit` 模式作為等價退路。差異與風險見 [print-channel-electron.md](../print-channel-electron.md) |
+| 37 | `printPreview_PrintClick` | 1764-1799 | 啟動列印對話 (含紙張設定查詢) | ⚠️ 部分對應 | `shared/print-dialog/` + `electron/print.ts` | 對話框改自建（Electron `print({silent:false})` 帶不進預設值）；紙張改由 `X-Report-Page-Size` 指定尺寸。**依 `PaperName` 撈驅動自訂 form 做不到**（Electron `pageSize` 無 `vendor_id`）→ 現場仍需建同尺寸自訂紙張，見 [infrastructure.md](../../design/infrastructure.md) |
 | 38 | `PanelSearchSwitch()` helper | 1801-1838 | 切換搜尋面板控制項狀態 | ✅ 已實作 | 前端 form mode | `signup-list-page` 搜尋表單控制項狀態由 reactive form 直接管理（scope*/searchKey 啟用連動）|
 | 39 | `PanelPrintSwitch()` helper | 1840-1874 | 切換列印面板控制項狀態 | ✅ 已實作 | 前端 form mode | 列印改右鍵選單項 `enabledWhen`（依選取筆數啟用/禁用），取代列印面板控制項切換 |
 | 40 | `PanelControlSwitch()` helper | 1876-1910 | 切換控制面板控制項狀態 | ✅ 已實作 | 前端 form mode | 控制按鈕（修改/刪除/歷程）以選取狀態 computed 控制可用性 |

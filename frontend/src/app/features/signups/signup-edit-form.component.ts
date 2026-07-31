@@ -26,8 +26,7 @@ import type { BelieverListItem } from '../../core/api/believers/believer.models'
 import { ZipcodeApi } from '../../core/api/zipcodes/zipcode.api';
 import type { ZipcodeAreaItem } from '../../core/api/zipcodes/zipcode.models';
 import { PrepayApi } from '../../core/api/prepay/prepay.api';
-import { ReportApi } from '../../core/api/reports/report.api';
-import { openPdfInNewTab } from '../../shared/util/pdf';
+import { PrintService } from '../../core/print/print.service';
 import { ApiError } from '../../core/http/api-error';
 import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
@@ -83,7 +82,7 @@ export class SignupEditFormComponent implements OnInit {
   private readonly believerApi = inject(BelieverApi);
   private readonly zipcodeApi = inject(ZipcodeApi);
   private readonly prepayApi = inject(PrepayApi);
-  private readonly reportApi = inject(ReportApi);
+  private readonly print = inject(PrintService);
   private readonly fb = inject(FormBuilder);
   private readonly draftState = inject(SignupDraftState);
   private readonly confirmDialog = inject(ConfirmDialogService);
@@ -859,7 +858,8 @@ export class SignupEditFormComponent implements OnInit {
 
   /**
    * 列印剛新增那一筆的資料卡（對齊舊 `btnPrintDataCard_Click:371-404`，該處以 `CurrentSignupID`
-   * 取 SignupView 後送印）。新版走既有 `GET /reports/datacard?signupId=`，PDF 開新分頁預覽。
+   * 取 SignupView 後送印）。走 PrintService：Electron 跳列印對話框後直接送印（紙張 21×14.8cm、
+   * 邊界 0、100% 由主行程指定），瀏覽器退回開新分頁預覽。
    */
   async printDataCard(): Promise<void> {
     const id = this.lastCreatedSignupId();
@@ -867,8 +867,7 @@ export class SignupEditFormComponent implements OnInit {
     this.printingDataCard.set(true);
     this.errorMessage.set(null);
     try {
-      const { blob } = await this.reportApi.single('datacard', id);
-      openPdfInNewTab(blob);
+      await this.print.printSingle('datacard', id);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {

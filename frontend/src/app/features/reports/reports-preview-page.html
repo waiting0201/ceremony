@@ -123,6 +123,14 @@
           <span class="badge">共 {{ signupCount() }} 筆</span>
         }
         <span class="spacer"></span>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary"
+          [disabled]="printing()"
+          (click)="printPreview()"
+        >
+          列印
+        </button>
         <button type="button" class="btn btn-sm" (click)="openExternal()">新分頁開啟</button>
         <button type="button" class="btn btn-sm" (click)="download()">下載</button>
         <button type="button" class="btn btn-sm" (click)="closePreview()">關閉</button>

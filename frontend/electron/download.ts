@@ -2,8 +2,8 @@
 // 為何不在 renderer 抓 blob：.bak 動輒 ~100MB+，由 main 串流寫檔避免 renderer 記憶體爆掉。
 // 註：「立即備份」本身直接寫到伺服器 Backup:Directory（同機部署 = D:\Backup），不經此流程；
 // 此 downloadBackup 保留供需要時把既有 .bak 另存到他處（目前 UI 未掛，屬備用能力）。
-import { dialog, net, BrowserWindow } from 'electron';
-import fs from 'fs';
+import { dialog, BrowserWindow } from 'electron';
+import { streamApiToFile } from './api-stream';
 
 export interface DownloadResult {
   ok: boolean;
@@ -28,29 +28,11 @@ export async function downloadBackup(
   });
   if (canceled || !filePath) return { ok: false, canceled: true };
 
-  return new Promise<DownloadResult>((resolve) => {
-    const url = `${apiBase}/backup/${encodeURIComponent(fileName)}/download`;
-    const request = net.request({ method: 'GET', url });
-    request.setHeader('Authorization', `Bearer ${token}`);
-
-    request.on('response', (response) => {
-      const status = response.statusCode ?? 0;
-      if (status !== 200) {
-        let body = '';
-        response.on('data', (c) => (body += c.toString()));
-        response.on('end', () =>
-          resolve({ ok: false, error: `下載失敗（HTTP ${status}）${body}`.trim() }),
-        );
-        return;
-      }
-      const out = fs.createWriteStream(filePath);
-      out.on('error', (e) => resolve({ ok: false, error: e.message }));
-      response.on('data', (chunk) => out.write(chunk));
-      response.on('end', () => out.end(() => resolve({ ok: true, path: filePath })));
-      response.on('error', (e: Error) => resolve({ ok: false, error: e.message }));
-    });
-
-    request.on('error', (e) => resolve({ ok: false, error: e.message }));
-    request.end();
-  });
+  const r = await streamApiToFile(
+    apiBase,
+    `/backup/${encodeURIComponent(fileName)}/download`,
+    token,
+    filePath,
+  );
+  return r.ok ? { ok: true, path: filePath } : { ok: false, error: r.error };
 }

@@ -107,10 +107,12 @@ public sealed class BatchPrintJobServiceTests
         var created = sut.Start(Plan(2), Owner);
         WaitForStatus(sut, created.JobId, "completed");
 
-        var (pdf, fileName, total) = sut.TakeFile(created.JobId, Owner);
+        var (pdf, fileName, total, reportType) = sut.TakeFile(created.JobId, Owner);
         pdf.Should().Equal(9, 9);
         fileName.Should().Be("batch-datacard-selected-2.pdf");
         total.Should().Be(2);
+        // controller 用它掛 X-Report-Page-Size（列印端據此指定 pageSize）
+        reportType.Should().Be("datacard");
 
         // one-shot：第二次就當作不存在
         var act = () => sut.TakeFile(created.JobId, Owner);

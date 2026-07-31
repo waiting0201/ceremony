@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
@@ -80,6 +80,8 @@ last_updated: 2026-07-31 (報名維護 toolbar RWD 改用 container query 三層
   - ✅ **(2026-07-04 完成) Worship 6 variant 各自座標 layout**（見 Recently Done「普桌列印修正」）→ 本項僅剩實機驗收（下方獨立項）
 
 - [ ] **客戶實機列印驗收**（需印表機環境）— 客戶實際印 1 張 datacard / tablet / text / worship / **worshipcard（普桌資料卡，2026-07-04 新增；2026-07-18 起 template 全印白紙直印）** 對位後決定 variant 精修優先序
+  - **2026-07-31 起範圍擴大**：同時要驗 Electron 列印通道（`silent:true` 能否穩定印出、自訂 `pageSize` 在有／無驅動 form 兩種機器的實測尺寸、文牒橫式會不會被轉直向），以及 actual vs fit 的三張對照組。清單見 [print-channel-electron.md](blueprints/print-channel-electron.md)「待驗證」
+  - **前置**：每台 client 需在印表機驅動建 6 種自訂紙張（[infrastructure.md](design/infrastructure.md)）；並量一張現場預印的資料卡與文牒確認實體尺寸
 
 - [ ] **列印對位 CI 自動量測（±0.05cm）**：把 PDF 渲染出的欄位座標自動量測比對 RDLC ground truth，避免人工目視驗收
 
@@ -157,6 +159,18 @@ last_updated: 2026-07-31 (報名維護 toolbar RWD 改用 container query 三層
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **列印客訴：新系統有的印表機可以、有的要手動調、有的讀不到印表機** — Done 2026-07-31
+  - Blueprint: [print-channel-electron.md](blueprints/print-channel-electron.md)
+  - **根因三層**：(1) 新系統根本沒有列印路徑——`pdf.ts` 只做 `window.open(blob:)` 就結束，紙張／縮放全交給不知名的 PDF 檢視器 (2) `main.ts` 沒有 `plugins: true`（Electron 預設 false）→ Chromium 內建 PDF viewer 未啟用 → `window.open(blob:)` 變下載、預覽 iframe 空白，體感就是「叫不出印表機」 (3) 舊系統「不用調」是因為它 `DrawImage(點陣圖, PageBounds)` **拉滿整張紙**，不是設定得準
+  - **做法**：Electron 主行程接管列印。`plugins: true` + `setWindowOpenHandler`；新增 6 個 IPC（列印表機清單／讀寫設定／單筆／批次 job／buffer）；主行程用 `net.request` 串流取 PDF（大檔不經 IPC）→ 隱藏視窗載入 → `print({ silent:true, deviceName, pageSize, marginType:'none', scaleFactor:100 })`
+  - **對話框自建**（`shared/print-dialog/`）：Electron `print({silent:false})` 在 Windows 走原生 `PrintDlgEx`，`hDevMode`/`hDevNames` 為 null → 傳入的 `pageSize`/`deviceName` 沒有注入點，做不到「跳系統對話框但預設值帶好」
+  - **紙張 SSoT**：新增 `Ceremony.Domain.Reports.ReportPageSizes` + `ReportPageSizeConsistencyTests`（鎖住它與 6 個 renderer 的 const 一致）+ 7 個 endpoint 掛 `X-Report-Page-Size`（微米）+ CORS expose
+  - **設定**：`%APPDATA%/Ceremony/print-settings.json`（每種報表記住印表機／份數／縮放）。刻意與 `config.json` 分家——bootstrap 每次啟動用出廠種子覆寫 config，放進去會被吃掉
+  - **瀏覽器 fallback 保留**：`PrintService` 以 `isElectron()` 分流，`ng serve` 與單元測試行為完全不變
+  - 驗證：後端 421 測試綠（含新增的一致性測試）、前端 45 測試綠（新增 `takeFile:false` 行為鎖 + `paper.ts` 純函式測試）、`ng build` / `tsc -p tsconfig.electron.json` 綠
+  - ⚠️ **待 Windows 實機驗收**（macOS 開發機驗不了）：見 blueprint「待驗證」5 項，其中最關鍵的是「同一份 PDF × 現行檢視器／新通道 actual／新通道 fit 各印一張疊起來比」——歷次對位客訴是在檢視器預設縮放下驗收的，改 1:1 有機會讓已驗收座標跑掉。另現場每台 client 需在驅動建 6 種自訂紙張（runbook 見 [infrastructure.md](design/infrastructure.md)），且**舊系統留下的同名 form 尺寸是錯的要重建**
+  - docs 同步：新 blueprint、[gotchas.md](gotchas.md)（4 條）、[infrastructure.md](design/infrastructure.md)、[security.md](design/security.md)、[frontend-design.md](design/frontend-design.md)、[api-design.md](design/api-design.md)、[backend-design.md](design/backend-design.md)、[printing-reports.md](blueprints/printing-reports.md)、[legacy-coverage/signup-form.md](blueprints/legacy-coverage/signup-form.md)
 
 - [x] **報名維護頁 toolbar RWD 客訴：窄寬時批次列印/動作區變 100% 寬** — Done 2026-07-31
   - 症狀（使用者截圖）：視窗一窄，`@media (max-width:1100px)` 把 `.toolbar` 改成單欄 grid，三個 pane 各自 100% 寬，`.print-btn` 與 `.action-stack` 吸收多餘寬度 → 列印／新增報名／修改報名鈕被拉成滿版

@@ -16,6 +16,22 @@ contextBridge.exposeInMainWorld('ceremony', {
   /** 下載備份檔到本機另存（原生對話框 + 串流寫檔；目前 UI 未掛，屬備用能力） */
   downloadBackup: (fileName: string, token: string) =>
     ipcRenderer.invoke('ceremony:downloadBackup', fileName, token),
+  /** 列印：可用印表機清單（含 isDefault） */
+  listPrinters: () => ipcRenderer.invoke('ceremony:listPrinters'),
+  /** 列印：讀每種報表記住的印表機 / 份數 / 縮放 */
+  getPrintSettings: () => ipcRenderer.invoke('ceremony:getPrintSettings'),
+  /** 列印：記住某種報表的設定（只覆寫該報表那一格） */
+  savePrintSetting: (reportType: string, setting: unknown) =>
+    ipcRenderer.invoke('ceremony:savePrintSetting', reportType, setting),
+  /** 列印：單筆報表（main 自行向 sidecar 取 PDF，避免大檔經 IPC 複製） */
+  printReport: (reportType: string, apiPath: string, token: string, overrides: unknown) =>
+    ipcRenderer.invoke('ceremony:printReport', reportType, apiPath, token, overrides),
+  /** 列印：批次 job 成品（/file 是 one-shot，renderer 不可先取） */
+  printBatchJob: (reportType: string, jobId: string, token: string, overrides: unknown) =>
+    ipcRenderer.invoke('ceremony:printBatchJob', reportType, jobId, token, overrides),
+  /** 列印：renderer 手上既有的 PDF bytes（報表預覽頁專用） */
+  printPdfBuffer: (reportType: string, bytes: Uint8Array, overrides: unknown) =>
+    ipcRenderer.invoke('ceremony:printPdfBuffer', reportType, bytes, overrides),
   /** 開外部連結（官方下載頁等） */
   openExternal: (url: string) => ipcRenderer.invoke('ceremony:openExternal', url),
   /** 執行 bundle 的 prereq installer（缺檔則開官方下載頁） */

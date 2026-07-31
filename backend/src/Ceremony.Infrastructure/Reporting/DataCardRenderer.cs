@@ -22,8 +22,8 @@ public sealed class DataCardRenderer
 {
     private const string FontFamily = "BiauKai";            // macOS 內建；Windows 為 "DFKai-SB"，需確認部署機字型
     private const double PointsPerCm = 28.3464567;
-    private const double PageWidthCm = 21.0;
-    private const double PageHeightCm = 14.8;
+    internal const double PageWidthCm = 21.0;
+    internal const double PageHeightCm = 14.8;
 
     // 2026-07-21 客訴：往者「故◯◯靈位」窗框（含框、故／靈位、框內亡者名）整體右移 0.8cm。
     // 框（DrawTemplate）與框內亡者名（DrawDeadNamesInWindow）共用此位移，右移後相對位置不變。

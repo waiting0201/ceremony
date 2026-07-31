@@ -27,8 +27,8 @@ public sealed class TextRenderer
 {
     private const string FontFamily = "BiauKai";
     private const double PointsPerCm = 28.3464567;
-    private const double PageWidthCm = 36.5;
-    private const double PageHeightCm = 26.2;
+    internal const double PageWidthCm = 36.5;
+    internal const double PageHeightCm = 26.2;
 
     // 亡/陽姓名起始字級（cm）。RDLC 原 0.8，2026-07-18 曾依客訴加大到 0.9；2026-07-21 客訴
     // 改回「往者/陽上統一 0.8cm」。上限受欄距 0.91251cm 制約（直書字寬≈字級，再大會蓋到隔壁欄），
@@ -74,7 +74,7 @@ public sealed class TextRenderer
         {
             container.Page(page =>
             {
-                page.Size(36.5f, 26.2f, Unit.Centimetre);
+                page.Size((float)PageWidthCm, (float)PageHeightCm, Unit.Centimetre);
                 page.Margin(0);
                 page.DefaultTextStyle(t => t.FontFamily(FontFamily).FontColor(Colors.Black));
 

@@ -11,7 +11,7 @@ related_docs:
   - infrastructure.md
   - security.md
 keywords: [backend, 後端, 服務, 架構, 分層, ASP.NET Core, EF Core, Clean Architecture, vertical slice]
-last_updated: 2026-06-29 (解除 DB 凍結，導入 DbUp migration；ORM 維持 Dapper)
+last_updated: 2026-07-31 (新增報表紙張尺寸 SSoT：Ceremony.Domain.Reports.ReportPageSizes + ReportPageSizeConsistencyTests 鎖住它與各 renderer const 一致，經 X-Report-Page-Size header 供列印通道使用。先前 2026-06-29 (解除 DB 凍結，導入 DbUp migration；ORM 維持 Dapper))
 ---
 
 ## 已落地骨架（2026-05-27）
@@ -45,6 +45,13 @@ last_updated: 2026-06-29 (解除 DB 凍結，導入 DbUp migration；ORM 維持 
 | Logging | Serilog + Seq（dev）/ File（prod） | 結構化 log；舊系統僅 Debug.Write |
 | 任務排程 | 內建 IHostedService（背景備份、log 歸檔） | 不需外部 Hangfire |
 | 報表/列印 | **QuestPDF**（首選）或 **Puppeteer Sharp** | 取代 RDLC + LocalReport（Windows-only） |
+
+> **報表紙張尺寸 SSoT（2026-07-31）**：6 種尺寸的權威在 `Ceremony.Domain.Reports.ReportPageSizes`，
+> 各 renderer 的 `page.Size(...)` 一律走自己的 `internal const PageWidthCm/PageHeightCm`，並由
+> `ReportPageSizeConsistencyTests` 斷言兩者相同。`ReportsController` 把它以 `X-Report-Page-Size`
+> （微米）帶給 Electron 列印通道指定 `pageSize`。
+> 為什麼要鎖：尺寸曾經漂移過（薦牌 25.4→25.5），而「改了 renderer 忘了改表」的失敗模式是**實印縮放靜默跑掉**，
+> 不會丟例外也不會有紅字。見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
 | Excel 匯出 | **ClosedXML** | 取代 NPOI（.xlsx 比 .xls 健全） |
 | 測試 | xUnit + FluentAssertions + Testcontainers (MSSQL) | 跑真 DB，避免舊系統 mock-only 痛點 |
 

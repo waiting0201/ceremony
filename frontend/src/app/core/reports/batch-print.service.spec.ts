@@ -75,7 +75,12 @@ describe('BatchPrintService', () => {
     throw new Error(`等不到 ${method} ${urlPart}`);
   }
 
-  const created = { jobId: JOB_ID, total: 3, fileName: 'batch-datacard-1-9.pdf', reportType: 'datacard' };
+  const created = {
+    jobId: JOB_ID,
+    total: 3,
+    fileName: 'batch-datacard-1-9.pdf',
+    reportType: 'datacard',
+  };
 
   const state = (status: string, completed: number) => ({
     jobId: JOB_ID,
@@ -112,6 +117,29 @@ describe('BatchPrintService', () => {
     expect(overlay.updates.at(-1)!.note).toBe('下載中…');
   });
 
+  it('takeFile:false → 完成後只回 jobId，不呼叫 /file（Electron 列印通道由主行程取檔）', async () => {
+    const run = sut.run(
+      { reportType: 'datacard', numberStart: 1, numberEnd: 9 },
+      { takeFile: false },
+    );
+
+    (await nextRequest('POST', `${BASE}/batch/jobs`)).flush(created);
+    (await nextRequest('GET', `${BASE}/batch/jobs/${JOB_ID}`)).flush(state('completed', 3));
+
+    const result = await run;
+
+    expect(result).toEqual({
+      jobId: JOB_ID,
+      fileName: 'batch-datacard-1-9.pdf',
+      total: 3,
+      reportType: 'datacard',
+    });
+    // /file 是 one-shot：renderer 取過主行程就取不到，所以這條路徑絕不能碰它
+    httpMock.expectNone(`${BASE}/batch/jobs/${JOB_ID}/file`);
+    expect(overlay.updates.at(-1)!.note).toBe('送印中…');
+    expect(overlay.closed).toBe(true);
+  });
+
   it('使用者取消 → 送出 DELETE，run() 回 null 且不取檔', async () => {
     const run = sut.run({ reportType: 'datacard', numberStart: 1, numberEnd: 9 });
 
@@ -120,7 +148,10 @@ describe('BatchPrintService', () => {
 
     overlay.userCancels();
 
-    (await nextRequest('DELETE', `${BASE}/batch/jobs/${JOB_ID}`)).flush(null, { status: 204, statusText: 'No Content' });
+    (await nextRequest('DELETE', `${BASE}/batch/jobs/${JOB_ID}`)).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
 
     await expect(run).resolves.toBeNull();
     expect(overlay.closed).toBe(true);

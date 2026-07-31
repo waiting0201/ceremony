@@ -26,8 +26,8 @@ public sealed class WorshipCardRenderer
 {
     private const string FontFamily = "BiauKai";            // macOS 內建；Windows 為 "DFKai-SB"
     private const double PointsPerCm = 28.3464567;
-    private const double PageWidthCm = 21.0;
-    private const double PageHeightCm = 14.8;
+    internal const double PageWidthCm = 21.0;
+    internal const double PageHeightCm = 14.8;
 
     // ── 葫蘆墨跡仿射映射（positions §20）──
     // 普桌 A4 葫蘆墨跡（worship2.png ink bbox，fit-by-height 28.88438cm/976px 換算）：

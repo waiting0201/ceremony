@@ -19,11 +19,11 @@ public sealed class TabletRenderer
 {
     private const string FontFamily = "BiauKai";
     private const double PointsPerCm = 28.3464567;
-    private const double PageWidthCm = 11.5;
+    internal const double PageWidthCm = 11.5;
     // 2026-07-05 修正：使用者確認實體薦牌紙張為 11.5×25.5cm（原 RDLC 值 25.4cm 少了 0.1cm）。
     // 所有欄位座標都是從頁面左上角 (0,0) 起算的絕對值，改頁高不影響既有座標，只補足頁尾多出的
     // 0.1cm 空白，讓 PDF 頁面跟實體紙張尺寸一致（避免印表機用「符合紙張大小」縮放時整體跑位）。
-    private const double PageHeightCm = 25.5;
+    internal const double PageHeightCm = 25.5;
 
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。

@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - infrastructure.md
 keywords: [security, 安全, 密碼, 加密, JWT, OWASP, PII]
-last_updated: 2026-07-28 (新增兩段：「不用 SSE 做批次列印進度推送」的決策與理由〔EventSource 帶不了 Authorization，token 進 query 會被 UseSerilogRequestLogging 寫進 log〕、批次列印 job 的 owner 綁定與跨帳號一律回 404。先前 2026-07-04 JWT access token TTL 30 分 → 10 小時／600 分，配合 kiosk 整日操作)
+last_updated: 2026-07-31 (新增「Electron renderer 安全設定」段：webPreferences.plugins 由預設 false 改為 true（啟用內建 PDF viewer，否則報表預覽空白／PDF 變下載）與其攻擊面評估；setWindowOpenHandler 只放行 blob:/file:、其餘導向系統瀏覽器；列印隱藏視窗的隔離與 temp 檔清理。先前 2026-07-28 (新增兩段：「不用 SSE 做批次列印進度推送」的決策與理由〔EventSource 帶不了 Authorization，token 進 query 會被 UseSerilogRequestLogging 寫進 log〕、批次列印 job 的 owner 綁定與跨帳號一律回 404。先前 2026-07-04 JWT access token TTL 30 分 → 10 小時／600 分，配合 kiosk 整日操作))
 ---
 
 ## 安全策略總覽
@@ -143,6 +143,18 @@ public async Task<LoginResult> LoginAsync(string username, string password)
 `MapInboundClaims=true` 會把 `sub` 映射過去，見 [gotchas.md](../gotchas.md)）。
 查進度 / 取檔 / 取消時 owner 不符一律回 **404 `BATCH_JOB_NOT_FOUND`**（不回 403），
 不洩漏該 job 是否存在。成品 PDF 取走即從記憶體移除，並有 10 分鐘 TTL 上限。
+
+## Electron renderer 安全設定（**2026-07-31 更新**）
+
+| 設定 | 值 | 理由 |
+|---|---|---|
+| `contextIsolation` | `true` | renderer 拿不到 Node，只能走 preload 白名單的 IPC |
+| `nodeIntegration` | `false` | 同上 |
+| `plugins` | **`true`**（2026-07-31 由預設 false 改開） | 啟用 Chromium 內建 PDF viewer。**不開的話報表預覽 iframe 空白、`window.open(blob:)` 變成下載**，使用者體感是「叫不出印表機」。攻擊面：僅啟用內建 PDF viewer（不是 NPAPI/Flash 那種外掛），且本 app 只載入 `file://` 打包資產與 `blob:`／localhost sidecar 回應，不瀏覽任意網頁 |
+| `setWindowOpenHandler` | 只允許 `blob:` / `file:` | `window.open` 子視窗**不繼承** parent 的 `webPreferences`（`noopener` 更是全新視窗），必須在此明示補 `plugins: true`。其餘 URL 一律 `deny` + `shell.openExternal` 丟給系統瀏覽器，避免在 app 內開啟外部網頁 |
+
+列印用的隱藏視窗（`electron/print.ts`）同樣是 `contextIsolation: true` + `nodeIntegration: false`，
+只載入自己剛寫到 `%TEMP%/ceremony-print/` 的 PDF，送印完即銷毀並刪檔（啟動與離開各掃一次殘檔）。
 
 ## 加密
 

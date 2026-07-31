@@ -63,6 +63,9 @@ last_updated: 2026-07-28 (定位改為 compat/測試用：UI 已改走 job 版 P
 - `Content-Disposition: attachment; filename` — 編號區間模式 `"batch-<reportType>-<numberStart>-<numberEnd>.pdf"`；`signupIds` 模式 `"batch-<reportType>-selected-<count>.pdf"`（`<count>` 為 worship 過濾後實際列印筆數）
 - Body：合併後的 PDF binary
 - Header `X-Signup-Count: <int>`（合併幾份 signup）
+- Header `X-Report-Page-Size: <寬>x<高>`（微米整數，如資料卡 `210000x148000`；2026-07-31 新增）
+  供 Electron 列印通道指定 `pageSize`。值來自 `ReportPageSizes[req.reportType]`；
+  已在 `Program.cs` `WithExposedHeaders`，見 [print-channel-electron.md](../print-channel-electron.md)
 
 ### 錯誤碼
 

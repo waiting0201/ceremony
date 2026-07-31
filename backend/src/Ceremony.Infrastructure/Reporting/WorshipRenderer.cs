@@ -22,6 +22,10 @@ public sealed class WorshipRenderer
     private const string FontFamily = "BiauKai";
     private const double PointsPerCm = 28.3464567;
 
+    // 紙張尺寸須與 Ceremony.Domain.Reports.ReportPageSizes["worship"] 一致（ReportPageSizeConsistencyTests 鎖住）。
+    internal const double PageWidthCm = 21.0;
+    internal const double PageHeightCm = 29.6;
+
     // RDLC 姓名格高（cm）。2cm 字變體（Base/Four/Five）與 3cm 字變體（One/Two/Three）各自的格高。
     private const double SlotH = 10.21125;      // 2×3 矩陣 / 2×2 / 上2下3 的每格高
     private const double OneColH = 18.65146;    // One 與 Three 主欄（單欄長格）
@@ -37,7 +41,7 @@ public sealed class WorshipRenderer
         {
             container.Page(page =>
             {
-                page.Size(21f, 29.6f, Unit.Centimetre);
+                page.Size((float)PageWidthCm, (float)PageHeightCm, Unit.Centimetre);
                 page.Margin(0);
                 page.DefaultTextStyle(t => t.FontFamily(FontFamily).FontColor(Colors.Black));
 

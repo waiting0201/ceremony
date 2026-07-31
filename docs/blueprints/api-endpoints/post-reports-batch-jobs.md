@@ -103,6 +103,7 @@ overlay 不需要 indeterminate 過渡態。DB 查詢是單次 indexed query（m
 // 3) GET /batch/jobs/{jobId}/file → 200 application/pdf
 //    + Content-Disposition: attachment; filename=...
 //    + X-Signup-Count: 799
+//    + X-Report-Page-Size: 210000x148000   ← 微米；供 Electron 送印指定 pageSize（2026-07-31 新增）
 //    （兩個 header 都需要 CORS WithExposedHeaders，見 infrastructure.md）
 
 // 4) DELETE /batch/jobs/{jobId} → 204 No Content

@@ -56,6 +56,36 @@ export interface DownloadResult {
   error?: string;
 }
 
+// ── 列印通道（見 docs/blueprints/print-channel-electron.md）──
+// 紙張 / 邊界 / 縮放由 Electron 主行程指定；瀏覽器沒有這些能力，非 Electron 環境會退回開新分頁預覽。
+
+export interface PrinterInfo {
+  name: string;
+  displayName: string;
+  isDefault: boolean;
+  status: number;
+}
+
+/** 'actual' = 100% 實際大小（1:1 對位）；'fit' = 縮放至符合紙張（等同舊系統的拉伸行為）。 */
+export type ScaleMode = 'actual' | 'fit';
+
+export interface ReportPrintSetting {
+  deviceName?: string;
+  copies?: number;
+  scaleMode?: ScaleMode;
+}
+
+export interface PrintSettings {
+  version: 1;
+  byReportType: Record<string, ReportPrintSetting>;
+}
+
+export interface PrintResult {
+  ok: boolean;
+  canceled?: boolean;
+  error?: string;
+}
+
 export interface CeremonyBridge {
   getStatus(): Promise<CeremonyStatus>;
   recheckPrereqs(): Promise<PrereqReport>;
@@ -63,6 +93,26 @@ export interface CeremonyBridge {
   saveConfigAndConnect(cfg: DbConfigInput): Promise<ConnectResult>;
   connect(): Promise<ConnectResult>;
   downloadBackup(fileName: string, token: string): Promise<DownloadResult>;
+  listPrinters(): Promise<PrinterInfo[]>;
+  getPrintSettings(): Promise<PrintSettings>;
+  savePrintSetting(reportType: string, setting: ReportPrintSetting): Promise<PrintSettings>;
+  printReport(
+    reportType: string,
+    apiPath: string,
+    token: string,
+    overrides: ReportPrintSetting,
+  ): Promise<PrintResult>;
+  printBatchJob(
+    reportType: string,
+    jobId: string,
+    token: string,
+    overrides: ReportPrintSetting,
+  ): Promise<PrintResult>;
+  printPdfBuffer(
+    reportType: string,
+    bytes: Uint8Array,
+    overrides: ReportPrintSetting,
+  ): Promise<PrintResult>;
   openExternal(url: string): Promise<{ ok: boolean }>;
   launchInstaller(key: string): Promise<{ ok: boolean; launched?: boolean; error?: string }>;
 }

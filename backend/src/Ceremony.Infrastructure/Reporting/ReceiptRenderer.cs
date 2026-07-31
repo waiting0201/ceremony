@@ -21,8 +21,8 @@ public sealed class ReceiptRenderer
 {
     private const string FontFamily = "BiauKai";
     private const double PointsPerCm = 28.3464567;
-    private const double PageWidthCm = 21.0;
-    private const double PageHeightCm = 29.7;
+    internal const double PageWidthCm = 21.0;
+    internal const double PageHeightCm = 29.7;
 
     // 郵寄封面（第 2 頁）欄位錨值 — 見 docs/blueprints/printing-reports-positions.md §2「郵寄標籤區」。
     // 2026-07-28 客訴（客戶實印信封回掃 reference/template/收據封面.jpg，200DPI 量測）：
@@ -74,7 +74,7 @@ public sealed class ReceiptRenderer
         {
             container.Page(page =>
             {
-                page.Size(21f, 29.7f, Unit.Centimetre);
+                page.Size((float)PageWidthCm, (float)PageHeightCm, Unit.Centimetre);
                 page.Margin(0);
                 page.DefaultTextStyle(t => t.FontFamily(FontFamily).FontColor(Colors.Black));
 
@@ -125,7 +125,7 @@ public sealed class ReceiptRenderer
             // 第 2 頁：郵寄封面（RDLC Textbox22-24，Top 為原始值 − 29.7cm）
             container.Page(page =>
             {
-                page.Size(21f, 29.7f, Unit.Centimetre);
+                page.Size((float)PageWidthCm, (float)PageHeightCm, Unit.Centimetre);
                 page.Margin(0);
                 page.DefaultTextStyle(t => t.FontFamily(FontFamily).FontColor(Colors.Black));
 

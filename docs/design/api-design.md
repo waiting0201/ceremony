@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)
+last_updated: 2026-07-31 (所有回 PDF 的 endpoint 新增 X-Report-Page-Size response header（微米），供 Electron 列印通道指定 pageSize；CORS WithExposedHeaders 同步加入。先前 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差))
 ---
 
 ## 通則
@@ -201,8 +201,13 @@ Blueprint: [post-reports-batch-jobs.md](../blueprints/api-endpoints/post-reports
   header；唯一繞法（token 進 query string）會被 `UseSerilogRequestLogging()` 把 JWT 寫進 log
   （見 [security.md](security.md)）。本系統是 localhost 回圈、單一使用者，250ms 輪詢成本可忽略，
   且比「渲染完一筆」（實測約 6.5ms）還密。job 資源模型與 SSE 完全相容，日後可無痛改推送。
-- **CORS**：`Content-Disposition` 與 `X-Signup-Count` 不在 CORS safelist，已在 `Program.cs` 加
-  `WithExposedHeaders`（修正一個既有 bug：先前前端讀不到這兩個 header，檔名一直退回 fallback）。
+- **CORS**：`Content-Disposition`、`X-Signup-Count`、`X-Report-Page-Size` 不在 CORS safelist，已在
+  `Program.cs` 加 `WithExposedHeaders`（前兩者是修正一個既有 bug：先前前端讀不到，檔名一直退回 fallback）。
+- **`X-Report-Page-Size`（2026-07-31 新增）**：所有回 PDF 的 endpoint（6 個單筆 + `tablet/sample` +
+  `POST /batch` + `GET /batch/jobs/{id}/file`）都會掛，值為**微米整數** `<寬>x<高>`（如資料卡 `210000x148000`）。
+  Electron 主行程用它指定 `webContents.print` 的 `pageSize`，這是「同一份 PDF 在不同機器印出同樣結果」的關鍵。
+  權威值在 `Ceremony.Domain.Reports.ReportPageSizes`（`ReportPageSizeConsistencyTests` 鎖住它與各 renderer 的
+  `PageWidthCm/PageHeightCm` 一致）。見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
 
 每個單筆 endpoint 支援：
 - `?format=pdf|preview`（preview 走相同格式但加 watermark「預覽」）

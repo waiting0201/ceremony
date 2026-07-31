@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結)
+last_updated: 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結))
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -176,11 +176,13 @@ spawn(apiExe, [`--urls=http://localhost:${apiPort}`], {
 | `Logging:Seq:ServerUrl` | `http://seq:5341`（dev） | Seq log server |
 | `Cors:AllowedOrigins` | `http://localhost:4200`（dev）/ `null` 與 `file://`（prod Electron renderer） | dev 為 ng serve、prod sidecar 模式 renderer 從 `file://` 載入時 Origin header 通常為 `null`，需明確 allow |
 
-**CORS exposed headers（2026-07-28 修正）**：policy 除了 `AllowAnyHeader/AllowAnyMethod`，
-還必須 `.WithExposedHeaders("Content-Disposition", "X-Signup-Count")`。這兩個不在 CORS safelist，
+**CORS exposed headers（2026-07-28 修正，2026-07-31 追加）**：policy 除了 `AllowAnyHeader/AllowAnyMethod`，
+還必須 `.WithExposedHeaders("Content-Disposition", "X-Signup-Count", "X-Report-Page-Size")`。這三個不在 CORS safelist，
 不明示 expose 前端就讀不到——修正前 `ReportApi.extractFileName()` 永遠回 `null`、`signupCount`
 永遠 `undefined`，一直靠 fallback 檔名運作。dev（`:4200`→`:5050`）與 prod（Electron `file://`，
 Origin 為 `null`）都算跨源，兩邊都需要。見 [gotchas.md](../gotchas.md)。
+`X-Report-Page-Size` 則是列印通道用的紙張尺寸（微米）；**Electron 主行程走 `net.request` 不受 CORS 限制、
+一定讀得到**，這裡的 expose 只影響 renderer 直接讀的路徑（報表預覽頁、dev `:4200`）。
 
 **單實例假設**：批次列印的 job 狀態存在 API process 的記憶體裡（見
 [backend-design.md](backend-design.md)）。這依賴上述「一台 client 一個 sidecar、無反向代理、
@@ -253,6 +255,50 @@ Electron main 開機先偵測 client 是否裝齊必要元件，缺了走 `/prer
 - 後端 endpoint：`GET /api/v1/backup/{fileName}/download`（見 [api-design.md](api-design.md)、[get-backup-download.md](../blueprints/api-endpoints/get-backup-download.md)）。
 - **路徑可讀限制**：API process 須讀得到 `Backup:Directory`。prod sidecar 模式建議 `Backup:Directory` 設 **UNC 共用**（`\\dbserver\Backups\Ceremony\`），讓 SQL Server 服務帳號可寫、client API process 可讀；dev docker MSSQL 的容器內路徑 API 端讀不到 → download 回 404（屬已知限制，dev 不影響備份本身）。
 - 瀏覽器 fallback（非 Electron）：`BackupApi.fetchBlob` 抓 blob + `<a download>` 另存。
+
+### 列印通道（**2026-07-31 新增**）
+
+報表列印不再是「開新分頁讓使用者自己按列印」，而是由 Electron 主行程送印，紙張／邊界／縮放由程式指定。
+完整背景與決策見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
+
+```
+按列印 → app 內列印對話框（選印表機 / 份數 / 縮放，紙張唯讀）
+  → window.ceremony.printReport / printBatchJob / printPdfBuffer
+  → main：Electron net GET {apiBase}/reports/...（帶 Bearer，串流落 %TEMP%/ceremony-print/）
+  → 讀 X-Report-Page-Size（微米）→ 隱藏視窗（plugins:true）載入 file://x.pdf
+  → webContents.print({ silent:true, deviceName, pageSize, margins:none, scaleFactor:100 })
+  → callback 後關窗 + 刪 temp
+```
+
+- **設定檔**：`%APPDATA%/Ceremony/print-settings.json`（每種報表記住印表機 / 份數 / 縮放）。
+  **刻意不放 `config.json`**：bootstrap 每次啟動都用 `default-config.json` 種子覆寫 config（只保留 `jwtKey`），
+  放進去會被吃掉；且印表機是每台機器的屬性，與「連線權威由出廠種子決定」的語意衝突。缺檔／壞檔一律走系統預設，不阻斷列印。
+- **`webPreferences.plugins: true` 是必要條件**：Chromium 內建 PDF viewer 預設關閉，沒開的話報表預覽 iframe 空白、
+  `window.open(blob:)` 變成下載。`noopener` 子視窗不繼承，另用 `setWindowOpenHandler` 補（見 [security.md](security.md)）。
+- **瀏覽器 fallback**（非 Electron）：`PrintService` 退回 `openPdfInNewTab`，`ng serve` 與單元測試行為完全不變。
+
+#### 現場印表機自訂紙張設定（IT 一次性，**每台 client 都要做**）
+
+Electron 的 `pageSize` 只有 `{width, height}`、**沒有 `vendor_id`** → 無法依名稱指定驅動裡的自訂 form，只能靠尺寸命中。
+雷射印表機多半吃 `dmPaperWidth/dmPaperLength`，但點陣／標籤機常常忽略，非得有具名 form 不可。
+
+Windows：**控制台 → 裝置和印表機 → 選任一印表機 → 上方「列印伺服器內容」→「表單」頁籤 → 勾「建立新表單」**，
+逐一建立下表 6 種（單位選公分，四邊邊界全填 0）：
+
+| 表單名稱 | 寬 × 高 |
+|---|---|
+| 資料卡 | 21 × 14.8 cm |
+| 收據 | 21 × 29.7 cm |
+| 薦牌 | 11.5 × 25.5 cm |
+| 文牒 | 36.5 × 26.2 cm |
+| 普桌 | 21 × 29.6 cm |
+| 普桌資料卡 | 21 × 14.8 cm |
+
+⚠️ **舊系統留下的同名 form 尺寸是錯的，必須重建**：舊程式寫死的是資料卡 201.7×142.2mm、文牒 348×251.5mm
+（舊系統靠點陣圖拉伸吃掉差異，見 [gotchas.md](../gotchas.md)），1:1 送印後會變成真實裁切。
+
+⚠️ **滿版（邊界 0）報表的欄位離紙緣至少 0.5cm**：印表機的實體不可列印邊界會整欄吃掉更靠邊的內容
+（已發生過薦牌客訴，見 [gotchas.md](../gotchas.md)）。這是硬體限制，設定 margin 0 也繞不過。
 
 ### 前端（Electron）
 

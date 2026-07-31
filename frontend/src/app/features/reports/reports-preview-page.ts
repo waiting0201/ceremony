@@ -13,6 +13,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ReportApi } from '../../core/api/reports/report.api';
 import type { SingleReportType } from '../../core/api/reports/report.models';
 import { BatchPrintService } from '../../core/reports/batch-print.service';
+import { PrintService } from '../../core/print/print.service';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
 import { ApiError } from '../../core/http/api-error';
@@ -47,6 +48,7 @@ const REPORT_TYPES: readonly ReportTypeOption[] = [
 export class ReportsPreviewPage implements OnInit, OnDestroy {
   private readonly api = inject(ReportApi);
   private readonly batchPrint = inject(BatchPrintService);
+  private readonly print = inject(PrintService);
   private readonly categoryApi = inject(CategoryApi);
   private readonly fb = inject(FormBuilder);
   private readonly route = inject(ActivatedRoute);
@@ -66,6 +68,9 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   protected readonly loading = signal(false);
   protected readonly errorMessage = signal<string | null>(null);
   private currentObjectUrl: string | null = null;
+  private currentBlob: Blob | null = null;
+  protected readonly currentType = signal<SingleReportType | null>(null);
+  protected readonly printing = signal(false);
 
   protected readonly initialType = computed<SingleReportType>(() => {
     const t = this.route.snapshot.paramMap.get('type');
@@ -119,7 +124,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.signupCount.set(null);
     try {
       const { blob, fileName } = await this.api.single(type, signupId.trim());
-      this.displayBlob(blob, fileName);
+      this.displayBlob(blob, fileName, type);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -148,7 +153,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
         { detail: REPORT_TYPES.find((r) => r.value === v.reportType)?.label },
       );
       if (!resp) return;
-      this.displayBlob(resp.blob, resp.fileName);
+      this.displayBlob(resp.blob, resp.fileName, v.reportType);
       this.signupCount.set(resp.signupCount ?? null);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
@@ -157,10 +162,13 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     }
   }
 
-  private displayBlob(blob: Blob, fileName: string): void {
+  private displayBlob(blob: Blob, fileName: string, type: SingleReportType): void {
     this.releaseUrl();
     const url = URL.createObjectURL(blob);
     this.currentObjectUrl = url;
+    // 保留 blob 供「列印」用：此頁的 batch job 已被取檔消耗，不能再叫 main 去取一次
+    this.currentBlob = blob;
+    this.currentType.set(type);
     this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
     this.fileName.set(fileName);
   }
@@ -170,10 +178,12 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
       URL.revokeObjectURL(this.currentObjectUrl);
       this.currentObjectUrl = null;
     }
+    this.currentBlob = null;
   }
 
   protected closePreview(): void {
     this.releaseUrl();
+    this.currentType.set(null);
     this.previewUrl.set(null);
     this.fileName.set(null);
     this.signupCount.set(null);
@@ -192,6 +202,22 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   protected openExternal(): void {
     if (!this.currentObjectUrl) return;
     window.open(this.currentObjectUrl, '_blank');
+  }
+
+  /** 送印目前預覽中的 PDF（Electron 會跳列印對話框，紙張與縮放由主行程指定）。 */
+  protected async printPreview(): Promise<void> {
+    const blob = this.currentBlob;
+    const type = this.currentType();
+    if (!blob || !type || this.printing()) return;
+    this.printing.set(true);
+    this.errorMessage.set(null);
+    try {
+      await this.print.printBlob(type, blob);
+    } catch (err) {
+      this.errorMessage.set(toMessage(err));
+    } finally {
+      this.printing.set(false);
+    }
   }
 }
 
