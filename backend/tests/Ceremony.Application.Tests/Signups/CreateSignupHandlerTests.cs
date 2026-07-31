@@ -127,7 +127,7 @@ public sealed class CreateSignupHandlerTests
         var req = ValidReq() with
         {
             Phone = "０９１２", // 全形 → 應轉半形
-            TextAddress = "", // 空 → fallback 至 mailAddress
+            TextAddress = "", // 空 → 存 null（不再 fallback 至 mailAddress，見下方專門測試）
             MailZipcodeId = 155,
             LivingNames = ["陽上一", "", null, "  ", "陽上五", ""],
         };
@@ -137,7 +137,7 @@ public sealed class CreateSignupHandlerTests
         capturedSignup.Should().NotBeNull();
         capturedSignup!.NumberTitle.Should().Be("No");
         capturedSignup.Phone.Should().Be("0912", because: "全形數字應轉半形");
-        capturedSignup.TextAddress.Should().Be("台北市信義區市府路 1 號", because: "空 textAddress 應 fallback 至 mailAddress");
+        capturedSignup.TextAddress.Should().BeNull(because: "空 textAddress 就是沒有文牒地址，不再 fallback 至 mailAddress");
         capturedSignup.LivingNames.Should().Equal(["陽上一", null, null, null, "陽上五", null], because: "空值或空白應 normalize 為 null");
 
         capturedLog!.CeremonyCategoryTitle.Should().Be("春季");
@@ -176,8 +176,10 @@ public sealed class CreateSignupHandlerTests
     }
 
     [Fact]
-    public async Task TextZipcodeId_null_and_emptyText_fallbacks_to_mailZipcode()
+    public async Task Empty_text_address_stays_empty_and_never_copies_mail_address()
     {
+        // 2026-07-31：文牒地址／區號留空＝真的沒有文牒地址，不再抄寄件段（否則「取消文牒地址」取消不掉）。
+        // 刻意偏離舊 NewSignupForm.cs:244-251。要沿用寄件地址請勾「同寄件地址」（由前端實際填入文牒欄）。
         _believerRepo.Setup(r => r.GetNameAsync(AnyBelieverId, default)).ReturnsAsync("X");
         _signupRepo.Setup(r => r.GetCeremonyCategoryTitleAsync(AnyCategoryId, default)).ReturnsAsync("春季");
         SignupWriteModel? captured = null;
@@ -194,7 +196,9 @@ public sealed class CreateSignupHandlerTests
 
         await CreateSut().HandleAsync(ValidReq() with { MailZipcodeId = 155, TextZipcodeId = null, TextAddress = null }, _caller);
 
-        captured!.TextZipcodeId.Should().Be(155);
+        captured!.TextZipcodeId.Should().BeNull(because: "文牒區號留空不再借用寄件區號");
+        captured.TextAddress.Should().BeNull(because: "文牒地址留空不再抄寄件地址");
+        captured.MailZipcodeId.Should().Be(155, because: "寄件段不受影響");
     }
 
     [Fact]

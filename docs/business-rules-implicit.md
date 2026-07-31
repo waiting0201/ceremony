@@ -13,7 +13,7 @@ related_docs:
   - blueprints/printing-reports.md
   - design/database-design.md
 keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季, 預繳, 普桌]
-last_updated: 2026-07-31 (新增 §19「預繳依單筆報名隔離 — 法會預繳 ≠ 普桌預繳」：客訴「同一次搜尋先點有預繳的法會列、再點沒預繳的普桌列，普桌沿用法會預繳」；真因是舊 BelieverSelected:1102-1115 的跨類型「最新一筆」反查完全不分 SignupType，新版改為選信眾時預繳取該列自身值、不再呼叫 GET /prepay?believerId&year〔endpoint 保留備用〕，標為刻意偏離 legacy。同日先前 §12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證))
+last_updated: 2026-07-31 (新增 §12.1「地址／堂號清空必須清得掉」：移除信眾表單 mailAddress 的 required、移除文牒段抄寄件段的隱性 fallback、報名堂號清空改存空字串〔避開 SignupView 的 COALESCE 回退〕；同日先前新增 §19「預繳依單筆報名隔離 — 法會預繳 ≠ 普桌預繳」：客訴「同一次搜尋先點有預繳的法會列、再點沒預繳的普桌列，普桌沿用法會預繳」；真因是舊 BelieverSelected:1102-1115 的跨類型「最新一筆」反查完全不分 SignupType，新版改為選信眾時預繳取該列自身值、不再呼叫 GET /prepay?believerId&year〔endpoint 保留備用〕，標為刻意偏離 legacy。同日先前 §12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證))
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -235,7 +235,33 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 
 > **新版偏離（2026-07-31 客訴）：勾選門檻放寬為「城市/區域/地址三者全空才擋」**。取代 2026-07-21 記錄的「同寄件地址仍要求先有寄件地址」——地址既然非必填，「只選了城市與區域、地址欄留空」就是合法狀態，這時同步城市/區域一樣有意義，硬擋反而讓使用者得先亂打一個字。提示文字同步改為 `"請先填寫寄件地址（城市／區域或地址）"`（舊字串 `"請先輸入寄件地址"` 不再使用）。複製內容不變（城市 + 郵遞區號 FK + 地址一起帶，地址為空就帶空字串）。兩張表單（`signup-edit-form` / `believer-edit-form`）同步。
 >
-> ⚠ `believer-edit-form` 的 `mailAddress` 仍掛 `Validators.required`（2026-07-21 的放寬只做了報名表單與後端），與本節不一致；已列 [pending-business-input.md](pending-business-input.md) 待確認是否一併放寬。
+> ✅ **已補齊（2026-07-31）**：`believer-edit-form` 的 `mailAddress` 曾遺留 `Validators.required`（2026-07-21
+> 的放寬只做了報名表單與後端），使用者無法刪掉信眾既有的寄件地址；該 required 已移除，placeholder 的
+> `*` 一併拿掉，兩張表單與後端至此一致。
+
+---
+
+## 12.1 地址／堂號「清空」必須清得掉（2026-07-31 客訴，**新版刻意偏離 legacy**）
+
+使用者要求：新增或修改時，**既有的寄件地址與文牒地址要能整段刪掉**（含城市與郵遞區號，可不留地址），
+**堂號同理**。三個各自獨立的障礙，全部移除：
+
+| 障礙 | 舊/原行為 | 新版 |
+|---|---|---|
+| 信眾表單寄件地址必填 | 前端 `Validators.required` 擋下送出（後端 2026-07-21 起已允許空） | 移除 required |
+| 文牒地址／區號的隱性 fallback | `NewSignupForm.cs:244-251`、`EditSignupForm.cs:255-267`：文牒欄為空就抄寄件段 → 清空存檔後又長回來 | **移除**：空就是空（存 `null`） |
+| 報名堂號存 `null` 被回退 | `SignupView.HallName = COALESCE(S.HallName, B.HallName)`，清空存 null → 顯示信眾堂號 | 清空存**空字串**（`SignupHallName.Normalize`；前端一律送 `""`） |
+
+- 「印疏文用同寄件地址」的需求改由**「同寄件地址」checkbox** 承擔（見 §12）：勾選時把值**實際填進**
+  文牒欄，所見即所存；比隱性 fallback 明確，也才可能「不勾＝真的沒有文牒地址」。
+- 城市／區域不是獨立欄位，是 `MailZipcodeID`/`TextZipcodeID` join `Zipcodes` 得來——把區域下拉選回
+  「請選擇區域」（FK → `null`）就整段消失，郵遞區號文字快照也跟著清掉。
+- 堂號的空字串哨兵**不影響並行期舊系統**：舊系統寫入的列 `S.HallName` 仍為 `null` → 照舊回退信眾堂號；
+  它讀 view 拿到空字串也就是顯示空白。
+- 信眾主檔堂號清空**不連動既有報名**（報名自持快照，見 §3.1）。
+- 回歸鎖：`SignupsEndpointsTests.Clearing_hallName_and_addresses_actually_persists`、
+  `BelieversEndpointsTests.PUT_can_clear_existing_addresses_and_hallName`、
+  `UpdateSignupHandlerTests.Edit_cleared_*`、`CreateSignupHandlerTests.Empty_text_address_stays_empty_*`。
 
 ---
 

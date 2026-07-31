@@ -53,10 +53,14 @@ public sealed class UpdateSignupHandler(
             prepayCeremonyTitle = await signupRepo.GetCeremonyCategoryTitleAsync(pc, ct);
 
         var phone = ToNarrow(Trim(req.Phone));
-        var hallName = Trim(req.HallName);
+        // 堂號空字串＝使用者明確清空（不可存 null，會被 SignupView 的 COALESCE 補回信眾堂號）
+        var hallName = SignupHallName.Normalize(req.HallName);
         var remark = Trim(req.Remark);
-        var textAddress = string.IsNullOrWhiteSpace(req.TextAddress) ? mailAddress : req.TextAddress.Trim();
-        var textZipcodeId = req.TextZipcodeId ?? (string.IsNullOrWhiteSpace(req.TextAddress) ? req.MailZipcodeId : null);
+        // 文牒地址空白＝真的沒有文牒地址（2026-07-31 使用者指定：地址要能整段刪掉、可不留地址）。
+        // **刻意偏離舊系統**：舊 EditSignupForm.cs:255-267 在文牒欄為空時把寄件地址／區號抄過去，
+        // 導致「取消文牒地址」永遠取消不掉（存完又長回來）。要沿用寄件地址請勾「同寄件地址」。
+        var textAddress = Trim(req.TextAddress);
+        var textZipcodeId = req.TextZipcodeId;
         var livingNames = NormalizeNames(req.LivingNames);
         var deadNames = NormalizeNames(req.DeadNames);
         var createDate = DateTime.UtcNow;

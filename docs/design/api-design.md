@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-07-31 (GET /signups 編號由單值 number 改為 numberStart/numberEnd 區間，只給一端＝只查那一筆；POST /reports/batch(+jobs) 編號區間同步改為只需填一端；順手修正 Signups 表誤植的 /signups/search + page/pageSize/sort（實際為 GET /signups 不分頁）。先前 2026-07-31 所有回 PDF 的 endpoint 新增 X-Report-Page-Size response header（微米），供 Electron 列印通道指定 pageSize；CORS WithExposedHeaders 同步加入。先前 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差))
+last_updated: 2026-07-31 (錯誤碼表廢除 BELIEVER_MAIL_ADDRESS_REQUIRED〔地址自 2026-07-21 起非必填，2026-07-31 前端信眾表單的 required 一併移除，既有地址可整段清空〕；同日先前 GET /signups 編號由單值 number 改為 numberStart/numberEnd 區間，只給一端＝只查那一筆；POST /reports/batch(+jobs) 編號區間同步改為只需填一端；順手修正 Signups 表誤植的 /signups/search + page/pageSize/sort（實際為 GET /signups 不分頁）。先前 2026-07-31 所有回 PDF 的 endpoint 新增 X-Report-Page-Size response header（微米），供 Electron 列印通道指定 pageSize；CORS WithExposedHeaders 同步加入。先前 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差))
 ---
 
 ## 通則
@@ -77,7 +77,7 @@ HTTP status 映射：
 | ADMIN_DUPLICATE_USERNAME | 帳號重複，請重新確認！ | 409 | 新增/編輯 admin |
 | ADMIN_PASSWORD_MISMATCH | 確認密碼輸入錯誤 | 400 | 編輯 admin |
 | BELIEVER_NAME_REQUIRED | 請輸入姓名 | 400 | 新增/編輯信眾 |
-| BELIEVER_MAIL_ADDRESS_REQUIRED | 請輸入寄件地址 | 400 | 新增信眾 |
+| ~~BELIEVER_MAIL_ADDRESS_REQUIRED~~ | ~~請輸入寄件地址~~ | – | **已廢除**（2026-07-21 地址改非必填）：空地址照常寫入，不再回 400 |
 | BELIEVER_PHONE_FORMAT | 聯絡電話格式錯誤，請重新確認！ | 400 | 信眾/報名 |
 | BELIEVER_HAS_SIGNUPS | {name} 已有報名資料，不能刪除！ | 409 | 刪除信眾 |
 | SIGNUP_YEAR_FORMAT | 年份格式錯誤，請重新確認！ | 400 | 報名表單 |

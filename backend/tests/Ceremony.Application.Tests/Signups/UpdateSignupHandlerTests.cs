@@ -107,6 +107,68 @@ public sealed class UpdateSignupHandlerTests
     }
 
     [Fact]
+    public async Task Edit_cleared_hallName_stored_as_empty_string_not_null()
+    {
+        // 2026-07-31 客訴：清空堂號存檔後又長回來。存 null 會被 SignupView 的
+        // COALESCE(S.HallName, B.HallName) 補回信眾堂號 → 必須存空字串（＝這筆明確沒有堂號）。
+        SetupHappyPath();
+        SignupWriteModel? capturedSignup = null;
+        _signupRepo.Setup(r => r.UpdateWithLogAsync(
+                It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), It.IsAny<int>(), default))
+            .Callback<SignupWriteModel, SignupLogWriteModel, int, CancellationToken>((s, _, _, _) => capturedSignup = s)
+            .ReturnsAsync(true);
+
+        await CreateSut().HandleAsync(AnySignupId, ValidReq() with { HallName = "   " }, _caller);
+
+        capturedSignup!.HallName.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public async Task Edit_omitted_hallName_stays_null_for_believer_fallback()
+    {
+        // 反面：欄位未提供（null，如舊系統／其他 client）仍存 null，維持 COALESCE 回退信眾堂號。
+        SetupHappyPath();
+        SignupWriteModel? capturedSignup = null;
+        _signupRepo.Setup(r => r.UpdateWithLogAsync(
+                It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), It.IsAny<int>(), default))
+            .Callback<SignupWriteModel, SignupLogWriteModel, int, CancellationToken>((s, _, _, _) => capturedSignup = s)
+            .ReturnsAsync(true);
+
+        await CreateSut().HandleAsync(AnySignupId, ValidReq() with { HallName = null }, _caller);
+
+        capturedSignup!.HallName.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Edit_cleared_addresses_stay_cleared()
+    {
+        // 2026-07-31 客訴：地址（含城市/郵遞區號）要能整段刪掉。寄件段清空後文牒段不得被拿來補，
+        // 文牒段清空也不得抄寄件段（舊 EditSignupForm.cs:255-267 的 fallback 已移除）。
+        SetupHappyPath();
+        SignupWriteModel? capturedSignup = null;
+        _signupRepo.Setup(r => r.UpdateWithLogAsync(
+                It.IsAny<SignupWriteModel>(), It.IsAny<SignupLogWriteModel>(), It.IsAny<int>(), default))
+            .Callback<SignupWriteModel, SignupLogWriteModel, int, CancellationToken>((s, _, _, _) => capturedSignup = s)
+            .ReturnsAsync(true);
+
+        await CreateSut().HandleAsync(
+            AnySignupId,
+            ValidReq() with
+            {
+                MailAddress = "",
+                MailZipcodeId = null,
+                TextAddress = "",
+                TextZipcodeId = null,
+            },
+            _caller);
+
+        capturedSignup!.MailAddress.Should().BeEmpty();
+        capturedSignup.MailZipcodeId.Should().BeNull();
+        capturedSignup.TextAddress.Should().BeNull();
+        capturedSignup.TextZipcodeId.Should().BeNull();
+    }
+
+    [Fact]
     public async Task Edit_out_of_range_employeeType_stored_as_null()
     {
         // employeeType 超 1–3 → 存 null → 由 SignupView COALESCE 回退信眾值。

@@ -17,11 +17,12 @@ related_docs:
   - ../api-endpoints/README.md
   - README.md
 keywords: [legacy, coverage, believer]
-last_updated: 2026-07-31 (row 11「同寄件地址」改標**刻意偏離**：觸發門檻放寬為「城市/區域/地址三者全空才擋」、提示改「請先填寫寄件地址（城市／區域或地址）」，與報名表單同步；同日地址區版面改為「寄件地址」「文牒地址」兩個 fieldset、框內欄位標題改 placeholder。先前 2026-06-02)
+last_updated: 2026-07-31 (頂部註記補「地址可整段清空」：前端遺留的 mailAddress required 已移除，寄件/文牒地址含城市郵遞區號與堂號皆可清空；同日先前 row 11「同寄件地址」改標**刻意偏離**：觸發門檻放寬為「城市/區域/地址三者全空才擋」、提示改「請先填寫寄件地址（城市／區域或地址）」，與報名表單同步；同日地址區版面改為「寄件地址」「文牒地址」兩個 fieldset、框內欄位標題改 placeholder。先前 2026-06-02)
 ---
 
 > ✅ **完成 (2026-06-02)**：17 個方法全部已實作。CRUD + 右鍵選單 + 城市/區域連動下拉 + 同寄件地址 + 表單模式切換全 ship（地址連動由 signup 表單 port 至 `believer-edit-form`）。
 > ⚠️ **地址非必填 刻意偏離（2026-07-21 客訴）**：舊 `btnConfirm_Click` 驗證寄件地址必填；新版依使用者指定改非必填，`BelieverWriteValidator` 放寬（空存空字串，含報名頁「未選信眾自動建立」路徑）。詳見 [business-rules-implicit §12](../../business-rules-implicit.md)。
+> **2026-07-31 補齊**：前端 `believer-edit-form` 的 `mailAddress` 一直遺留 `Validators.required`（2026-07-21 只放寬了報名表單與後端），使用者刪不掉信眾既有的寄件地址；required 與 placeholder 的 `*` 已移除，寄件/文牒地址（含城市與郵遞區號）與堂號皆可整段清空。見 [business-rules-implicit §12.1](../../business-rules-implicit.md)。
 
 ## 稽核總覽
 

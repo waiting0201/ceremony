@@ -67,6 +67,10 @@ export interface CreateSignupRequest {
   fee?: number | null;
   phone?: string | null;
   // per-signup 覆寫欄（2026-07-21）：報名自持堂號/員工類型/固定編號，後端寫 Signups 自有欄、不回寫 Believer
+  /**
+   * 堂號。空字串＝**明確清空**（後端存 `''`，SignupView 的 COALESCE 取到空字串→顯示空白）；
+   * null/未給＝這筆沒有自己的堂號，顯示時回退信眾主檔。表單一律送前者，見 signup-edit-form。
+   */
   hallName?: string | null;
   employeeType?: number | null;
   isFixedNumber?: boolean | null;

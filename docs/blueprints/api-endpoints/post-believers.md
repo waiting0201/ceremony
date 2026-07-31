@@ -13,7 +13,7 @@ related_docs:
   - put-believer.md
   - ../legacy-coverage/believer-form.md
 keywords: [believers, create, post]
-last_updated: 2026-05-27
+last_updated: 2026-07-31 (補記地址非必填的既有偏離〔2026-07-21 起 mailAddress 可空、不再回 400「請輸入寄件地址」〕，並補「既有地址整段清空」邊界 case)
 ---
 
 ## 規格
@@ -30,7 +30,7 @@ last_updated: 2026-05-27
   "phone": "string? (max 30)",          // 應用層做全→半形轉換
   "isFixedNumber": false,
   "mailZipcodeId": 1,                  // -1 / null = 未選
-  "mailAddress": "string (required, max 250)",
+  "mailAddress": "string? (max 250)",         // 非必填（2026-07-21）：空白 → 存空字串，不擋
   "textZipcodeId": null,
   "textAddress": "string? (max 250)",
   "livingNames": ["", "", "", "", "", ""],   // 必須 6 元素
@@ -47,7 +47,6 @@ last_updated: 2026-05-27
 | HTTP | errorCode | message verbatim | 觸發 |
 |---|---|---|---|
 | 400 | `VALIDATION_REQUIRED` | `請輸入姓名` | name trimmed 為空（line 103-107） |
-| 400 | `VALIDATION_REQUIRED` | `請輸入寄件地址` | mailAddress trimmed 為空（line 110-114） |
 | 400 | `VALIDATION_INVALID` | `員工類別錯誤` | employeeType 不在 1/2/3 |
 | 400 | `VALIDATION_LENGTH` | 各種長度 | 任一欄位超過 DB 上限 |
 | 400 | `VALIDATION_INVALID` | `名單必須為 6 個元素` | livingNames / deadNames 長度 ≠ 6 |
@@ -67,7 +66,8 @@ last_updated: 2026-05-27
 | 場景 | 舊行為 | 新版 |
 |---|---|---|
 | name 空 | MessageBox + focus + return | 400 verbatim |
-| mailAddress 空 | MessageBox + focus + return | 400 verbatim |
+| mailAddress 空 | MessageBox + focus + return | **刻意偏離**：照常建立、存空字串（2026-07-21 使用者指定地址非必填） |
+| 既有地址整段清空（含城市/區號） | – | 三段皆可清；`mailZipcodeId=null` → view 的城市/區域一併消失（2026-07-31） |
 | phone 含全形數字 | `StrConv Narrow` 轉半 | 同 |
 | zipcode -1 | 不寫入 (留 null) | 同 |
 | 6 個 LivingName 全空 | 允許 | 允許（DB 欄位 nullable） |

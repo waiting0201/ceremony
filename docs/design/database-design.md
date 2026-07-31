@@ -11,7 +11,7 @@ related_docs:
   - security.md
   - ../blueprints/signup-management.md
 keywords: [database, db, schema, 資料庫, 索引, 法會, ceremony, signup, believer, MSSQL, EF Core, Database First]
-last_updated: 2026-07-29 (Signups 郵遞區號兩欄的真相更正：`MailZipcode`/`TextZipcode` **不是保留欄位**，而是 `SignupView.MailZipcode`/`TextZipcode` 的實際來源，寫入時必須由 FK 現查一起寫〔新增「郵遞區號兩欄必須同進同出」規則、SignupView 欄位來源標註〕；DbUp 0004 回填歷史空值。先前 2026-07-21 Signups 加三個 per-signup 覆寫欄 HallName/EmployeeType/IsFixedNumber、SignupView 改 COALESCE 回退＋新增數值 EmployeeType；`Ceremony.Migrations` DbUp 專案首次落地 0001 加欄/0002 回填/0003 改 view；先前 2026-06-29 解除 DB 凍結、導入 DbUp)
+last_updated: 2026-07-31 (新增「Signups.HallName 的 null 與空字串不同義」與「地址三段清空＝三個欄位一起清」兩條 application-level 規則：清空堂號存空字串才不會被 SignupView 的 COALESCE 回退信眾值，文牒段留空不再抄寄件段；先前 2026-07-29 Signups 郵遞區號兩欄的真相更正：`MailZipcode`/`TextZipcode` **不是保留欄位**，而是 `SignupView.MailZipcode`/`TextZipcode` 的實際來源，寫入時必須由 FK 現查一起寫〔新增「郵遞區號兩欄必須同進同出」規則、SignupView 欄位來源標註〕；DbUp 0004 回填歷史空值。先前 2026-07-21 Signups 加三個 per-signup 覆寫欄 HallName/EmployeeType/IsFixedNumber、SignupView 改 COALESCE 回退＋新增數值 EmployeeType；`Ceremony.Migrations` DbUp 專案首次落地 0001 加欄/0002 回填/0003 改 view；先前 2026-06-29 解除 DB 凍結、導入 DbUp)
 ---
 
 ## ⚠️ 重要決策：DB schema 可變更，導入 DbUp migration（**2026-06-29 解除凍結**）
@@ -249,7 +249,7 @@ Navigation properties（EF 自動命名）：
 | `Fee` | int | NULL | – | 費用 |
 | `Name` | nvarchar(30) | NULL | – | 報名快照姓名 |
 | `Phone` | nvarchar(30) | NULL | – | 報名快照電話 |
-| `HallName` | nvarchar(10) | NULL | – | **per-signup 堂號覆寫**（2026-07-21 DbUp 0001 新增）；null → SignupView COALESCE 回退 Believers |
+| `HallName` | nvarchar(10) | NULL | – | **per-signup 堂號覆寫**（2026-07-21 DbUp 0001 新增）；null → SignupView COALESCE 回退 Believers；**空字串＝使用者明確清空**（2026-07-31，見下方規則） |
 | `EmployeeType` | int | NULL | – | **per-signup 員工類型覆寫**（同上）；1=非員工 2=大殿 3=地藏殿；null → 回退 |
 | `IsFixedNumber` | bit | NULL | – | **per-signup 固定編號覆寫**（同上）；null → 回退。預繳保號仍讀 Believers.IsFixedNumber |
 | `LivingNameOne`～`LivingNameSix` | nvarchar(30) × 6 | NULL | – | 快照陽上 |
@@ -273,6 +273,16 @@ Navigation properties（EF 自動命名）：
   insert / update、`PrepayRepository` 載入預繳的 insert。漏寫 → API 與收據封面的郵遞區號空白；
   update 漏寫 → 改了區域卻留舊號碼（更糟，會印錯）。DbUp `0004` 已回填歷史空值，踩雷紀錄見
   [gotchas.md](../gotchas.md)
+- **`Signups.HallName` 的 null 與空字串不同義**（2026-07-31 客訴修正）：view 是
+  `COALESCE(S.HallName, B.HallName)`，所以 `null` ＝「這筆沒有自己的堂號」（回退信眾主檔，並行期
+  舊系統寫入的列即此情形），**空字串**＝「使用者明確把堂號清掉」（顯示空白）。清空若存 null，
+  存檔後畫面又長回信眾堂號＝刪不掉。寫入端正規化集中在 `SignupHallName.Normalize`
+  （Create/Update/InsertShift 共用），前端清空時一律送 `""`。
+  `EmployeeType`/`IsFixedNumber` 無此問題（值域本身沒有「空」的概念）。
+- **地址三段清空＝三個欄位一起清**：城市/區域不是獨立欄位，是 `MailZipcodeID`/`TextZipcodeID`
+  join `Zipcodes` 得來——區號 FK 設 null 則 view 的 `MailCity`/`MailZone` 一併消失，文字快照
+  `MailZipcode` 由現查產生也跟著是 null。`TextAddress`/`TextZipcodeID` 留空**不再**抄寄件段
+  （2026-07-31 移除舊 fallback，見 [business-rules-implicit §12.1](../business-rules-implicit.md)）。
 - `(Year, CeremonyCategoryID, SignupType, Number)` 唯一性由 service 層在配號時驗證（DB 無 unique index）
 - `NumberTitle` 由 `SignupType` 推導（1→No, 2→寺, 3→觀, 4→普, 5→郵），service 層 enforce
 - `AdminID` 邏輯關聯 Admins，但 DB 無 FK；service 層讀取時手動 join
@@ -308,7 +318,7 @@ Navigation properties（EF 自動命名）：
 - SignupType, NumberTitle, Number, Fee
 - Employee（CASE **`COALESCE(Signups.EmployeeType, Believers.EmployeeType)`** → 字串）
 - **EmployeeType**（數值，`COALESCE(Signups.EmployeeType, Believers.EmployeeType)`；前端 select 用）
-- Name, **HallName（`COALESCE(Signups.HallName, Believers.HallName)`）**, Phone, **IsFixedNumber（`COALESCE(Signups.IsFixedNumber, Believers.IsFixedNumber)`）**
+- Name, **HallName（`COALESCE(Signups.HallName, Believers.HallName)`；`Signups.HallName=''` 即顯示空白＝明確清空）**, Phone, **IsFixedNumber（`COALESCE(Signups.IsFixedNumber, Believers.IsFixedNumber)`）**
 - （Name/Phone 早已是 `CASE WHEN Signups.X IS NULL THEN Believers.X ELSE Signups.X`，三欄比照此 pattern）
 - LivingNameOne～Six, DeadNameOne～Six
 - MailZipcode（**＝`Signups.MailZipcode` 文字欄，不是 join Zipcodes**）, MailCity / MailZone（join `Zipcodes MZ` on `MailZipcodeID`）, MailAddress

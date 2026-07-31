@@ -15,7 +15,7 @@ related_docs:
   - ../business-rules-implicit.md
   - ../glossary.md
 keywords: [堂號, HallName, 信眾連動, 資料隔離, 代入新增, 編輯報名, Believers, Signups]
-last_updated: 2026-07-21 (使用者反轉 2026-06-29 決策：三欄改 per-signup 可編輯，採方案 A；DbUp 加欄 + SignupView COALESCE + 前後端可編輯)
+last_updated: 2026-07-31 (新增「補丁：清空堂號必須存空字串」——方案 A 的 COALESCE 讓清空存 null 被回退成信眾堂號、堂號刪不掉〔客訴〕，改以空字串當明確清空的哨兵值，view 與並行期舊系統皆不動；先前 2026-07-21 使用者反轉 2026-06-29 決策：三欄改 per-signup 可編輯，採方案 A；DbUp 加欄 + SignupView COALESCE + 前後端可編輯)
 ---
 
 ## 決議與實作（2026-07-21：反轉為方案 A）
@@ -30,6 +30,32 @@ last_updated: 2026-07-21 (使用者反轉 2026-06-29 決策：三欄改 per-sign
 - **前端**：報名表單三欄由唯讀改**可編輯**（員工類型 select、固定編號 checkbox、堂號 input，參考 believer-edit-form）；form group 加三 control；pick/apply/prefill 帶回值；submit 由表單值送出；未選信眾自動建立時用表單值建立新信眾。
 - **預繳保號維持讀信眾**（使用者指定）：per-signup 的 isFixedNumber 只影響該筆顯示/搜尋篩選；預繳載入保號仍讀 `Believers.IsFixedNumber`（Prepay 不改）。
 - **測試**：新增 Create/Update/InsertShift 單元測試（三欄寫進 write model、不回寫 Believer、employeeType 超範圍→null）＋整合測試（per-signup 隔離：改 A 不影響 B、不動信眾；COALESCE 回退）。Application 205 / Integration 66 / Infrastructure 107 綠、前端 ng build 綠。
+
+### 補丁（2026-07-31）：清空堂號必須存空字串
+
+方案 A 的 `COALESCE(S.HallName, B.HallName)` 帶來一個當時沒想到的後果——**堂號刪不掉**。
+使用者在報名表單把堂號清空 → 前端送 `null` → `S.HallName = NULL` → view 回退成信眾主檔的堂號 →
+存完畫面上又長回來（客訴）。
+
+修法（最小、且不動 view、不影響並行期舊系統）：用**空字串當「明確清空」的哨兵值**。
+
+| `Signups.HallName` | 語意 | view 顯示 |
+|---|---|---|
+| `NULL` | 這筆沒有自己的堂號（舊系統寫入的列、未提供該欄的 client） | 回退 `Believers.HallName` |
+| `''` | 使用者**明確清空** | 空白 |
+| 其他 | per-signup 覆寫值 | 該值 |
+
+- 後端正規化集中在 `SignupHallName.Normalize`（`null → null`；其餘 `Trim()`），Create/Update/InsertShift 共用。
+- 前端 `signup-edit-form` submit 一律送 `v.hallName.trim()`（清空即 `""`），不再 `|| null`。
+- 舊系統不受影響：它讀 view 拿到空字串就是顯示空白；它寫入的列仍是 `NULL` → 照舊回退。
+- `EmployeeType` / `IsFixedNumber` 無此問題（值域沒有「空」的概念，表單一定送得出值）。
+- 回歸鎖：`UpdateSignupHandlerTests.Edit_cleared_hallName_stored_as_empty_string_not_null`、
+  `Edit_omitted_hallName_stays_null_for_believer_fallback`、
+  `SignupsEndpointsTests.Clearing_hallName_and_addresses_actually_persists`、
+  前端 spec「清空堂號存檔：送出空字串而非 null」。
+
+> 註：清空**信眾主檔**的堂號（信眾維護頁）仍存 `null`，且**不連動**既有報名——報名持有自己的快照，
+> 這正是方案 A 的預期行為。
 
 > 下方原評估內容（背景/方案比較）保留作決策脈絡。**2026-06-29 曾採方案 C**（業務當時認定堂號為信眾固有）；2026-07-21 使用者需求改為「同信眾不同報名可掛不同堂號/員工類型/固定編號」→ 語意變為報名層級 → 改採**方案 A**。
 

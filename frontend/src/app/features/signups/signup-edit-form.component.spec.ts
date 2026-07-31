@@ -405,6 +405,31 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     expect(probe(f).form.get('customNumber')!.enabled).toBe(true);
   });
 
+  it('清空堂號存檔：送出空字串而非 null（null 會被 SignupView 的 COALESCE 補回信眾堂號）', async () => {
+    // 2026-07-31 客訴：堂號刪掉存檔後又長回來。地址三欄同時驗證「清空就是清空」。
+    const f = await open({ signupId: 'a1b2c3' });
+    httpMock.expectOne((r) => r.method === 'GET' && r.url.includes('/signups/a1b2c3'))
+      .flush(signupRow('a1b2c3', 'b1', '王小明', { hallName: '慈光堂', number: 5 }));
+    await f.whenStable();
+    expect(val(f, 'hallName')).toBe('慈光堂');
+
+    probe(f).form.patchValue({
+      ceremonyCategoryId: 'c1', believerId: 'b1',
+      hallName: '', mailCity: '', mailZipcodeId: '', mailAddress: '',
+      textCity: '', textZipcodeId: '', textAddress: '',
+    });
+    const submitting = probe(f).submit();
+    const put = httpMock.expectOne((r) => r.method === 'PUT' && r.url.includes('/signups/a1b2c3'));
+    const body = put.request.body as Record<string, unknown>;
+    expect(body['hallName']).toBe('');
+    expect(body['mailAddress']).toBe('');
+    expect(body['mailZipcodeId']).toBeNull();
+    expect(body['textAddress']).toBeNull();
+    expect(body['textZipcodeId']).toBeNull();
+    put.flush(signupRow('a1b2c3', 'b1', '王小明'));
+    await submitting;
+  });
+
   it('編輯既有報名不存草稿（有自己的資料來源）', async () => {
     const draftState = TestBed.inject(SignupDraftState);
 

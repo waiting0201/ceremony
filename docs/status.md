@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (搜尋「編號」改起~迄區間、批次列印起迄改為只需填一端〔只填一端＝只查/只印那一筆〕；`GET /signups` 參數 number → numberStart/numberEnd；dotnet 225 綠 + ng test 47 綠，版面待實機複驗。同日先前修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (修客訴「既有的寄件/文牒地址與堂號刪不掉」：信眾表單移除遺留的 mailAddress required、報名三個 handler 移除「文牒欄留空就抄寄件段」的隱性 fallback、報名堂號清空改存空字串以避開 SignupView 的 COALESCE 回退；dotnet 230/124/77 綠 + ng test 53 綠，含跑真 DB 的端到端清空驗證。同日先前搜尋「編號」改起~迄區間、批次列印起迄改為只需填一端〔只填一端＝只查/只印那一筆〕；`GET /signups` 參數 number → numberStart/numberEnd；dotnet 225 綠 + ng test 47 綠，版面待實機複驗。同日先前修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
@@ -159,6 +159,16 @@ last_updated: 2026-07-31 (搜尋「編號」改起~迄區間、批次列印起�
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **客訴：既有的寄件／文牒地址與堂號要能整段刪掉** — Done 2026-07-31
+  - 需求（使用者指定）：新增或修改資料時可以取消原資料已有的寄件地址與文牒地址（**連城市、郵遞區號都能刪，也就是可不留地址**），堂號同理要能刪
+  - 三個各自獨立的障礙，全部拆掉：
+    1. **信眾表單寄件地址必填**：`believer-edit-form` 的 `mailAddress` 遺留 `Validators.required`（2026-07-21 放寬只做了報名表單與後端）→ 表單 invalid 靜默不送出。已移除 required 與 placeholder 的 `*`
+    2. **文牒地址的隱性 fallback**：`Create/Update/InsertShiftSignupHandler` 沿用舊 `NewSignupForm.cs:244-251` / `EditSignupForm.cs:255-267`「文牒欄為空就抄寄件地址與區號」→ 清空存檔後又長回來。已移除，空就是空（存 `null`）；「印疏文用同寄件地址」改由「同寄件地址」checkbox 承擔（實際填值，所見即所存）
+    3. **報名堂號存 null 被 COALESCE 回退**：`SignupView.HallName = COALESCE(S.HallName, B.HallName)`，清空存 null → 顯示信眾堂號。改以**空字串**當「明確清空」哨兵（`SignupHallName.Normalize`，Create/Update/InsertShift 共用；前端一律送 `""`），view 與並行期舊系統皆不動
+  - 城市/區域本來就跟著區號 FK 走（下拉選回「請選擇…」→ FK null → view 的 City/Zone 與郵遞區號文字快照一併消失），不需另外改
+  - 驗證：`dotnet build` 0 warning、Application **230 綠** / Infrastructure **124 綠** / Integration **77 綠**（新增 3 個單元 + 2 個端到端清空測試，端到端跑真 DB 確認清完 GET 回來真的是空）；`ng build` 0 warning、`ng test` **53 綠**（新增「清空堂號送空字串」spec）
+  - Docs: [business-rules-implicit §12.1](business-rules-implicit.md)、[gotchas.md](gotchas.md)「有 COALESCE 回退的欄位不能用 null 表示清空」、[signup-hallname-isolation.md](blueprints/signup-hallname-isolation.md) 補丁段、[database-design.md](design/database-design.md)、[post-signups.md](blueprints/api-endpoints/post-signups.md) §4/§4c、[put-signup.md](blueprints/api-endpoints/put-signup.md) §4c、[put-believer.md](blueprints/api-endpoints/put-believer.md)、[post-believers.md](blueprints/api-endpoints/post-believers.md)、legacy-coverage ×3、[pending-business-input.md](pending-business-input.md) B15 結案
 
 - [x] **搜尋「編號」改起迄區間 + 批次列印起迄只需填一端** — Done 2026-07-31
   - 需求（使用者指定）：報名維護搜尋的「編號」也要能用起~迄範圍查；只輸入起**或**只輸入迄時＝只查那一筆；批次列印同理

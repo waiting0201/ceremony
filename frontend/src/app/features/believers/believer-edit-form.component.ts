@@ -67,7 +67,9 @@ export class BelieverEditFormComponent {
     // 地址（城市/區域連動；zipcodeId 以字串持有，submit 轉 number）
     mailCity: [''],
     mailZipcodeId: [''],
-    mailAddress: ['', [Validators.required, Validators.maxLength(200)]],
+    // 地址非必填（2026-07-31 使用者指定，與報名表單一致）：城市/區域/地址三段都能清空，可不留地址。
+    // 後端 BelieverWriteValidator 早已允許空地址，這裡的 required 是唯一擋住「刪掉既有地址」的關卡。
+    mailAddress: ['', [Validators.maxLength(200)]],
     sameMailAddress: [false],
     textCity: [''],
     textZipcodeId: [''],

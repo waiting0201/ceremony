@@ -17,7 +17,7 @@ related_docs:
   - post-signups.md
   - ../legacy-coverage/new-signup-form.md
 keywords: [insert, shift, 順移, 插入, 編號, renumber, signups]
-last_updated: 2026-07-04
+last_updated: 2026-07-31 (地址/堂號清空語意跟隨 post-signups §4 / §4c：文牒段留空不再抄寄件段、堂號清空送空字串)
 ---
 
 ## 規格
@@ -32,7 +32,7 @@ last_updated: 2026-07-04
 |---|---|
 | `customNumber` | **插入位置編號（必填、> 0）** |
 | `keepNumber` | 忽略（視為 true） |
-| 其餘 | 同 `POST /signups`（year / ceremonyCategoryId / signupType / believerId / name / mailAddress / 名單 / 地址 / 費用 / 備註 / 預繳…） |
+| 其餘 | 同 `POST /signups`（year / ceremonyCategoryId / signupType / believerId / name / mailAddress / 名單 / 地址 / 費用 / 備註 / 預繳…），含 §4「文牒段留空不再抄寄件段」與 §4c「堂號清空送空字串」兩項語意 |
 
 ### Response
 

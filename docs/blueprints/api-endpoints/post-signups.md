@@ -17,7 +17,7 @@ related_docs:
   - post-believers.md
   - get-signups.md
 keywords: [signups, create, post, updlock, number, avoid4, signuplog]
-last_updated: 2026-07-29 (新增 §4b 郵遞區號文字快照：INSERT 必須一併寫 Signups.MailZipcode/TextZipcode〔由 FK 現查、不吃 client 值〕，SignupView 曝的郵遞區號讀的是這兩欄；先前 2026-07-21 三欄 per-signup 化：request 加 employeeType/isFixedNumber（hallName 已有），寫 Signups 自有欄不回寫 Believer，SignupListItem 回傳加數值 employeeType，SignupView COALESCE 回退；同日稍早地址非必填客訴：mailAddress 由 required 改可空，空白 normalize 為空字串，移除「請輸入寄件地址」400)
+last_updated: 2026-07-31 (§4 TextAddress fallback 移除〔文牒段留空＝真的沒有文牒地址，不再抄寄件段；「同寄件地址」checkbox 改為實際填值〕、新增 §4c 堂號清空存空字串〔null 會被 SignupView COALESCE 回退信眾堂號〕；先前 2026-07-29 新增 §4b 郵遞區號文字快照：INSERT 必須一併寫 Signups.MailZipcode/TextZipcode〔由 FK 現查、不吃 client 值〕，SignupView 曝的郵遞區號讀的是這兩欄；先前 2026-07-21 三欄 per-signup 化：request 加 employeeType/isFixedNumber（hallName 已有），寫 Signups 自有欄不回寫 Believer，SignupListItem 回傳加數值 employeeType，SignupView COALESCE 回退；同日稍早地址非必填客訴：mailAddress 由 required 改可空，空白 normalize 為空字串，移除「請輸入寄件地址」400)
 ---
 
 ## 規格
@@ -38,12 +38,13 @@ last_updated: 2026-07-29 (新增 §4b 郵遞區號文字快照：INSERT 必須�
   "name": "string (required, max 30)",
   "phone": "string? (max 30)",                       // 全→半形 transform
   "hallName": "string? (max 10)",                    // per-signup 覆寫（2026-07-21）：寫 Signups 自有欄，不回寫 Believer
+                                                     // ""＝明確清空（2026-07-31）；null＝未給 → view COALESCE 回退信眾堂號
   "employeeType": null,                              // per-signup 覆寫；1=非員工 2=大殿 3=地藏殿；超範圍/null → 存 null → view COALESCE 回退信眾值
   "isFixedNumber": null,                             // per-signup 覆寫；null → 回退信眾值（預繳保號仍讀 Believers.IsFixedNumber）
   "mailZipcodeId": null,
   "mailAddress": "string? (max 250)",                // 地址非必填（2026-07-21）：空 → 存空字串
   "textZipcodeId": null,
-  "textAddress": "string? (max 250)",                // 空時自動 fallback 至 mailAddress
+  "textAddress": "string? (max 250)",                // 空＝沒有文牒地址（2026-07-31 起不再 fallback 至 mailAddress）
   "livingNames": ["", "", "", "", "", ""],
   "deadNames":   ["", "", "", "", "", ""],
   "remark": "string? (max 250)",
@@ -94,10 +95,15 @@ last_updated: 2026-07-29 (新增 §4b 郵遞區號文字快照：INSERT 必須�
    - SignupType `1→"No", 2→"寺", 3→"觀", 4→"普", 5→"郵"`
    - 應用層強制（DB 無 CHECK constraint）
 
-4. **TextAddress fallback**（舊 line 246-247, 250）：
-   - textAddress 空 → 取 mailAddress 為值
-   - textZipcodeId 空 + textAddress 空 → 取 mailZipcodeId
-   - 此 fallback 用在「印疏文用同寄件地址」場景
+4. **TextAddress fallback** ❌ **已移除**（舊 line 244-251，2026-07-31 使用者指定）：
+   - 舊：textAddress 空 → 取 mailAddress；textZipcodeId 空 + textAddress 空 → 取 mailZipcodeId
+   - 新：**空就是空**，文牒段（區號/地址）留白即 `null`，不再抄寄件段
+   - 根因：地址自 2026-07-21 起非必填，但這個 fallback 讓「取消文牒地址」永遠取消不掉——
+     清空存檔後寄件地址又被抄進來（客訴）
+   - 「印疏文用同寄件地址」改由前端「同寄件地址」checkbox 負責：勾選時**實際把值填進文牒欄**，
+     所見即所存，比隱性 fallback 明確
+   - 回歸鎖：`CreateSignupHandlerTests.Empty_text_address_stays_empty_and_never_copies_mail_address`、
+     `SignupsEndpointsTests.Clearing_hallName_and_addresses_actually_persists`
 
 4b. **郵遞區號文字快照**（舊 line 248-250 `signup.MailZipcode = txtMailZipcode.Text`，**2026-07-29 補回**）：
    - `Signups` 有 `MailZipcode`/`TextZipcode` 兩個 `nvarchar(10)` 文字欄，**`SignupView` 曝的郵遞區號讀的就是它們**
@@ -105,6 +111,15 @@ last_updated: 2026-07-29 (新增 §4b 郵遞區號文字快照：INSERT 必須�
      `(SELECT Zipcode FROM dbo.Zipcodes WHERE ZipcodeID=@MailZipcodeId)`，永遠與 FK 一致、不吃 client 值
    - 早期只寫 FK → 回應與收據郵寄封面的郵遞區號一律空白（客訴根因）；回歸鎖見
      `SignupsEndpointsTests.Signup_zipcode_text_is_written_and_follows_area_changes`
+
+4c. **堂號清空必須存空字串**（2026-07-31 客訴）：
+   - `SignupView.HallName` ＝ `COALESCE(S.HallName, B.HallName)`；存 `null` 會被回退成信眾堂號，
+     使用者刪掉堂號存檔後又長回來（＝刪不掉）
+   - 故 `hallName` 三態：`null`/未給＝這筆沒有自己的堂號（回退信眾，並行期舊系統寫入的列即此情形）；
+     `""`＝**明確清空**（顯示空白）；其餘＝trim 後的值
+   - 正規化集中在 `SignupHallName.Normalize`（Create/Update/InsertShift 共用），前端清空時一律送 `""`
+   - 回歸鎖：`UpdateSignupHandlerTests.Edit_cleared_hallName_stored_as_empty_string_not_null`
+     ＋ `Edit_omitted_hallName_stays_null_for_believer_fallback`
 
 5. **SignupLog 同步寫入**（舊 line 309-348）：
    - 與 Signup 同一交易；Admin/Createdate 從 JWT claim + DateTime.UtcNow
@@ -125,7 +140,9 @@ last_updated: 2026-07-29 (新增 §4b 郵遞區號文字快照：INSERT 必須�
 | 同一秒 2 個 client 同 (year, ceremony, type) | 可能重複 | UPDLOCK 序列化，不會重複 |
 | signupType=99 | switch 不 hit → NumberTitle null | 400 `報名類型錯誤` |
 | phone 全形 | `Strings.StrConv Narrow` 轉半 | 同 |
-| textAddress 空 | 取 mailAddress | 同 |
+| textAddress 空 | 取 mailAddress | **刻意偏離**：存 null（空就是空，2026-07-31） |
+| textZipcodeId 空 + textAddress 空 | 取 mailZipcodeId | **刻意偏離**：存 null |
+| hallName 送 `""` | （無此概念，堂號讀 Believers） | 存 `""` → 顯示空白（明確清空，不回退信眾堂號） |
 
 ## 業務規則
 

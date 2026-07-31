@@ -41,11 +41,13 @@ public sealed class InsertShiftSignupHandler(
         if (req.PrepayCeremonyCategoryId is { } pc)
             prepayCeremonyTitle = await signupRepo.GetCeremonyCategoryTitleAsync(pc, ct);
 
-        var textAddress = string.IsNullOrWhiteSpace(req.TextAddress) ? mailAddress : req.TextAddress.Trim();
-        var textZipcodeId = req.TextZipcodeId ?? (string.IsNullOrWhiteSpace(req.TextAddress) ? req.MailZipcodeId : null);
+        // 文牒地址空白＝真的沒有文牒地址（2026-07-31 使用者指定），不再抄寄件地址；同 Create/Update。
+        var textAddress = Trim(req.TextAddress);
+        var textZipcodeId = req.TextZipcodeId;
 
         var phone = ToNarrow(Trim(req.Phone));
-        var hallName = Trim(req.HallName);
+        // 堂號空字串＝使用者明確清空（不可存 null，會被 SignupView 的 COALESCE 補回信眾堂號）
+        var hallName = SignupHallName.Normalize(req.HallName);
         var remark = Trim(req.Remark);
         var livingNames = NormalizeNames(req.LivingNames);
         var deadNames = NormalizeNames(req.DeadNames);

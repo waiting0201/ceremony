@@ -186,6 +186,64 @@ public sealed class BelieversEndpointsTests(CeremonyApiFactory factory) : IClass
     }
 
     [Fact]
+    public async Task PUT_can_clear_existing_addresses_and_hallName()
+    {
+        // 2026-07-31 客訴：既有資料的寄件／文牒地址要能整段刪掉（含城市與郵遞區號），堂號同理。
+        var client = await CreateAuthedClientAsync();
+        var uniqueName = $"itest_clr_{DateTime.UtcNow:yyMMddHHmmssfff}";
+
+        var cities = await (await client.GetAsync("/api/v1/zipcodes/cities"))
+            .Content.ReadFromJsonAsync<Application.Zipcodes.ZipcodeCitiesResponse>();
+        var city = cities!.Items.First();
+        var areas = await (await client.GetAsync($"/api/v1/zipcodes?city={Uri.EscapeDataString(city)}"))
+            .Content.ReadFromJsonAsync<Application.Zipcodes.ZipcodeAreasResponse>();
+        var area = areas!.Items[0];
+
+        var createReq = new BelieverUpsertRequest(
+            EmployeeType: 1,
+            Name: uniqueName,
+            MailAddress: "市府路 1 號",
+            HallName: "測試堂",
+            MailZipcodeId: area.ZipcodeId,
+            TextZipcodeId: area.ZipcodeId,
+            TextAddress: "文牒路 2 號");
+        var created = (await (await client.PostAsJsonAsync("/api/v1/believers", createReq))
+            .Content.ReadFromJsonAsync<BelieverListItem>())!;
+        created.MailCity.Should().NotBeNull();
+
+        try
+        {
+            // 前端把三段（城市/區域/地址）都清空後送出的形狀
+            var clearReq = createReq with
+            {
+                MailAddress = "",
+                MailZipcodeId = null,
+                TextAddress = "",
+                TextZipcodeId = null,
+                HallName = "",
+            };
+            var clearResp = await client.PutAsJsonAsync($"/api/v1/believers/{created.Id}", clearReq);
+            clearResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var cleared = (await (await client.GetAsync($"/api/v1/believers/{created.Id}"))
+                .Content.ReadFromJsonAsync<BelieverListItem>())!;
+            cleared.MailAddress.Should().BeNullOrEmpty();
+            cleared.MailZipcodeId.Should().BeNull();
+            cleared.MailCity.Should().BeNull(because: "城市/區域由 MailZipcodeID join 而來，區號清掉就整段消失");
+            cleared.MailArea.Should().BeNull();
+            cleared.TextAddress.Should().BeNullOrEmpty();
+            cleared.TextZipcodeId.Should().BeNull();
+            cleared.TextCity.Should().BeNull();
+            cleared.TextArea.Should().BeNull();
+            cleared.HallName.Should().BeNull();
+        }
+        finally
+        {
+            await client.DeleteAsync($"/api/v1/believers/{created.Id}");
+        }
+    }
+
+    [Fact]
     public async Task PUT_unknownId_returns_404()
     {
         var client = await CreateAuthedClientAsync();

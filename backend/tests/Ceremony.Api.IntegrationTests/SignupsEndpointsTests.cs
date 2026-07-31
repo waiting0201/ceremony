@@ -418,6 +418,84 @@ public sealed class SignupsEndpointsTests(CeremonyApiFactory factory) : IClassFi
     }
 
     [Fact]
+    public async Task Clearing_hallName_and_addresses_actually_persists()
+    {
+        // 2026-07-31 客訴：既有的堂號／寄件地址／文牒地址要能整段刪掉（含城市與郵遞區號），存完不可長回來。
+        // 兩個回歸點：
+        //  (1) 堂號存空字串而非 null——存 null 會被 SignupView 的 COALESCE 補回信眾堂號。
+        //  (2) 文牒地址／區號留空不再抄寄件段（舊 EditSignupForm.cs:255-267 的 fallback 已移除）。
+        var client = await AuthedAsync();
+
+        var cities = await (await client.GetAsync("/api/v1/zipcodes/cities"))
+            .Content.ReadFromJsonAsync<Application.Zipcodes.ZipcodeCitiesResponse>();
+        var city = cities!.Items.First();
+        var areas = await (await client.GetAsync($"/api/v1/zipcodes?city={Uri.EscapeDataString(city)}"))
+            .Content.ReadFromJsonAsync<Application.Zipcodes.ZipcodeAreasResponse>();
+        var area = areas!.Items[0];
+
+        var believerName = $"itest_clr_{DateTime.UtcNow:yyMMddHHmmssfff}";
+        var believer = await (await client.PostAsJsonAsync("/api/v1/believers", new
+        {
+            employeeType = 1,
+            name = believerName,
+            hallName = "原堂",                 // 信眾有堂號 → 報名存 null 會被 COALESCE 撈回來
+            mailAddress = "整合測試地址",
+        })).Content.ReadFromJsonAsync<Application.Believers.BelieverListItem>();
+
+        const int year = 995;                                                    // 專用年份，避開真實資料
+        var ceremonyId = Guid.Parse("18927907-dcad-42b2-8f2a-635c2e0fa98d");     // 春季
+
+        var created = (await (await client.PostAsJsonAsync("/api/v1/signups", new
+        {
+            year,
+            ceremonyCategoryId = ceremonyId,
+            signupType = 1,
+            believerId = believer!.Id,
+            name = believerName,
+            hallName = "甲堂",
+            mailAddress = "整合測試地址",
+            mailZipcodeId = area.ZipcodeId,
+            textZipcodeId = area.ZipcodeId,
+            textAddress = "整合測試文牒地址",
+        })).Content.ReadFromJsonAsync<SignupListItem>())!;
+        created.HallName.Should().Be("甲堂");
+
+        // 全部清空（前端清欄位後送出的形狀：堂號/地址空字串、區號 null）
+        var clearResp = await client.PutAsJsonAsync($"/api/v1/signups/{created.Id}", new
+        {
+            year,
+            ceremonyCategoryId = ceremonyId,
+            signupType = 1,
+            believerId = believer.Id,
+            name = believerName,
+            customNumber = created.Number,
+            hallName = "",
+            mailAddress = "",
+            mailZipcodeId = (int?)null,
+            textAddress = "",
+            textZipcodeId = (int?)null,
+        });
+        clearResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var cleared = (await (await client.GetAsync($"/api/v1/signups/{created.Id}"))
+            .Content.ReadFromJsonAsync<SignupListItem>())!;
+        cleared.HallName.Should().BeEmpty(because: "清空的堂號不得被 COALESCE 回退成信眾的「原堂」");
+        cleared.MailAddress.Should().BeNullOrEmpty();
+        cleared.MailCity.Should().BeNull(because: "城市/區域由 MailZipcodeID join 而來，區號清掉就整段消失");
+        cleared.MailZone.Should().BeNull();
+        cleared.MailZipcode.Should().BeNull();
+        cleared.TextAddress.Should().BeNullOrEmpty(because: "文牒地址留空不得再抄寄件地址");
+        cleared.TextCity.Should().BeNull();
+        cleared.TextZone.Should().BeNull();
+        cleared.TextZipcode.Should().BeNull();
+
+        // 信眾主檔不受影響（per-signup 覆寫的既有保證）
+        var believerGet = (await (await client.GetAsync($"/api/v1/believers/{believer.Id}"))
+            .Content.ReadFromJsonAsync<Application.Believers.BelieverListItem>())!;
+        believerGet.HallName.Should().Be("原堂");
+    }
+
+    [Fact]
     public async Task Signup_zipcode_text_is_written_and_follows_area_changes()
     {
         // Signups 的郵遞區號有兩欄：MailZipcodeID（FK）與 MailZipcode（文字快照），SignupView 曝的是**文字欄**。

@@ -63,9 +63,9 @@
             <label class="field zip">
               <input type="text" [value]="mailZipcode()" readonly placeholder="郵遞區號" />
             </label>
-            <!-- 本表單的寄件地址仍是必填（Validators.required），標題拿掉後靠 placeholder 的 * 保留提示 -->
+            <!-- 2026-07-31 起寄件地址非必填（與報名表單一致），placeholder 不再標 * -->
             <label class="field span-row">
-              <input type="text" formControlName="mailAddress" maxlength="200" placeholder="寄件地址 *" />
+              <input type="text" formControlName="mailAddress" maxlength="200" placeholder="寄件地址" />
             </label>
           </div>
         </fieldset>

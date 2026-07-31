@@ -770,7 +770,9 @@ export class SignupEditFormComponent implements OnInit {
       fee: v.fee,
       phone: v.phone || null,
       // per-signup 覆寫欄（2026-07-21）：改由表單值送出，後端寫 Signups 自有欄、不回寫 Believer。
-      hallName: v.hallName || null,
+      // 清空時送**空字串**而非 null（2026-07-31）：null 會被 SignupView 的 COALESCE 補回信眾堂號，
+      // 使用者刪了堂號存檔後又長回來（＝刪不掉）。空字串代表「這筆明確沒有堂號」。
+      hallName: v.hallName.trim(),
       employeeType: v.employeeType,
       isFixedNumber: v.isFixedNumber,
       mailZipcodeId: v.mailZipcodeId ? Number(v.mailZipcodeId) : null,
