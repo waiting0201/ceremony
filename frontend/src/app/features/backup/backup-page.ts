@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { BackupApi } from '../../core/api/backup/backup.api';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { IconComponent } from '../../shared/icon/icon.component';
 
@@ -111,7 +111,7 @@ export class BackupPage {
         hideCancel: true,
       });
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : '備份失敗，請稍後再試';
+      const message = toMessage(err, '備份失敗，請稍後再試');
       await this.dialog.ask({
         title: '備份失敗',
         message,

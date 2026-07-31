@@ -9,7 +9,7 @@ import {
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { SignupApi } from '../../core/api/signups/signup.api';
 import type { SignupLogItem } from '../../core/api/signups/signup.models';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { AvoidFourPipe } from '../../shared/pipes/avoid-four.pipe';
 import { signupTypeLabel } from '../../shared/util/signup-type';
 
@@ -50,7 +50,7 @@ export class SignupLogsPage implements OnInit {
       const resp = await this.api.listLogs(id);
       this.logs.set(resp.items);
     } catch (err) {
-      this.errorMessage.set(err instanceof ApiError ? err.message : '載入失敗');
+      this.errorMessage.set(toMessage(err, '載入失敗'));
     } finally {
       this.loading.set(false);
     }

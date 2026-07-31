@@ -13,7 +13,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
 
 export type CategoryEditMode = 'create-root' | 'create-child' | 'edit';
@@ -95,8 +95,4 @@ export class CategoryEditFormComponent {
   }
 
   protected onSubmitFromForm(): void { void this.submit(); }
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }

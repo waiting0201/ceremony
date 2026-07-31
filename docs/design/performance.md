@@ -12,7 +12,7 @@ related_docs:
   - ../blueprints/signup-management.md
   - ../blueprints/printing-reports.md
 keywords: [performance, 效能, 索引, index, cache, dapper, query, paging, virtualization, signals]
-last_updated: 2026-07-28 (§8 列印批次改寫成 job 模型：補實測數據〔799 筆 datacard 渲染 5.4s／合併 1.6s／成品 107 MB〕、記錄 PdfSharp 合併的 2 GB MemoryStream 上限〔19018 筆會爆，屬既有限制〕、250ms 輪詢的成本與理由、記憶體保留策略；SLA 表加「進度回報延遲」一列。先前 2026-06-29 DB 解除凍結：索引改為可走 migration 的待評估選項)
+last_updated: 2026-07-31 (§8 補記：2 GB 上限已由前端分段解決〔plan 取清單 → 200 筆一段逐段建 job，峰值與總筆數無關〕，後端串流化合併因此不必要；記錄被順帶修掉的 SearchByIdsAsync 2100 參數上限；補「列印時間由印表機決定，5000 張約 2.8 小時，分段不會變快」。先前 2026-07-28 (§8 列印批次改寫成 job 模型：補實測數據〔799 筆 datacard 渲染 5.4s／合併 1.6s／成品 107 MB〕、記錄 PdfSharp 合併的 2 GB MemoryStream 上限〔19018 筆會爆，屬既有限制〕、250ms 輪詢的成本與理由、記憶體保留策略；SLA 表加「進度回報延遲」一列。先前 2026-06-29 DB 解除凍結：索引改為可走 migration 的待評估選項)
 ---
 
 ## ⚠️ 重要前提
@@ -223,10 +223,21 @@ FROM @Buffer; -- TVP
 - 100 筆 PDF 預期 < 5s、1000 筆 < 30s
 
 **⚠️ 合併的 2 GB 上限**：19018 筆時 PdfSharp 在 `MemoryStream` 觸發
-`System.IO.IOException: Stream was too long`。這是**既有限制**（改 job 前的同步 endpoint 一樣會爆），
-job 化只是讓它從「畫面凍結數分鐘後無聲失敗」變成可見的 `INTERNAL_ERROR` + 進度條停住。
-目前**不加**每 job 筆數上限（維持與同步版相同行為）；若要處理，方向是分段輸出多個 PDF
-或改用檔案串流合併。
+`System.IO.IOException: Stream was too long`。峰值記憶體約是成品的 3–4 倍
+（`List<byte[]>` + 每個 `PdfDocument` object graph + `MemoryStream` + `.ToArray()` 又一份），
+所以實際上遠在 2 GB 之前就開始難受。
+
+**✅ 2026-07-31 已由前端分段解決**：大量列印改成
+「[`POST /batch/plan`](../blueprints/api-endpoints/post-reports-batch-plan.md) 取清單 →
+前端切成 200 筆一段 → 逐段建 job 送印」。單一 job 最多 200 筆 ≈ 27 MB、峰值 ~100 MB，
+**與總筆數無關**，2 GB 上限因此碰不到。詳見
+[chunked-batch-printing.md](../blueprints/chunked-batch-printing.md)。
+
+因為分段，**後端串流化合併（`Merge` 改吃 `Stream`、job 成品存暫存檔）已不必要**——
+每段只有 27 MB，那層工作沒有收益。若日後段大小要拉到數千筆才需重新評估。
+
+另一個被分段順帶修掉的硬上限：`SearchByIdsAsync` 的 `WHERE SignupID IN @Ids` 經 Dapper
+展開成 N 個參數，**SQL Server 上限 2100** → 分段之前，勾選 3000 筆列印會直接炸在這裡。
 
 **進度回報成本**：前端每 250ms 輪詢一次 `GET /reports/batch/jobs/{id}`（實測回應 0.15ms）。
 選輪詢而非 SSE 的理由見 [api-design.md](api-design.md)。250ms 已比「渲染完一筆」（6.5ms）稀疏，
@@ -234,6 +245,10 @@ job 化只是讓它從「畫面凍結數分鐘後無聲失敗」變成可見的 
 
 **記憶體**：成品 PDF 常駐在 job 物件裡直到被取走，故 `/file` 取走即釋放（one-shot）+
 TTL 10 分鐘 + 最多保留 4 個 job。見 [backend-design.md](backend-design.md)。
+分段之後每個 job 只有一段，`/file` 又是逐段立刻取走，所以常駐量再降一個量級。
+
+**列印時間是印表機決定的**：5000 張以雷射機 30ppm 算約 **2.8 小時**。分段解決的是
+「中途卡紙不用整批重來」，不會讓列印變快——這點在跟使用者對期望時要講清楚。
 
 ### 9. Excel 匯出
 

@@ -15,7 +15,7 @@ related_docs:
   - ../design/api-design.md
   - ../gotchas.md
 keywords: [列印, 印表機, 紙張, pageSize, 縮放, scaleFactor, silent print, plugins, PDF viewer, X-Report-Page-Size, print-settings.json]
-last_updated: 2026-07-31
+last_updated: 2026-07-31 (同日稍晚：大量列印改前端分段後，決策 3「main 自己抓 PDF」的 printReport / printBatchJob 整條移除，printPdfBuffer 成為唯一送印通道；資料流圖改為 plan-first 分流；預覽門檻只剩 PREVIEW_MAX_BYTES。同日先前追加決策 6「預覽內建在列印對話框」含大檔門檻表與 one-shot/TTL 分析、決策 7「送印錯誤用 UserFacingError」含 blob 錯誤 body 解析；資料流圖依取檔者重畫；移除 ceremony:printReport IPC；待驗證補 3 項)
 ---
 
 ## 背景與動機
@@ -104,24 +104,70 @@ PDF 頁面尺寸就是實體紙張尺寸，1:1 才對得上 [printing-reports-po
 
 `main.ts` 的 bootstrap 每次啟動都用 `default-config.json` 種子覆寫 `config.json`（只保留 `jwtKey`），塞進去會被吃掉。而且印表機是**每台機器**的屬性，與「連線權威由出廠種子決定」的語意衝突。
 
+### 6. 預覽內建在列印對話框，不另開視窗（2026-07-31 追加）
+
+**客訴**：「列印會出現操作失敗請稍後再試，而且也沒有預覽列印。」
+
+`silent: true` 是決策 1 的必然代價——按下去就直接進 spooler，使用者印壞了才知道。舊系統有 `PrintPreviewDialog`，新系統只剩 `/reports/preview` 那頁，而它要手貼 signupId GUID，實務上等於沒有。
+
+所以預覽做進既有的列印對話框（左 iframe、右設定），而不是另開視窗：
+- 另開 `BrowserWindow` 顯示 PDF 沒辦法在同一個視窗放「列印/取消」按鈕（`webContents.print` 會把工具列一起印進去），還要處理兩個視窗的狀態同步。
+- 主視窗已有 `plugins: true`，renderer 的 `<iframe src="blob:…pdf">` 直接能渲染，與 `/reports/preview` 用的是同一套機制。
+- iframe src 接 `#toolbar=0`：Chromium 內建 PDF viewer 的工具列自帶列印鈕，按下去會**繞過整條通道**（紙張 / 縮放全失效）。
+
+**代價**：預覽需要 bytes 在 renderer，所以 PDF 改由 renderer 取檔、再經 IPC 把 bytes 送回 main，
+違反了決策 3「大檔不經 IPC」的原則。
+
+這個矛盾在同日稍晚被
+[大量列印分段](chunked-batch-printing.md) 一併解掉：批次切成 200 筆一段之後，
+**每次送印最多一段（≈27 MB），IPC 傳 bytes 已無成本問題**，`printPdfBuffer` 因此成為
+唯一的送印通道，決策 3 的「main 自己抓」路徑（`printReport` / `printBatchJob`）整條移除。
+
+現在的預覽規則只剩一條保險絲：blob > 64 MB（`PREVIEW_MAX_BYTES`）時略過 iframe 渲染，
+顯示「檔案較大，略過預覽」，bytes 仍在手上照樣送印。
+
+**附帶好處**：每段在 job `completed` 當下就取檔，job 立刻被消耗 →
+對話框開多久都不怕後端 10 分鐘 TTL。
+
+### 7. 送印錯誤用 `UserFacingError`，不用原生 `Error`（2026-07-31 追加）
+
+「操作失敗，請稍後再試」的真正來源是 `toMessage()` —— 這份三行函式在 13 個 feature 各複製了一份，只認 `ApiError`，其餘一律蓋掉。列印通道丟的是原生 `Error`，於是主行程回的每一句話都被抹掉：ENOENT、「列印逾時（印表機無回應）」、「尚未連線」、sidecar 的「找不到報名」。
+
+- `toMessage` 收斂到 `core/errors/to-message.ts`，同時認 `ApiError` 與新的 `UserFacingError` marker class。
+- 不改成無條件透出 `Error.message`：TypeError / ChunkLoadError 丟到 UI 只會製造客訴。要透出就明確標記。
+- 不偽造 `new ApiError(0, 'PRINT_FAILED', …)`：status / errorCode 是假的，會汙染日後依 errorCode 分支的程式。
+
+同時修掉 blob endpoint 的錯誤訊息：`responseType:'blob'` 時 `HttpErrorResponse.error` 是 `Blob`，`ApiError.fromHttp` 的 `errorCode` 判斷失效 → 中文訊息永遠出不來。新增 `ApiError.fromHttpAsync`（`Blob → text → JSON`），interceptor 只有在 `err.error instanceof Blob` 時才走非同步分支。
+
 ## 資料流
 
 ```
 UI（右鍵選單 / 批次區 / 新增後列印 / 報表預覽頁）
-  → PrintService（core/print）          ← isElectron() 分流
+  → PrintService（core/print）          ← 唯一入口
       │
-      ├─ 非 Electron（ng serve / 測試）→ openPdfInNewTab(blob)   ※ 行為完全不變
+      ├─ 單筆：ReportApi.single() 取 blob + pageSizeHeader
       │
-      └─ Electron
-           ├─ 批次：BatchPrintService.run(req, { takeFile: false })
-           │        （進度 overlay + 取消仍在前端；/file 是 one-shot 不能先取）
-           ├─ PrintDialogService.ask(...)  ← listPrinters + getPrintSettings 帶入預設
-           └─ window.ceremony.printReport / printBatchJob / printPdfBuffer
-                 → main: streamApiToFile → 讀 X-Report-Page-Size
-                 → printPdfFile：隱藏視窗（plugins:true）載入 file://x.pdf
-                     → did-finish-load → 等 PDF 子 frame 掛上 → +250ms
-                     → webContents.print({ silent:true, deviceName, pageSize, margins, scaleFactor })
-                     → callback 才關窗 + 刪 temp（提早關窗會殺掉列印）
+      └─ 批次：POST /reports/batch/plan 取清單 → 依 total 分流
+             ├─ ≤ 200 筆：BatchPrintService 單一 job（ProgressOverlay）
+             └─ > 200 筆：ChunkedPrintService 逐段（分段面板，可暫停／單段重印）
+                          見 chunked-batch-printing.md
+      │
+      → PrintDialogService.ask({ previewBlob, ... })   ← 內建 PDF 預覽 iframe
+           │      Electron 額外帶 listPrinters + getPrintSettings 的預設值
+           │      瀏覽器走 mode:'preview-only'（無印表機欄位，主鈕＝在新分頁開啟）
+           │      分段模式只在第 1 段問一次，其餘段沿用
+           │
+           ├─ 非 Electron → openPdfInNewTab(blob)
+           │
+           └─ Electron → ceremony:printPdfBuffer(type, bytes, choice, pageSizeHeader)
+                            ← 唯一送印通道；每次最多一段（≈27 MB）
+                          → main 寫 temp 檔 → printResolved
+
+     printResolved → resolvePageSize（header 優先，fallback 表次之）
+       → printPdfFile：隱藏視窗（plugins:true）載入 file://x.pdf
+           → did-finish-load → 等 PDF 子 frame 掛上 → +250ms
+           → webContents.print({ silent:true, deviceName, pageSize, margins, scaleFactor })
+           → callback 才關窗 + 刪 temp（提早關窗會殺掉列印）
 ```
 
 ## 檔案
@@ -132,13 +178,21 @@ UI（右鍵選單 / 批次區 / 新增後列印 / 報表預覽頁）
 | Api | `Controllers/ReportsController.cs` | `AppendPageSize()` 掛 `X-Report-Page-Size` |
 | Api | `Program.cs` | `WithExposedHeaders` 加 `X-Report-Page-Size` |
 | Electron | `electron/paper.ts` | fallback 尺寸表 + header 解析（純函式，可測） |
-| Electron | `electron/api-stream.ts` | `streamApiToFile`（`download.ts` 共用） |
+| Electron | `electron/api-stream.ts` | `streamApiToFile`（`download.ts` 共用）；**負責補齊目的目錄** |
 | Electron | `electron/print-config.ts` | `print-settings.json` 讀寫 |
-| Electron | `electron/print.ts` | `printReport` / `printBatchJob` / `printPdfBuffer` / `printPdfFile` / `listPrinters` / `sweepTempDir` |
-| Electron | `electron/main.ts` | `plugins: true`、`setWindowOpenHandler`、6 個 IPC、temp 清理 |
-| Renderer | `core/print/print.service.ts` | 唯一列印入口，Electron / 瀏覽器分流 |
-| Renderer | `shared/print-dialog/` | 自建列印對話框 |
-| Renderer | `core/reports/batch-print.service.ts` | 新增 `takeFile` 選項（預設 `true`，行為不變） |
+| Electron | `electron/print.ts` | `printPdfBuffer` / `printPdfFile` / `listPrinters` / `sweepTempDir` |
+| Electron | `electron/main.ts` | `plugins: true`、`setWindowOpenHandler`、4 個列印 IPC、temp 清理 |
+| Renderer | `core/print/print.service.ts` | 唯一列印入口；plan-first 分流、`PREVIEW_MAX_BYTES` |
+| Renderer | `shared/print-dialog/` | 自建列印對話框（含 PDF 預覽；object URL 生命週期在 service） |
+| Renderer | `core/reports/batch-print.service.ts` | 單一 job 的進度 overlay 流程（≤ `SEGMENT_SIZE`） |
+| Renderer | `core/reports/chunked-print.service.ts` | 大量列印分段狀態機（見 [chunked-batch-printing.md](chunked-batch-printing.md)） |
+| Renderer | `core/errors/to-message.ts` | `toMessage` 單一實作 + `UserFacingError` marker |
+| Renderer | `core/http/api-error.ts` | `fromHttpAsync`：blob 錯誤 body 的 JSON 解析 |
+
+**已移除**：`ceremony:printReport` 與 `ceremony:printBatchJob` 兩條 IPC，以及
+`electron/print.ts` 的 `printReport` / `printBatchJob`。分段之後每次送印最多一段（≈27 MB），
+「main 自己去 sidecar 串流取檔」不再有存在理由，留著就是永遠不會被執行的死碼。
+`electron/api-stream.ts` 保留——備份下載仍在用。
 
 ## 不做什麼
 
@@ -153,3 +207,6 @@ UI（右鍵選單 / 批次區 / 新增後列印 / 報表預覽頁）
 3. 橫式尺寸（文牒 365×262mm）Chromium 會不會自己轉直向 → 決定要不要補 `landscape`。
 4. **對照組**：同一份 PDF 用「現行檢視器路徑 / 新通道 actual / 新通道 fit」各印一張疊起來比。歷次對位客訴是在檢視器的預設縮放下驗收的，改 1:1 有機會讓已驗收的座標再次跑掉——這是唯一能判定的方法。
 5. 資料卡與文牒的**實體紙張真實尺寸**要量一張現場的預印紙（見上方尺寸差異表），決定是重建驅動 form 還是改 renderer 常數（後者要重跑對位驗收）。
+6. **`#toolbar=0` 是否真的必要**：Chromium 內建 PDF viewer 的工具列列印鈕在 Electron（`enable_print_preview=false`）內按下去的實際行為未定義。若實機上該鈕本來就不出現或無作用，可以拿掉以換回捲軸與頁碼顯示。
+7. **`PREVIEW_MAX_SIGNUPS = 200` 的門檻要不要調**：量 200 筆左右的批次「取檔 → IPC 傳 bytes → 寫 temp」的實際延遲與記憶體峰值。太慢就調小、綽綽有餘就調大（使用者當然希望愈多筆愈能預覽）。
+8. **大批次（≥ 5000 筆）走 `printBatchJob` 路徑的記憶體曲線**：確認略過預覽的分支真的沒把 PDF 帶進 renderer。

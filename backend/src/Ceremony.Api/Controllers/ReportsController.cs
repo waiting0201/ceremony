@@ -145,6 +145,28 @@ public sealed class ReportsController(
         return File(pdf, "application/pdf", fileName);
     }
 
+    /// <summary>解析批次列印範圍，回傳要印的報名清單（不渲染），供前端分段送印。</summary>
+    /// <remarks>
+    /// Blueprint: docs/blueprints/api-endpoints/post-reports-batch-plan.md
+    ///
+    /// 大量列印（實測 799 筆 = 107 MB、19018 筆會爆 PdfSharp 的 2 GB MemoryStream）不能做成
+    /// 單一 PDF。前端拿這份有序清單切成固定大小的段，逐段走 batch/jobs 送印：
+    /// 峰值記憶體變成與總筆數無關的固定值，中途卡紙也只需重印那一段。
+    ///
+    /// 選取邏輯完全複用 ResolveAsync → 錯誤碼／訊息／筆數與 batch/jobs 完全一致，
+    /// 前端不需要（也不可以）自己重查一次。
+    /// </remarks>
+    [HttpPost("batch/plan")]
+    public async Task<IActionResult> CreateBatchPlan([FromBody] BatchReportRequest req, CancellationToken ct)
+    {
+        var plan = await batch.ResolveAsync(req, ct);
+        return Ok(new BatchReportPlanResponse(
+            plan.ReportType,
+            plan.FileName,
+            plan.Signups.Count,
+            [.. plan.Signups.Select(s => new BatchReportPlanItem(s.Id, s.Number))]));
+    }
+
     /// <summary>建立批次列印背景工作，立刻回 jobId 與總筆數（驗證與查詢仍是同步的）。</summary>
     /// <remarks>Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md</remarks>
     [HttpPost("batch/jobs")]

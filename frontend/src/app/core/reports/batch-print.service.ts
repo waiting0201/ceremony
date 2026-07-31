@@ -14,25 +14,13 @@ export interface BatchPrintOptions {
   title?: string;
   /** overlay 副標，通常是報表名稱 */
   detail?: string;
-  /**
-   * 是否由本服務把成品 PDF 取回（預設 true）。
-   *
-   * Electron 列印通道要傳 false：GET /file 是 one-shot（取走即釋放），renderer 取過 main 就取不到，
-   * 而 PDF 由 main 直接串流落檔才不會在 IPC 複製一份大 buffer。
-   */
-  takeFile?: boolean;
-}
-
-/** takeFile:false 時的回傳：只給 jobId，成品仍在伺服器等人來取。 */
-export interface BatchPrintJobHandle {
-  jobId: string;
-  fileName: string;
-  total: number;
-  reportType: string;
 }
 
 /**
- * 批次列印流程總管：建 job → 顯示進度 overlay → 輪詢 → 取檔 / 取消。
+ * 單一批次 job 的流程總管：建 job → 顯示進度 overlay → 輪詢 → 取檔 / 取消。
+ *
+ * 只服務「一個 job 就能印完」的情境（≤ SEGMENT_SIZE 筆）與報表預覽頁的產生。
+ * 大量列印不走這裡——見 {@link ChunkedPrintService}，那邊要顯示的是分段面板而非單一進度條。
  *
  * 放在 core/ 是因為 signups 與 reports 兩個 feature 都要用；放任一 feature 會造成跨 feature 相依。
  * Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
@@ -43,21 +31,10 @@ export class BatchPrintService {
   private readonly overlay = inject(ProgressOverlayService);
 
   /**
-   * @returns 成品 PDF（`takeFile:false` 時為 {@link BatchPrintJobHandle}）；使用者中途取消時回 `null`。
+   * @returns 成品 PDF；使用者中途取消時回 `null`。
    * @throws {ApiError} 建立失敗（編號錯誤／查無資料…）或渲染失敗
    */
-  async run(
-    req: BatchReportRequest,
-    opts?: BatchPrintOptions & { takeFile?: true },
-  ): Promise<ReportPdf | null>;
-  async run(
-    req: BatchReportRequest,
-    opts: BatchPrintOptions & { takeFile: false },
-  ): Promise<BatchPrintJobHandle | null>;
-  async run(
-    req: BatchReportRequest,
-    opts: BatchPrintOptions = {},
-  ): Promise<ReportPdf | BatchPrintJobHandle | null> {
+  async run(req: BatchReportRequest, opts: BatchPrintOptions = {}): Promise<ReportPdf | null> {
     // 這一步的錯誤直接往上丟：狀態碼與訊息與舊的同步版完全相同，呼叫端錯誤處理不用改
     const job = await this.api.createBatchJob(req);
 
@@ -97,13 +74,8 @@ export class BatchPrintService {
             break;
 
           case 'completed': {
-            const fileName = state.fileName || job.fileName;
-            if (opts.takeFile === false) {
-              handle.update({ completed: state.total, note: '送印中…', cancelable: false });
-              return { jobId: job.jobId, fileName, total: state.total, reportType: job.reportType };
-            }
             handle.update({ completed: state.total, note: '下載中…', cancelable: false });
-            return await this.api.getBatchJobFile(job.jobId, fileName);
+            return await this.api.getBatchJobFile(job.jobId, state.fileName || job.fileName);
           }
 
           case 'canceled':

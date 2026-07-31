@@ -31,7 +31,7 @@ last_updated: 2026-05-27.4
 
 ## 索引（依舊 Form 分組）
 
-> 進度：**34 個 endpoint shipped**（含全部 5 個單筆列印變體 + batch 同步版 + batch job 版 4 支 + backup + backup download + logout）。列印 PoC 已確認 **QuestPDF 路徑**（RDLC 在 .NET 10 不可行）；批次列印用 **PdfSharp 6.2.4** 合併；列印 5 變體已產出真實 PDF（worship batch 1..200 → 2634 頁），variant-specific 座標 / worship2.png 背景 / PhotoAddress PNG 仍待印表機實機驗收後精修。Auth 完整含 logout（JWT 黑名單）。
+> 進度：**35 個 endpoint shipped**（含全部 5 個單筆列印變體 + batch 同步版 + batch job 版 4 支 + batch plan（大量列印分段） + backup + backup download + logout）。列印 PoC 已確認 **QuestPDF 路徑**（RDLC 在 .NET 10 不可行）；批次列印用 **PdfSharp 6.2.4** 合併；列印 5 變體已產出真實 PDF（worship batch 1..200 → 2634 頁），variant-specific 座標 / worship2.png 背景 / PhotoAddress PNG 仍待印表機實機驗收後精修。Auth 完整含 logout（JWT 黑名單）。
 
 ### Auth & Admin（LoginForm + MainForm + AdminsForm）
 
@@ -95,6 +95,7 @@ last_updated: 2026-05-27.4
 | `GET /api/v1/reports/worship` | — | **`SignupForm.cs:1554-1696`** (PrintWorship 5 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 13,32 ✅ | **shipped (selector + base render; only SignupType=4)** |
 | `GET /api/v1/reports/worshipcard` | [get-reports-worshipcard.md](get-reports-worshipcard.md) | N/A（全新複合報表，舊系統無對應） | N/A | **shipped（待實體卡紙驗收）** |
 | `POST /api/v1/reports/batch` | [post-reports-batch.md](post-reports-batch.md) | `SignupForm.cs:447-653` (btnPrint_Click 編號範圍) + `CombinePDFs` 1698-1722 | [signup-form.md](../legacy-coverage/signup-form.md) rows 16, 33 ✅ | **shipped（同步阻塞版；保留為相容契約＋整合測試，UI 已改走 job 版）** |
+| `POST /api/v1/reports/batch/plan` | [post-reports-batch-plan.md](post-reports-batch-plan.md) | N/A（新需求：舊系統批次是同步迴圈逐筆送印，無單一大 PDF 也就無分段概念） | N/A | **shipped** |
 | `POST /api/v1/reports/batch/jobs` | [post-reports-batch-jobs.md](post-reports-batch-jobs.md) | 同上（進度／取消為新版加值，舊系統無對應） | [signup-form.md](../legacy-coverage/signup-form.md) rows 16, 33 ✅ | **shipped** |
 | `GET /api/v1/reports/batch/jobs/{jobId}` | ↑ 併入母 blueprint | N/A（新需求） | N/A | **shipped** |
 | `GET /api/v1/reports/batch/jobs/{jobId}/file` | ↑ 併入母 blueprint | N/A（新需求） | N/A | **shipped** |

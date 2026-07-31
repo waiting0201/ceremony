@@ -31,7 +31,7 @@ import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
 import type { SingleReportType } from '../../core/api/reports/report.models';
 import { PrintService } from '../../core/print/print.service';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { ContextMenuService } from '../../shared/context-menu/context-menu.service';
 import type { ContextMenuItem } from '../../shared/context-menu/context-menu.types';
@@ -1092,10 +1092,6 @@ function downloadBlob(blob: Blob, fileName: string): void {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }
 
 function reportTypeLabel(type: SingleReportType): string {

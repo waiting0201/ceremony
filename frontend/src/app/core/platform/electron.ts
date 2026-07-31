@@ -96,22 +96,16 @@ export interface CeremonyBridge {
   listPrinters(): Promise<PrinterInfo[]>;
   getPrintSettings(): Promise<PrintSettings>;
   savePrintSetting(reportType: string, setting: ReportPrintSetting): Promise<PrintSettings>;
-  printReport(
-    reportType: string,
-    apiPath: string,
-    token: string,
-    overrides: ReportPrintSetting,
-  ): Promise<PrintResult>;
-  printBatchJob(
-    reportType: string,
-    jobId: string,
-    token: string,
-    overrides: ReportPrintSetting,
-  ): Promise<PrintResult>;
+  /**
+   * 送印 renderer 手上的 PDF bytes。這是**唯一**的送印通道——大量列印在前端切成
+   * ≤200 筆的段，每段約 27 MB，IPC 傳 bytes 沒有成本問題。
+   */
   printPdfBuffer(
     reportType: string,
     bytes: Uint8Array,
     overrides: ReportPrintSetting,
+    /** X-Report-Page-Size 原字串；省略時主行程只能用 fallback 紙張表 */
+    pageSizeHeader?: string | null,
   ): Promise<PrintResult>;
   openExternal(url: string): Promise<{ ok: boolean }>;
   launchInstaller(key: string): Promise<{ ok: boolean; launched?: boolean; error?: string }>;

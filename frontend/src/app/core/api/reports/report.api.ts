@@ -5,6 +5,7 @@ import { environment } from '../../../../environments/environment';
 import type {
   BatchJobCreated,
   BatchJobState,
+  BatchReportPlan,
   BatchReportRequest,
   ReportPdf,
   SingleReportType,
@@ -27,12 +28,21 @@ export class ReportApi {
     return {
       blob: resp.body!,
       fileName: extractFileName(resp.headers.get('content-disposition')) ?? `${type}-${signupId}.pdf`,
+      pageSizeHeader: resp.headers.get('x-report-page-size') ?? undefined,
     };
   }
 
   // ── 批次列印 job（有進度回報與取消）───────────────────────────────
   // 舊的同步 POST /reports/batch 後端仍保留（相容契約 + 整合測試），但前端一律走 job 版，
   // 所以這裡不再提供 batch()。Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
+
+  /**
+   * 解析批次範圍，取得要印的報名清單（不渲染）。大量列印切段用。
+   * 錯誤碼／訊息與 createBatchJob 完全相同（後端共用 ResolveAsync）。
+   */
+  createBatchPlan(req: BatchReportRequest): Promise<BatchReportPlan> {
+    return firstValueFrom(this.http.post<BatchReportPlan>(`${this.base}/batch/plan`, req));
+  }
 
   /** 建立批次列印工作。驗證與查詢仍是同步的 → 錯誤碼／訊息與同步版完全相同。 */
   createBatchJob(req: BatchReportRequest): Promise<BatchJobCreated> {
@@ -57,6 +67,7 @@ export class ReportApi {
       // job 已經給過檔名，header 只是備援（跨源時需要後端 WithExposedHeaders 才讀得到）
       fileName: extractFileName(resp.headers.get('content-disposition')) ?? fallbackName,
       signupCount: countHeader ? Number(countHeader) : undefined,
+      pageSizeHeader: resp.headers.get('x-report-page-size') ?? undefined,
     };
   }
 

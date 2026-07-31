@@ -18,7 +18,7 @@ import type {
 } from '../../core/api/believers/believer.models';
 import { ZipcodeApi } from '../../core/api/zipcodes/zipcode.api';
 import type { ZipcodeAreaItem } from '../../core/api/zipcodes/zipcode.models';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 
 /**
  * 信眾 create/edit 表單。
@@ -281,8 +281,4 @@ function pad6(arr: (string | null)[]): string[] {
   const out = [...arr];
   while (out.length < 6) out.push(null);
   return out.slice(0, 6).map((v) => v ?? '');
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }

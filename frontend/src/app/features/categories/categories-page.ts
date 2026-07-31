@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { FormOverlayComponent } from '../../shared/form-overlay/form-overlay.component';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import {
@@ -124,8 +124,4 @@ export class CategoriesPage implements OnInit {
       this.errorMessage.set(toMessage(err));
     }
   }
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }

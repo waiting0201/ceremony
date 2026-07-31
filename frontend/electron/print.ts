@@ -29,49 +29,28 @@ export interface PrintOverrides {
   scaleMode?: ScaleMode;
 }
 
-/** 單筆列印：主行程自己去 sidecar 抓 PDF（不經 renderer，避免大檔在 IPC 複製一份）。 */
-export async function printReport(
-  apiBase: string,
-  token: string,
-  reportType: string,
-  apiPath: string,
-  overrides: PrintOverrides,
-): Promise<PrintResult> {
-  const pdfPath = tempPdfPath(reportType);
-  try {
-    const r = await streamApiToFile(apiBase, apiPath, token, pdfPath);
-    if (!r.ok) return { ok: false, error: r.error ?? '取得報表失敗' };
-    return await printResolved(reportType, pdfPath, r.headers['x-report-page-size'], overrides);
-  } finally {
-    void safeUnlink(pdfPath);
-  }
-}
+// 曾經有一條「main 自己 net.request 去 sidecar 取 PDF 再送印」的路徑（printReport /
+// printBatchJob），用來避免數百 MB 的批次成品在 IPC 複製一份。大量列印改成前端分段之後，
+// 每次送印最多一段（200 筆 ≈ 27 MB），IPC 傳 bytes 已經沒有成本問題，那條路徑因此整條移除——
+// 留著就是永遠不會被執行、也不會被測到的死碼。見 docs/blueprints/chunked-batch-printing.md
 
 /**
- * 批次列印：renderer 先跑完 job（進度 / 取消 UI 保留在前端），只把 jobId 交給 main 取檔。
- * 注意 GET batch/jobs/{id}/file 是 one-shot（取走即釋放），renderer 不能先取一次再叫 main 取第二次。
+ * 列印 renderer 手上既有的 PDF bytes（預覽用：blob 已在前端，或 job 的 /file 已被取走）。
+ *
+ * pageSizeHeader 由 renderer 從 X-Report-Page-Size 讀出後傳進來——沒帶就只能用 fallback 表，
+ * 紙張尺寸的權威值會靜默失效（印歪時很難查）。
  */
-export async function printBatchJob(
-  apiBase: string,
-  token: string,
-  reportType: string,
-  jobId: string,
-  overrides: PrintOverrides,
-): Promise<PrintResult> {
-  return printReport(apiBase, token, reportType, `/reports/batch/jobs/${jobId}/file`, overrides);
-}
-
-/** 列印 renderer 手上既有的 PDF bytes（報表預覽頁專用：blob 已在前端且 job 已消耗）。 */
 export async function printPdfBuffer(
   reportType: string,
   bytes: Uint8Array,
   overrides: PrintOverrides,
+  pageSizeHeader?: string | null,
 ): Promise<PrintResult> {
   const pdfPath = tempPdfPath(reportType);
   try {
     await fs.mkdir(path.dirname(pdfPath), { recursive: true });
     await fs.writeFile(pdfPath, bytes);
-    return await printResolved(reportType, pdfPath, null, overrides);
+    return await printResolved(reportType, pdfPath, pageSizeHeader ?? null, overrides);
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   } finally {

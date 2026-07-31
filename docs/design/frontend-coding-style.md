@@ -12,7 +12,7 @@ related_docs:
   - ../conventions.md
   - security.md
 keywords: [coding-style, frontend, typescript, javascript, dart, style-guide, lint]
-last_updated: 2026-07-18 (新增：純數字欄禁 type=number、一律 appNumericInput——IME 組字被丟棄客訴根因)
+last_updated: 2026-07-31 (錯誤處理段新增：「例外 → 顯示文字」一律走 core/errors/toMessage，本地訊息用 UserFacingError，禁止在 feature 內自寫 instanceof ApiError 三元式——該邏輯曾複製 13 份、把列印失敗原因全吞成「操作失敗，請稍後再試」。先前 2026-07-18：純數字欄禁 type=number、一律 appNumericInput——IME 組字被丟棄客訴根因)
 ---
 
 ## 0. 元規則
@@ -102,6 +102,11 @@ last_updated: 2026-07-18 (新增：純數字欄禁 type=number、一律 appNumer
 - Render 錯誤用 Error Boundary
 - 全域非預期錯誤接到統一 reporter（Sentry / 自家）
 - API 錯誤遵循 [api-design.md](api-design.md) 的錯誤碼結構
+- **「例外 → 顯示文字」一律走 `core/errors/toMessage(err, fallback?)`（2026-07-31）**：
+  禁止在 feature 內自己寫 `err instanceof ApiError ? err.message : '…'`。
+  本地要透出的訊息丟 `UserFacingError`；**不要**無條件透出 `Error.message`（TypeError 之類會外洩到 UI），
+  也**不要**偽造 `ApiError`（假 status / errorCode 會汙染依錯誤碼分支的程式）。
+  背景：這段邏輯曾複製在 13 個檔，導致列印失敗的真正原因全被吞成「操作失敗，請稍後再試」。
 
 ### 型別
 - 不 export 內部 type（避免外部依賴內部結構）

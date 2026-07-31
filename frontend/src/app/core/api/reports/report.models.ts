@@ -16,6 +16,28 @@ export interface ReportPdf {
   blob: Blob;
   fileName: string;
   signupCount?: number;
+  /**
+   * X-Report-Page-Size 原字串（微米，如 "210000x148000"）。權威值在後端 ReportPageSizes；
+   * 送印時原樣交給主行程，沒帶就會靜默退化成 electron/paper.ts 的 fallback 表。
+   */
+  pageSizeHeader?: string;
+}
+
+/**
+ * POST /reports/batch/plan 的回應：這批要印哪些報名，但還沒渲染。
+ * 大量列印靠它切段——選取的權威在後端，前端只負責切，不重查一次。
+ */
+export interface BatchReportPlan {
+  reportType: SingleReportType;
+  fileName: string;
+  total: number;
+  items: BatchReportPlanItem[];
+}
+
+export interface BatchReportPlanItem {
+  id: string;
+  /** 報名編號，可能為 null（尚未配號）；用來顯示「第 7 段：編號 1201–1400」 */
+  number: number | null;
 }
 
 /** POST /reports/batch/jobs 的回應：job 已建立，總筆數在此就是確定值。 */

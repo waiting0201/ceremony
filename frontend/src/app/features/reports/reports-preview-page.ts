@@ -16,7 +16,7 @@ import { BatchPrintService } from '../../core/reports/batch-print.service';
 import { PrintService } from '../../core/print/print.service';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { SIGNUP_TYPES } from '../../shared/util/signup-type';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
@@ -69,6 +69,8 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   protected readonly errorMessage = signal<string | null>(null);
   private currentObjectUrl: string | null = null;
   private currentBlob: Blob | null = null;
+  /** 送印時要原樣交給主行程，否則紙張尺寸會靜默退化成 electron/paper.ts 的 fallback 表 */
+  private currentPageSize: string | null = null;
   protected readonly currentType = signal<SingleReportType | null>(null);
   protected readonly printing = signal(false);
 
@@ -123,8 +125,8 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.errorMessage.set(null);
     this.signupCount.set(null);
     try {
-      const { blob, fileName } = await this.api.single(type, signupId.trim());
-      this.displayBlob(blob, fileName, type);
+      const { blob, fileName, pageSizeHeader } = await this.api.single(type, signupId.trim());
+      this.displayBlob(blob, fileName, type, pageSizeHeader);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -153,7 +155,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
         { detail: REPORT_TYPES.find((r) => r.value === v.reportType)?.label },
       );
       if (!resp) return;
-      this.displayBlob(resp.blob, resp.fileName, v.reportType);
+      this.displayBlob(resp.blob, resp.fileName, v.reportType, resp.pageSizeHeader);
       this.signupCount.set(resp.signupCount ?? null);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
@@ -162,12 +164,18 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     }
   }
 
-  private displayBlob(blob: Blob, fileName: string, type: SingleReportType): void {
+  private displayBlob(
+    blob: Blob,
+    fileName: string,
+    type: SingleReportType,
+    pageSizeHeader?: string,
+  ): void {
     this.releaseUrl();
     const url = URL.createObjectURL(blob);
     this.currentObjectUrl = url;
     // 保留 blob 供「列印」用：此頁的 batch job 已被取檔消耗，不能再叫 main 去取一次
     this.currentBlob = blob;
+    this.currentPageSize = pageSizeHeader ?? null;
     this.currentType.set(type);
     this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
     this.fileName.set(fileName);
@@ -179,6 +187,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
       this.currentObjectUrl = null;
     }
     this.currentBlob = null;
+    this.currentPageSize = null;
   }
 
   protected closePreview(): void {
@@ -212,15 +221,11 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.printing.set(true);
     this.errorMessage.set(null);
     try {
-      await this.print.printBlob(type, blob);
+      await this.print.printBlob(type, blob, this.currentPageSize);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
       this.printing.set(false);
     }
   }
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }

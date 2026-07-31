@@ -196,6 +196,57 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
         body.Should().Contain("編號錯誤");
     }
 
+    // ── 批次列印 plan（前端分段列印的入口）─────────────────────────────
+    // Blueprint: docs/blueprints/api-endpoints/post-reports-batch-plan.md
+
+    [Fact]
+    public async Task POST_batch_plan_without_token_returns_401()
+    {
+        var anon = _factory.CreateClient();
+        var resp = await anon.PostAsJsonAsync("/api/v1/reports/batch/plan",
+            new BatchReportRequest("datacard", 1, 10));
+        resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task POST_batch_plan_returns_ordered_items_without_rendering()
+    {
+        var client = await AuthedAsync();
+        var picked = await PickTwoSignupIdsAsync(client);
+
+        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch/plan",
+            new BatchReportRequest("datacard", SignupIds: picked));
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var plan = await resp.Content.ReadFromJsonAsync<BatchReportPlanResponse>();
+        plan.Should().NotBeNull();
+        plan!.ReportType.Should().Be("datacard");
+        plan.Total.Should().Be(2);
+        plan.Items.Should().HaveCount(2);
+        plan.Items.Select(i => i.Id).Should().BeEquivalentTo(picked);
+        // 檔名與 job 版一致 → 前端顯示的名稱不會因為走哪條路而不同
+        plan.FileName.Should().Be("batch-datacard-selected-2.pdf");
+        // ORDER BY Number：分段要靠這個順序才切得出連續的編號範圍
+        plan.Items.Where(i => i.Number.HasValue).Select(i => i.Number!.Value)
+            .Should().BeInAscendingOrder();
+    }
+
+    [Fact]
+    public async Task POST_batch_plan_shares_validation_with_job_version()
+    {
+        var client = await AuthedAsync();
+
+        var bad = await client.PostAsJsonAsync("/api/v1/reports/batch/plan",
+            new BatchReportRequest("datacard", NumberStart: 50, NumberEnd: 10));
+        bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await bad.Content.ReadAsStringAsync()).Should().Contain("編號錯誤");
+
+        var empty = await client.PostAsJsonAsync("/api/v1/reports/batch/plan",
+            new BatchReportRequest("datacard", 999_990, 999_999, Year: 100));
+        empty.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        (await empty.Content.ReadAsStringAsync()).Should().Contain("BATCH_NO_SIGNUPS");
+    }
+
     // ── 批次列印 job 版（有進度回報與取消）─────────────────────────────
     // Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
 

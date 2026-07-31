@@ -13,7 +13,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { AdminApi } from '../../core/api/admins/admin.api';
 import type { AdminListItem } from '../../core/api/admins/admin.models';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 
 /**
  * 管理者 create/edit form。
@@ -118,8 +118,4 @@ function matchPasswords(group: {
   const p = group.get('password')?.value as string | undefined;
   const c = group.get('confirmPassword')?.value as string | undefined;
   return p && c !== p ? { passwordMismatch: true } : null;
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }

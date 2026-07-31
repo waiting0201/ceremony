@@ -11,7 +11,7 @@ import { PrepayApi } from '../../core/api/prepay/prepay.api';
 import type { PrepayLoadResponse } from '../../core/api/prepay/prepay.models';
 import { CategoryApi } from '../../core/api/categories/category.api';
 import type { CategoryNode } from '../../core/api/categories/category.models';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { PREPAY_GROUPS } from '../../shared/util/prepay-groups';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 
@@ -85,8 +85,4 @@ export class PrepayPage implements OnInit {
       this.loading.set(false);
     }
   }
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }

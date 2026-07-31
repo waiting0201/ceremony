@@ -7,14 +7,14 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (修客訴「既有的寄件/文牒地址與堂號刪不掉」：信眾表單移除遺留的 mailAddress required、報名三個 handler 移除「文牒欄留空就抄寄件段」的隱性 fallback、報名堂號清空改存空字串以避開 SignupView 的 COALESCE 回退；dotnet 230/124/77 綠 + ng test 53 綠，含跑真 DB 的端到端清空驗證。同日先前搜尋「編號」改起~迄區間、批次列印起迄改為只需填一端〔只填一端＝只查/只印那一筆〕；`GET /signups` 參數 number → numberStart/numberEnd；dotnet 225 綠 + ng test 47 綠，版面待實機複驗。同日先前修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (大量列印分段：客訴「1000–5000 筆印到一半卡紙要整批重印」→ 新增 POST /reports/batch/plan，前端切成 200 筆一段逐段建 job 送印，峰值記憶體與總筆數無關〔PdfSharp 2GB 上限碰不到，後端串流化合併因此不必要〕，並附分段面板可暫停／單段重印；順帶修掉 SearchByIdsAsync 的 SQL Server 2100 參數上限，以及移除因分段而成死碼的 main 串流取檔路徑；dotnet 230/124/80 綠 + ng test 95 綠，Windows 實機待驗。同日先前修客訴「列印跳操作失敗請稍後再試、且沒有預覽列印」：根因是 streamApiToFile 沒建父目錄〔乾淨機器必 ENOENT〕＋ toMessage 複製 13 份把所有列印錯誤吞成通用句；同時把預覽做進列印對話框〔左 iframe 右設定，瀏覽器 preview-only〕、批次依 job.total 分流大檔略過預覽、X-Report-Page-Size 一路帶到主行程、移除無用的 ceremony:printReport IPC；ng build 0 warning + electron:compile 0 err + ng test 85 綠，Windows 實機列印待驗。同日先前修客訴「既有的寄件/文牒地址與堂號刪不掉」：信眾表單移除遺留的 mailAddress required、報名三個 handler 移除「文牒欄留空就抄寄件段」的隱性 fallback、報名堂號清空改存空字串以避開 SignupView 的 COALESCE 回退；dotnet 230/124/77 綠 + ng test 53 綠，含跑真 DB 的端到端清空驗證。同日先前搜尋「編號」改起~迄區間、批次列印起迄改為只需填一端〔只填一端＝只查/只印那一筆〕；`GET /signups` 參數 number → numberStart/numberEnd；dotnet 225 綠 + ng test 47 綠，版面待實機複驗。同日先前修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
 
 > 本檔由 Claude **自動維護**。任務開始/完成/卡住都必須更新。新增項目也要寫入。詳細規則見 [../CLAUDE.md](../CLAUDE.md) 「狀態追蹤規則」。
 
-**Current Version**: `v2.3.6`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
+**Current Version**: `v2.3.7`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
 
 ## 🔄 In Progress
 
@@ -159,6 +159,38 @@ last_updated: 2026-07-31 (修客訴「既有的寄件/文牒地址與堂號刪�
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **發版 v2.3.7** — Done 2026-07-31（自 v2.3.6 起累積 2 項，都圍繞列印客訴）
+  - `frontend/package.json` version 2.3.6→2.3.7（`package-lock.json` root 同步）、status.md 標頭同步、tag `v2.3.7`
+  - 內容：(1) 列印跳「操作失敗，請稍後再試」＋沒有預覽列印 → 修 `streamApiToFile` 未建父目錄的 ENOENT、`toMessage` 收斂成單一實作、blob 錯誤 body 解析，並把預覽做進列印對話框；(2) 大量列印分段（新增 `POST /reports/batch/plan`，200 筆一段逐段送印，附可暫停／單段重印的分段面板）
+  - **版號註記**：本版含新 endpoint 與新 UI 面板，依 [conventions.md](conventions.md) 的 SemVer 規則（「MINOR：向後相容的新功能（新 endpoint、新頁面…）」）本應是 `v2.4.0`；使用者指定發 `v2.3.7`，視為列印客訴修復的延續。日後若要回到規則，下一版直接跳 `v2.4.0`
+  - 驗證：dotnet 230/124/80 綠、ng build 0 warning、electron:compile 0 err、ng test 95 綠。**Windows 實機列印仍待驗**（見下方兩筆的待驗清單）
+
+- [x] **大量列印分段：1000–5000 筆不再爆記憶體，卡紙只需重印那一段** — Done 2026-07-31
+  - **需求**：使用者實際一次印 1000–5000 筆，「印到一半卡紙就要整批重印，很痛苦」
+  - **診斷**：整條管線每段都是 O(N) 一次性 —— `List<byte[]>` 累積全部單筆 PDF → `PdfSharpMerger` 再複製 3–4 份（實測 799 筆 = 107 MB、19018 筆爆 PdfSharp 的 2 GB `MemoryStream`）→ 成品常駐 job → Electron 整份載進隱藏視窗 → **一個 spooler job**。技術天花板是 2 GB，但真痛的是最後一項：那是操作問題不是效能問題
+  - **解法：前端分段**（每段 `SEGMENT_SIZE = 200` 筆）。後端只加 [`POST /reports/batch/plan`](blueprints/api-endpoints/post-reports-batch-plan.md)（複用 `ResolveAsync` 回有序 `{id, number}` 清單，不渲染，選取權威仍在後端）；前端切段後逐段建 job 送印
+    - 峰值記憶體變成 **O(段) 固定值**（≈27 MB 成品、~100 MB 峰值），與總筆數無關 → 2 GB 上限碰不到
+    - **後端串流化合併因此變成不必要的工作**（每段才 27 MB），省下一整項
+    - 順帶修掉既有潛在缺陷：`SearchByIdsAsync` 的 `WHERE SignupID IN @Ids` 經 Dapper 展開受 **SQL Server 2100 參數上限**，勾選 3000 筆列印原本必炸
+  - **續印 UI**（`shared/batch-print-panel/`）：每段狀態獨立可見（待印／準備中／送印中／已送印／失敗）、總進度以「**已送印**筆數」計、可暫停（送完當前段就停，已進 spooler 的停不了）、**任一段可單獨重印**、跑完不自動關閉等使用者對照實體紙張
+    - 狀態刻意叫「已送印」不是「完成」：`webContents.print` 的 callback 只代表交給 spooler，紙上有沒有字是之後的事 → 重印鈕永遠保留
+  - **列印設定只問一次**（第 1 段，含該段預覽），其餘段沿用；在對話框取消＝整批不印
+  - **≤200 筆維持現況**（單一 job + ProgressOverlay + 列印對話框），體驗不變
+  - **連帶移除死碼**：分段後每次送印最多一段，「main 自己串流取檔」不再有存在理由 → 拿掉 `electron/print.ts` 的 `printReport`/`printBatchJob`、`ceremony:printBatchJob` IPC、`BatchPrintService.takeFile`/`BatchPrintJobHandle`/`isJobHandle`。`printPdfBuffer` 成為唯一送印通道
+  - **物理現實（已與使用者說明）**：5000 張以 30ppm 算約 2.8 小時，分段解決的是「中途出事不用從頭」，不會變快。`AccessTokenMinutes=600` > 列印時長，token 不會中途過期
+  - 驗證：`dotnet build` 0 warning、Application **230** / Infrastructure **124** / Integration **80** 綠（新增 3 個 plan endpoint 測試，跑真 DB）；`ng build` 0 warning、`ng test` **95** 綠（新增 `chunked-print.service.spec` 11 案：切段／編號範圍／單段失敗不拖垮整批／暫停停在段邊界／單段重印／running 時 reprint 不動作／系統層取消與例外的區別）。**Windows 實機待驗**：200 筆門檻是否要調、連續 25 段的 spooler 行為、暫停／重印體感
+  - Docs: [chunked-batch-printing.md](blueprints/chunked-batch-printing.md)（新）、[post-reports-batch-plan.md](blueprints/api-endpoints/post-reports-batch-plan.md)（新）、[performance.md §8](design/performance.md)、[api-design.md](design/api-design.md)、[frontend-design.md](design/frontend-design.md)、[print-channel-electron.md](blueprints/print-channel-electron.md)
+
+- [x] **客訴：列印跳「操作失敗，請稍後再試」，而且沒有預覽列印** — Done 2026-07-31
+  - **根因 1（列印必失敗）**：`electron/api-stream.ts` 的 `streamApiToFile` 直接 `createWriteStream`，**沒建父目錄**；而列印通道寫的是 `os.tmpdir()/ceremony-print/`（本程式自造的目錄）→ 乾淨機器上單筆／批次列印**每次都 ENOENT**。`printPdfBuffer` 那條路徑有 mkdir，這條沒有。開發機因殘留目錄而長期看不到；`download.ts` 共用同一函式但 destPath 來自 SaveDialog（目錄必存在）故未暴露。修在 `streamApiToFile` 自己裡面（那是它的前置條件，不該由呼叫端各自記住）
+  - **根因 2（訊息被吞掉）**：`toMessage()` 這三行在 13 個 feature 各複製一份、只認 `ApiError`，而列印通道丟原生 `Error` → 主行程回的 ENOENT、「列印逾時（印表機無回應）」、「尚未連線」、sidecar 的「找不到報名」全被蓋成通用句，使用者與工程師都看不到線索。收斂成 `core/errors/to-message.ts` + `UserFacingError` marker（刻意不無條件透出 `Error.message`，也不偽造 ApiError）
+  - **根因 3（blob 端點的中文訊息出不來）**：`responseType:'blob'` 時 `HttpErrorResponse.error` 是 `Blob`，`errorCode` 判斷全部失效 → 顯示 Angular 的英文字串。新增 `ApiError.fromHttpAsync`（Blob → text → JSON），interceptor 只在 `err.error instanceof Blob` 時轉非同步
+  - **需求（沒有預覽）**：`silent:true` 是列印通道的必然代價，舊系統的 `PrintPreviewDialog` 等價物只剩 `/reports/preview`（要手貼 GUID，等於沒有）。**預覽做進既有的列印對話框**：左 PDF iframe（`#toolbar=0` 擋掉會繞過通道的內建列印鈕）、右 印表機/份數/紙張/縮放；瀏覽器走 `preview-only` 模式（主鈕＝在新分頁開啟）。object URL 生命週期綁 `overlayRef` 由 service 管，取消/確認/例外三條路都成對 revoke
+  - **大檔門檻**：預覽要 bytes 在 renderer，故單筆與 ≤200 筆批次改由前端取檔；>200 筆維持主行程串流（顯示「資料量大，略過預覽」）。`BatchPrintService.takeFile` 從 `boolean` 擴充為 `boolean | (total)=>boolean`；門檻用 `job.total` 判斷而非 `blob.size`——`/file` 是 one-shot，取了不能退回。附帶好處：小批次在 completed 當下就消耗掉 job，對話框開多久都不怕 10 分鐘 TTL
+  - **順帶修掉**：`printPdfBuffer` 原本一律傳 `null` 當 pageSize header → 報表預覽頁送印的紙張尺寸靜默退化成 fallback 表。現在 `ReportPdf.pageSizeHeader` 一路從 `X-Report-Page-Size` 帶到主行程。另移除已無呼叫端的 `ceremony:printReport` IPC
+  - 驗證：`ng build` 0 warning、`electron:compile` 0 err、`ng test` **85 綠**（新增 5 支 spec 41 個案：to-message / report.api〔含 blob 錯誤解析〕/ print.service〔預覽 blob、pageSizeHeader 傳遞、UserFacingError 保留訊息、批次大小分流〕/ print-dialog.component〔版面與 preview-only〕/ print-dialog.service〔防 leak〕；batch-print.service 補函式版 takeFile 兩案）。**Windows 實機仍待驗**：實際印出、`#toolbar=0` 是否必要、200 筆門檻是否要調
+  - Docs: [print-channel-electron.md](blueprints/print-channel-electron.md) 決策 6/7 + 資料流重畫、[gotchas.md](gotchas.md) 四條新陷阱、[frontend-design.md](design/frontend-design.md) 送印路徑改寫 + 錯誤訊息段、[visual-design.md](design/visual-design.md) 列印對話框規格、[frontend-coding-style.md](design/frontend-coding-style.md) 錯誤處理規則
 
 - [x] **客訴：既有的寄件／文牒地址與堂號要能整段刪掉** — Done 2026-07-31
   - 需求（使用者指定）：新增或修改資料時可以取消原資料已有的寄件地址與文牒地址（**連城市、郵遞區號都能刪，也就是可不留地址**），堂號同理要能刪

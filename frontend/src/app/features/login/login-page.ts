@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthStore } from '../../core/auth/auth.store';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -35,7 +35,7 @@ export class LoginPage {
       await this.router.navigateByUrl('/');
     } catch (err: unknown) {
       this.errorMessage.set(
-        err instanceof ApiError ? err.message : '登入失敗，請稍後再試',
+        toMessage(err, '登入失敗，請稍後再試'),
       );
     } finally {
       this.submitting.set(false);

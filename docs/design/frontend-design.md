@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本, num-stepper, 捲軸, scrollbar, NumericUpDown, 草稿, draft, 未儲存]
-last_updated: 2026-07-31 (`.num-stepper` 段補記：報名維護搜尋「編號」與批次列印起迄皆為起~迄兩格，搜尋欄外層 `.number-field` 用 flex 均分欄寬不寫死。同日先前新增「搜尋條件的跨路由快照」段：`form.valueChanges` 無條件寫回 singleton（原本只在 `search()` 存 → 沒按搜尋的條件變動全丟）、純 UI signal（`showAll`）要另開一格且用 toggle 直接同步而非 effect；DataGrid「顯隱欄位 toggle 不落 localStorage」補註「不持久化≠元件銷毀就丟」。同日先前報名表單客訴第四輪補第 4 項：員工類型下拉寬度＝右欄「費用」欄寬——`.grid.basic-side` 改用與費用所在 `.grid.three` 同一組 `repeat(3, minmax(0,1fr))`、勾選框吃 `grid-column: 2 / -1`，並補 760px 降兩欄、480px 還原 `grid-column: auto` 兩個斷點。同日先前新增「送印路徑」段：core/print/PrintService 成為唯一列印入口，Electron 走自建 print-dialog + 主行程送印、瀏覽器退回 openPdfInNewTab；BatchPrintService.run 新增 takeFile 選項（預設 true 行為不變）；報表預覽頁工具列加「列印」鈕並註記 iframe 依賴 plugins:true。同日先前RWD 策略補「媒體查詢 vs 容器查詢」規則：內容排不下的斷點一律改用 `@container`（可用寬 = 視窗 − 側欄 − padding，`@media` 量不到側欄收合），首個案例為報名維護 toolbar。同日先前報名表單版面客訴第四輪〔**部分反轉 07-29 的「拿掉全部外框」**〕：地址拆成「寄件地址」「文牒地址」兩個 `fieldset.block` 且框內欄位標題全拿掉改 placeholder、「同寄件地址」勾選移進文牒框內最上方；往生/陽上名單各自改回 fieldset+legend〔解掉 07-29 記錄的「填字後失去標示」取捨〕；基本資料改序為 堂號→姓名→電話→員工類型→固定編號，前三欄以「與 `.form-cols` 同構」的巢狀達成與地址框逐像素等寬〔`.grid.basic-row` 移除、新增 `.grid.basic-side`〕。同日「同寄件地址」觸發條件放寬為「城市/區域/地址三者全空才擋」〔刻意偏離舊系統，兩張表單同步〕。信眾表單同步套用地址框與放寬條件。見「報名表單版面（2026-07-31 客訴第四輪）」段；先前 2026-07-29 (報名維護清單客訴三項改 DataGrid 規格兩條：顯隱欄位 toggle 偏好**不再落 localStorage**〔每次進頁回預設，欄寬持久化不動〕；「全部」條件旁路 toggle 收斂為「只解除年份/法會/類型（＋範圍）」——其餘條件仍生效仍可搜尋、`.all-mode` 只淡化對應 label、停用清單不得與 scope*→關鍵字的連動相交；另法會欄預設寬 100→64px（見 visual-design.md）。同日先前報名表單版面客訴第三輪：基本資料排成一整列並上提為 `.form-cols` 上方全寬列〔右欄「編號/費用/備註/預繳」隨之下移〕、按鈕列改靠左、**五個區塊（基本資料/地址/往生名單/陽上名單/編號·費用·備註·預繳）全部拿掉 fieldset 外框與 legend 改 `.bare-block`，只剩「法會資料」保留外框**〔名單兩塊填字後失去往生/陽上標示，屬已知取捨〕、「確認」鈕套新的全域 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2〕；`ConfirmDialogConfig` 新增 `emphasis` 旗標〔訊息 20px + 確認鈕加寬〕並用於「新增報名成功」——只給結果型提示，不再動全站 dialog 字級。見「報名表單版面」與「ConfirmDialog 強調變體」兩段；先前 2026-07-28 (新增 `<app-progress-overlay>` 共用 shell 與 `BatchPrintService`：批次列印改 job 模型後，三個批次入口（編號區間/多選/列印預覽頁）會顯示置中進度 overlay，含真實 i/N 百分比與取消鈕；記錄 CDK setInput 必須傳新物件、取消時不自動關 overlay 的理由；`ReportApi.batch()` 移除。同日先前 form-overlay 新增 dismissible input（false＝backdrop click / Esc 不再關閉，只剩 × 與 host 自己的取消鈕；報名維護新增/編輯 overlay 指定 false，其餘三個 feature 不變）；同日先前新增「Enter 就送出的開關是那顆隱藏 submit 按鈕」段（報名表單改為 Enter 不送出：移除隱藏鈕＋ngSubmit＋form 層攔 Enter 放行 textarea；其他三個 edit-form 不跟進）；同日先前版面客訴第二輪：地址段「同寄件地址」改夾在寄件/文牒之間、文牒郵遞區號回到區域右邊、文牒地址加寬；按鈕列（列印資料卡/取消/確認）移到備註下方——signup-edit-form 新增 form-actions 投影 slot、form-overlay 新增 showActions input 收掉底部 footer、路由頁 .form-actions 移除；同日先前四項：信眾搜尋框字級對齊地址欄〔.search-input 不在 .field 內、只繼承 font-family，字級落回 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄地址下方、「同寄件地址」移到文牒郵遞區號正上方〔第一列第三欄，郵遞區號下移到文牒地址同列，不多佔列高〕、備註 rows=1→4；ng build 綠，待實機複驗；先前 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣))))
+last_updated: 2026-07-31 (送印路徑改 plan-first 分流：批次一律先打 batch/plan 才知道要不要分段〔≤200 單 job、>200 走 ChunkedPrintService + 分段面板〕；BatchPrintService 的 takeFile / BatchPrintJobHandle 隨主行程串流路徑一併移除。同日先前「送印路徑」段改寫：送印一律先過含預覽的 print-dialog〔Electron printer / 瀏覽器 preview-only〕、預覽 blob URL 生命週期綁 overlayRef、BatchPrintService.takeFile 擴充為 boolean|(total)=>boolean 並附預覽門檻表〔≤200 筆或 ≤64MB 才預覽，門檻用 job.total 判斷因 /file 是 one-shot〕、printBlob 多收 pageSizeHeader；新增「錯誤訊息：core/errors/to-message.ts」段〔toMessage 唯一實作 + UserFacingError〕。同日先前`.num-stepper` 段補記：報名維護搜尋「編號」與批次列印起迄皆為起~迄兩格，搜尋欄外層 `.number-field` 用 flex 均分欄寬不寫死。同日先前新增「搜尋條件的跨路由快照」段：`form.valueChanges` 無條件寫回 singleton（原本只在 `search()` 存 → 沒按搜尋的條件變動全丟）、純 UI signal（`showAll`）要另開一格且用 toggle 直接同步而非 effect；DataGrid「顯隱欄位 toggle 不落 localStorage」補註「不持久化≠元件銷毀就丟」。同日先前報名表單客訴第四輪補第 4 項：員工類型下拉寬度＝右欄「費用」欄寬——`.grid.basic-side` 改用與費用所在 `.grid.three` 同一組 `repeat(3, minmax(0,1fr))`、勾選框吃 `grid-column: 2 / -1`，並補 760px 降兩欄、480px 還原 `grid-column: auto` 兩個斷點。同日先前新增「送印路徑」段：core/print/PrintService 成為唯一列印入口，Electron 走自建 print-dialog + 主行程送印、瀏覽器退回 openPdfInNewTab；BatchPrintService.run 新增 takeFile 選項（預設 true 行為不變）；報表預覽頁工具列加「列印」鈕並註記 iframe 依賴 plugins:true。同日先前RWD 策略補「媒體查詢 vs 容器查詢」規則：內容排不下的斷點一律改用 `@container`（可用寬 = 視窗 − 側欄 − padding，`@media` 量不到側欄收合），首個案例為報名維護 toolbar。同日先前報名表單版面客訴第四輪〔**部分反轉 07-29 的「拿掉全部外框」**〕：地址拆成「寄件地址」「文牒地址」兩個 `fieldset.block` 且框內欄位標題全拿掉改 placeholder、「同寄件地址」勾選移進文牒框內最上方；往生/陽上名單各自改回 fieldset+legend〔解掉 07-29 記錄的「填字後失去標示」取捨〕；基本資料改序為 堂號→姓名→電話→員工類型→固定編號，前三欄以「與 `.form-cols` 同構」的巢狀達成與地址框逐像素等寬〔`.grid.basic-row` 移除、新增 `.grid.basic-side`〕。同日「同寄件地址」觸發條件放寬為「城市/區域/地址三者全空才擋」〔刻意偏離舊系統，兩張表單同步〕。信眾表單同步套用地址框與放寬條件。見「報名表單版面（2026-07-31 客訴第四輪）」段；先前 2026-07-29 (報名維護清單客訴三項改 DataGrid 規格兩條：顯隱欄位 toggle 偏好**不再落 localStorage**〔每次進頁回預設，欄寬持久化不動〕；「全部」條件旁路 toggle 收斂為「只解除年份/法會/類型（＋範圍）」——其餘條件仍生效仍可搜尋、`.all-mode` 只淡化對應 label、停用清單不得與 scope*→關鍵字的連動相交；另法會欄預設寬 100→64px（見 visual-design.md）。同日先前報名表單版面客訴第三輪：基本資料排成一整列並上提為 `.form-cols` 上方全寬列〔右欄「編號/費用/備註/預繳」隨之下移〕、按鈕列改靠左、**五個區塊（基本資料/地址/往生名單/陽上名單/編號·費用·備註·預繳）全部拿掉 fieldset 外框與 legend 改 `.bare-block`，只剩「法會資料」保留外框**〔名單兩塊填字後失去往生/陽上標示，屬已知取捨〕、「確認」鈕套新的全域 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2〕；`ConfirmDialogConfig` 新增 `emphasis` 旗標〔訊息 20px + 確認鈕加寬〕並用於「新增報名成功」——只給結果型提示，不再動全站 dialog 字級。見「報名表單版面」與「ConfirmDialog 強調變體」兩段；先前 2026-07-28 (新增 `<app-progress-overlay>` 共用 shell 與 `BatchPrintService`：批次列印改 job 模型後，三個批次入口（編號區間/多選/列印預覽頁）會顯示置中進度 overlay，含真實 i/N 百分比與取消鈕；記錄 CDK setInput 必須傳新物件、取消時不自動關 overlay 的理由；`ReportApi.batch()` 移除。同日先前 form-overlay 新增 dismissible input（false＝backdrop click / Esc 不再關閉，只剩 × 與 host 自己的取消鈕；報名維護新增/編輯 overlay 指定 false，其餘三個 feature 不變）；同日先前新增「Enter 就送出的開關是那顆隱藏 submit 按鈕」段（報名表單改為 Enter 不送出：移除隱藏鈕＋ngSubmit＋form 層攔 Enter 放行 textarea；其他三個 edit-form 不跟進）；同日先前版面客訴第二輪：地址段「同寄件地址」改夾在寄件/文牒之間、文牒郵遞區號回到區域右邊、文牒地址加寬；按鈕列（列印資料卡/取消/確認）移到備註下方——signup-edit-form 新增 form-actions 投影 slot、form-overlay 新增 showActions input 收掉底部 footer、路由頁 .form-actions 移除；同日先前四項：信眾搜尋框字級對齊地址欄〔.search-input 不在 .field 內、只繼承 font-family，字級落回 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄地址下方、「同寄件地址」移到文牒郵遞區號正上方〔第一列第三欄，郵遞區號下移到文牒地址同列，不多佔列高〕、備註 rows=1→4；ng build 綠，待實機複驗；先前 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣))))
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -322,26 +322,59 @@ export class NewSignupComponent {
   - 下：滿寬 PDF 預覽（toolbar + iframe 720px 高）
   - **避坑紀錄**：曾嘗試左右分欄 + sticky preview，遇到 (a) `1fr` 欄位被 iframe 撐爆覆蓋表單 (b) sticky + 100vh 高度造成「蓋住左欄」視覺；改垂直堆疊一次解決
 - **預覽**：後端產生 PDF bytes → 前端用瀏覽器內建 PDF viewer 嵌入 `<iframe>`（暫未引入 PDF.js 套件；如需註解 / 縮放功能再加）
-  - 工具列四按鈕：**列印**（`PrintService.printBlob`）/ **新分頁開啟**（`window.open`）/ **下載**（`<a download>`） / **關閉**（清掉 blob URL + 回空狀態）
+  - 工具列四按鈕：**列印**（`PrintService.printBlob(type, blob, pageSizeHeader)`——Electron 會再跳一次
+    含預覽的列印對話框；瀏覽器直接開新分頁，因為本頁已有全尺寸預覽，再疊一層是重複）/
+    **新分頁開啟**（`window.open`）/ **下載**（`<a download>`） / **關閉**（清掉 blob URL + 回空狀態）
+  - 本頁另存 `currentPageSize`（`ReportPdf.pageSizeHeader`），送印時一併帶下去；不帶的話紙張會退化成 fallback 表
   - ⚠️ iframe 預覽依賴 Chromium 內建 PDF viewer → packaged Electron 必須 `webPreferences.plugins: true`，否則整片空白（見 [gotchas.md](../gotchas.md)）
 - **空狀態**：📄 + 「尚未產生 PDF」+「請從上方選擇報表類型並送出」
 - **另存 PDF**：目前用瀏覽器下載；上 Electron 後再切 `dialog.showSaveDialog`
 - **批次列印（多筆）**：後端合併 PDF 一次回傳（含 `X-Signup-Count` header），前端載入大 PDF
 
-### 送印路徑（**2026-07-31 改為 Electron 列印通道**）
+### 送印路徑（**2026-07-31 改為 Electron 列印通道；同日追加對話框內建預覽**）
 
 `core/print/print.service.ts` 是**唯一列印入口**，四個呼叫點（右鍵單筆 / 右鍵多筆 / 編號批次 / 新增後列印）
-與報表預覽頁都走它。內部以 `isElectron()` 分流：
+與報表預覽頁都走它。**送印一律先經過 `shared/print-dialog/`**，因為 Electron 用 `silent:true`，
+不先給預覽的話使用者是印壞了才知道（舊系統有 `PrintPreviewDialog`）。
 
-| 環境 | 行為 |
-|---|---|
-| Electron | `shared/print-dialog/` 自建對話框（選印表機 / 份數 / 縮放，紙張唯讀）→ IPC 交給主行程用指定紙張、邊界 0、100% 送印 |
-| 瀏覽器（`ng serve` / 單元測試） | 退回既有 `openPdfInNewTab`，**行為與改版前完全相同** |
+| 環境 | 對話框 | 確認後 |
+|---|---|---|
+| Electron | `mode:'printer'`：左 PDF 預覽 iframe、右 印表機 / 份數 / 縮放（紙張唯讀） | IPC 交給主行程用指定紙張、邊界 0、100% 送印 |
+| 瀏覽器（`ng serve` / 單元測試） | `mode:'preview-only'`：只有預覽與紙張，主鈕文案「在新分頁開啟」 | `openPdfInNewTab` |
 
 - 為什麼不用系統列印對話框：Electron `print({silent:false})` 帶不進預設值（見 [gotchas.md](../gotchas.md)）。
-- `BatchPrintService.run()` 新增 `takeFile?: boolean`（**預設 `true`**，既有行為不變）。Electron 路徑傳 `false`：
-  進度 overlay 與取消仍在前端，但成品由主行程串流取檔（`/file` 是 one-shot，兩邊都取會失敗；大檔走 IPC 會 OOM）。
+- 預覽的 blob URL 由 `PrintDialogService.ask()` 建立與回收（綁 `overlayRef` 生命週期），
+  元件只負責顯示——放元件裡就得靠 `ngOnDestroy` 賭時序，取消那條路最容易漏 revoke。
+- iframe src 接 `#toolbar=0`：Chromium PDF viewer 自帶的列印鈕會繞過整條通道。
+- **批次一律先打 `POST /reports/batch/plan`** 取得有序清單，才知道要不要分段
+  （`/file` 是 one-shot、單一大 PDF 又會爆 2 GB，所以「切幾段」必須在建任何 job 之前定案）：
+
+  | 情境 | 流程 | 預覽 |
+  |---|---|---|
+  | 單筆 | `ReportApi.single()` | 有 |
+  | 批次 ≤ 200 筆（`SEGMENT_SIZE`） | `BatchPrintService` 單一 job + ProgressOverlay | 有 |
+  | 批次 > 200 筆 | `ChunkedPrintService` 逐段 + 分段面板 | 有（第 1 段） |
+  | blob > 64 MB（`PREVIEW_MAX_BYTES`） | — | 無（顯示「檔案較大，略過預覽」） |
+
+  大量列印的完整設計（段大小依據、暫停／重印語意、為何分段做在前端）見
+  [chunked-batch-printing.md](../blueprints/chunked-batch-printing.md)。
+- `printBlob(type, blob, pageSizeHeader?)` 多收紙張 header（來自 `ReportPdf.pageSizeHeader`），
+  否則報表預覽頁送印會靜默退化成 `electron/paper.ts` 的 fallback 尺寸表。
+- 錯誤一律丟 `UserFacingError`（見下方「錯誤訊息」段），不是原生 `Error`。
 - 完整契約見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
+
+### 錯誤訊息：`core/errors/to-message.ts`（**2026-07-31**）
+
+`toMessage(err, fallback?)` 是全站「例外 → 顯示文字」的**唯一實作**。認得兩種型別：
+
+- `ApiError` — 後端回的 `{ errorCode, message }`（interceptor 產生）
+- `UserFacingError` — 本地已成文、就是要給使用者看的訊息（列印通道、主行程回報）
+
+其餘一律 `console.error` 後回 fallback（預設「操作失敗，請稍後再試」）。
+**不要**在 feature 內重寫這段：它原本在 13 個檔各複製一份，導致列印通道丟的原生 `Error`
+被無差別蓋掉，主行程回的「列印逾時」「尚未連線」「找不到報名」全部看不到。
+要透出新訊息就丟 `UserFacingError`，**不要**無條件透出 `Error.message`（技術訊息會外洩到 UI），
+也**不要**偽造 `ApiError`（假的 status / errorCode 會汙染日後依 errorCode 分支的程式）。
 - 列印格式對話（PDF / 預覽）：使用 shared/dialog 元件呈現兩個 radio + 確認 / 取消（**目前已捨棄**，API 統一回 PDF，前端 iframe 處理；保留欄位給未來如需區分 watermark）
 
 舊 19 個 RDLC 模板**不直接搬**，由後端 QuestPDF 重畫；版面驗收見 [printing-reports blueprint](../blueprints/printing-reports.md)。
@@ -456,6 +489,8 @@ open(config: ProgressOverlayConfig): ProgressOverlayHandle
 
 [core/reports/batch-print.service.ts](../../frontend/src/app/core/reports/batch-print.service.ts)：
 `run(req, {title?, detail?}) → Promise<ReportPdf | null>`（`null` ＝使用者取消；丟 `ApiError` ＝真失敗）。
+只服務「一個 job 就印得完」的情境（≤ `SEGMENT_SIZE`）與報表預覽頁的產生；
+大量列印走 `ChunkedPrintService`，那邊的進度介面是分段面板而非單一進度條。
 內部流程：`createBatchJob` → 開 overlay → 每 250ms 輪詢（`await sleep()` 串接的 `while`，
 **不用 `setInterval`** 以免請求疊加）→ `completed` 就取檔、`canceled` 回 null、`failed` 丟 `ApiError`。
 筆數跑滿但狀態仍 running 時顯示「合併 PDF…」（伺服端正在 merge），如此不必在 API 多加 `phase` 欄位。

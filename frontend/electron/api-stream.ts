@@ -8,6 +8,7 @@
 // 一定讀得到 X-Report-Page-Size / Content-Disposition（renderer 那條路才需要 WithExposedHeaders）。
 import { net } from 'electron';
 import fs from 'fs';
+import path from 'path';
 
 export interface StreamResult {
   ok: boolean;
@@ -17,18 +18,28 @@ export interface StreamResult {
 }
 
 /**
- * GET `${apiBase}${path}` 並串流寫到 destPath。
+ * GET `${apiBase}${apiPath}` 並串流寫到 destPath。
  * 非 200 時讀完 body 嘗試解析後端的 { errorCode, message }，把 message 原樣往上帶，
  * 讓 renderer 顯示的錯誤訊息與走 HttpClient 的路徑一致（而不是英文 HTTP status）。
+ *
+ * 目錄由本函式負責補齊：createWriteStream 不會自己建父目錄，而列印通道的 destPath 是
+ * os.tmpdir()/ceremony-print/…（本行程自己造的目錄）→ 乾淨機器上第一次列印必 ENOENT。
+ * 這是呼叫端不該重複記住的前置條件，所以收在這裡。
  */
-export function streamApiToFile(
+export async function streamApiToFile(
   apiBase: string,
-  path: string,
+  apiPath: string,
   token: string,
   destPath: string,
 ): Promise<StreamResult> {
+  try {
+    await fs.promises.mkdir(path.dirname(destPath), { recursive: true });
+  } catch (e) {
+    return { ok: false, headers: {}, error: (e as Error).message };
+  }
+
   return new Promise<StreamResult>((resolve) => {
-    const request = net.request({ method: 'GET', url: `${apiBase}${path}` });
+    const request = net.request({ method: 'GET', url: `${apiBase}${apiPath}` });
     request.setHeader('Authorization', `Bearer ${token}`);
 
     request.on('response', (response) => {

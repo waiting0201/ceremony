@@ -6,6 +6,7 @@ import type { BelieverListItem } from '../../core/api/believers/believer.models'
 import type { SignupListItem } from '../../core/api/signups/signup.models';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import type { ConfirmDialogConfig } from '../../shared/confirm-dialog/confirm-dialog.types';
+import { PrintDialogService } from '../../shared/print-dialog/print-dialog.service';
 import { SignupEditFormComponent, type SignupSavedEvent } from './signup-edit-form.component';
 import { SignupDraftState } from './signup-draft-state';
 
@@ -86,6 +87,15 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
               dialogCalls.push(config);
               return Promise.resolve(true);
             },
+          },
+        },
+        // 列印一律先經過預覽對話框（連瀏覽器模式也是）→ 不 stub 的話 await printing 會永遠掛著。
+        // 本測試只驗「有沒有打對 API」，對話框行為由 print-dialog 自己的 spec 負責。
+        {
+          provide: PrintDialogService,
+          useValue: {
+            ask: () =>
+              Promise.resolve({ copies: 1, scaleMode: 'actual' as const, remember: false }),
           },
         },
       ],

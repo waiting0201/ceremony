@@ -16,6 +16,28 @@ public sealed record BatchReportPlan(
     IReadOnlyList<SignupListItem> Signups);
 
 /// <summary>
+/// <c>POST /reports/batch/plan</c> 的回應：這批要印哪些報名，但不渲染。
+/// </summary>
+/// <remarks>
+/// 給前端做「大量列印分段」用：前端拿到有序清單後切成固定大小的段，逐段建 job 送印，
+/// 峰值記憶體因此與總筆數無關，中途卡紙也只需重印那一段。
+/// 選取的權威仍在 <see cref="BatchReportHandler.ResolveAsync"/>——前端只負責切，不重新查一次，
+/// 否則「印出來的筆數」與「批次條件算出的筆數」有機會不一致。
+/// Blueprint: docs/blueprints/api-endpoints/post-reports-batch-plan.md
+/// </remarks>
+public sealed record BatchReportPlanResponse(
+    string ReportType,
+    string FileName,
+    int Total,
+    IReadOnlyList<BatchReportPlanItem> Items);
+
+/// <param name="Number">
+/// 報名編號，可能為 null（尚未配號）。前端用來顯示「第 7 段：編號 1201–1400」——
+/// 卡紙時使用者要能把段對上手裡那疊紙。
+/// </param>
+public sealed record BatchReportPlanItem(Guid Id, int? Number);
+
+/// <summary>
 /// 逐筆渲染 <see cref="BatchReportPlan"/> 的 signups 並合併成單一 PDF。
 /// </summary>
 /// <remarks>

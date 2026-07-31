@@ -9,14 +9,7 @@ import { readConfig, writeConfig, readDefaultConfig, CeremonyConfig } from './co
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
-import {
-  listPrinters,
-  printBatchJob,
-  printPdfBuffer,
-  printReport,
-  PrintOverrides,
-  sweepTempDir,
-} from './print';
+import { listPrinters, printPdfBuffer, PrintOverrides, sweepTempDir } from './print';
 import { readPrintSettings, savePrintSetting, ReportPrintSetting } from './print-config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -190,29 +183,16 @@ ipcMain.handle('ceremony:savePrintSetting', (_e, reportType: string, s: ReportPr
   savePrintSetting(reportType, s),
 );
 
-/** 單筆報表：main 直接向 sidecar 取 PDF 再送印（大檔不經 IPC）。 */
-ipcMain.handle(
-  'ceremony:printReport',
-  async (_e, reportType: string, apiPath: string, token: string, o: PrintOverrides) => {
-    if (!apiBase) return { ok: false, error: '尚未連線' };
-    return printReport(apiBase, token, reportType, apiPath, o ?? {});
-  },
-);
-
-/** 批次：renderer 負責 job 進度與取消，完成後把 jobId 交給 main 取檔送印（/file 是 one-shot）。 */
-ipcMain.handle(
-  'ceremony:printBatchJob',
-  async (_e, reportType: string, jobId: string, token: string, o: PrintOverrides) => {
-    if (!apiBase) return { ok: false, error: '尚未連線' };
-    return printBatchJob(apiBase, token, reportType, jobId, o ?? {});
-  },
-);
-
-/** 報表預覽頁專用：PDF 已在 renderer 手上（job 已消耗），才走 IPC 傳 bytes。 */
+/** PDF 已在 renderer 手上（預覽用，或 job 已消耗）才走 IPC 傳 bytes；紙張 header 一併帶過來。 */
 ipcMain.handle(
   'ceremony:printPdfBuffer',
-  async (_e, reportType: string, bytes: Uint8Array, o: PrintOverrides) =>
-    printPdfBuffer(reportType, bytes, o ?? {}),
+  async (
+    _e,
+    reportType: string,
+    bytes: Uint8Array,
+    o: PrintOverrides,
+    pageSizeHeader?: string | null,
+  ) => printPdfBuffer(reportType, bytes, o ?? {}, pageSizeHeader),
 );
 
 ipcMain.handle('ceremony:openExternal', async (_e, url: string) => {

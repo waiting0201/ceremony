@@ -14,7 +14,7 @@ import type {
   BelieverListItem,
   BelieverSearchQuery,
 } from '../../core/api/believers/believer.models';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { FormOverlayComponent } from '../../shared/form-overlay/form-overlay.component';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { ContextMenuService } from '../../shared/context-menu/context-menu.service';
@@ -207,8 +207,4 @@ export class BelieversPage {
       this.errorMessage.set(toMessage(err));
     }
   }
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }

@@ -26,7 +26,7 @@ import type { BelieverListItem } from '../../core/api/believers/believer.models'
 import { ZipcodeApi } from '../../core/api/zipcodes/zipcode.api';
 import type { ZipcodeAreaItem } from '../../core/api/zipcodes/zipcode.models';
 import { PrintService } from '../../core/print/print.service';
-import { ApiError } from '../../core/http/api-error';
+import { toMessage } from '../../core/errors/to-message';
 import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
@@ -988,8 +988,4 @@ function makeBelieverStubFromSignup(item: SignupListItem): BelieverListItem {
     livingNames: item.livingNames,
     deadNames: item.deadNames,
   };
-}
-
-function toMessage(err: unknown): string {
-  return err instanceof ApiError ? err.message : '操作失敗，請稍後再試';
 }
