@@ -12,8 +12,8 @@ related_docs:
   - blueprints/prepay-loading.md
   - blueprints/printing-reports.md
   - design/database-design.md
-keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季]
-last_updated: 2026-07-31 (§12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證))
+keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季, 預繳, 普桌]
+last_updated: 2026-07-31 (新增 §19「預繳依單筆報名隔離 — 法會預繳 ≠ 普桌預繳」：客訴「同一次搜尋先點有預繳的法會列、再點沒預繳的普桌列，普桌沿用法會預繳」；真因是舊 BelieverSelected:1102-1115 的跨類型「最新一筆」反查完全不分 SignupType，新版改為選信眾時預繳取該列自身值、不再呼叫 GET /prepay?believerId&year〔endpoint 保留備用〕，標為刻意偏離 legacy。同日先前 §12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證))
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -330,3 +330,30 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 > 視覺確認圖（按真實 cm 比例，紅色虛線為第 6 格）：[reference/diagrams/tablet-text-sixth-name-position.png](../reference/diagrams/tablet-text-sixth-name-position.png)（向量原圖 `.svg` + 產圖腳本 `.draw.js` 同目錄，座標若調整重跑即可）。
 
 > **僅基本變體出現第 6 位**：其他變體（`tmpTabletOne/Two/_One…`、`tmpTextTwo`）本就是 1–2 位往生的少格版，不會有第 6 位，只需改 `tmpTablet`(基本) 與 `tmpText`(基本)。**實機對位仍建議印一張驗收**（預印紙 ±0.2cm；見 [printing-reports.md](blueprints/printing-reports.md) 預印對位段）。第 6 位字級／列距比照同排次要格(4/5)納入 `GroupFontPt` 分組。
+
+---
+
+## 19. 預繳依「單筆報名」隔離 — 法會預繳 ≠ 普桌預繳（**新版修正 legacy 缺陷**，2026-07-31 客訴）
+
+> ⚠ 此為新系統**刻意偏離 legacy**：舊 `BelieverSelected` 的預繳反查完全不分報名類型，會把法會的預繳帶到普桌。
+
+**資料模型前提：** 預繳**沒有獨立資料表、也沒有金額欄位**，只有掛在單筆 `Signups` 上的兩欄 `PrepayYear` + `PrepayCeremonyCategoryID`（見 [glossary.md §預繳](glossary.md)）。也就是說**預繳是「某一筆報名」的快照屬性，不是信眾層級的餘額**。
+
+**業務前提（2026-07-31 使用者確認）：** 法會（`SignupType` 1 一般／2 寺方／3 觀音會／5 郵寄）與**普桌（`SignupType` 4）是分開報名的兩件事**，同一位信眾的法會預繳**不等於**普桌預繳。
+
+**Legacy 行為（缺陷）：** [NewSignupForm.cs:1102-1115](../reference/old/Ceremony/NewSignupForm.cs#L1102-L1115) 選信眾後查「該信眾今年(含)以前最新一筆報名」的預繳並帶入：
+
+```csharp
+.Where(a => a.BelieverID == BelieverID && a.Year <= Y)
+.OrderByDescending(o => o.Year).ThenByDescending(o => o.CeremonyCategorys.Sort)
+```
+
+**沒有任何 `SignupType` 條件** → 同一信眾同時有法會與普桌報名時，點哪一列都拿到同一份（＝最新那筆，通常是法會），普桌明明沒預繳卻顯示有預繳。
+
+**新版決議：選信眾（`pickBeliever`）時，預繳一律取「點到的那一列自身」的 `prepayYear` / `prepayCeremonyCategoryId`，該列沒預繳就是空白。**
+
+- 不再呼叫 `GET /api/v1/prepay?believerId&year`（該 endpoint **保留備用但已無呼叫端**，見 [get-prepay-believer-latest.md](blueprints/api-endpoints/get-prepay-believer-latest.md)）。
+- 這也讓 `pickBeliever` 內部一致：姓名／電話／地址／名單／備註／堂號／員工類型自 2026-07-27 起全都是「帶該筆報名自身快照」，預繳原是搜尋列表還只列信眾主檔時代的遺留。
+- **不受影響**：編輯既有報名（`applyItem`）本就取該筆自身值；`resetBelow`（按「取消」）仍清空預繳；批次「載入預繳」（`POST /api/v1/prepay/load`）本來就有 `SignupType` 過濾（且 6 個分組不含普桌，見 [prepay-loading.md](blueprints/prepay-loading.md)）。
+
+**狀態：✅ 已實作（2026-07-31）。** [signup-edit-form.component.ts](../frontend/src/app/features/signups/signup-edit-form.component.ts) `pickBeliever` 改帶 `row.prepayYear` / `row.prepayCeremonyCategoryId ?? ''`，刪除 `prefillPrepayHistory`。回歸鎖：`signup-edit-form.component.spec.ts`「改選：法會列的預繳不會殘留到普桌列」（先點法會列 prepayYear=121 → 再點普桌列 prepayYear=null → 斷言清空且無 `/prepay` 請求）；已用「暫時改回 `prepayYear: null` → 轉紅」驗證有效。

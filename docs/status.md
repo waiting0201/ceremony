@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
@@ -159,6 +159,13 @@ last_updated: 2026-07-31 (發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **客訴：法會的預繳被錯帶到普桌（同一次搜尋改選報名時）** — Done 2026-07-31
+  - 症狀：搜尋後先點一筆有預繳的**法會**報名，再點同一位信眾另一筆沒預繳的**普桌**（`SignupType` 4）→ 普桌卻顯示法會的預繳。法會與普桌是分開報名的兩件事，預繳不互通
+  - 真因：`pickBeliever` 尾端呼叫 `GET /api/v1/prepay?believerId&year`，該查詢 `WHERE BelieverID AND Year <= @Year` **完全不分 `SignupType`**、`TOP 1` 永遠回同一筆（最新那筆＝法會）。舊 `NewSignupForm.cs:1102-1115` 同樣沒有類型過濾 → legacy 缺陷
+  - 修法（使用者選定）：預繳改取**點到那一列自身**的 `row.prepayYear` / `row.prepayCeremonyCategoryId`，與 `pickBeliever` 其他所有欄位（姓名/電話/地址/名單/備註/堂號/員工類型，2026-07-27 起）的「帶該筆報名自身快照」規則一致；刪除 `prefillPrepayHistory` 與 `PrepayApi` 注入。**後端零改動**，`GET /prepay` endpoint 保留備用但已無呼叫端（另一選項「後端加 SignupType 過濾」未採用）
+  - 驗證：`tsc` 0 err、`ng test` **46 綠**（新增回歸鎖「改選：法會列的預繳不會殘留到普桌列」，並以「暫時改回 `prepayYear: null` → 2 案轉紅」驗證有效）。**實機待驗**
+  - 文件：[business-rules-implicit §19](business-rules-implicit.md)（新增，標刻意偏離 legacy）、[signup-management.md](blueprints/signup-management.md)、[get-prepay-believer-latest.md](blueprints/api-endpoints/get-prepay-believer-latest.md)、[legacy-coverage/new-signup-form.md](blueprints/legacy-coverage/new-signup-form.md) row 34、[gotchas.md](gotchas.md)
 
 - [x] **發版 v2.3.6** — Done 2026-07-31（自 v2.3.5 起累積 6 項：報名表單客訴第四輪、薦牌往者左移 0.05cm、資料卡往者 2 位左右相反、報名維護 toolbar RWD container query、Electron 主行程接管列印、員工類型下拉寬度）
   - `frontend/package.json` version 2.3.5→2.3.6（順手把 `package-lock.json` 的 root version 由殘留的 2.3.2 補齊）、status.md 標頭同步、tag `v2.3.6`

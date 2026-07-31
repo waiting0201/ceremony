@@ -25,7 +25,6 @@ import { BelieverApi } from '../../core/api/believers/believer.api';
 import type { BelieverListItem } from '../../core/api/believers/believer.models';
 import { ZipcodeApi } from '../../core/api/zipcodes/zipcode.api';
 import type { ZipcodeAreaItem } from '../../core/api/zipcodes/zipcode.models';
-import { PrepayApi } from '../../core/api/prepay/prepay.api';
 import { PrintService } from '../../core/print/print.service';
 import { ApiError } from '../../core/http/api-error';
 import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
@@ -81,7 +80,6 @@ export class SignupEditFormComponent implements OnInit {
   private readonly categoryApi = inject(CategoryApi);
   private readonly believerApi = inject(BelieverApi);
   private readonly zipcodeApi = inject(ZipcodeApi);
-  private readonly prepayApi = inject(PrepayApi);
   private readonly print = inject(PrintService);
   private readonly fb = inject(FormBuilder);
   private readonly draftState = inject(SignupDraftState);
@@ -626,7 +624,7 @@ export class SignupEditFormComponent implements OnInit {
    * 2026-07-27 客訴修正：先前版本一律帶信眾主檔（Believers）資料，導致點哪一筆報名都拿到同一份舊資料。
    * 舊系統帶的是該筆報名自身的姓名/電話/地址/名單/備註（Signups 快照，每次報名可不同），
    * 信眾主檔只當該欄為空時的 fallback（同舊 `signup != null ? signup.X : believer.X` 分支）。
-   * 年份/法會/報名類型/編號/費用不帶（那是新的一筆要自己決定的）。
+   * 年份/法會/報名類型/編號/費用不帶（那是新的一筆要自己決定的）；預繳自 2026-07-31 起改為「帶」的一組。
    */
   protected async pickBeliever(row: SignupListItem): Promise<void> {
     if (!row.believerId) return;
@@ -644,9 +642,12 @@ export class SignupEditFormComponent implements OnInit {
     if (isStale()) return;
     this.selectedBeliever.set(master ?? makeBelieverStubFromSignup(row));
     this.pickedRowId.set(row.id);
-    // 改選 / 重新搜尋後覆蓋整張表單前，先清掉上一筆殘留的預繳（2026-07-21 客訴）：預繳有資料源
-    // （prefillPrepayHistory），先歸零，稍後只在該信眾確有預繳紀錄時才回填，查無就維持清空，
-    // 避免把前一位信眾的預繳留給下一位。
+    // **預繳取該筆報名自身值（2026-07-31 客訴，取代原本查 `GET /prepay?believerId&year`）**：
+    // 預繳是掛在單筆 Signups 上的快照，而法會與普桌（SignupType 4）是分開報名的兩件事——
+    // 法會預繳不等於普桌預繳。原作法一律帶「該信眾今年以前最新一筆」且完全不分報名類型，
+    // 同一信眾點法會列與普桌列都拿到同一份（＝最新那筆法會的），普桌明明沒預繳卻顯示有。
+    // 改成與姓名/備註/名單/地址同一規則（點哪筆帶哪筆）後自然隔離：該列沒預繳就是空白。
+    // **刻意偏離舊系統**：舊 BelieverSelected:1102-1115 的跨類型「最新一筆」查詢同樣有此問題。
     //
     // **費用刻意不清**（2026-07-27 使用者指定）：費用不會從結果列帶入，唯一來源就是使用者自己輸入，
     // 清掉等於把已打好的金額吃掉。舊 BelieverSelected 也完全沒碰 txtFee（只在送出時讀值 + 數字驗證），
@@ -665,8 +666,8 @@ export class SignupEditFormComponent implements OnInit {
       isFixedNumber: row.isFixedNumber,
       hallName: row.hallName ?? master?.hallName ?? '',
       remark: row.remark ?? '',
-      prepayYear: null,
-      prepayCeremonyCategoryId: '',
+      prepayYear: row.prepayYear,
+      prepayCeremonyCategoryId: row.prepayCeremonyCategoryId ?? '',
     });
     // 該筆報名有自己的地址就用它（只存 city/area 字串，無 zipcodeId → 以區域名稱比對）；
     // 整段皆空才退回信眾主檔（同舊 `signup.Zipcodes != null` 判斷）
@@ -695,27 +696,6 @@ export class SignupEditFormComponent implements OnInit {
     // 會被草稿的 dirty 條件擋掉 → 回來又是空白，正是這次要修的客訴情境。
     this.form.markAsDirty();
     this.dirtyChange.emit(true);
-    await this.prefillPrepayHistory(row.believerId, isStale);
-  }
-
-  /**
-   * 帶入該信眾今年(含)以前最新一筆報名的預繳資訊（對齊舊 NewSignupForm.BelieverSelected:1102-1115）。
-   * 僅在最新報名有 PrepayYear 時才預填；查無或失敗則不動使用者既填值。
-   */
-  private async prefillPrepayHistory(believerId: string, isStale?: () => boolean): Promise<void> {
-    if (!believerId) return;
-    try {
-      const latest = await this.prepayApi.believerLatest(believerId, this.form.controls.year.value);
-      if (isStale?.()) return; // 已改選別的信眾 → 這筆預繳不是他的
-      if (latest.prepayYear != null) {
-        this.form.patchValue({
-          prepayYear: latest.prepayYear,
-          prepayCeremonyCategoryId: latest.prepayCeremonyCategoryId ?? '',
-        });
-      }
-    } catch {
-      // 便利功能，失敗不阻斷選信眾流程
-    }
   }
 
   /** 插入模式：帶入目標群組 + 插入位置編號，並鎖定年/法會/類型（避免改掉群組使插入位失義）。 */

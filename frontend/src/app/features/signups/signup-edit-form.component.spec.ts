@@ -43,7 +43,9 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
   }
 
   /** 一列搜尋結果（＝一筆報名）；地址留空以免測試還要 flush 區域清單。 */
-  const signupRow = (id: string, believerId: string, name: string): SignupListItem => ({
+  const signupRow = (
+    id: string, believerId: string, name: string, extra?: Partial<SignupListItem>,
+  ): SignupListItem => ({
     id, year: 113, ceremonyCategoryId: 'c1', ceremonyTitle: null, signupType: 1,
     numberTitle: null, number: null, fee: null, employee: null, employeeType: 1,
     believerId, name, hallName: null, phone: `0900-${id}`, isFixedNumber: false,
@@ -52,6 +54,7 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     textCity: null, textZone: null, textZipcode: null, textAddress: null,
     prepayYear: null, prepayCeremonyCategoryId: null, prepayCeremonyTitle: null,
     remark: `${name}的備註`, adminName: null, createDate: null,
+    ...extra,
   });
 
   const believerStub = (id: string, name: string): BelieverListItem => ({
@@ -170,9 +173,6 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     const first = await open();
     const pick = probe(first).pickBeliever(signupRow('s1', 'b1', '林大德'));
     httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
-    await flushMicrotasks();
-    httpMock.expectOne((r) => r.url.includes('/prepay'))
-      .flush({ prepayYear: null, prepayCeremonyCategoryId: null });
     await pick;
 
     first.destroy();
@@ -190,9 +190,6 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
 
     const pick = probe(f).pickBeliever(signupRow('s1', 'b1', '林大德'));
     httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
-    await flushMicrotasks();
-    httpMock.expectOne((r) => r.url.includes('/prepay'))
-      .flush({ prepayYear: null, prepayCeremonyCategoryId: null });
     await pick;
 
     expect(val(f, 'fee')).toBe(1200);            // 使用者打的金額留著
@@ -208,9 +205,6 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
 
     const pick = probe(f).pickBeliever(signupRow('s1', 'b1', '林大德'));
     httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
-    await flushMicrotasks();
-    httpMock.expectOne((r) => r.url.includes('/prepay'))
-      .flush({ prepayYear: null, prepayCeremonyCategoryId: null });
     await pick;
 
     expect(val(f, 'keepNumber')).toBe(true);
@@ -255,15 +249,16 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
   it('連續改選兩位信眾：先選的慢回應不會蓋掉後選的', async () => {
     const f = await open();
 
-    const pickA = probe(f).pickBeliever(signupRow('s1', 'bA', '甲信眾'));
+    const pickA = probe(f).pickBeliever(signupRow('s1', 'bA', '甲信眾', { prepayYear: 112 }));
     const reqA = httpMock.expectOne((r) => r.url.endsWith('/believers/bA'));
-    const pickB = probe(f).pickBeliever(signupRow('s2', 'bB', '乙信眾')); // 還沒回就改點別列
+    // 還沒回就改點別列
+    const pickB = probe(f).pickBeliever(
+      signupRow('s2', 'bB', '乙信眾', { prepayYear: 113, prepayCeremonyCategoryId: 'c9' }),
+    );
     const reqB = httpMock.expectOne((r) => r.url.endsWith('/believers/bB'));
 
     reqB.flush(believerStub('bB', '乙信眾'));
     await flushMicrotasks();
-    httpMock.expectOne((r) => r.url.includes('/prepay'))
-      .flush({ prepayYear: 113, prepayCeremonyCategoryId: 'c9' });
 
     reqA.flush(believerStub('bA', '甲信眾')); // 甲的慢回應姍姍來遲
     await Promise.all([pickA, pickB]);
@@ -273,7 +268,34 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     expect(val(f, 'remark')).toBe('乙信眾的備註');
     expect((val(f, 'livingNames') as string[])[0]).toBe('乙信眾陽上');
     expect(val(f, 'prepayYear')).toBe(113); // 甲不會把乙的預繳蓋掉
-    httpMock.expectNone((r) => r.url.includes('/prepay')); // 作廢的甲不再往下查預繳
+    expect(val(f, 'prepayCeremonyCategoryId')).toBe('c9');
+  });
+
+  // 2026-07-31 客訴：同一次搜尋裡先點有預繳的法會列、再點沒預繳的普桌列（SignupType 4），
+  // 普桌卻沿用了法會的預繳。法會與普桌是分開報名的兩件事，預繳不互通 → 預繳一律取該列自身值。
+  it('改選：法會列的預繳不會殘留到普桌列', async () => {
+    const f = await open();
+
+    const pickCeremony = probe(f).pickBeliever(
+      signupRow('s1', 'b1', '林大德', { signupType: 1, prepayYear: 121, prepayCeremonyCategoryId: 'c9' }),
+    );
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await pickCeremony;
+
+    expect(val(f, 'prepayYear')).toBe(121);
+    expect(val(f, 'prepayCeremonyCategoryId')).toBe('c9');
+
+    // 同一位信眾的普桌報名（該筆沒有預繳）
+    const pickWorship = probe(f).pickBeliever(
+      signupRow('s2', 'b1', '林大德', { signupType: 4, prepayYear: null, prepayCeremonyCategoryId: null }),
+    );
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await pickWorship;
+
+    expect(val(f, 'prepayYear')).toBeNull();
+    expect(val(f, 'prepayCeremonyCategoryId')).toBe('');
+    // 不再有「查信眾最新一筆預繳」的跨類型查詢（那正是把法會預繳帶到普桌的來源）
+    httpMock.expectNone((r) => r.url.includes('/prepay'));
   });
 
   it('新增成功：表單資料留著、跳「編號X，新增報名成功」，切走再回來仍是同一份', async () => {

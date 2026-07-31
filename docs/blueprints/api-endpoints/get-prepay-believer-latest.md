@@ -1,7 +1,7 @@
 ---
 title: GET /prepay?believerId={id}&year={y}
-purpose: 取某信眾「今年(含)以前最新一筆報名」的預繳資訊，供新增報名選信眾時自動帶入預繳年/法會
-status: shipped
+purpose: 取某信眾「今年(含)以前最新一筆報名」的預繳資訊（原供新增報名選信眾時自動帶入預繳年/法會）
+status: shipped-unused
 endpoint: get-prepay-believer-latest
 http_method: GET
 route: /api/v1/prepay?believerId={id}&year={y}
@@ -14,9 +14,11 @@ related_docs:
   - ../../design/api-design.md
   - ../legacy-coverage/new-signup-form.md
   - post-prepay-load.md
-keywords: [prepay, 預繳, believer, 信眾, 自動帶入, BelieverSelected]
-last_updated: 2026-06-02
+keywords: [prepay, 預繳, believer, 信眾, 自動帶入, BelieverSelected, unused, 普桌]
+last_updated: 2026-07-31 (標為 **保留但無呼叫端**：跨報名類型的「最新一筆」反查會把法會預繳帶到普桌〔SignupType 4〕，前端選信眾改取該列自身預繳，見 business-rules-implicit §19。API/handler/repo/測試全部原封保留備用)
 ---
+
+> ⚠ **2026-07-31 起前端已無呼叫端**（endpoint 保留備用，未移除）。詳見下方「已停用的原因」。
 
 ## 規格
 
@@ -76,7 +78,19 @@ ORDER BY Year DESC, CeremonySort DESC
 
 - **唯讀、無副作用**：純查詢，不寫任何資料。
 - **只取最新一筆的預繳**：與舊一致 — 即使更早的報名有預繳，只看最新那筆；最新那筆無預繳則不帶入（回 null）。
-- **前端行為**：`signup-edit-form.pickBeliever` 選信眾後呼叫；`prepayYear` 非 null 才 patch `prepayYear` + `prepayCeremonyCategoryId`，失敗（網路/錯誤）以 try/catch 吞掉、不阻斷選信眾。
+- **前端行為（2026-07-31 起已移除）**：原由 `signup-edit-form.pickBeliever` 選信眾後呼叫；`prepayYear` 非 null 才 patch `prepayYear` + `prepayCeremonyCategoryId`，失敗以 try/catch 吞掉、不阻斷選信眾（`prefillPrepayHistory` 已刪除）。
+
+## 已停用的原因（2026-07-31 客訴）
+
+**症狀**：同一次搜尋裡先點一筆有預繳的法會報名，再點同一位信眾另一筆沒預繳的**普桌**（`SignupType` 4）報名 → 普桌卻顯示了法會的預繳。
+
+**真因**：上面那段 SQL `WHERE BelieverID = @BelieverId AND Year <= @Year` **完全不分 `SignupType`**，`TOP 1` 永遠回同一筆（最新那筆，通常是法會）。而法會與普桌是分開報名的兩件事，**法會預繳 ≠ 普桌預繳**（使用者確認）。舊系統 `NewSignupForm.cs:1102-1115` 同樣沒有類型過濾 → 這是 legacy 缺陷。
+
+**採用的修法**：預繳改由**點到的那一列自身**供給（`SignupListItem.prepayYear` / `prepayCeremonyCategoryId`，`/signups` 查詢本就回這三欄），與 `pickBeliever` 其他所有欄位（姓名/電話/地址/名單/備註/堂號/員工類型）自 2026-07-27 起的「帶該筆報名自身快照」規則一致；該列沒預繳就是空白。因此本 endpoint 不再需要，但**保留備用**（未來若要恢復「跨筆最新」語意，需先補 `SignupType` 參數再啟用）。
+
+**未受影響**：`POST /api/v1/prepay/load`（批次載入預繳）本來就有 `SignupType` 過濾，見 [post-prepay-load.md](post-prepay-load.md)。
+
+見 [business-rules-implicit.md §19](../../business-rules-implicit.md)。
 
 ## 驗收
 
