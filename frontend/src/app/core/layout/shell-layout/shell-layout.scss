@@ -81,7 +81,7 @@
 
 .nav-item {
   display: grid;
-  grid-template-columns: 24px 1fr;
+  grid-template-columns: 28px 1fr;
   align-items: center;
   gap: var(--space-sm);
   padding: var(--space-sm) var(--space-md);
@@ -113,7 +113,7 @@
 }
 
 .nav-label {
-  font-size: var(--font-size-md);
+  font-size: 20px;
   font-weight: 500;
 }
 

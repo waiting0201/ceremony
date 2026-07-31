@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-31 (搜尋面板「編號」改為起 ~ 迄兩格 `.num-stepper`（中間 `～`），與批次列印面板同形態。同日先前報名維護「切到其他功能再回來被重置」客訴：ShowAll 段改寫為「不落磁碟、但活在當次執行期間」（存 `SignupSearchState.showAll` 記憶體 singleton），並補「搜尋條件任何變動即寫回快照、不必先按搜尋」。同日先前報名維護 toolbar RWD 改寫：斷點由 `@media` 視窗寬改為 `@container` 量 toolbar 容器寬，分 >1100 / ≤1100 / ≤700 三層（≤700 一層依使用者指定：批次列印與動作**維持同一列**，靠壓縮起迄欄換空間）——修掉窄寬時批次列印與動作區各自 100% 寬、列印/新增報名鈕被拉成滿版的客訴，同時修掉預設 1280px 視窗下三 panel 排不下、搜尋鈕壓到「備註」的既有問題。同日先前報名表單版面客訴第四輪：NewSignupForm 段版面圖改繪〔**部分反轉 07-29 的「全部無外框」**〕——地址拆「寄件地址」「文牒地址」兩個 fieldset 且框內欄位標題全拿掉改 placeholder、「同寄件地址」移進文牒框內靠右、往生/陽上名單各自恢復外框與 legend〔解掉「填字後失去標示」取捨〕、基本資料改序 堂號→姓名→電話→員工類型→固定編號 且前三欄與地址框逐像素等寬；目前無外框的只剩「基本資料」與「編號·費用·備註·預繳」兩區。先前 2026-07-29 (報名維護清單客訴三項：DataGrid 段新增「欄位預設寬度」抓法〔n 字 ≈ 17n+13px〕並把「法會」由 100px 改 64px＝三個字；「ShowAll 持久化」改為**不持久化**〔每次開頁不勾，欄寬持久化不動〕；搜尋 pane「全部」勾選時的淡化/停用範圍由「整個條件區」收斂為「年份／法會／類型＋範圍」四者。同日先前報名表單版面客訴第三輪：Button 表新增 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2，只給送出/結果確認鈕〕；MessageBox 段新增「結果型提示可再放大」〔ConfirmDialog `emphasis`：訊息 20px + 確認鈕加寬，僅「新增報名成功」〕；NewSignupForm 段補新版版面圖〔基本資料改全寬單列、按鈕列靠左、右側五個區塊全部拿掉 fieldset 外框與 legend——只剩「法會資料」保留外框〕。同日先前新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)))
+last_updated: 2026-07-31 (左側選單字級改 20px：新增「側欄選單字級」段〔nav-label 硬寫 20px 不開 token、圖示 size 20→24、`.nav-item` 圖示欄寬 24→28px〕，並把報名維護 vgrid 與 dialog 內文兩處「對齊 nav-label 字級」敘述改為記錄歷史來由、明註 2026-07-31 起脫鉤不跟進。同日先前搜尋面板「編號」改為起 ~ 迄兩格 `.num-stepper`（中間 `～`），與批次列印面板同形態。同日先前報名維護「切到其他功能再回來被重置」客訴：ShowAll 段改寫為「不落磁碟、但活在當次執行期間」（存 `SignupSearchState.showAll` 記憶體 singleton），並補「搜尋條件任何變動即寫回快照、不必先按搜尋」。同日先前報名維護 toolbar RWD 改寫：斷點由 `@media` 視窗寬改為 `@container` 量 toolbar 容器寬，分 >1100 / ≤1100 / ≤700 三層（≤700 一層依使用者指定：批次列印與動作**維持同一列**，靠壓縮起迄欄換空間）——修掉窄寬時批次列印與動作區各自 100% 寬、列印/新增報名鈕被拉成滿版的客訴，同時修掉預設 1280px 視窗下三 panel 排不下、搜尋鈕壓到「備註」的既有問題。同日先前報名表單版面客訴第四輪：NewSignupForm 段版面圖改繪〔**部分反轉 07-29 的「全部無外框」**〕——地址拆「寄件地址」「文牒地址」兩個 fieldset 且框內欄位標題全拿掉改 placeholder、「同寄件地址」移進文牒框內靠右、往生/陽上名單各自恢復外框與 legend〔解掉「填字後失去標示」取捨〕、基本資料改序 堂號→姓名→電話→員工類型→固定編號 且前三欄與地址框逐像素等寬；目前無外框的只剩「基本資料」與「編號·費用·備註·預繳」兩區。先前 2026-07-29 (報名維護清單客訴三項：DataGrid 段新增「欄位預設寬度」抓法〔n 字 ≈ 17n+13px〕並把「法會」由 100px 改 64px＝三個字；「ShowAll 持久化」改為**不持久化**〔每次開頁不勾，欄寬持久化不動〕；搜尋 pane「全部」勾選時的淡化/停用範圍由「整個條件區」收斂為「年份／法會／類型＋範圍」四者。同日先前報名表單版面客訴第三輪：Button 表新增 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2，只給送出/結果確認鈕〕；MessageBox 段新增「結果型提示可再放大」〔ConfirmDialog `emphasis`：訊息 20px + 確認鈕加寬，僅「新增報名成功」〕；NewSignupForm 段補新版版面圖〔基本資料改全寬單列、按鈕列靠左、右側五個區塊全部拿掉 fieldset 外框與 legend——只剩「法會資料」保留外框〕。同日先前新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)))
 ---
 
 ## 設計原則
@@ -61,6 +61,14 @@ last_updated: 2026-07-31 (搜尋面板「編號」改為起 ~ 迄兩格 `.num-st
 清單列高不動（vgrid `ROW_HEIGHT = 26px`、信眾搜尋結果 `$result-row-h = 25px`）：17px 字仍落在 `padding 4px×2` 後的內容高度內，量測後無裁切。
 
 **已知例外（未跟上 token）**：登入頁品牌標題（34px/28px/24px，[login-page.scss](../../../frontend/src/app/features/login/login-page.scss)）與各處純裝飾用大型 icon glyph（如 `.close-btn` 24px、空狀態插圖 48px）刻意不用字級 token，因為它們是品牌/圖示尺寸而非內容字級，見「登入頁設計」段說明。
+
+### 側欄選單字級（2026-07-31 決策）
+
+使用者要求「左側選單的字體改 20px」。`.nav-label` 由 `--font-size-md`（16px）改為**硬寫 20px**，圖示 `app-icon [size]` 同步 20 → 24（1.25 倍取常見級距），`.nav-item` 圖示欄寬 24px → 28px 避免 24px 圖示貼邊。檔案：[shell-layout.scss](../../../frontend/src/app/core/layout/shell-layout/shell-layout.scss)、[shell-layout.html](../../../frontend/src/app/core/layout/shell-layout/shell-layout.html)。
+
+**為何不開 token**：20px 落在 lg(18) 與 xl(22) 之間，新增一個級距只為單一元件使用，反而讓 token 表變雜；側欄是全站唯一的固定導覽，字級由使用者直接指定，不需要跟內容字級連動。**代價**：日後全站 +1px 時側欄不會跟著動，要手動改這一處。
+
+**連帶影響**：側欄字級原本是兩處「對齊基準」——報名維護 vgrid 與 dialog 內文都曾寫「與 nav-label 同級」。本次調整後兩者**刻意不跟進**（維持 17px / 16px），該敘述已改為記錄歷史來由，不再是同步約束。
 
 ## 色彩（Claude 配色 — 暖米/珊瑚橘）
 
@@ -391,7 +399,7 @@ Row 2: [報表類型 ▼]                  │ [列印]
 **列順序**：年份 → 法會 → 類型 → 編號 → [費用 → 員工] → 姓名 → 備註 → [堂號] → 往生 6 欄 → 陽上 6 欄 → 預繳 → 電話 → 寄件 3 → 文牒 3 → 編輯者 → 編輯日期 → 列尾 ⋮
 
 **樣式**：
-- font-size `--font-size-md-plus`（**僅報名維護 list**：2026-07-17 使用者要求對齊左側欄 nav-label 字級，在 `signup-list-page.scss` 覆蓋全域 `.vgrid-row`/`.vgrid-header` 的 `--font-size-sm-plus`；其他 vgrid 頁（如信眾維護）為 sm-plus。2026-07-29 兩者同步 +1px）
+- font-size `--font-size-md-plus`（**僅報名維護 list**：2026-07-17 使用者要求對齊當時的左側欄 nav-label 字級，在 `signup-list-page.scss` 覆蓋全域 `.vgrid-row`/`.vgrid-header` 的 `--font-size-sm-plus`；其他 vgrid 頁（如信眾維護）為 sm-plus。2026-07-29 兩者同步 +1px。**2026-07-31 起與側欄脫鉤**：nav-label 改 20px，本頁維持 md-plus 不跟進）
 - 列高 ≈ 26px (`padding: 4px 6px`)
 - 往生欄背景 `--c-dead-name-bg`（= `--c-primary-soft`，2026-07-17 使用者指定跟左側選單 active 同色，變更歷程與 trade-off 見色彩 token 表）
 - 選取列覆蓋層 `--c-row-selected` (#E9C79C)；選取列且往生欄走 mix
@@ -626,7 +634,7 @@ class FormOverlayComponent {
 - **成功**：彈出**單一「確定」按鈕的結果 dialog**（沿用 ConfirmDialog 的 `hideCancel` 變體，非另造元件），顯示 fileName / fullPath / sizeBytes。
 - **失敗**：dialog 顯示後端 verbatim 中文錯誤訊息（透過 `ApiError`）。
 - **pattern 要點**：通知型「結果視窗」一律走 ConfirmDialog `hideCancel: true`（單 OK），不要再各自做 toast / alert，維持全系統 dialog 一致。
-- **dialog 內文字級（2026-07-28）**：`.confirm-body` ＝ `--font-size-md`，與側欄選單 `.nav-label` 同級（使用者客訴「報名成功的提示字太小」）。dialog 是要人停下來讀的文字，不該比選單小；此為**全站共用**設定，改的是共用元件而非單一呼叫端。
+- **dialog 內文字級（2026-07-28）**：`.confirm-body` ＝ `--font-size-md`（訂定當時與側欄選單 `.nav-label` 同級，起因是使用者客訴「報名成功的提示字太小」）。dialog 是要人停下來讀的文字，不該太小；此為**全站共用**設定，改的是共用元件而非單一呼叫端。**2026-07-31 起與側欄脫鉤**：nav-label 改 20px，`.confirm-body` 維持 md 不跟進。
 
 ### 列印預覽頁面（`/reports/preview`，**2026-05-28 重新設計**）
 
