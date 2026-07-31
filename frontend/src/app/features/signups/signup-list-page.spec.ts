@@ -157,3 +157,45 @@ describe('SignupListPage（搜尋範圍預設）', () => {
     expect(p.keyEnabled()).toBe(true);
   });
 });
+
+/**
+ * 跨路由保留的行為鎖（2026-07-31 使用者回報）：切到其他功能再回報名維護，
+ * 條件（含「範圍」）與「顯示完整表格」都要保持原樣，不可被重設。
+ * 兩次 createComponent 共用同一個 TestBed injector ⇒ 等同同一個 SignupSearchState singleton。
+ */
+describe('SignupListPage（跨路由保留搜尋條件 / 檢視設定）', () => {
+  type Probe = {
+    form: { getRawValue(): Record<string, unknown>; patchValue(v: Record<string, unknown>): void };
+    showAll: () => boolean;
+    toggleShowAll(): void;
+    ngOnInit(): void;
+  };
+
+  const create = (): { fixture: ComponentFixture<SignupListPage>; p: Probe } => {
+    const fixture = TestBed.createComponent(SignupListPage);
+    return { fixture, p: fixture.componentInstance as unknown as Probe };
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+  });
+
+  it('離開前勾的「範圍」與「顯示完整表格」，回來時仍是勾的', () => {
+    const first = create();
+    first.p.ngOnInit();
+    first.p.form.patchValue({ isScope: true, year: 113, searchKey: '王' });
+    first.p.toggleShowAll();
+    expect(first.p.showAll()).toBe(true);
+    first.fixture.destroy(); // 切到其他功能 → 元件銷毀
+
+    const back = create();
+    back.p.ngOnInit();
+    const v = back.p.form.getRawValue();
+    expect(v['isScope']).toBe(true);
+    expect(v['year']).toBe(113);
+    expect(v['searchKey']).toBe('王');
+    expect(back.p.showAll()).toBe(true);
+  });
+});

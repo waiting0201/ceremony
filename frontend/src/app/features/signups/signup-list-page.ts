@@ -181,10 +181,12 @@ export class SignupListPage implements OnInit {
   private searchedBeforeAll = false;
 
   /**
-   * 顯示完整表格：每次開頁一律不勾（2026-07-29 使用者指定）。
-   * 原本會記到 localStorage，勾過一次之後每次開軟體都是完整表格 → 改成不記憶。
+   * 顯示完整表格：**開軟體**一律不勾（2026-07-29 使用者指定）——
+   * 原本記在 localStorage，勾過一次之後每次開軟體都是完整表格 → 改成不落磁碟。
+   * 但同一次執行期間切到其他功能再回來要保持原樣（2026-07-31），
+   * 故初值取自 SignupSearchState（記憶體 singleton，關閉 App 即消失）。
    */
-  protected readonly showAll = signal(false);
+  protected readonly showAll = signal(this.state.showAll());
   protected readonly columnWidths = signal<Record<string, number>>(loadColumnWidths());
 
   protected readonly selectedIds = signal<ReadonlySet<string>>(new Set());
@@ -284,11 +286,24 @@ export class SignupListPage implements OnInit {
     void this.loadCategories();
     this.bindScopeKeyToggle();
     this.bindAllModeToggle();
+    this.bindFormSnapshot();
     this.restoreFromState();
   }
 
   /**
-   * 進入修改/歷程頁再返回時，由 SignupSearchState 還原上次的搜尋條件 + 結果。
+   * 搜尋條件跨路由保留：**任何**條件變動就寫回快照，不必等按搜尋。
+   * （只在 search() 存的話，勾了條件卻先切到別的功能再回來就會被還原成上次搜尋時的樣子。）
+   * 還原時的 patchValue / enable / disable 一律帶 emitEvent: false，故不會反寫覆蓋自己。
+   */
+  private bindFormSnapshot(): void {
+    this.form.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(() => {
+      this.state.form.set(this.form.getRawValue() as SignupSearchFormSnapshot);
+    });
+  }
+
+  /**
+   * 離開列表頁（改到修改/歷程頁，或切去其他功能）再返回時，
+   * 由 SignupSearchState 還原上次的搜尋條件 + 結果。
    * 若 state 帶 stale flag（edit/create/delete 成功設定），重新查詢一次。
    */
   private restoreFromState(): void {
@@ -707,6 +722,7 @@ export class SignupListPage implements OnInit {
 
   protected toggleShowAll(): void {
     this.showAll.update((v) => !v);
+    this.state.showAll.set(this.showAll()); // 跨路由保留（見 showAll 註解）
   }
 
   protected onHeaderCheckboxChange(input: HTMLInputElement): void {

@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
@@ -159,6 +159,13 @@ last_updated: 2026-07-31 (修客訴「法會的預繳被錯帶到普桌」：`pi
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **客訴：報名維護切到其他功能再回來被重置** — Done 2026-07-31
+  - 症狀：勾了「範圍」、勾了「顯示完整表格」，切去別的功能再切回報名維護，兩者都變回沒勾
+  - 真因兩條：(1) `SignupSearchState` 的條件快照**只在 `search()` 成功後才寫** → 勾了條件但還沒按搜尋就切走，回來還原的是上次搜尋當下的條件；(2)「顯示完整表格」是 `showAll` signal、不在快照介面內，**根本沒被保存**（2026-07-29 取消 localStorage 記憶時連帶讓它變成「元件銷毀就沒了」）
+  - 修法：`bindFormSnapshot()` 訂閱 `form.valueChanges` 無條件寫回 `state.form`（結果/總數/選取仍只在 `search()` 存，回來不會憑空重打 API）；`SignupSearchState` 新增 `showAll` 一格，`toggleShowAll()` 同步、元件建構時取回。仍**只存記憶體**，關掉 App 即回預設 → 與 07-29「開軟體不要預設 32 欄」不衝突
+  - 驗證：`tsc` 0 err、`ng test` **47 綠**（新增回歸鎖「跨路由保留搜尋條件 / 檢視設定」，並以還原原始碼 → 該案轉紅驗證有效）
+  - Docs: [signup-management.md](blueprints/signup-management.md)、[frontend-design.md](design/frontend-design.md)「搜尋條件的跨路由快照」、[visual-design.md](design/visual-design.md)
 
 - [x] **客訴：法會的預繳被錯帶到普桌（同一次搜尋改選報名時）** — Done 2026-07-31
   - 症狀：搜尋後先點一筆有預繳的**法會**報名，再點同一位信眾另一筆沒預繳的**普桌**（`SignupType` 4）→ 普桌卻顯示法會的預繳。法會與普桌是分開報名的兩件事，預繳不互通

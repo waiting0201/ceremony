@@ -20,15 +20,19 @@ export interface SignupSearchFormSnapshot {
 
 /**
  * 跨路由的搜尋狀態快取（singleton）。
- * 進入 /signups/:id/edit 或 /signups/:id/logs 再回 /signups 時，
- * 由本服務還原上次的搜尋條件與結果，避免重打 API。
+ * 離開 /signups（不論是 /signups/:id/edit、/signups/:id/logs，或切到其他功能）再回來時，
+ * 由本服務還原上次的搜尋條件、檢視設定與結果，避免重打 API 也不用重設條件。
  *
  * 若使用者在 edit 頁完成修改/新增/刪除，會 set markStale()，
  * 列表頁下次 mount 偵測到 stale = true 會自動重查。
+ *
+ * 只活在記憶體（不落 localStorage）：關掉 App 重開即回到預設。
  */
 @Injectable({ providedIn: 'root' })
 export class SignupSearchState {
   readonly form = signal<SignupSearchFormSnapshot | null>(null);
+  /** 「顯示完整表格」：欄位顯隱屬檢視設定、不在搜尋條件快照內，另存一格。 */
+  readonly showAll = signal(false);
   readonly results = signal<SignupListItem[]>([]);
   readonly total = signal(0);
   readonly hasSearched = signal(false);
@@ -47,6 +51,7 @@ export class SignupSearchState {
 
   reset(): void {
     this.form.set(null);
+    this.showAll.set(false);
     this.results.set([]);
     this.total.set(0);
     this.hasSearched.set(false);
