@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-31 (報名表單版面客訴第四輪：NewSignupForm 段版面圖改繪〔**部分反轉 07-29 的「全部無外框」**〕——地址拆「寄件地址」「文牒地址」兩個 fieldset 且框內欄位標題全拿掉改 placeholder、「同寄件地址」移進文牒框內靠右、往生/陽上名單各自恢復外框與 legend〔解掉「填字後失去標示」取捨〕、基本資料改序 堂號→姓名→電話→員工類型→固定編號 且前三欄與地址框逐像素等寬；目前無外框的只剩「基本資料」與「編號·費用·備註·預繳」兩區。先前 2026-07-29 (報名維護清單客訴三項：DataGrid 段新增「欄位預設寬度」抓法〔n 字 ≈ 17n+13px〕並把「法會」由 100px 改 64px＝三個字；「ShowAll 持久化」改為**不持久化**〔每次開頁不勾，欄寬持久化不動〕；搜尋 pane「全部」勾選時的淡化/停用範圍由「整個條件區」收斂為「年份／法會／類型＋範圍」四者。同日先前報名表單版面客訴第三輪：Button 表新增 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2，只給送出/結果確認鈕〕；MessageBox 段新增「結果型提示可再放大」〔ConfirmDialog `emphasis`：訊息 20px + 確認鈕加寬，僅「新增報名成功」〕；NewSignupForm 段補新版版面圖〔基本資料改全寬單列、按鈕列靠左、右側五個區塊全部拿掉 fieldset 外框與 legend——只剩「法會資料」保留外框〕。同日先前新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)))
+last_updated: 2026-07-31 (報名維護 toolbar RWD 改寫：斷點由 `@media` 視窗寬改為 `@container` 量 toolbar 容器寬，分 >1100 / ≤1100 / ≤700 三層（≤700 一層依使用者指定：批次列印與動作**維持同一列**，靠壓縮起迄欄換空間）——修掉窄寬時批次列印與動作區各自 100% 寬、列印/新增報名鈕被拉成滿版的客訴，同時修掉預設 1280px 視窗下三 panel 排不下、搜尋鈕壓到「備註」的既有問題。同日先前報名表單版面客訴第四輪：NewSignupForm 段版面圖改繪〔**部分反轉 07-29 的「全部無外框」**〕——地址拆「寄件地址」「文牒地址」兩個 fieldset 且框內欄位標題全拿掉改 placeholder、「同寄件地址」移進文牒框內靠右、往生/陽上名單各自恢復外框與 legend〔解掉「填字後失去標示」取捨〕、基本資料改序 堂號→姓名→電話→員工類型→固定編號 且前三欄與地址框逐像素等寬；目前無外框的只剩「基本資料」與「編號·費用·備註·預繳」兩區。先前 2026-07-29 (報名維護清單客訴三項：DataGrid 段新增「欄位預設寬度」抓法〔n 字 ≈ 17n+13px〕並把「法會」由 100px 改 64px＝三個字；「ShowAll 持久化」改為**不持久化**〔每次開頁不勾，欄寬持久化不動〕；搜尋 pane「全部」勾選時的淡化/停用範圍由「整個條件區」收斂為「年份／法會／類型＋範圍」四者。同日先前報名表單版面客訴第三輪：Button 表新增 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2，只給送出/結果確認鈕〕；MessageBox 段新增「結果型提示可再放大」〔ConfirmDialog `emphasis`：訊息 20px + 確認鈕加寬，僅「新增報名成功」〕；NewSignupForm 段補新版版面圖〔基本資料改全寬單列、按鈕列靠左、右側五個區塊全部拿掉 fieldset 外框與 legend——只剩「法會資料」保留外框〕。同日先前新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)))
 ---
 
 ## 設計原則
@@ -400,9 +400,19 @@ Row 2: [報表類型 ▼]                  │ [列印]
 - **欄位預設寬度**定義在 [signup-columns.ts](../../frontend/src/app/features/signups/signup-columns.ts) `SIGNUP_COLUMNS[].width`。抓法：CJK 字寬 ≈ 字級（17px）→ n 字 ≈ 17n + 12(padding) + 1(框線)。`法會` 2026-07-29 由 100px 改 **64px＝三個字**（使用者指定：法會名稱前三字已足以辨識，100px 白佔橫向空間；不夠看可拖寬，欄寬會記住）
 - **自繪垂直捲軸（2026-07-21）**：右緣 14px `.vscroll` 軌道 + `.vscroll-thumb`（`--c-text-disabled`，hover 轉 `--c-text-secondary`），隱藏原生垂直捲軸、水平捲軸保留（自訂上色）。緣由是要支援「捲軸右鍵子選單」——原生捲軸右鍵攔不到，見 [frontend-design.md](frontend-design.md)、[gotchas.md](../gotchas.md)
 
-**RWD**：
-- ≥ 1100px：3 panel 並排
-- < 1100px：toolbar 改 stack（單欄堆疊）；DataGrid 仍 horizontal scroll
+**RWD（2026-07-31 改寫）**：斷點量的是 **toolbar 容器寬**（`container-type: inline-size` + `@container`），不是視窗寬。理由：可用寬 = 視窗 − 側欄（220px／收合 64px）− `.content` padding，用 `@media` 會量錯——Electron 預設 1280px 視窗其實只有 1028px 可用，而側欄一收合多出 156px 媒體查詢卻完全無感。
+
+| 容器寬 | 版面 |
+|---|---|
+| > 1100px | 3 panel 並排（搜尋吃剩餘寬、批次列印／動作維持自然寬） |
+| ≤ 1100px | 搜尋獨佔第一列；批次列印＋動作並排填滿第二列（批次列印吃剩餘寬、卡片右緣與結果表格切齊，`justify-content: start` 讓內部控制項靠左、列印鈕**不**跟著撐大） |
+| ≤ 700px | **批次列印＋動作仍維持同一列**（使用者指定，2026-07-31）——靠把起迄欄改 `minmax(52px, 86px)` 可壓縮來換空間，而不是把動作擠到下一列；搜尋條件的勾選列（姓名/陽上/往生/電話/備註）換行、列高改 `minmax(control-height, auto)`、編號 stepper 96→72px、「匯出 Excel」鎖 `white-space: nowrap` |
+
+- 1100 這個值是量出來的：3 panel 並排時搜尋 grid 在容器 < 1088px 就會撐破 pane（搜尋鈕壓到「備註」勾選框）
+- **flex 斷行看的是 `flex-basis` 不是 min-content**：要讓兩塊維持同列，tier 3 的 `.print-pane` basis 必須跟著調小（240px），否則會提前換行。240 + 動作 ~154 + gap 8 ≈ 容器 402px 才斷行（≈ 視窗 620px 以下）
+- 容器 < ~520px（≈ 視窗 740px 以下）搜尋 grid 六欄仍會溢出，此時走 `.content` 的 horizontal scroll，不再另設斷點（桌面 App 啟動即最大化，屬極端情境）
+- DataGrid 仍 horizontal scroll
+- **禁止**把 `container-type` 設到 `.page` / `:host`：見 [gotchas.md](../gotchas.md)（會變成 fixed 子孫的 containing block，overlay 遮罩會縮在內容區）
 
 #### DataGrid 實作（**2026-05-28.d virtual scroll + 欄寬持久化**）
 

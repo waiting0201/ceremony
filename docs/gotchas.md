@@ -8,7 +8,7 @@ related_agents:
 related_docs:
   - conventions.md
 keywords: [gotchas, 陷阱, 踩雷, 反模式, anti-pattern, 對比度, WCAG, a11y]
-last_updated: 2026-07-28 (追加四條：背景 Task 不可綁 HttpContext.RequestAborted（回應一送出就被取消）＋CTS Cancel/Dispose 競態；JWT 的 sub 被 MapInboundClaims 映射成 ClaimTypes.NameIdentifier；CORS 沒 WithExposedHeaders 前端讀不到 Content-Disposition/X-Signup-Count（有 fallback 所以靜默失效很久）；CDK Overlay setInput 必須傳新物件否則 OnPush 不更新。同日先前：QuestPDF `Image` 位移為負或容器超出頁面 → **整張圖靜默消失**（不是裁切），且**不能**用「PDF 位元組數變大」證明圖畫出來了（圖片資源不管有沒有渲染都會被嵌進檔案），唯一可靠驗證是 raster 出來量墨跡；正解是把圖裁成合法尺寸／正值位移；同日先前：表單內 `<button type="submit" hidden>` 就是「按 Enter 就送出」的來源，拿掉才是關掉隱含送出；焦點在投影進 form 的按鈕上按 Enter 也會啟動，需 form 層攔 Enter 但放行 textarea；先前 2026-07-27 追加：客訴「距離 X 公分」是**間距**不是「移動 X 公分」——文牒往者 07-21 照字面做成 DeadShiftX=0.5 右移，實際間距變 0.793cm，客戶再度回報；含「跟…距離／離…／對齊…」的句子要先量參考物邊界再回推絕對座標；同日先前：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測))
+last_updated: 2026-07-31 (追加兩條 RWD 陷阱：`container-type` 會讓元素變成 fixed 子孫的 containing block（設在 `.page`／`:host` 會害 form-overlay 遮罩縮在內容區）＋`@container` 不影響 specificity；`@media` 量頁面內容寬會量錯一整條側欄（Electron 1280px 視窗實際只有 1028px 可用，側欄收合更是無感）。先前 2026-07-28 (追加四條：背景 Task 不可綁 HttpContext.RequestAborted（回應一送出就被取消）＋CTS Cancel/Dispose 競態；JWT 的 sub 被 MapInboundClaims 映射成 ClaimTypes.NameIdentifier；CORS 沒 WithExposedHeaders 前端讀不到 Content-Disposition/X-Signup-Count（有 fallback 所以靜默失效很久）；CDK Overlay setInput 必須傳新物件否則 OnPush 不更新。同日先前：QuestPDF `Image` 位移為負或容器超出頁面 → **整張圖靜默消失**（不是裁切），且**不能**用「PDF 位元組數變大」證明圖畫出來了（圖片資源不管有沒有渲染都會被嵌進檔案），唯一可靠驗證是 raster 出來量墨跡；正解是把圖裁成合法尺寸／正值位移；同日先前：表單內 `<button type="submit" hidden>` 就是「按 Enter 就送出」的來源，拿掉才是關掉隱含送出；焦點在投影進 form 的按鈕上按 Enter 也會啟動，需 form 層攔 Enter 但放行 textarea；先前 2026-07-27 追加：客訴「距離 X 公分」是**間距**不是「移動 X 公分」——文牒往者 07-21 照字面做成 DeadShiftX=0.5 右移，實際間距變 0.793cm，客戶再度回報；含「跟…距離／離…／對齊…」的句子要先量參考物邊界再回推絕對座標；同日先前：套印「置中」不可用固定位移量——直書字寬≈字級，組寬隨字級/位數變，必須用「中軸−組寬/2」回推且排在字級算完之後（資料卡往者 1/2 位客訴兩輪根因）；同日先前：.field 外的 input 不繼承 body 文字色（UA `color: fieldtext` 純黑），自刻 input 樣式要顯式補 color/background；多個 await 依序覆蓋整張表單的方法必須有 in-flight token guard（pickBeliever 快速改選會混成兩筆合體，同檔搜尋有 guard 而選取沒有最易漏）、patchValue/setValue 不標 dirty（以 form.dirty 當條件的草稿/離開確認要盤點所有程式填值點）；同日先前：NU1903 Microsoft.OpenApi 2.0.0 弱點——升 Microsoft.AspNetCore.OpenApi 無效（上游 nuspec 相依下限仍寫 2.0.0），必須在 Ceremony.Api.csproj 直接 pin Microsoft.OpenApi 2.7.5 覆寫 transitive，並實跑 /openapi/v1.json 驗 runtime 相容；先前 2026-07-21 追加：Ceremony.Migrations（Exe）被 sidecar Api ProjectReference，publish 帶 RID 使其預設 self-contained→NETSDK1151，須顯式 SelfContained=false，且 .csproj XML 註解不可含「--」；原生捲軸右鍵事件攔不到（macOS 0 寬懸浮捲軸 + Chromium 不派送），「捲軸右鍵子選單」必須自繪捲軸；2026-07-18 追加：舊系統「只有 N 位」是 slot-based，count-based 重寫使空洞資料往生者沒印（文牒客訴根因）；同日稍早：input[type=number] 丟棄 IME 組字無回饋→批次列印起迄客訴根因，全站數字欄改 appNumericInput；2026-07-17 追加：必填欄位藏在 checkbox 後→編輯報名按確認必失敗；SignupLogs.Name NOT NULL——載入預繳 500 根因；同日稍早：印表機不可列印邊界會整欄吃掉 Left<0.5cm 的欄位；先前：插入並順移用 set-based UPDATE、薦牌實體對位條結案、色彩對比度要實測))
 ---
 
 ## 通用陷阱
@@ -24,6 +24,17 @@ last_updated: 2026-07-28 (追加四條：背景 Task 不可綁 HttpContext.Reque
 - **特例**：qa-test-engineer **絕不**修改 code，只審查；要求其改 code 應改用 code-review-optimizer 或 backend/frontend agent
 
 ## 專案層級陷阱
+
+### `container-type` 會讓元素變成 **fixed 子孫的 containing block**（2026-07-31）
+- **症狀**：某頁改用容器查詢做 RWD 後，該頁的 `app-form-overlay` 遮罩不再蓋滿視窗，只蓋住內容區（左側選單露在外面），panel 也可能被擠位
+- **根因**：`container-type: inline-size` 會套 `contain: layout`，使該元素成為**絕對／固定定位子孫的 containing block**。`.overlay-backdrop` 是 `position: fixed; inset: 0`，而 overlay 是 inline 渲染在頁面 `.page` 內的（不是 CDK portal 掛到 body），所以只要 container 設在 overlay 的祖先上就中招
+- **正解**：container 設在「不含 fixed 子孫」的最小範圍。報名維護是把 `.toolbar` 自己當 container——要查詢的 `.search-pane` / `.print-grid` / `.action-stack` 全是它的子孫，而 overlay 是它的**兄弟**，剛好不需要額外包 wrapper
+- **順帶**：`@container` **不影響 specificity**，容器查詢內的選擇器要與外面的 base 規則同權重才蓋得掉（`.toolbar .search-pane` 在外、`@container { .search-pane }` 在內 → 蓋不掉，靜默失效）
+
+### 用 `@media` 量頁面內容寬會量錯一整條側欄（2026-07-31）
+- **症狀**：報名維護 toolbar 的 `@media (max-width: 1100px)` 在 Electron 預設 1280px 視窗下不觸發，但三個 pane 早就排不下——搜尋鈕壓在「備註」勾選框上
+- **根因**：可用寬 = 視窗 − 側欄（220px，可收合成 64px）− `.content` padding；1280px 視窗實際只有 **1028px**。反過來把側欄收合多出 156px，`@media` 也完全無感（視窗寬沒變）
+- **正解**：內容排版的斷點用 `@container`（見上一條的設置限制）；斷點閾值要**實測**內容 min-content 寬，不要照抄常見的 1200/1100/768
 
 ### `Signups` 的郵遞區號有**兩欄**，寫 FK 不等於寫好（2026-07-29）
 - **症狀**：新系統新增的報名，郵遞區號一律空白——API 回的 `mailZipcode`/`textZipcode` 是 `null`、

@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
@@ -157,6 +157,12 @@ last_updated: 2026-07-31 (資料卡往者 2 位左右相反修正)
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **報名維護頁 toolbar RWD 客訴：窄寬時批次列印/動作區變 100% 寬** — Done 2026-07-31
+  - 症狀（使用者截圖）：視窗一窄，`@media (max-width:1100px)` 把 `.toolbar` 改成單欄 grid，三個 pane 各自 100% 寬，`.print-btn` 與 `.action-stack` 吸收多餘寬度 → 列印／新增報名／修改報名鈕被拉成滿版
+  - 改法（[signup-list-page.scss](../frontend/src/app/features/signups/signup-list-page.scss)，**只動 SCSS、template 未動**）：`.toolbar` 改 `flex-wrap` + `container-type: inline-size`，斷點改 `@container` 分三層 >1100 / ≤1100 / ≤700；tier 2 搜尋獨佔一列、批次列印吃剩餘寬（`.print-grid { justify-content: start }` 讓按鈕不撐大）、動作維持自然寬；tier 3 依使用者指定讓批次列印與動作**維持同一列**（`.print-pane` basis 收到 240px、起迄欄改 `minmax(52px,86px)` 可壓縮；flex 斷行看 basis 不看 min-content）、搜尋勾選列換行＋編號 stepper 縮到 72px＋「匯出 Excel」鎖單行
+  - **順手修掉既有問題**：斷點改量容器寬後，Electron 預設 1280px 視窗（容器僅 1028px）不再硬排三欄——原本會讓搜尋鈕壓在「備註」勾選框上；側欄收合（220→64px）也能即時反應版面
+  - 驗證：`ng build` 綠；用 Electron + 編譯後 CSS 做離線 harness 截圖比對 1500/1280/1280-收合/1150/1000/860/720 七種寬度，容器 ≥520px 均無溢出。docs 同步 [visual-design.md](design/visual-design.md)、[frontend-design.md](design/frontend-design.md)、[gotchas.md](gotchas.md)（新增兩條 RWD 陷阱）
 
 - [x] **資料卡列印客訴：往者 2 位時左右相反** — Done 2026-07-31
   - `DataCardRenderer.DeadColumnsX` tier ≤2 分支對調兩欄 X：往者一 `d[0]` 改在**右**（`FrameCenterX + 0.05`）、往者二 `d[1]` 改在**左**（`FrameCenterX − 0.05 − fontCm`）。直書由右往左讀，薦牌 `TabletRenderer` 2 位分支本來就是 One 右／Two 左，資料卡是 07-27 置中改版時寫反的那個

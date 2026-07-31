@@ -17,13 +17,24 @@
   h1 { margin: 0; font-size: var(--font-size-xl); }
 }
 
+// 三個 pane 用 flex-wrap 而非固定三欄 grid：窄寬時能自然斷行，分層規則見檔尾 @container。
+// container-type 讓斷點量「toolbar 實際可用寬」而非視窗寬——側欄收合（220↔64px）會即時反應，
+// 這是 @media 做不到的（Electron 預設視窗 1280px，toolbar 其實只有約 1028px 可用）。
+// 容器只能設在 .toolbar，不可設在 .page / :host：container-type 會讓元素變成 fixed 子孫的
+// containing block，而 .page 內還掛著 app-form-overlay 的 .overlay-backdrop（position: fixed）。
 .toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--space-sm);
   align-items: stretch;
   flex: 0 0 auto;
+  container-type: inline-size;
 }
+
+// 搜尋吃剩餘寬度，批次列印／動作維持自然寬（＝舊的 minmax(0,1fr) auto auto）。
+// basis 合計 520 + ~290 + ~150 + gap 16 ≈ 976 < 1100（tier 2 的門檻），故 tier 1 不會提前斷行。
+.search-pane { flex: 1 1 520px; }
+.print-pane { flex: 0 0 auto; }
 
 .search-grid {
   display: grid;
@@ -82,7 +93,7 @@
   .print-btn { grid-column: 4; grid-row: 1 / 3; align-self: stretch; height: auto; padding: 0 var(--space-md); min-width: 64px; }
 }
 
-.action-pane { min-width: 132px; }
+.action-pane { flex: 0 0 auto; min-width: 132px; }
 .action-stack {
   display: flex; flex-direction: column; gap: 6px;
   .btn {
@@ -164,7 +175,33 @@
   &:hover { background: var(--c-text-secondary); }
 }
 
-@media (max-width: 1100px) {
-  .toolbar { grid-template-columns: minmax(0, 1fr); }
+/* RWD 分層（2026-07-31）：舊寫法只有 `@media (max-width:1100px) { .toolbar → 單欄 }`，
+   三個 pane 全部變 100% 寬，而 .print-btn 與 .action-stack 會吸收多餘寬度，按鈕被拉成滿版（醜）。
+   改成量容器寬的兩層斷點；@container 不影響 specificity，故下列選擇器要與上方 base 規則同權重。 */
+
+/* Tier 2：容器 ≤ 1100px — 搜尋獨佔一列，批次列印＋動作並排填滿第二列。
+   1100 是量出來的：三塊並排時搜尋 grid 在容器 < 1088px 就會撐破 pane（搜尋鈕壓到「備註」勾選框），
+   而 Electron 預設 1280px 視窗的容器只有 1028px，等於預設尺寸就該切這一層。 */
+@container (max-width: 1100px) {
+  .search-pane { flex: 1 1 100%; }
+  .print-pane { flex: 1 1 320px; }        // 吃掉剩餘寬度，卡片右緣與下方結果表格切齊
+  .print-grid { justify-content: start; } // pane 變寬時控制項靠左，列印鈕不跟著撐大
   .search-grid { grid-template-columns: auto auto 100px minmax(120px, 1fr) auto auto; }
+}
+
+/* Tier 3：容器 ≤ 700px — 批次列印與動作**維持同一排**（使用者指定），靠壓縮起迄欄寬度換空間，
+   而不是把動作擠到下一排；搜尋勾選列改換行不溢出。
+   flex 斷行看的是 flex-basis（不是 min-content），故 basis 要跟著調小才不會提前換行：
+   240 + 動作 ~154 + gap 8 ≈ 402px，容器小於此才會斷行（≈ 視窗 620px 以下，極端情境）。 */
+@container (max-width: 700px) {
+  .print-pane { flex: 1 1 240px; }
+  .print-grid { grid-template-columns: minmax(52px, 86px) auto minmax(52px, 86px) auto; }
+  .search-grid {
+    grid-template-rows: repeat(3, minmax(var(--control-height), auto));
+
+    .scope-row { flex-wrap: wrap; row-gap: 4px; }
+    // 編號欄讓出 24px、「匯出 Excel」鎖單行（否則會被 1fr 的關鍵字欄擠成「匯出／Excel」兩行）
+    .number-field .num-stepper { width: 72px; }
+    .r3c5 { white-space: nowrap; }
+  }
 }
