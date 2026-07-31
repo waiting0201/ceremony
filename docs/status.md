@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
@@ -159,6 +159,12 @@ last_updated: 2026-07-31 (列印通道大改：Electron 主行程接管送印〔
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **新增報名：員工類型下拉寬度＝費用欄寬** — Done 2026-07-31
+  - `.grid.basic-side` 由 `minmax(0,1fr) auto` 改 `repeat(3, minmax(0,1fr))`＝與費用所在的右欄 `.grid.three` 同一組軌道（兩個 `.col` 等寬、`.bare-block` 內距相同 → 逐像素相等），下拉佔第一格；固定編號勾選框改 `grid-column: 2 / -1` 吃剩下兩格（原 `auto` 會讓下拉去撐剩餘寬度）
+  - 斷點同步：760px `.basic-side` 跟著 `.three` 降兩欄；480px 單欄要把 `.field-check` 的 `grid-column` 還原 `auto`，否則 `2 / -1` 會撐出隱含欄
+  - 延續 07-31 第四輪第 3 項的「同構而非寫死欄寬」原則。`ng build` 綠；**版面待實機複驗**
+  - docs 同步：[frontend-design](design/frontend-design.md)、[signup-management](blueprints/signup-management.md)
 
 - [x] **列印客訴：新系統有的印表機可以、有的要手動調、有的讀不到印表機** — Done 2026-07-31
   - Blueprint: [print-channel-electron.md](blueprints/print-channel-electron.md)

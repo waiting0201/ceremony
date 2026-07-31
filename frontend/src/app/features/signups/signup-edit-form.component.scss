@@ -75,21 +75,28 @@
   // 地址：城市 / 區域 / 郵遞區號（窄）三欄一列；地址另起整列
   &.addr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px; }
   // 基本資料的右半：員工類型 + 固定編號（2026-07-31 使用者指定的新順序，左半的
-  // 堂號/姓名/電話 直接用 .three）。固定編號是勾選框，寬度給 auto 不吃等分。
+  // 堂號/姓名/電話 直接用 .three）。
+  // 2026-07-31 使用者指定：員工類型下拉寬度＝下方「費用」欄寬。費用在同為 .form-cols > .col >
+  // .bare-block > .grid.three 的右欄裡（兩個 .col 等寬、.bare-block 內距相同），所以這裡直接
+  // 沿用同一組三等分軌道，下拉佔第一格即逐像素相等；勾選框改吃第 2~3 格（原本的 auto 會讓
+  // 下拉撐掉剩餘寬度而對不齊）。
   &.basic-side {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: end;
     // 勾選框吃滿一個控件高度，底部才會與同列的 select 對齊（同 .keep-number-row 的手法）
-    .field-check { height: var(--control-height); white-space: nowrap; }
+    .field-check { grid-column: 2 / -1; height: var(--control-height); white-space: nowrap; }
   }
   .span-row { grid-column: 1 / -1; }
   .span-2 { grid-column: span 2; }
 
   @media (max-width: 760px) {
-    &.three, &.four, &.addr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    // basic-side 跟著 .three 一起降成兩欄，員工類型才會繼續與費用同寬
+    &.three, &.four, &.addr, &.basic-side { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 480px) {
     &.two, &.three, &.four, &.addr, &.basic-side { grid-template-columns: minmax(0, 1fr); }
+    // 單欄時勾選框不能再指定 2 / -1（會撐出隱含欄）
+    &.basic-side .field-check { grid-column: auto; }
   }
 }
 
