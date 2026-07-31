@@ -221,7 +221,10 @@ public sealed class DataCardRenderer
     /// <see cref="FrameCenterX"/>——直書 CJK 字寬≈字級，所以欄位左緣要用「中軸 − 該組總寬/2」回推，
     /// 固定位移量做不到（字級 0.8/0.5cm、位數 1/2 各有不同總寬）。
     /// * 只有 1 個名字（不論落在 d[0] 或 d[1]）：單欄置中，左緣＝中軸 − 字級/2
-    /// * 2 個名字：對稱分居中軸左右，中間留 <see cref="FewDeadColumnGap"/>（比照薦牌 2 位分支）
+    /// * 2 個名字：對稱分居中軸左右，中間留 <see cref="FewDeadColumnGap"/>（比照薦牌 2 位分支）；
+    ///   方向為 d[0]（往者一）在右、d[1]（往者二）在左（2026-07-31 客訴修正，直書右起），
+    ///   所以此分支回傳的 CenterX（給 d[0]）在幾何上位於 RightX（給 d[1]）右側——tuple 名稱是
+    ///   「矩陣欄位槽位」語意，不是幾何左右。
     /// internal 供 <c>Ceremony.Infrastructure.Tests</c> 斷言置中結果（PDF 內無法直接量測座標）。
     /// </remarks>
     internal static (double LeftX, double CenterX, double RightX) DeadColumnsX(string?[] deadNames, double fontCm)
@@ -239,9 +242,11 @@ public sealed class DataCardRenderer
 
         if (hasFirst && hasSecond)
         {
-            var first = FrameCenterX - FewDeadColumnGap / 2 - fontCm;  // d[0] 在左
-            var second = FrameCenterX + FewDeadColumnGap / 2;          // d[1] 在右
-            return (first - columnGap, first, second);
+            // 2026-07-31 客訴：直書由右往左讀，往者一必須在右、往者二在左（先前左右相反）。
+            // 與薦牌 TabletRenderer 2 位分支同向（該處已是 One 右、Two 左）。
+            var first = FrameCenterX + FewDeadColumnGap / 2;            // d[0]（往者一）在右
+            var second = FrameCenterX - FewDeadColumnGap / 2 - fontCm;  // d[1]（往者二）在左
+            return (second - columnGap, first, second);
         }
 
         return (singleX - columnGap, singleX, singleX);

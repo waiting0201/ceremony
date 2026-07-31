@@ -236,14 +236,16 @@ public sealed class RendererSmokeTests
             var onlySecond = DataCardRenderer.DeadColumnsX(N(null, "陳二"), fontCm);
             (onlySecond.RightX + fontCm / 2).Should().BeApproximately(frameCenterX, 1e-6);
 
-            // 2 位：對稱分居中軸左右，整組墨跡（d[0] 左緣 ~ d[1] 右緣）中點落在中軸
+            // 2 位：對稱分居中軸左右，整組墨跡（d[1] 左緣 ~ d[0] 右緣）中點落在中軸
             var two = DataCardRenderer.DeadColumnsX(N("陳大明", "陳二"), fontCm);
-            ((two.CenterX + two.RightX + fontCm) / 2).Should().BeApproximately(frameCenterX, 1e-6, "2 位往者整組要置中於框中軸");
-            (two.RightX - (two.CenterX + fontCm)).Should().BeApproximately(0.1, 1e-6, "兩欄之間留 0.1cm 不可貼在一起");
+            ((two.RightX + two.CenterX + fontCm) / 2).Should().BeApproximately(frameCenterX, 1e-6, "2 位往者整組要置中於框中軸");
+            // 2026-07-31 客訴：往者一（d[0]，回傳 CenterX）在右、往者二（d[1]，回傳 RightX）在左
+            two.CenterX.Should().BeGreaterThan(two.RightX, "往者一要印在往者二右邊（直書右起）");
+            (two.CenterX - (two.RightX + fontCm)).Should().BeApproximately(0.1, 1e-6, "兩欄之間留 0.1cm 不可貼在一起");
 
             // 都不可壓到窗框內緣
-            two.CenterX.Should().BeGreaterThan(innerLeft);
-            (two.RightX + fontCm).Should().BeLessThan(innerRight);
+            two.RightX.Should().BeGreaterThan(innerLeft);
+            (two.CenterX + fontCm).Should().BeLessThan(innerRight);
         }
 
         // 3+ 位維持原 2×3 矩陣欄位（中欄 16.985、欄距 0.75），不因字級改變
