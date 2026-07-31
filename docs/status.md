@@ -7,14 +7,14 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
 
 > 本檔由 Claude **自動維護**。任務開始/完成/卡住都必須更新。新增項目也要寫入。詳細規則見 [../CLAUDE.md](../CLAUDE.md) 「狀態追蹤規則」。
 
-**Current Version**: `v2.3.5`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
+**Current Version**: `v2.3.6`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
 
 ## 🔄 In Progress
 
@@ -159,6 +159,11 @@ last_updated: 2026-07-31 (新增報名「員工類型」下拉寬度改為＝右
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **發版 v2.3.6** — Done 2026-07-31（自 v2.3.5 起累積 6 項：報名表單客訴第四輪、薦牌往者左移 0.05cm、資料卡往者 2 位左右相反、報名維護 toolbar RWD container query、Electron 主行程接管列印、員工類型下拉寬度）
+  - `frontend/package.json` version 2.3.5→2.3.6（順手把 `package-lock.json` 的 root version 由殘留的 2.3.2 補齊）、status.md 標頭同步、tag `v2.3.6`
+  - **版號選擇**：本區間全是 UI 版面／列印座標／列印通道實作調整，無 API 契約變更、無資料結構變更、無新頁面 → 照 [conventions.md](conventions.md) 為 PATCH
+  - ⚠ 本區間多項標「待實機複驗」，其中 **Electron 列印通道改由主行程接管（silent print + 紙張 SSoT）風險最高**，發版後請優先在 Windows 實機驗收列印；清單見 [print-channel-electron.md](blueprints/print-channel-electron.md)
 
 - [x] **新增報名：員工類型下拉寬度＝費用欄寬** — Done 2026-07-31
   - `.grid.basic-side` 由 `minmax(0,1fr) auto` 改 `repeat(3, minmax(0,1fr))`＝與費用所在的右欄 `.grid.three` 同一組軌道（兩個 `.col` 等寬、`.bare-block` 內距相同 → 逐像素相等），下拉佔第一格；固定編號勾選框改 `grid-column: 2 / -1` 吃剩下兩格（原 `auto` 會讓下拉去撐剩餘寬度）
