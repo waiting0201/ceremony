@@ -12,7 +12,7 @@ related_docs:
   - ../design/api-design.md
   - ../design/visual-design.md
 keywords: [believer, 信眾, 信眾維護, BelieverForm, 地址, 陽上, 往生]
-last_updated: 2026-07-21 (往生／陽上名單字級對齊地址，比照報名表單客訴)
+last_updated: 2026-07-31 (地址區改版比照報名表單：拆「寄件地址」「文牒地址」兩個 fieldset、框內欄位標題全拿掉改 placeholder、「同寄件地址」勾選移進文牒框內靠右；同日「同寄件地址」觸發門檻放寬為「城市/區域/地址三者全空才擋」。⚠ 本表單 mailAddress 仍掛 Validators.required、與報名表單/後端 2026-07-21 的放寬不一致，未動，已列 pending-business-input。先前 2026-07-21 (往生／陽上名單字級對齊地址，比照報名表單客訴))
 ---
 
 ## 背景與動機
@@ -28,7 +28,7 @@ last_updated: 2026-07-21 (往生／陽上名單字級對齊地址，比照報名
 - 員工類型管理（1=非員工 / 2=大殿 / 3=地藏殿）
 - 固定編號旗標（IsFixedNumber）
 - 刪除限制：有報名紀錄則不可刪
-- 「同寄件地址」一鍵複製
+- 「同寄件地址」一鍵複製（勾選框位於「文牒地址」框內最上方、靠右）
 
 ### 不做什麼
 - 信眾批次匯入（暫由 DataTrans 處理）
@@ -61,7 +61,7 @@ last_updated: 2026-07-21 (往生／陽上名單字級對齊地址，比照報名
   - 舊：`Microsoft.VisualBasic.Strings.StrConv(VbStrConv.Narrow)`
   - 新：自製 `toHalfWidthDigits()` 工具，前端 + 後端雙重轉換
 - **雙地址 FK 改名**：`Zipcodes` / `Zipcodes1` → `mail_zipcode` / `text_zipcode`
-- **「同寄件地址」勾選邏輯保留**：mail 空時拒絕勾選，訊息「請先輸入寄件地址」
+- **「同寄件地址」勾選邏輯保留**：**城市/區域/地址三者全空**時才拒絕勾選，訊息「請先填寫寄件地址（城市／區域或地址）」（2026-07-31 放寬，刻意偏離舊系統「必須先有地址文字」，與報名表單同步；見 [business-rules-implicit §12](../business-rules-implicit.md)）
 - **刪除限制走 explicit count query**（非 nav lazy-load）
   - 理由：舊系統用 `believer.Signups.Any()` 觸發 N+1；新版用 `EXISTS (SELECT 1 FROM signups WHERE believer_id = @id)`
 

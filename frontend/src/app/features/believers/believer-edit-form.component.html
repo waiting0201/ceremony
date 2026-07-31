@@ -38,20 +38,21 @@
         </div>
       </fieldset>
 
-      <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 WinForms 信眾表單）；寄件在上、文牒在下（2026-07-18 客訴） -->
-      <fieldset class="block">
-        <legend>地址</legend>
-        <div class="addr-cols">
+      <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 WinForms 信眾表單）；寄件在上、文牒在下（2026-07-18 客訴）。
+           2026-07-31 使用者指定（與報名表單同步）：寄件與文牒**各自一個框**、框內欄位標題全部拿掉
+           改用 placeholder（分段靠 legend 講就夠），「同寄件地址」勾選框移進文牒框內。
+           .addr-cols 保留為兩個框的左右並排容器。 -->
+      <div class="addr-cols">
+        <fieldset class="block">
+          <legend>寄件地址</legend>
           <div class="grid addr">
             <label class="field">
-              <span>寄件城市</span>
               <select formControlName="mailCity" (change)="onCityChange('mail')">
                 <option value="">請選擇城市</option>
                 @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
               </select>
             </label>
             <label class="field">
-              <span>寄件區域</span>
               <select formControlName="mailZipcodeId" (change)="onAreaChange('mail')">
                 <option value="">請選擇區域</option>
                 @for (a of mailAreas(); track a.zipcodeId) {
@@ -60,28 +61,31 @@
               </select>
             </label>
             <label class="field zip">
-              <span>郵遞區號</span>
-              <input type="text" [value]="mailZipcode()" readonly placeholder="—" />
+              <input type="text" [value]="mailZipcode()" readonly placeholder="郵遞區號" />
             </label>
+            <!-- 本表單的寄件地址仍是必填（Validators.required），標題拿掉後靠 placeholder 的 * 保留提示 -->
             <label class="field span-row">
-              <span>寄件地址 *</span>
-              <input type="text" formControlName="mailAddress" maxlength="200" />
+              <input type="text" formControlName="mailAddress" maxlength="200" placeholder="寄件地址 *" />
             </label>
-            <label class="field-check span-row">
+          </div>
+        </fieldset>
+
+        <fieldset class="block">
+          <legend>文牒地址</legend>
+          <div class="same-mail-row">
+            <label class="field-check">
               <input type="checkbox" formControlName="sameMailAddress" (change)="onSameMailAddressChange()" />
               <span>同寄件地址</span>
             </label>
           </div>
           <div class="grid addr">
             <label class="field">
-              <span>文牒城市</span>
               <select formControlName="textCity" (change)="onCityChange('text')">
                 <option value="">請選擇城市</option>
                 @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
               </select>
             </label>
             <label class="field">
-              <span>文牒區域</span>
               <select formControlName="textZipcodeId" (change)="onAreaChange('text')">
                 <option value="">請選擇區域</option>
                 @for (a of textAreas(); track a.zipcodeId) {
@@ -90,16 +94,14 @@
               </select>
             </label>
             <label class="field zip">
-              <span>郵遞區號</span>
-              <input type="text" [value]="textZipcode()" readonly placeholder="—" />
+              <input type="text" [value]="textZipcode()" readonly placeholder="郵遞區號" />
             </label>
             <label class="field span-row">
-              <span>文牒地址</span>
-              <input type="text" formControlName="textAddress" maxlength="200" />
+              <input type="text" formControlName="textAddress" maxlength="200" placeholder="文牒地址" />
             </label>
           </div>
-        </div>
-      </fieldset>
+        </fieldset>
+      </div>
     </div>
 
     <div class="col">

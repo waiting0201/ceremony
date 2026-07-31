@@ -52,11 +52,21 @@
   }
 }
 
-// 地址：寄件在上、文牒在下（2026-07-18 客訴，改回上下堆疊）
+// 地址：寄件在上、文牒在下（2026-07-18 客訴，改回上下堆疊）。
+// 2026-07-31 起兩段各自是 fieldset.block，這裡當兩個框的容器。
 .addr-cols {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-sm);
+}
+
+// 「同寄件地址」自成一列、靠右，放在文牒框內最上方（2026-07-31，與報名表單同步）
+.same-mail-row {
+  margin-bottom: var(--space-sm);
+  display: flex;
+  justify-content: flex-end;
+
+  .field-check { white-space: nowrap; }
 }
 
 // 表單內所有控件填滿欄寬且含 border 不溢出（全域 .field 未設 box-sizing/width）

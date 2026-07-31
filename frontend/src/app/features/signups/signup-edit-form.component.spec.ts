@@ -22,6 +22,8 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     pickBeliever(row: SignupListItem): Promise<void>;
     lastCreatedSignupId: () => string | null;
     printDataCard(): Promise<void>;
+    onSameMailAddressChange(): Promise<void>;
+    errorMessage: () => string | null;
   };
 
   const probe = (f: ComponentFixture<SignupEditFormComponent>): Probe =>
@@ -195,6 +197,59 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
 
     expect(val(f, 'fee')).toBe(1200);            // 使用者打的金額留著
     expect(val(f, 'remark')).toBe('林大德的備註'); // 有資料源的欄位照舊覆蓋
+  });
+
+  // 2026-07-31 客訴：勾了「指定編號」再點另一筆信眾就被取消勾選、打好的號碼也不見。
+  // 與費用同一取捨，也對齊舊 BelieverSelected（完全沒碰 cbKeepNumber/txtNumber）。
+  it('改選信眾不會取消「指定編號」勾選、也不會清掉已輸入的編號', async () => {
+    const f = await open();
+    probe(f).form.patchValue({ keepNumber: true });
+    probe(f).form.patchValue({ customNumber: 128 });
+
+    const pick = probe(f).pickBeliever(signupRow('s1', 'b1', '林大德'));
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await flushMicrotasks();
+    httpMock.expectOne((r) => r.url.includes('/prepay'))
+      .flush({ prepayYear: null, prepayCeremonyCategoryId: null });
+    await pick;
+
+    expect(val(f, 'keepNumber')).toBe(true);
+    expect(val(f, 'customNumber')).toBe(128);
+    expect(probe(f).form.get('customNumber')!.enabled).toBe(true); // 勾著就仍可編輯
+
+    // 按「取消」＝清成新的一筆時仍要清掉（對齊舊 PanelFormEmpty）
+    probe(f).resetBelow();
+    expect(val(f, 'keepNumber')).toBe(false);
+    expect(val(f, 'customNumber')).toBeNull();
+  });
+
+  // 2026-07-31 客訴：地址只選了城市與區域（地址欄留空，地址自 2026-07-21 起非必填），
+  // 也要能用「同寄件地址」同步文牒段。刻意偏離舊系統的「必須先輸入寄件地址」。
+  it('同寄件地址：只選了城市與區域也能同步（地址欄留空）', async () => {
+    const f = await open();
+    probe(f).form.patchValue({ mailCity: '臺中市', mailZipcodeId: '400', mailAddress: '' });
+    probe(f).form.get('sameMailAddress')!.setValue(true);
+
+    const syncing = probe(f).onSameMailAddressChange();
+    httpMock.expectOne((r) => r.url.endsWith('/zipcodes') && r.params.get('city') === '臺中市')
+      .flush({ items: [{ zipcodeId: 400, area: '中區', zipcode: '400' }] });
+    await syncing;
+
+    expect(val(f, 'sameMailAddress')).toBe(true);   // 不再被彈回
+    expect(val(f, 'textCity')).toBe('臺中市');
+    expect(val(f, 'textZipcodeId')).toBe('400');
+    expect(val(f, 'textAddress')).toBe('');
+    expect(probe(f).errorMessage()).toBeNull();
+  });
+
+  it('同寄件地址：城市／區域／地址全空才擋下並彈回勾選', async () => {
+    const f = await open();
+    probe(f).form.get('sameMailAddress')!.setValue(true);
+
+    await probe(f).onSameMailAddressChange();
+
+    expect(val(f, 'sameMailAddress')).toBe(false);
+    expect(probe(f).errorMessage()).toBe('請先填寫寄件地址（城市／區域或地址）');
   });
 
   it('連續改選兩位信眾：先選的慢回應不會蓋掉後選的', async () => {

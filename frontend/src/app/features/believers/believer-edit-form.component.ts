@@ -213,19 +213,25 @@ export class BelieverEditFormComponent {
     else this.textZipcode.set(zip);
   }
 
-  /** 同寄件地址 checkbox（對齊舊 cbSameMailAddress_CheckedChanged）。 */
+  /**
+   * 同寄件地址 checkbox（對齊舊 cbSameMailAddress_CheckedChanged）。
+   *
+   * **刻意偏離舊系統**（2026-07-31 使用者指定，與報名表單同步）：舊 BelieverForm.cs:294-318
+   * 要求 `txtMailAddress.Text.Trim() != ""` 才肯同步；改成城市/區域/地址三者全空才擋，
+   * 只選了城市與區域也能同步文牒段。
+   */
   protected async onSameMailAddressChange(): Promise<void> {
     const checked = this.form.controls.sameMailAddress.value;
     if (checked) {
+      const mailCity = this.form.controls.mailCity.value;
+      const mailZipId = this.form.controls.mailZipcodeId.value;
       const mailAddr = this.form.controls.mailAddress.value.trim();
-      if (!mailAddr) {
+      if (!mailCity && !mailZipId && !mailAddr) {
         this.form.controls.sameMailAddress.setValue(false);
-        this.errorMessage.set('請先輸入寄件地址');
+        this.errorMessage.set('請先填寫寄件地址（城市／區域或地址）');
         return;
       }
       this.errorMessage.set(null);
-      const mailCity = this.form.controls.mailCity.value;
-      const mailZipId = this.form.controls.mailZipcodeId.value;
       const mailZipNum = mailZipId ? Number(mailZipId) : null;
       await this.applyAddress('text', mailCity, mailZipNum, null, mailAddr);
     } else {

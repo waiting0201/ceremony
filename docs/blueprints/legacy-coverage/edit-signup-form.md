@@ -17,7 +17,7 @@ related_docs:
   - ../api-endpoints/README.md
   - README.md
 keywords: [legacy, coverage, edit-signup, 報名編輯]
-last_updated: 2026-07-29 (row 9 補回郵遞區號文字快照：舊 264-266 連 MailZipcode/TextZipcode 文字一起更新，新版 UPDATE 原本只改 FK → 改區域後留舊號碼；先前 2026-07-17 編輯 overlay 編號欄修正：恆顯示對齊 legacy txtNumber，修復按確認必 400)
+last_updated: 2026-07-31 (row 8「同寄件地址」改標**刻意偏離**：觸發門檻放寬為「城市/區域/地址三者全空才擋」（與新增報名共用同一元件）。先前 2026-07-29 (row 9 補回郵遞區號文字快照：舊 264-266 連 MailZipcode/TextZipcode 文字一起更新，新版 UPDATE 原本只改 FK → 改區域後留舊號碼；先前 2026-07-17 編輯 overlay 編號欄修正：恆顯示對齊 legacy txtNumber，修復按確認必 400))
 ---
 
 > ✅ **完成 (2026-06-02)**：20 個方法全部已實作。PUT/edit path（含 SignupLog transaction）+ 前端 `signup-edit-form` 全部 UI 連動（信眾選擇、城市/區域連動、同寄件地址、Load* 載入、編輯預填）全 ship。
@@ -54,7 +54,7 @@ last_updated: 2026-07-29 (row 9 補回郵遞區號文字快照：舊 264-266 連
 | 5 | `dlMailZone_SelectedIndexChanged` | 108-121 | 寄件區域變更時載入郵遞區號 | ✅ 已實作 | 同上 | `onAreaChange('mail')` → `refreshZipcode('mail')` |
 | 6 | `dlTextCity_SelectedIndexChanged` | 123-142 | 文件城市變更時載入對應區域 | ✅ 已實作 | 同上 | `onCityChange('text')` → `applyAddress` |
 | 7 | `dlTextZone_SelectedIndexChanged` | 144-157 | 文件區域變更時載入郵遞區號 | ✅ 已實作 | 同上 | `onAreaChange('text')` → `refreshZipcode('text')` |
-| 8 | `cbSameMailAddress_CheckedChanged` | 159-184 | 同寄件地址勾選時複製，取消時清空 | ✅ 已實作 | 前端 form logic | `onSameMailAddressChange()`：勾選複製寄件城市/區號/地址至文件，mail 空時阻止；取消時清空文件地址 |
+| 8 | `cbSameMailAddress_CheckedChanged` | 159-184 | 同寄件地址勾選時複製，取消時清空 | ⚠️ 刻意偏離 | 前端 form logic | `onSameMailAddressChange()`：勾選複製寄件城市/區號/地址至文牒，取消時清空（同舊）。**2026-07-31 觸發門檻放寬**為「城市/區域/地址三者全空才擋」（與新增報名共用同一個元件），見 [business-rules-implicit §12](../../business-rules-implicit.md) |
 | 9 | `btnConfirm_Click` | 186-368 | 驗證所有必填欄位 + 更新信眾與報名 + 建檔案誌並刷新 | ✅ 已實作（**故意偏離**：不回寫 Believer） | `PUT /api/v1/signups/:id` | `UpdateSignupHandler` + `SignupRepository.UpdateWithLogAsync` 含 transaction + Signup 全欄位 + SignupLog（含 HallName 快照）。**不再同步寫 Believer**（修正堂號連動缺陷，方案 C，見上方刻意行為差異 (a) 與 [signup-hallname-isolation.md](../signup-hallname-isolation.md)）。**2026-07-29 補回郵遞區號文字快照**：舊 264-266 連 `MailZipcode`/`TextZipcode` 文字一起更新，新版 UPDATE 原本只改 FK → 改了區域仍留舊號碼（比新增漏寫更毒，會印出錯的號碼）；現由 FK 現查同步 |
 | 10 | `txtYear_Validating` | 370-384 | 驗證年份格式與不早於當年 | ✅ 已實作 (部分) | `PUT /api/v1/signups/:id` | API 收 int + Year>0 檢查；regex/notInPast 留前端 |
 | 11 | `txtFee_Validating` | 386-394 | 驗證費用為純數字 | ✅ 已實作 (部分) | `PUT /api/v1/signups/:id` | API 收 int?；前端 input mask |

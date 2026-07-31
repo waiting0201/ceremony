@@ -10,7 +10,7 @@ related_docs:
   - api-design.md
   - ../blueprints/printing-reports.md
 keywords: [frontend, 前端, Electron, Angular, Vue, WinForms, 桌面, layout, signal, NgRx, context-menu, 右鍵, 多選, version, 版本, num-stepper, 捲軸, scrollbar, NumericUpDown, 草稿, draft, 未儲存]
-last_updated: 2026-07-29 (報名維護清單客訴三項改 DataGrid 規格兩條：顯隱欄位 toggle 偏好**不再落 localStorage**〔每次進頁回預設，欄寬持久化不動〕；「全部」條件旁路 toggle 收斂為「只解除年份/法會/類型（＋範圍）」——其餘條件仍生效仍可搜尋、`.all-mode` 只淡化對應 label、停用清單不得與 scope*→關鍵字的連動相交；另法會欄預設寬 100→64px（見 visual-design.md）。同日先前報名表單版面客訴第三輪：基本資料排成一整列並上提為 `.form-cols` 上方全寬列〔右欄「編號/費用/備註/預繳」隨之下移〕、按鈕列改靠左、**五個區塊（基本資料/地址/往生名單/陽上名單/編號·費用·備註·預繳）全部拿掉 fieldset 外框與 legend 改 `.bare-block`，只剩「法會資料」保留外框**〔名單兩塊填字後失去往生/陽上標示，屬已知取捨〕、「確認」鈕套新的全域 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2〕；`ConfirmDialogConfig` 新增 `emphasis` 旗標〔訊息 20px + 確認鈕加寬〕並用於「新增報名成功」——只給結果型提示，不再動全站 dialog 字級。見「報名表單版面」與「ConfirmDialog 強調變體」兩段；先前 2026-07-28 (新增 `<app-progress-overlay>` 共用 shell 與 `BatchPrintService`：批次列印改 job 模型後，三個批次入口（編號區間/多選/列印預覽頁）會顯示置中進度 overlay，含真實 i/N 百分比與取消鈕；記錄 CDK setInput 必須傳新物件、取消時不自動關 overlay 的理由；`ReportApi.batch()` 移除。同日先前 form-overlay 新增 dismissible input（false＝backdrop click / Esc 不再關閉，只剩 × 與 host 自己的取消鈕；報名維護新增/編輯 overlay 指定 false，其餘三個 feature 不變）；同日先前新增「Enter 就送出的開關是那顆隱藏 submit 按鈕」段（報名表單改為 Enter 不送出：移除隱藏鈕＋ngSubmit＋form 層攔 Enter 放行 textarea；其他三個 edit-form 不跟進）；同日先前版面客訴第二輪：地址段「同寄件地址」改夾在寄件/文牒之間、文牒郵遞區號回到區域右邊、文牒地址加寬；按鈕列（列印資料卡/取消/確認）移到備註下方——signup-edit-form 新增 form-actions 投影 slot、form-overlay 新增 showActions input 收掉底部 footer、路由頁 .form-actions 移除；同日先前四項：信眾搜尋框字級對齊地址欄〔.search-input 不在 .field 內、只繼承 font-family，字級落回 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄地址下方、「同寄件地址」移到文牒郵遞區號正上方〔第一列第三欄，郵遞區號下移到文牒地址同列，不多佔列高〕、備註 rows=1→4；ng build 綠，待實機複驗；先前 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣)))
+last_updated: 2026-07-31 (報名表單版面客訴第四輪〔**部分反轉 07-29 的「拿掉全部外框」**〕：地址拆成「寄件地址」「文牒地址」兩個 `fieldset.block` 且框內欄位標題全拿掉改 placeholder、「同寄件地址」勾選移進文牒框內最上方；往生/陽上名單各自改回 fieldset+legend〔解掉 07-29 記錄的「填字後失去標示」取捨〕；基本資料改序為 堂號→姓名→電話→員工類型→固定編號，前三欄以「與 `.form-cols` 同構」的巢狀達成與地址框逐像素等寬〔`.grid.basic-row` 移除、新增 `.grid.basic-side`〕。同日「同寄件地址」觸發條件放寬為「城市/區域/地址三者全空才擋」〔刻意偏離舊系統，兩張表單同步〕。信眾表單同步套用地址框與放寬條件。見「報名表單版面（2026-07-31 客訴第四輪）」段；先前 2026-07-29 (報名維護清單客訴三項改 DataGrid 規格兩條：顯隱欄位 toggle 偏好**不再落 localStorage**〔每次進頁回預設，欄寬持久化不動〕；「全部」條件旁路 toggle 收斂為「只解除年份/法會/類型（＋範圍）」——其餘條件仍生效仍可搜尋、`.all-mode` 只淡化對應 label、停用清單不得與 scope*→關鍵字的連動相交；另法會欄預設寬 100→64px（見 visual-design.md）。同日先前報名表單版面客訴第三輪：基本資料排成一整列並上提為 `.form-cols` 上方全寬列〔右欄「編號/費用/備註/預繳」隨之下移〕、按鈕列改靠左、**五個區塊（基本資料/地址/往生名單/陽上名單/編號·費用·備註·預繳）全部拿掉 fieldset 外框與 legend 改 `.bare-block`，只剩「法會資料」保留外框**〔名單兩塊填字後失去往生/陽上標示，屬已知取捨〕、「確認」鈕套新的全域 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2〕；`ConfirmDialogConfig` 新增 `emphasis` 旗標〔訊息 20px + 確認鈕加寬〕並用於「新增報名成功」——只給結果型提示，不再動全站 dialog 字級。見「報名表單版面」與「ConfirmDialog 強調變體」兩段；先前 2026-07-28 (新增 `<app-progress-overlay>` 共用 shell 與 `BatchPrintService`：批次列印改 job 模型後，三個批次入口（編號區間/多選/列印預覽頁）會顯示置中進度 overlay，含真實 i/N 百分比與取消鈕；記錄 CDK setInput 必須傳新物件、取消時不自動關 overlay 的理由；`ReportApi.batch()` 移除。同日先前 form-overlay 新增 dismissible input（false＝backdrop click / Esc 不再關閉，只剩 × 與 host 自己的取消鈕；報名維護新增/編輯 overlay 指定 false，其餘三個 feature 不變）；同日先前新增「Enter 就送出的開關是那顆隱藏 submit 按鈕」段（報名表單改為 Enter 不送出：移除隱藏鈕＋ngSubmit＋form 層攔 Enter 放行 textarea；其他三個 edit-form 不跟進）；同日先前版面客訴第二輪：地址段「同寄件地址」改夾在寄件/文牒之間、文牒郵遞區號回到區域右邊、文牒地址加寬；按鈕列（列印資料卡/取消/確認）移到備註下方——signup-edit-form 新增 form-actions 投影 slot、form-overlay 新增 showActions input 收掉底部 footer、路由頁 .form-actions 移除；同日先前四項：信眾搜尋框字級對齊地址欄〔.search-input 不在 .field 內、只繼承 font-family，字級落回 UA 預設 13.33px〕、往生/陽上名單由右欄移到左欄地址下方、「同寄件地址」移到文牒郵遞區號正上方〔第一列第三欄，郵遞區號下移到文牒地址同列，不多佔列高〕、備註 rows=1→4；ng build 綠，待實機複驗；先前 2026-07-27 (Grid Context Menu Pattern 新增「shift 範圍選取」段：錨點語意（不隨 shift 移動、以錨點當下選取為基準重算故可縮小範圍）＋兩個坑（列首 checkbox 必須綁 click 不能綁 change 否則拿不到 shiftKey、shift 點列要在 mousedown preventDefault 擋文字反白）；同日先前 DataGrid 規格新增「全部」條件旁路 toggle 規範（停用而非清空條件、buildQuery 單點短路讓搜尋/匯出一致、.all-mode 淡化 label、離開模式要還原既有連動規則）；同日先前 form-overlay 新增 width input（panel 定寬；內容含寬表格時必給，否則 panel 被撐到 92vw——限制內層表單無效且會讓底部 actions 落單）；同日全域 .field 補 input/select/textarea :disabled 樣式（原本無條件設 background/color 蓋掉瀏覽器預設 disabled 外觀，disabled 看起來跟可輸入一樣）；同日新增報名版面：法會資料改左側直立窄欄（.form-shell 兩欄 grid，回舊 plStep1）、信眾搜尋結果高度縮為表頭+3 列；同日新增「.field 外自刻 form control 要補齊 color/background」段（UA fieldtext 純黑導致名單欄字偏黑客訴）；同日新增「未完成表單的跨路由草稿」段：SignupDraftState root singleton，僅新增報名、僅記憶體、靜默還原，純新增模式關閉 overlay 不再跳未儲存確認；2026-07-21 起：(新增共用 .num-stepper 數字微調控件〔input+▲▼ ±1，對齊舊 NumericUpDown〕；報名維護清單新增垂直捲軸右鍵子選單〔捲動到這裡/頂端/底部/上下頁/上下捲〕對齊舊 WinForms 原生捲軸選單；2026-07-18：believer-edit-form 比照 signup-edit-form 改版：地址寄件上/文牒下、名單往生上/陽上下無底色；兩表單名單 legend 拿掉「最多 6 位」字樣))))
 ---
 
 ## 已落地骨架（2026-05-28 更新）
@@ -381,13 +381,24 @@ export class FormOverlayComponent {
 
 承 2026-07-04 的 `.form-cols` 雙欄與 2026-07-28 的按鈕內移，使用者再指定四項（`signup-edit-form` + 共用樣式）：
 
-1. **基本資料排成一整列、且移出左欄改為 `.form-cols` 上方的全寬列**（`.grid.basic-row`：員工類型 / 固定編號 / 堂號 / 姓名 / 聯絡電話，`minmax(0,1fr) auto repeat(3, minmax(0,1fr))`；勾選框 `height: var(--control-height)` 才能與同列 input 底部對齊）。五欄擠在半寬左欄會被壓爛，故整塊上提；副作用即使用者要的「編號/費用/備註/預繳往下推」——右欄從基本資料下方才開始。左欄現為 地址 → 往生 → 陽上。
+1. **基本資料排成一整列、且移出左欄改為 `.form-cols` 上方的全寬列**。五欄擠在半寬左欄會被壓爛，故整塊上提；副作用即使用者要的「編號/費用/備註/預繳往下推」——右欄從基本資料下方才開始。左欄現為 地址 → 往生 → 陽上。（欄序與寬度於 2026-07-31 再調，見下一節。）
 2. **按鈕列（列印資料卡/取消/確認）改靠左**：`.form-actions-slot` 由 `justify-content: flex-end` 改 `flex-start`，並補 `padding-left: var(--space-sm)` 讓最左的按鈕**切齊正上方的「備註」欄左緣**（使用者指定）——備註在 `.bare-block` 內、左緣＝區塊的 `padding-left`，而按鈕列是該區塊的兄弟節點不吃那份 padding，不補就會凸出 8px。
-3. **五個區塊全部拿掉外框與 legend**（先是地址，同日追加 基本資料 / 往生名單 / 陽上名單 / 編號·費用·備註·預繳）：`<fieldset class="block"><legend>X</legend>` 一律改為 `<div class="bare-block">`（`padding: 2px var(--space-sm) 4px`——左右沿用 `.block` 值讓欄位左緣仍與唯一保留外框的「法會資料」對齊，上下留白補上框線消失後的分段感）。名單那兩塊的 `formArrayName` 從 fieldset 搬到 div 上等效（屬性選擇器）。
-   **已知取捨**：往生/陽上名單少了 legend 後，只剩 placeholder（「往生 1」「陽上 1」）在區分兩組，**填入姓名後標示就消失**。使用者指定要拿掉，若日後回報認不出來，補一行 plain-text 小標即可（不要把 fieldset 加回來）。
+3. **五個區塊全部拿掉外框與 legend**（先是地址，同日追加 基本資料 / 往生名單 / 陽上名單 / 編號·費用·備註·預繳）：`<fieldset class="block"><legend>X</legend>` 一律改為 `<div class="bare-block">`（`padding: 2px var(--space-sm) 4px`——左右沿用 `.block` 值讓欄位左緣仍與有外框的區塊對齊，上下留白補上框線消失後的分段感）。
+   ⚠ **此項已於 2026-07-31 部分反轉**：地址與兩組名單依使用者指定改回有框（見下一節），只有「基本資料」與「編號·費用·備註·預繳」仍是 `.bare-block`。
 4. **「確認」鈕加寬一倍**：新增全域 `.btn-wide { min-width: 112px }`（兩字鈕自然寬 ≈ 12+2×16+12 = 56px，×2）。用 `min-width` 不用 `width`，字多的按鈕仍能自然撐開。兩個 host（`signup-edit-page.html`、`signup-list-page.html` 的投影 slot）各自加 class——按鈕由 host 提供，表單元件的 scoped 樣式吃不到投影內容，故走全域 utility 而非 `.form-actions-slot` 內的後代選擇器。
 
 同批還有「新增報名成功」提示的字級/按鈕（見上方 ConfirmDialog `emphasis` 段）。`ng build` 綠、`ng test` 28 passed；**版面未實機複驗**。
+
+### 報名表單版面（2026-07-31 客訴第四輪）
+
+上一輪把外框全拿掉之後，使用者回報的其實是「**框要回來、欄位標題要拿掉**」——分段資訊該由框的 legend 承擔，每個欄位再標一次「寄件/文牒」反而是噪音。三項版面調整（`signup-edit-form`，其中 1、2 同步套到 `believer-edit-form`）：
+
+1. **地址拆成「寄件地址」「文牒地址」兩個 `fieldset.block`，框內欄位標題全部拿掉改 placeholder**。城市/區域下拉沿用既有空值選項（「請選擇城市」「請選擇區域」）當提示，郵遞區號 `placeholder="郵遞區號"`（原為 `—`）、地址欄 `placeholder="寄件地址" / "文牒地址"`。`.field` 是 grid，少掉 `<span>` 只剩控件，不會破版。**「同寄件地址」勾選框移進文牒框內最上方**（靠右對齊沿用 2026-07-28 的決策）——它決定的是文牒段的內容，放進文牒框比夾在兩段之間更貼語意；`.same-mail-row` 的 `margin-top` 改 `margin-bottom`。兩個 fieldset 之間的間距由 `.col` 的 grid gap 提供，`.addr-text { margin-top }` 移除。
+2. **往生名單 / 陽上名單各自改回 `fieldset.block` + legend**（用詞對齊信眾表單）。這正好解掉上一輪記錄的已知取捨——填入姓名後不再看不出哪組是往生。
+3. **基本資料改序為 堂號 → 姓名 → 電話 → 員工類型 → 固定編號，且前三欄的總寬度＝下方地址框寬度**。作法是**與 `.form-cols` 同構**而非寫死欄寬：基本資料那列改用 `.form-cols > .col > .bare-block > .grid`，左半放 `.grid.three`（堂號/姓名/電話）、右半放新的 `.grid.basic-side`（`minmax(0,1fr) auto`，員工類型 + 固定編號勾選框）。左半與下方地址框走完全相同的巢狀，寬度自然逐像素相等，日後改 gap / padding 也不會走鐘。原 `.grid.basic-row` 移除。
+   > 寫死欄寬（例如硬湊 `repeat(3, X)`）在這裡是錯解：地址框寬度是 `(容器寬 − gap) / 2` 再扣區塊 padding，任何一個 token 改動都會讓兩者對不齊。
+
+`ng build` 0 warning、`ng test` 31 passed（新增 3 案回歸鎖，見 [signup-management.md](../blueprints/signup-management.md)）；**版面未實機複驗**。
 
 **`width` 何時要給（2026-07-27）**：panel 預設「有多寬長多寬，上限 92vw」，內容只要有寬表格就會把整個視窗撐滿（報名維護的新增/編輯 overlay 被 19 欄的信眾搜尋結果表撐到 92vw → 客訴「彈跳視窗太寬」）。這種情況給 panel 一個定寬（報名維護用 `width="1100px"`，刻意與 `/signups/new` 路由頁 `.page { max-width: 1100px }` 同值，讓 overlay 與整頁版本一樣寬），寬表格改在自己的 `overflow: auto` 容器內橫向捲動。
 **不要改成限制 overlay 內的表單元件**：panel 仍會被表格撐寬，結果表單縮了、panel 沒縮，底部 actions 會落單在右下角。
@@ -674,7 +685,9 @@ WinForms 中 City→Area→Address 兩層下拉複用率高，獨立元件：
 />
 ```
 
-「同寄件地址」勾選邏輯：勾選時複製 mail → text；取消時清空 text；mail 為空時阻止勾選並提示「請先輸入寄件地址」。
+「同寄件地址」勾選邏輯：勾選時複製 mail → text（城市 / 區域 / 地址三者一起）；取消時清空 text；**寄件的城市、區域、地址三者全空**時才阻止勾選並提示「請先填寫寄件地址（城市／區域或地址）」。
+
+> 2026-07-31 起放寬（刻意偏離舊系統，使用者指定）：舊版要求「地址文字欄非空」才肯同步，但地址自 2026-07-21 起已非必填，只選了城市與區域是合法狀態，這時同步城市/區域一樣有意義。兩張表單（`signup-edit-form` / `believer-edit-form`）同步放寬。
 
 ## 名單輸入元件（陽上 × 6 / 往生 × 6）
 

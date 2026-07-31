@@ -166,7 +166,7 @@
 ## 文件索引
 
 - [Status](docs/status.md) — **目前進度 / 待辦 / 完成清單**（會話開始先讀這份）
-- [Pending Business Input](docs/pending-business-input.md) — **待業務/DBA/客戶確認的 27 項**（含確認看板）
+- [Pending Business Input](docs/pending-business-input.md) — **待業務/DBA/客戶確認的 30 項**（含確認看板）
 - [Glossary](docs/glossary.md) — **業務術語對照表**（不熟法會領域必看）
 - [Business Rules (Implicit)](docs/business-rules-implicit.md) — **隱含業務規則**（舊系統 code 反推、新版必沿用）
 - [Overview](docs/overview.md) — harness 定位與設計理念

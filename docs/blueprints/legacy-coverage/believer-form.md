@@ -17,7 +17,7 @@ related_docs:
   - ../api-endpoints/README.md
   - README.md
 keywords: [legacy, coverage, believer]
-last_updated: 2026-06-02
+last_updated: 2026-07-31 (row 11「同寄件地址」改標**刻意偏離**：觸發門檻放寬為「城市/區域/地址三者全空才擋」、提示改「請先填寫寄件地址（城市／區域或地址）」，與報名表單同步；同日地址區版面改為「寄件地址」「文牒地址」兩個 fieldset、框內欄位標題改 placeholder。先前 2026-06-02)
 ---
 
 > ✅ **完成 (2026-06-02)**：17 個方法全部已實作。CRUD + 右鍵選單 + 城市/區域連動下拉 + 同寄件地址 + 表單模式切換全 ship（地址連動由 signup 表單 port 至 `believer-edit-form`）。
@@ -48,7 +48,7 @@ last_updated: 2026-06-02
 | 8 | `tsmiDelete_Click` | 211-250 | 檢查報名無衝突 + 確認刪除並刷新列表 | ✅ 已實作 | `DELETE /api/v1/believers/:id` | `DeleteBelieverHandler`：`HasSignupsAsync` 衝突檢查回 409 + verbatim「{Name} 已有報名資料，不能刪除！」；硬刪除（非軟刪除，沿用舊行為） |
 | 9 | `dlMailCity_SelectedIndexChanged` | 252-271 | 城市變更時載入對應區域選項 | ✅ 已實作 | `GET /api/v1/zipcodes/areas?city=X` | `believer-edit-form.onCityChange('mail')` → `applyAddress` 載入區域、清已選、`refreshZipcode` 更新郵遞區號（自 signup 表單 port）|
 | 10 | `dlTextCity_SelectedIndexChanged` | 273-292 | 城市變更時載入對應區域選項 | ✅ 已實作 | 同上 | `onCityChange('text')` → `applyAddress`（同一連動邏輯）|
-| 11 | `cbSameMailAddress_CheckedChanged` | 294-318 | 勾選同郵寄地址時複製，取消勾選時清空 | ✅ 已實作 | 前端 form logic | `onSameMailAddressChange()`：勾選複製寄件城市/區號/地址至文件，mail 地址為空時阻止勾選並提示「請先輸入寄件地址」；取消時清空文件地址（對齊舊 :294-318）|
+| 11 | `cbSameMailAddress_CheckedChanged` | 294-318 | 勾選同郵寄地址時複製，取消勾選時清空 | ⚠️ 刻意偏離 | 前端 form logic | `onSameMailAddressChange()`：勾選複製寄件城市/區號/地址至文牒，取消時清空（對齊舊 :294-318）。**2026-07-31 觸發門檻放寬**為「城市/區域/地址三者全空才擋」、提示改「請先填寫寄件地址（城市／區域或地址）」，與報名表單同步，見 [business-rules-implicit §12](../../business-rules-implicit.md) |
 | 12 | `txtPhone_Validating` | 320-351 | 驗證電話號碼格式（0 開頭數字） | ✅ 已實作 (部分) | `POST/PUT /api/v1/believers` | `BelieverWriteValidator.ToNarrow` 全→半形；regex `^0[0-9]*$` 留前端 validator（API 接受任何字串保彈性） |
 | 13 | `LoadBelievers()` helper | 353-409 | 依搜尋條件查詢信眾 + 建立 ViewModel + 繫結至表格 | ✅ 已實作 | `GET /api/v1/believers` | `BelieverRepository.SearchAsync` 含動態 WHERE / 6 欄 OR (Living/Dead) / Zipcodes LEFT JOIN / EmployeeType 轉中文 / SQL LIKE 參數化 escape |
 | 14 | `LoadCity()` helper | 411-426 | 載入所有城市至寄件與文件城市下拉選單 | ✅ 已實作 | `GET /api/v1/zipcodes/cities` | `believer-edit-form.loadCities()`（constructor 呼叫）→ `cities` signal 餵兩個城市下拉 |

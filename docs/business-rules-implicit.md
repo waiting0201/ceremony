@@ -13,7 +13,7 @@ related_docs:
   - blueprints/printing-reports.md
   - design/database-design.md
 keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季]
-last_updated: 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)
+last_updated: 2026-07-31 (§12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證))
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -224,12 +224,18 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 
 ## 12. 「同寄件地址」勾選邏輯
 
-- 勾選：複製 Mail 至 Text；mail 為空時阻止勾選並彈 `"請先輸入寄件地址"`
+**舊系統行為**（`NewSignupForm.cs:477-502`、`EditSignupForm.cs:159-184`、`BelieverForm.cs:294-318`）：
+
+- 勾選：複製 Mail 至 Text；**`txtMailAddress` 為空**時阻止勾選並彈 `"請先輸入寄件地址"`
 - 取消：清空 Text 區（City/Zone/Address 全還原為 placeholder）
 
 實作細節：用 `SelectedIndex` 複製（兩個 City list 順序相同因 query 一樣，但脆弱）。
 
-> **新版偏離（2026-07-21 客訴）：地址改非必填**。舊系統寄件地址為必填（空白擋下）；新版依使用者指定改為**非必填**——前端 `mailAddress` 移除 `Validators.required`，後端 `CreateSignupHandler` / `UpdateSignupHandler` / `InsertShiftSignupHandler` 與 `BelieverWriteValidator` 皆不再擋空，空白 normalize 為空字串照常寫入（含「未選信眾自動建立」路徑）。**唯一例外**：本節「同寄件地址」勾選仍要求先有寄件地址（複製來源不可空，屬功能性前置條件，非必填驗證），故 `"請先輸入寄件地址"` 提示保留。
+> **新版偏離（2026-07-21 客訴）：地址改非必填**。舊系統寄件地址為必填（空白擋下）；新版依使用者指定改為**非必填**——前端 `mailAddress` 移除 `Validators.required`，後端 `CreateSignupHandler` / `UpdateSignupHandler` / `InsertShiftSignupHandler` 與 `BelieverWriteValidator` 皆不再擋空，空白 normalize 為空字串照常寫入（含「未選信眾自動建立」路徑）。
+
+> **新版偏離（2026-07-31 客訴）：勾選門檻放寬為「城市/區域/地址三者全空才擋」**。取代 2026-07-21 記錄的「同寄件地址仍要求先有寄件地址」——地址既然非必填，「只選了城市與區域、地址欄留空」就是合法狀態，這時同步城市/區域一樣有意義，硬擋反而讓使用者得先亂打一個字。提示文字同步改為 `"請先填寫寄件地址（城市／區域或地址）"`（舊字串 `"請先輸入寄件地址"` 不再使用）。複製內容不變（城市 + 郵遞區號 FK + 地址一起帶，地址為空就帶空字串）。兩張表單（`signup-edit-form` / `believer-edit-form`）同步。
+>
+> ⚠ `believer-edit-form` 的 `mailAddress` 仍掛 `Validators.required`（2026-07-21 的放寬只做了報名表單與後端），與本節不一致；已列 [pending-business-input.md](pending-business-input.md) 待確認是否一併放寬。
 
 ---
 

@@ -134,35 +134,48 @@
        只改這筆報名、不回寫 Believer。
        2026-07-29 使用者指定：五個欄位排成**一整列**、且整塊移出左欄改為 .form-cols 上方的全寬列
        ——五欄擠在半寬的左欄會被壓到不能看，全寬才排得下；右欄的「編號/費用/備註/預繳」隨之下移。
-       同日再指定拿掉外框與 legend（同地址段），改用無框的 .bare-block。 -->
-  <div class="bare-block">
-    <div class="grid basic-row">
-      <label class="field">
-        <span>員工類型</span>
-        <select formControlName="employeeType">
-          <option [value]="1">非員工</option>
-          <option [value]="2">大殿員工</option>
-          <option [value]="3">地藏殿員工</option>
-        </select>
-      </label>
-      <label class="field-check">
-        <input type="checkbox" formControlName="isFixedNumber" />
-        <span>固定編號</span>
-      </label>
-      <label class="field">
-        <span>堂號</span>
-        <input type="text" formControlName="hallName" maxlength="10" autocomplete="off" />
-      </label>
-      <label class="field">
-        <span>姓名 *</span>
-        <input type="text" formControlName="name" maxlength="50" />
-      </label>
-      <label class="field">
-        <span>聯絡電話</span>
-        <input type="text" formControlName="phone" />
-      </label>
+       2026-07-31 使用者指定：順序改為 堂號→姓名→電話→員工類型→固定編號，且「堂號/姓名/電話」
+       三欄的總寬度要等於下方地址框的寬度。作法是**與下方 .form-cols 同構**（.form-cols > .col >
+       區塊 > .grid）而非寫死欄寬：左半三欄與地址框走完全相同的巢狀，寬度自然逐像素相等，
+       日後改 gap 也不會走鐘。 -->
+  <div class="form-cols">
+    <div class="col">
+      <div class="bare-block">
+        <div class="grid three">
+          <label class="field">
+            <span>堂號</span>
+            <input type="text" formControlName="hallName" maxlength="10" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>姓名 *</span>
+            <input type="text" formControlName="name" maxlength="50" />
+          </label>
+          <label class="field">
+            <span>聯絡電話</span>
+            <input type="text" formControlName="phone" />
+          </label>
+        </div>
+      </div>
     </div>
-  </div><!-- /.bare-block 基本資料 -->
+    <div class="col">
+      <div class="bare-block">
+        <div class="grid basic-side">
+          <label class="field">
+            <span>員工類型</span>
+            <select formControlName="employeeType">
+              <option [value]="1">非員工</option>
+              <option [value]="2">大殿員工</option>
+              <option [value]="3">地藏殿員工</option>
+            </select>
+          </label>
+          <label class="field-check">
+            <input type="checkbox" formControlName="isFixedNumber" />
+            <span>固定編號</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div><!-- /.form-cols 基本資料 -->
 
   <!-- 雙欄密集排版節省高度（2026-07-04 起，避免整頁垂直捲動）：
        左欄 地址（寄件上、文牒下，對齊舊 Designer Y=222/311）→往生/陽上名單
@@ -174,19 +187,20 @@
     <div class="col">
       <!-- 地址（城市 → 區域連動下拉 + 同寄件地址，對齊舊 dlMailCity/dlMailZone/cbSameMailAddress；
            寄件在上、文牒在下，對齊舊 Designer 版面。
-           2026-07-29 使用者指定拿掉「地址」外框與 legend：每個欄位自己已標明寄件/文牒，
-           外框只是多一層視覺噪音，故改為無框的 .bare-block（不再是 fieldset/.block）。 -->
-      <div class="bare-block">
+           2026-07-31 使用者指定（取代 2026-07-29 的「拿掉外框」）：寄件與文牒**各自一個框**
+           （＝「法會資料/信眾」在用的 fieldset.block + legend），框內的欄位標題全部拿掉改用
+           placeholder——分段靠 legend 講就夠了，每欄再標一次「寄件/文牒」才是噪音。
+           「同寄件地址」勾選框移進**文牒框內**（它決定的是文牒段的內容）。 -->
+      <fieldset class="block">
+        <legend>寄件地址</legend>
         <div class="grid addr">
           <label class="field">
-            <span>寄件城市</span>
             <select formControlName="mailCity" (change)="onCityChange('mail')">
               <option value="">請選擇城市</option>
               @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
             </select>
           </label>
           <label class="field">
-            <span>寄件區域</span>
             <select formControlName="mailZipcodeId" (change)="onAreaChange('mail')">
               <option value="">請選擇區域</option>
               @for (a of mailAreas(); track a.zipcodeId) {
@@ -195,33 +209,32 @@
             </select>
           </label>
           <label class="field zip">
-            <span>郵遞區號</span>
-            <input type="text" [value]="mailZipcode()" readonly placeholder="—" />
+            <input type="text" [value]="mailZipcode()" readonly placeholder="郵遞區號" />
           </label>
           <label class="field span-row">
-            <span>寄件地址</span>
-            <input type="text" formControlName="mailAddress" maxlength="200" />
+            <input type="text" formControlName="mailAddress" maxlength="200" placeholder="寄件地址" />
           </label>
         </div>
-        <!-- 「同寄件地址」自成一列，夾在寄件段與文牒段中間（2026-07-28 使用者指定）：
-             它的語意就是「下面這段＝上面這段」，放在兩段之間最直覺。
-             勾選＝複製 mail→text；mail 為空時擋下並提示（見 onSameMailAddressChange）。 -->
+      </fieldset>
+
+      <fieldset class="block">
+        <legend>文牒地址</legend>
+        <!-- 勾選＝複製 mail→text（城市/區域/地址三者全空才擋下並提示，見 onSameMailAddressChange）。
+             靠右對齊沿用 2026-07-28 的決策；位置由「兩段中間」改為文牒框內最上方（2026-07-31）。 -->
         <div class="same-mail-row">
           <label class="field-check">
             <input type="checkbox" formControlName="sameMailAddress" (change)="onSameMailAddressChange()" />
             <span>同寄件地址</span>
           </label>
         </div>
-        <div class="grid addr addr-text">
+        <div class="grid addr">
           <label class="field">
-            <span>文牒城市</span>
             <select formControlName="textCity" (change)="onCityChange('text')">
               <option value="">請選擇城市</option>
               @for (c of cities(); track c) { <option [value]="c">{{ c }}</option> }
             </select>
           </label>
           <label class="field">
-            <span>文牒區域</span>
             <select formControlName="textZipcodeId" (change)="onAreaChange('text')">
               <option value="">請選擇區域</option>
               @for (a of textAreas(); track a.zipcodeId) {
@@ -230,38 +243,37 @@
             </select>
           </label>
           <label class="field zip">
-            <span>郵遞區號</span>
-            <input type="text" [value]="textZipcode()" readonly placeholder="—" />
+            <input type="text" [value]="textZipcode()" readonly placeholder="郵遞區號" />
           </label>
-          <!-- 文牒地址佔滿三欄（2026-07-28 使用者指定加寬；原本 span-2 是為了讓出勾選框的位置，
-               勾選框已移到寄件/文牒之間，這裡就整列吃滿） -->
+          <!-- 文牒地址佔滿三欄（2026-07-28 使用者指定加寬） -->
           <label class="field span-row">
-            <span>文牒地址</span>
-            <input type="text" formControlName="textAddress" maxlength="200" />
+            <input type="text" formControlName="textAddress" maxlength="200" placeholder="文牒地址" />
           </label>
         </div>
-      </div><!-- /.bare-block 地址 -->
+      </fieldset>
 
       <!-- 名單：往生在上、陽上在下（對齊舊 Designer 版面）；往生欄不加背景色（舊系統兩者皆無 BackColor）。
            2026-07-28 使用者指定：從右欄移到左欄「地址」下方——填地址與填名單是同一段連續動作。
-           2026-07-29 使用者指定拿掉外框與 legend（同地址/基本資料）：改無框 .bare-block；
-           `formArrayName` 是屬性選擇器，掛在 div 上與掛在 fieldset 上等效。
-           ⚠ 兩組名單少了 legend 就只剩 placeholder 在區分往生/陽上，填字後標示會消失（使用者指定，已知取捨）。 -->
-      <div class="bare-block names" formArrayName="deadNames">
+           2026-07-31 使用者指定（取代 2026-07-29 的「拿掉外框」）：往生/陽上**各自框起來**，
+           legend 用詞對齊信眾表單。這正好解掉先前「填字後只剩 placeholder、看不出哪組是往生」
+           的已知取捨。`formArrayName` 是屬性選擇器，掛 fieldset 與掛 div 等效。 -->
+      <fieldset class="block names" formArrayName="deadNames">
+        <legend>往生名單</legend>
         <div class="name-grid">
           @for (ctrl of deadArray.controls; track $index) {
             <input type="text" [formControlName]="$index" placeholder="往生 {{ $index + 1 }}" />
           }
         </div>
-      </div>
+      </fieldset>
 
-      <div class="bare-block names" formArrayName="livingNames">
+      <fieldset class="block names" formArrayName="livingNames">
+        <legend>陽上名單</legend>
         <div class="name-grid">
           @for (ctrl of livingArray.controls; track $index) {
             <input type="text" [formControlName]="$index" placeholder="陽上 {{ $index + 1 }}" />
           }
         </div>
-      </div>
+      </fieldset>
     </div>
 
     <div class="col">

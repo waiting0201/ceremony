@@ -88,7 +88,7 @@ last_updated: 2026-05-29
 |---|---|---|---|
 | 未選城市 | 區域下拉空 | `city` 空 → 200 `{items:[],total:0}` | `Areas_*`（controller 早退） |
 | 城市無區域 | 空清單 | 200 空陣列 | – |
-| 同寄件地址 | `cbSameMailAddress` 複製 city/zone/zipcode/address (477-502) | 前端 `onSameMailAddressChange` 複製；mail 空 → verbatim「請先輸入寄件地址」 | （前端） |
+| 同寄件地址 | `cbSameMailAddress` 複製 city/zone/zipcode/address (477-502) | 前端 `onSameMailAddressChange` 複製；**城市/區域/地址三者全空**才擋（2026-07-31 放寬，提示「請先填寫寄件地址（城市／區域或地址）」，見 [business-rules-implicit §12](../../business-rules-implicit.md)） | （前端） |
 
 ## 資料存取
 

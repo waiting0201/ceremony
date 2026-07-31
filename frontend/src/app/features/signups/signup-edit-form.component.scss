@@ -74,22 +74,22 @@
   &.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   // 地址：城市 / 區域 / 郵遞區號（窄）三欄一列；地址另起整列
   &.addr { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px; }
-  // 基本資料：員工類型 / 固定編號 / 堂號 / 姓名 / 聯絡電話 排成一整列（2026-07-29 使用者指定）。
-  // 固定編號是勾選框，寬度給 auto（不吃等分），其餘四欄等分；勾選框對齊輸入框底線。
-  &.basic-row {
-    grid-template-columns: minmax(0, 1fr) auto repeat(3, minmax(0, 1fr));
+  // 基本資料的右半：員工類型 + 固定編號（2026-07-31 使用者指定的新順序，左半的
+  // 堂號/姓名/電話 直接用 .three）。固定編號是勾選框，寬度給 auto 不吃等分。
+  &.basic-side {
+    grid-template-columns: minmax(0, 1fr) auto;
     align-items: end;
-    // 勾選框吃滿一個控件高度，底部才會與同列的 input/select 對齊（同 .keep-number-row 的手法）
+    // 勾選框吃滿一個控件高度，底部才會與同列的 select 對齊（同 .keep-number-row 的手法）
     .field-check { height: var(--control-height); white-space: nowrap; }
   }
   .span-row { grid-column: 1 / -1; }
   .span-2 { grid-column: span 2; }
 
   @media (max-width: 760px) {
-    &.three, &.four, &.addr, &.basic-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    &.three, &.four, &.addr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
   @media (max-width: 480px) {
-    &.two, &.three, &.four, &.addr, &.basic-row { grid-template-columns: minmax(0, 1fr); }
+    &.two, &.three, &.four, &.addr, &.basic-side { grid-template-columns: minmax(0, 1fr); }
   }
 }
 
@@ -119,10 +119,11 @@
 
 }
 
-// 「同寄件地址」自成一列，夾在寄件段與文牒段之間、**靠右對齊**（2026-07-28 使用者指定；
-// 先前是與文牒地址同列，再先前試過放文牒郵遞區號正上方）
+// 「同寄件地址」自成一列、**靠右對齊**（2026-07-28 使用者指定的靠右保留）。
+// 2026-07-31：位置由「寄件段與文牒段之間」改為**文牒框內最上方**（勾選決定的是文牒段內容），
+// 故 margin 由 top 改 bottom，與下方文牒欄位留一點距離。
 .same-mail-row {
-  margin-top: 6px;
+  margin-bottom: 6px;
   display: flex;
   justify-content: flex-end;
 
@@ -143,10 +144,9 @@
   padding-left: var(--space-sm);
 }
 
-// 無框區塊：2026-07-29 使用者指定，表單五個區塊（基本資料 / 地址 / 往生名單 / 陽上名單 /
-// 編號·費用·備註·預繳）全部拿掉 fieldset 外框與 legend，只留欄位本身。
-// 左右內距沿用 .block 的值（var(--space-sm)），讓欄位左緣與仍有框的「法會資料」對齊；
-// 少了框線後改用稍大的上下留白分段，否則五區會黏成一坨。
+// 無框區塊：2026-07-29 起，「基本資料」與「編號·費用·備註·預繳」兩區不加外框（地址與兩組名單
+// 已於 2026-07-31 依使用者指定改回 fieldset.block + legend）。
+// 左右內距沿用 .block 的值（var(--space-sm)），讓欄位左緣與有框的區塊對齊。
 .bare-block {
   padding: 2px var(--space-sm) 4px;
 }
@@ -175,8 +175,8 @@
   strong { font-size: var(--font-size-sm); font-weight: 600; }
 }
 
-// 地址：寄件在上、文牒在下（對齊舊 Designer 版面 Y=222/311）；文牒段與寄件段留一點間距
-.addr-text { margin-top: 6px; }
+// 地址：寄件在上、文牒在下（對齊舊 Designer 版面 Y=222/311）。2026-07-31 起兩段各自是
+// fieldset.block，段間距由 .col 的 grid gap 提供，不再需要 .addr-text 的 margin-top。
 
 // 陽上／往生名單：往生在上、陽上在下（對齊舊 Designer 版面 Y=401/517），位置在左欄地址下方（2026-07-28）；
 // 兩者輸入框皆不加背景色（舊系統無 BackColor，2026-07-17 使用者指定）

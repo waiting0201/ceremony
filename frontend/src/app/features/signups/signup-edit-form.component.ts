@@ -522,19 +522,26 @@ export class SignupEditFormComponent implements OnInit {
     else this.textZipcode.set(zip);
   }
 
-  /** 同寄件地址 checkbox（對齊舊 cbSameMailAddress_CheckedChanged）。 */
+  /**
+   * 同寄件地址 checkbox（對齊舊 cbSameMailAddress_CheckedChanged）。
+   *
+   * **刻意偏離舊系統**（2026-07-31 使用者指定）：舊 NewSignupForm.cs:477-502 要求
+   * `txtMailAddress.Text.Trim() != ""` 才肯同步，否則跳「請先輸入寄件地址」並彈回勾選。
+   * 但地址自 2026-07-21 起已非必填，只選了城市/區域、地址欄留空是合法狀態，這時同步城市/區域
+   * 一樣有意義。改成三者（城市/區域/地址）全空才擋。
+   */
   protected async onSameMailAddressChange(): Promise<void> {
     const checked = this.form.controls.sameMailAddress.value;
     if (checked) {
+      const mailCity = this.form.controls.mailCity.value;
+      const mailZipId = this.form.controls.mailZipcodeId.value;
       const mailAddr = this.form.controls.mailAddress.value.trim();
-      if (!mailAddr) {
+      if (!mailCity && !mailZipId && !mailAddr) {
         this.form.controls.sameMailAddress.setValue(false);
-        this.errorMessage.set('請先輸入寄件地址');
+        this.errorMessage.set('請先填寫寄件地址（城市／區域或地址）');
         return;
       }
       this.errorMessage.set(null);
-      const mailCity = this.form.controls.mailCity.value;
-      const mailZipId = this.form.controls.mailZipcodeId.value;
       const mailZipNum = mailZipId ? Number(mailZipId) : null;
       await this.applyAddress('text', mailCity, mailZipNum, null, mailAddr);
     } else {
@@ -640,12 +647,16 @@ export class SignupEditFormComponent implements OnInit {
     this.pickedRowId.set(row.id);
     // 改選 / 重新搜尋後覆蓋整張表單前，先清掉上一筆殘留的預繳（2026-07-21 客訴）：預繳有資料源
     // （prefillPrepayHistory），先歸零，稍後只在該信眾確有預繳紀錄時才回填，查無就維持清空，
-    // 避免把前一位信眾的預繳留給下一位。編號欄（keepNumber/customNumber）在插入模式為鎖定狀態，
-    // 不在此清除。
+    // 避免把前一位信眾的預繳留給下一位。
     //
     // **費用刻意不清**（2026-07-27 使用者指定）：費用不會從結果列帶入，唯一來源就是使用者自己輸入，
     // 清掉等於把已打好的金額吃掉。舊 BelieverSelected 也完全沒碰 txtFee（只在送出時讀值 + 數字驗證），
     // 故不清才是對齊舊系統。
+    //
+    // **編號欄（keepNumber/customNumber）同理刻意不清**（2026-07-31 使用者指定）：勾了「指定編號」
+    // 再改選信眾就被取消勾選、數字也被吃掉，是客訴來源。舊 BelieverSelected 同樣完全沒碰
+    // cbKeepNumber/txtNumber——只有 PanelFormEmpty()（＝我們的 resetBelow，按「取消」時）才清
+    // （NewSignupForm.cs:853-854），所以不清才是對齊舊系統。
     this.form.patchValue({
       believerId: row.believerId,
       name: row.name ?? master?.name ?? '',
@@ -658,9 +669,6 @@ export class SignupEditFormComponent implements OnInit {
       prepayYear: null,
       prepayCeremonyCategoryId: '',
     });
-    if (!this.isInsert()) {
-      this.form.patchValue({ keepNumber: false, customNumber: null });
-    }
     // 該筆報名有自己的地址就用它（只存 city/area 字串，無 zipcodeId → 以區域名稱比對）；
     // 整段皆空才退回信眾主檔（同舊 `signup.Zipcodes != null` 判斷）
     if (row.mailCity || row.mailAddress) {
