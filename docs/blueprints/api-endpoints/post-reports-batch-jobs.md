@@ -22,7 +22,7 @@ related_docs:
   - ../legacy-coverage/signup-form.md
   - ../printing-reports.md
 keywords: [批次列印, 進度, progress, overlay, 取消, cancel, job, 輪詢, polling, SSE, PDF]
-last_updated: 2026-07-28
+last_updated: 2026-07-31 (編號區間改為只需填一端；驗證仍共用 BatchReportHandler.ResolveAsync，錯誤碼不變)
 ---
 
 > **偏離命名規則的說明**：`api-endpoints/README.md` 的規則是「一個 endpoint 一份檔」，但這 4 個
@@ -68,8 +68,8 @@ overlay 不需要 indeterminate 過渡態。DB 查詢是單次 indexed query（m
 ```jsonc
 {
   "reportType": "datacard",   // 必填；datacard|receipt|tablet|text|worship|worshipcard（trim + 小寫）
-  "numberStart": 1,           // 編號區間模式必填
-  "numberEnd": 400,
+  "numberStart": 1,           // 編號區間模式：與 numberEnd 至少填一個
+  "numberEnd": 400,           // 只給一端時另一端補同值＝只印那一筆（2026-07-31）
   "year": 115,                // 以下皆可選，跟隨呼叫端的搜尋篩選
   "yearGte": false,
   "ceremonyCategoryId": null,

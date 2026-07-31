@@ -8,7 +8,8 @@ export interface SignupSearchFormSnapshot {
   isScope: boolean;
   ceremonyCategoryId: string;
   signupType: number;
-  number: number | null;
+  numberStart: number | null;
+  numberEnd: number | null;
   isFixedNumber: boolean;
   searchKey: string;
   scopeName: boolean;

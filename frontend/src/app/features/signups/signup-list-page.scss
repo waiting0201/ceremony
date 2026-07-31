@@ -59,8 +59,13 @@
   .r3c2 { grid-column: 2; grid-row: 3; }
   .r3c3 { grid-column: 3; grid-row: 3; }
   .r3c4 { grid-column: 4; grid-row: 3; justify-self: end; }
-  .number-field { display: flex; align-items: center; gap: 4px; }
-  .number-field .num-stepper { width: 96px; }
+  // 編號起迄（2026-07-31）：兩個 stepper 均分寬度，欄位窄時一起縮、不溢出隔壁的「匯出 Excel」
+  .number-field {
+    display: flex; align-items: center; gap: 4px;
+    width: 100%; max-width: 232px;
+  }
+  .number-field .num-stepper { flex: 1 1 0; min-width: 52px; }
+  .number-field .tilde { flex: 0 0 auto; color: var(--c-text-secondary); }
   .r3c5 { grid-column: 5; grid-row: 3; height: var(--control-height); padding: 0 8px; }
   // 搜尋鈕撐滿三列高（對齊舊系統 btnSearch 75×99，幾乎滿版）——grid align-items:center 會讓按鈕只以自然高置中，故單獨 stretch
   .search-btn { grid-column: 6; grid-row: 1 / 4; align-self: stretch; height: auto; padding: 0 var(--space-md); min-width: 64px; }
@@ -200,8 +205,9 @@
     grid-template-rows: repeat(3, minmax(var(--control-height), auto));
 
     .scope-row { flex-wrap: wrap; row-gap: 4px; }
-    // 編號欄讓出 24px、「匯出 Excel」鎖單行（否則會被 1fr 的關鍵字欄擠成「匯出／Excel」兩行）
-    .number-field .num-stepper { width: 72px; }
+    // 編號起迄讓出寬度、「匯出 Excel」鎖單行（否則會被 1fr 的關鍵字欄擠成「匯出／Excel」兩行）
+    .number-field { max-width: 168px; }
+    .number-field .num-stepper { min-width: 44px; }
     .r3c5 { white-space: nowrap; }
   }
 }

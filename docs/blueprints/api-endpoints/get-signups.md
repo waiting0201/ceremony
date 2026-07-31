@@ -14,12 +14,12 @@ related_docs:
   - ../legacy-coverage/signup-form.md
   - get-believers.md
 keywords: [signups, search, predicatebuilder, signupview]
-last_updated: 2026-07-27 (補記「全部參數省略 → WHERE 1=1 回傳全部」語意，對應報名維護新增的「全部」checkbox)
+last_updated: 2026-07-31 (編號由單值 number 改為 numberStart/numberEnd 區間；只給一端＝只查那一筆)
 ---
 
 ## 規格
 
-`GET /api/v1/signups?year=&isScope=&ceremonyCategoryId=&signupType=&number=&searchKey=&scopeName=&scopeLivingName=&scopeDeadName=&scopePhone=&scopeRemark=&isFixedNumber=`，需要 JWT。
+`GET /api/v1/signups?year=&isScope=&ceremonyCategoryId=&signupType=&numberStart=&numberEnd=&searchKey=&scopeName=&scopeLivingName=&scopeDeadName=&scopePhone=&scopeRemark=&isFixedNumber=`，需要 JWT。
 
 ### Query parameters
 
@@ -29,7 +29,8 @@ last_updated: 2026-07-27 (補記「全部參數省略 → WHERE 1=1 回傳全部
 | `isScope` | bool | false | true → 範圍 (`Year >= year`)；false → 等值 (`Year == year`) |
 | `ceremonyCategoryId` | guid? | – | `Guid.Empty` 視為未選 |
 | `signupType` | int? | – | 1=一般 2=寺方 3=觀音會 4=普桌 5=郵撥；`-1` 視為全部 |
-| `number` | int? | – | `0` 視為未填 |
+| `numberStart` | int? | – | 編號區間下界（`Number >= numberStart`）；`0` 視為未填 |
+| `numberEnd` | int? | – | 編號區間上界（`Number <= numberEnd`）；`0` 視為未填 |
 | `searchKey` | string? | – | 跨欄關鍵字（搭配 scope* 旗標） |
 | `scopeName` | bool | false | searchKey LIKE `Name` |
 | `scopeLivingName` | bool | false | searchKey LIKE 6 個 `LivingNameOne..Six` (OR) |
@@ -81,7 +82,7 @@ last_updated: 2026-07-27 (補記「全部參數省略 → WHERE 1=1 回傳全部
 }
 ```
 
-`TOP 200` 限制（與 `get-believers.md` 一致；未來加分頁）。
+**不分頁、無 `TOP` 上限**（與舊系統一致；前端靠 virtual scroll 撐住渲染）。未來若實測過慢再走 server-side 分頁，見 [performance.md](../../design/performance.md) §2。
 
 ### 錯誤碼
 
@@ -116,7 +117,9 @@ last_updated: 2026-07-27 (補記「全部參數省略 → WHERE 1=1 回傳全部
 |---|---|---|
 | 全空查詢 | predicateand 為 true (全表) | 同（前端負責加 UI guard） |
 | `signupType = -1` | 不加 WHERE | 同 |
-| `number = 0` | 不加 WHERE | 同 |
+| `number = 0` | 不加 WHERE | `numberStart`/`numberEnd` 皆 0 或空 → 不加 WHERE |
+| 只給 `numberStart` **或** 只給 `numberEnd` | 舊系統無此形態 | 另一端補成同值 → 退化為 `Number = 該值`，只查那一筆 |
+| `numberStart > numberEnd` | 舊系統無此形態 | 後端不擋（`>=` / `<=` 交集為空）；前端在送出前提示「編號錯誤」 |
 | `ceremonyCategoryId = Guid.Empty` | 不加 WHERE | 同 |
 | OR 群組全空（scope* 全 false 且 isFixedNumber=false） | 略過 OR | 同 |
 | `isFixedNumber=true` + 任何其他 scope* | OR 兩條件並列 | 同 |
@@ -124,7 +127,7 @@ last_updated: 2026-07-27 (補記「全部參數省略 → WHERE 1=1 回傳全部
 ## 資料存取
 
 ```sql
-SELECT TOP 200
+SELECT   -- 無 TOP 上限，與舊系統一致（見上方「全部參數皆省略」段）
   SignupID, Year, CeremonyTitle, CeremonyCategoryID, SignupType, NumberTitle, Number, Fee,
   Employee, Name, HallName, Phone, IsFixedNumber,
   LivingNameOne..Six, DeadNameOne..Six,
@@ -137,7 +140,8 @@ WHERE 1=1
   [AND Year = @Year] | [AND Year >= @Year]
   [AND CeremonyCategoryID = @CeremonyCategoryId]
   [AND SignupType = @SignupType]
-  [AND Number = @Number]
+  [AND Number >= @NumberStart]
+  [AND Number <= @NumberEnd]
   [AND ( ... OR ... )]                  -- 動態 OR 群組
 ORDER BY Year, CeremonySort, NumberTitle, Number
 ```

@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-07-31 (所有回 PDF 的 endpoint 新增 X-Report-Page-Size response header（微米），供 Electron 列印通道指定 pageSize；CORS WithExposedHeaders 同步加入。先前 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差))
+last_updated: 2026-07-31 (GET /signups 編號由單值 number 改為 numberStart/numberEnd 區間，只給一端＝只查那一筆；POST /reports/batch(+jobs) 編號區間同步改為只需填一端；順手修正 Signups 表誤植的 /signups/search + page/pageSize/sort（實際為 GET /signups 不分頁）。先前 2026-07-31 所有回 PDF 的 endpoint 新增 X-Report-Page-Size response header（微米），供 Electron 列印通道指定 pageSize；CORS WithExposedHeaders 同步加入。先前 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差))
 ---
 
 ## 通則
@@ -88,7 +88,7 @@ HTTP status 映射：
 | SIGNUP_PREPAY_YEAR_FORMAT | 預繳年份格式錯誤，請重新確認！ | 400 | 預繳 |
 | SIGNUP_PREPAY_YEAR_TOO_EARLY | 預繳年份需大於{currentYear}，請重新確認！ | 400 | 預繳 |
 | SIGNUP_KEEP_NUMBER_EMPTY | 請輸入編號 | 400 | cbKeepNumber 勾但空 |
-| PRINT_RANGE_INVALID | 編號錯誤 | 400 | 批次列印起 > 迄 |
+| PRINT_RANGE_INVALID | 編號錯誤 | 400 | 批次列印起 > 迄，或起迄皆空（只填一端＝只印那一筆，不算錯）。搜尋的編號起迄填反時前端用同一句訊息擋在送出前 |
 | CATEGORY_HAS_DEPENDENCIES | 已有報名或還有下層法會，無法刪除 | 409 | 刪除法會分類 |
 | SEARCH_NO_CRITERIA | 請輸入搜尋條件 | 400 | 信眾搜尋未填 |
 | SEARCH_NO_RESULTS | 無資料，請重新搜尋！ | 200（空清單） | – |
@@ -154,7 +154,7 @@ HTTP status 映射：
 
 | Method | Path | 說明 |
 |---|---|---|
-| GET | `/signups/search` | 主搜尋；query 對應舊 PredicateBuilder（year, isScope, ceremonyId, signupType, number, isFixedNumber, key, scopeName, scopeLivingName, scopeDeadName, scopePhone, page, pageSize, sort） |
+| GET | `/signups` | 主搜尋；query 對應舊 PredicateBuilder（year, isScope, ceremonyCategoryId, signupType, **numberStart, numberEnd**, isFixedNumber, searchKey, scopeName, scopeLivingName, scopeDeadName, scopePhone, scopeRemark）。編號為區間，只給一端 → 另一端補同值＝只查那一筆。不分頁。Blueprint: [get-signups.md](../blueprints/api-endpoints/get-signups.md) |
 | GET | `/signups/{id}` | 單筆 + 完整 nav |
 | POST | `/signups` | 新增（atomic：含 believer create/update + signup_log） |
 | POST | `/signups/insert-shift` | 插入報名於指定編號（`customNumber`），同群組 Number ≥ 該編號的既有報名 +1 順移（單一交易 + `sp_getapplock` + `UPDLOCK/HOLDLOCK`）。刻意不做編號重複檢查。列表右鍵「在此前插入」。新版增強，legacy 無。Blueprint: [post-signups-insert-shift.md](../blueprints/api-endpoints/post-signups-insert-shift.md) |
@@ -185,7 +185,7 @@ HTTP status 映射：
 | POST | `/reports/text` | body: `{signupIds[]}` → application/pdf（含垂直地址 PNG） |
 | POST | `/reports/worship` | body: `{signupIds[]}` → application/pdf（不限 signupType，2026-07-18 解鎖） |
 | GET | `/reports/worshipcard` | `?signupId=` → application/pdf（普桌資料卡，A5 橫預印卡紙套印；不限 signupType（2026-07-18 解鎖）；支援 dev-only `?debugOverlay=true`）。2026-07-04 新增（全新報表，直接以實際 GET 簽章記載）。Blueprint: [get-reports-worshipcard.md](../blueprints/api-endpoints/get-reports-worshipcard.md) |
-| POST | `/reports/batch` | body: `{reportType, numberStart?, numberEnd?, signupIds?[], year?, yearGte?, ceremonyCategoryId?, signupType?}` → 統一入口（`signupIds` 有值時精準印該幾筆，優先於 `numberStart`/`numberEnd` 編號區間；兩者皆缺回 400 `編號錯誤`）。**同步阻塞版**：2026-07-28 起 UI 已改走下方 job 版，本 endpoint 保留為相容契約與批次渲染路徑的整合測試覆蓋 |
+| POST | `/reports/batch` | body: `{reportType, numberStart?, numberEnd?, signupIds?[], year?, yearGte?, ceremonyCategoryId?, signupType?}` → 統一入口（`signupIds` 有值時精準印該幾筆，優先於 `numberStart`/`numberEnd` 編號區間；區間只給一端 → 另一端補同值＝只印那一筆；`signupIds` 空且兩端皆缺才回 400 `編號錯誤`）。**同步阻塞版**：2026-07-28 起 UI 已改走下方 job 版，本 endpoint 保留為相容契約與批次渲染路徑的整合測試覆蓋 |
 | POST | `/reports/batch/jobs` | body 同 `/reports/batch` → **202** `{jobId, total, fileName, reportType}`。驗證與 DB 查詢仍同步執行，只有 render+merge 進背景 |
 | GET | `/reports/batch/jobs/{jobId}` | → `{jobId, status, total, completed, fileName, errorCode?, message?}`，`status ∈ running/completed/failed/canceled`。前端每 250ms 輪詢 |
 | GET | `/reports/batch/jobs/{jobId}/file` | → application/pdf + `Content-Disposition` + `X-Signup-Count`。**one-shot**：取走即釋放 job |

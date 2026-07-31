@@ -50,11 +50,17 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
             sql.AppendLine(" AND SignupType = @SignupType");
             p.Add("@SignupType", st);
         }
-        // 對齊舊 SignupForm.cs:829：Number == 0 或空白視為「全部」不過濾
-        if (query.Number is { } n && n != 0)
+        // 編號區間（2026-07-31）：兩端皆空＝不過濾（對齊舊 SignupForm.cs:829 的 Number 空白/0 語意）；
+        // 只給一端時 SearchSignupsHandler.Normalize 已補成兩端同值，這裡就退化成 `= 該編號`。
+        if (query.NumberStart is { } ns && ns != 0)
         {
-            sql.AppendLine(" AND Number = @Number");
-            p.Add("@Number", n);
+            sql.AppendLine(" AND Number >= @NumberStart");
+            p.Add("@NumberStart", ns);
+        }
+        if (query.NumberEnd is { } ne && ne != 0)
+        {
+            sql.AppendLine(" AND Number <= @NumberEnd");
+            p.Add("@NumberEnd", ne);
         }
 
         // OR group — 對齊舊 line 822-830

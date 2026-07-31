@@ -138,6 +138,30 @@ public sealed class BatchReportHandlerTests
         captured.SignupType.Should().Be(2);
     }
 
+    /// <summary>
+    /// 2026-07-31：起迄只填一端＝只印那一筆編號（另一端補同值）。兩端皆空才是「編號錯誤」。
+    /// </summary>
+    [Theory]
+    [InlineData(42, null)]
+    [InlineData(null, 42)]
+    public async Task Single_ended_range_prints_that_one_number(int? start, int? end)
+    {
+        SignupRangeQuery? captured = null;
+        _repo.Setup(r => r.SearchByNumberRangeAsync(It.IsAny<SignupRangeQuery>(), It.IsAny<CancellationToken>()))
+             .Callback<SignupRangeQuery, CancellationToken>((q, _) => captured = q)
+             .ReturnsAsync([Make(42)]);
+        _renderer.Setup(r => r.RenderReceipt(It.IsAny<ReceiptModel>())).Returns(new byte[] { 1 });
+        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 1 });
+
+        var (_, fileName, _) = await Sut().HandleAsync(
+            new BatchReportRequest("receipt", NumberStart: start, NumberEnd: end));
+
+        captured.Should().NotBeNull();
+        captured!.NumberStart.Should().Be(42);
+        captured.NumberEnd.Should().Be(42);
+        fileName.Should().Be("batch-receipt-42-42.pdf");
+    }
+
     [Fact]
     public async Task Missing_both_ids_and_range_throws_VALIDATION_INVALID()
     {

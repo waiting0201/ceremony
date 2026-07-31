@@ -4,15 +4,19 @@ namespace Ceremony.Application.Signups;
 /// 報名查詢條件 — 對應 <c>SignupForm.LoadSearchSignups</c> 的 UI 控件。
 /// </summary>
 /// <remarks>
-/// AND 群組：Year/Ceremony/SignupType/Number；OR 群組：scope* + IsFixedNumber。
+/// AND 群組：Year/Ceremony/SignupType/NumberStart..NumberEnd；OR 群組：scope* + IsFixedNumber。
 /// 詳見 docs/blueprints/api-endpoints/get-signups.md OR 群組規則。
+///
+/// 2026-07-31：編號由單值改為起迄區間。只給一端＝該端當起也當迄（只查那一筆編號）；
+/// 兩端皆空＝不過濾（沿用舊系統 Number 空白/0 的語意）。正規化在 SearchSignupsHandler。
 /// </remarks>
 public sealed record SignupSearchQuery(
     int? Year = null,
     bool IsScope = false,
     Guid? CeremonyCategoryId = null,
     int? SignupType = null,
-    int? Number = null,
+    int? NumberStart = null,
+    int? NumberEnd = null,
     string? SearchKey = null,
     bool ScopeName = false,
     bool ScopeLivingName = false,

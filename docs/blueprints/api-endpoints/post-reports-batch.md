@@ -16,7 +16,7 @@ related_docs:
   - ../printing-reports-positions.md
   - ../legacy-coverage/signup-form.md
 keywords: [reports, batch, print, pdf, merge, range, signupIds, 勾選, 精準列印]
-last_updated: 2026-07-28 (定位改為 compat/測試用：UI 已改走 job 版 POST /reports/batch/jobs，前端 ReportApi.batch() 移除、後端保留（理由見檔頭警示框）；風險段更新 sequential render 現況與 PdfSharp 2GB 合併上限。先前 2026-07-18 worship/worshipcard 解鎖：撤回 SignupType=4 防呆——signupIds 模式選什麼印什麼、編號區間只跟隨呼叫端篩選，對齊舊系統（客訴選項被鎖）。先前 2026-07-04 reportType 白名單加 worshipcard；再先前加 signupIds[] 精準勾選列印模式)
+last_updated: 2026-07-31 (編號區間改為只需填一端：只給起或只給迄 → 另一端補同值、只印那一筆；兩端皆空才回 400「編號錯誤」。先前 2026-07-28 定位改為 compat/測試用：UI 已改走 job 版 POST /reports/batch/jobs，前端 ReportApi.batch() 移除、後端保留（理由見檔頭警示框）；風險段更新 sequential render 現況與 PdfSharp 2GB 合併上限。先前 2026-07-18 worship/worshipcard 解鎖：撤回 SignupType=4 防呆——signupIds 模式選什麼印什麼、編號區間只跟隨呼叫端篩選，對齊舊系統（客訴選項被鎖）。先前 2026-07-04 reportType 白名單加 worshipcard；再先前加 signupIds[] 精準勾選列印模式)
 ---
 
 > ⚠️ **2026-07-28：此為同步阻塞版，UI 已不再使用。**
@@ -38,7 +38,8 @@ last_updated: 2026-07-28 (定位改為 compat/測試用：UI 已改走 job 版 P
 
 - **`signupIds` 模式**（新）：body 帶 `signupIds` 非空陣列 → 精準只印這幾筆，不論編號是否連續；優先於 `numberStart`/`numberEnd`（兩者同時給時，`signupIds` 生效，range 欄位被忽略）
 - **編號區間模式**（原有）：`signupIds` 未給或為空陣列 → 走 `numberStart`/`numberEnd` 區間 + 其餘篩選條件（沿用原行為）
-- 兩者皆缺（`signupIds` 空 且 `numberStart`/`numberEnd` 任一為 null）→ 400 `VALIDATION_INVALID` / `編號錯誤`
+- **單端區間**（2026-07-31）：`signupIds` 空時只給 `numberStart` **或** 只給 `numberEnd` → 另一端補成同值，只印那一筆編號
+- 兩者皆缺（`signupIds` 空 且 `numberStart`/`numberEnd` **皆**為 null）→ 400 `VALIDATION_INVALID` / `編號錯誤`
 
 **背景**：[signup-management.md](../signup-management.md) 原記錄 v1 限制「選 8 筆但只想印這 8 筆」需退化為編號區間近似列印（區間內含非選取列會一併印出，前端跳確認對話框告知）。前端 grid 多選列印已改呼叫此新模式，不再需要近似 + 確認對話框。
 
@@ -48,8 +49,8 @@ last_updated: 2026-07-28 (定位改為 compat/測試用：UI 已改走 job 版 P
 {
   "reportType": "datacard",        // "datacard" | "receipt" | "tablet" | "text" | "worship" | "worshipcard"（必填）
   "signupIds": ["<guid>", "..."],  // 可選；非空時為「精準選取模式」，優先於 numberStart/numberEnd
-  "numberStart": 1,                // int（signupIds 未給時必填）
-  "numberEnd": 50,                 // int >= numberStart（signupIds 未給時必填）
+  "numberStart": 1,                // int（signupIds 未給時，與 numberEnd 至少填一個）
+  "numberEnd": 50,                 // int >= numberStart（只給一端時另一端補同值＝只印那一筆）
   "year": 115,                     // int (民國年)，可選；僅編號區間模式使用
   "yearGte": false,                // bool，true → year >= Y，false → year == Y；對齊舊 cbIsScope；僅編號區間模式使用
   "ceremonyCategoryId": "<guid>",  // 可選；僅編號區間模式使用
@@ -71,7 +72,7 @@ last_updated: 2026-07-28 (定位改為 compat/測試用：UI 已改走 job 版 P
 
 | HTTP | errorCode | message (verbatim) | 觸發條件 |
 |---|---|---|---|
-| 400 | `VALIDATION_INVALID` | `編號錯誤` | `signupIds` 空 且（`numberStart`/`numberEnd` 任一為 null，或 `numberEnd < numberStart`）（對齊 SignupForm.cs:454，`signupIds` 模式免此檢查） |
+| 400 | `VALIDATION_INVALID` | `編號錯誤` | `signupIds` 空 且（`numberStart`/`numberEnd` **皆**為 null，或 `numberEnd < numberStart`）（對齊 SignupForm.cs:454，`signupIds` 模式免此檢查） |
 | 400 | `VALIDATION_INVALID` | `報表類型錯誤` | reportType 不在 5 種白名單 |
 | 401 | `AUTH_REQUIRED` | – | 無 JWT |
 | 404 | `BATCH_NO_SIGNUPS` | `查無符合條件的報名資料` | 篩選後（或 `signupIds` 查出結果經 worship 過濾後）無任何 signup |
@@ -115,6 +116,7 @@ last_updated: 2026-07-28 (定位改為 compat/測試用：UI 已改走 job 版 P
 | 場景 | 舊 code 行為 (line) | 新版行為 | 對應測試 |
 |---|---|---|---|
 | `numberEnd < numberStart` | `:454` MessageBox 並 return | 400 `編號錯誤` | `BatchReportHandlerTests.Invalid_range` + Integration `400_when_range_inverted` |
+| 只給 `numberStart` 或只給 `numberEnd` | 舊系統起迄皆必填 | 另一端補同值 → 只印那一筆編號（2026-07-31 使用者指定，與搜尋編號同語意） | Integration `POST_batch_missing_ids_and_range_returns_400`（兩端皆空才 400） |
 | reportType=worship + 含 non-type-4 signup（編號區間模式） | 舊 case 5：直接 render 篩選結果，無型別限制 | **與舊系統一致，不另限型別**：只跟隨呼叫端的 `signupType` 篩選（2026-07-18 解鎖，撤回原「強制 type=4」防呆——客訴選項被鎖） | `BatchReportHandlerTests.Worship_passes_caller_signupType_through_unchanged` |
 | reportType=worship + 勾選含 non-type-4 signup（`signupIds` 模式） | 無舊系統對應（右鍵 `tsmiPrintWorship` 選什麼印什麼） | 選什麼印什麼，不過濾（2026-07-18 解鎖，撤回原「只印 type=4」過濾） | `SignupIds_worship_prints_all_selected_regardless_of_type` / `SignupIds_no_match_throws_BATCH_NO_SIGNUPS` |
 | reportType=worshipcard（普桌資料卡，2026-07-04 新增） | 無舊系統對應 | 與 worship 完全一致：不限型別（2026-07-18 起） | 沿用 worship 測試覆蓋同一路徑 |

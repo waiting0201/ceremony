@@ -159,6 +159,65 @@ describe('SignupListPage（搜尋範圍預設）', () => {
 });
 
 /**
+ * 編號起迄的行為鎖（2026-07-31 使用者指定）：搜尋與批次列印的編號都是區間，
+ * 只填一端＝只查／只印那一筆；起 > 迄要擋下並提示「編號錯誤」。
+ */
+describe('SignupListPage（編號起迄區間）', () => {
+  type Probe = {
+    form: { patchValue(v: Record<string, unknown>): void };
+    batchForm: { patchValue(v: Record<string, unknown>): void; invalid: boolean };
+    buildQuery(): { numberStart?: number | null; numberEnd?: number | null };
+    search(): Promise<void>;
+    errorMessage: () => string | null;
+  };
+
+  let p: Probe;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    p = TestBed.createComponent(SignupListPage).componentInstance as unknown as Probe;
+  });
+
+  it('搜尋只填「起」→ 迄補成同值（只查那一筆）', () => {
+    p.form.patchValue({ numberStart: 42, numberEnd: null });
+    const q = p.buildQuery();
+    expect(q.numberStart).toBe(42);
+    expect(q.numberEnd).toBe(42);
+  });
+
+  it('搜尋只填「迄」→ 起補成同值（只查那一筆）', () => {
+    p.form.patchValue({ numberStart: null, numberEnd: 42 });
+    const q = p.buildQuery();
+    expect(q.numberStart).toBe(42);
+    expect(q.numberEnd).toBe(42);
+  });
+
+  it('搜尋兩端皆空 → 不帶編號條件', () => {
+    const q = p.buildQuery();
+    expect(q.numberStart).toBeNull();
+    expect(q.numberEnd).toBeNull();
+  });
+
+  it('搜尋起 > 迄 → 擋下並提示「編號錯誤」', async () => {
+    p.form.patchValue({ numberStart: 50, numberEnd: 10 });
+    await p.search();
+    expect(p.errorMessage()).toBe('編號錯誤');
+  });
+
+  it('批次列印只填一端仍可送出，兩端皆空才擋', () => {
+    expect(p.batchForm.invalid).toBe(true); // 初值兩端皆空
+
+    p.batchForm.patchValue({ numberStart: 7 });
+    expect(p.batchForm.invalid).toBe(false);
+
+    p.batchForm.patchValue({ numberStart: null, numberEnd: 7 });
+    expect(p.batchForm.invalid).toBe(false);
+  });
+});
+
+/**
  * 跨路由保留的行為鎖（2026-07-31 使用者回報）：切到其他功能再回報名維護，
  * 條件（含「範圍」）與「顯示完整表格」都要保持原樣，不可被重設。
  * 兩次 createComponent 共用同一個 TestBed injector ⇒ 等同同一個 SignupSearchState singleton。

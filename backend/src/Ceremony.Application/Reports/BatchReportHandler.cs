@@ -34,7 +34,11 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
         // 兩種選取模式：SignupIds（勾選的任意幾筆，不論編號是否連續）優先於編號區間
         var useIds = req.SignupIds is { Count: > 0 };
 
-        if (!useIds && (req.NumberStart is null || req.NumberEnd is null || req.NumberEnd < req.NumberStart))
+        // 編號區間（2026-07-31）：只填一端＝該端當起也當迄，只印那一筆編號；兩端皆空才算「編號錯誤」。
+        var numberStart = req.NumberStart ?? req.NumberEnd;
+        var numberEnd = req.NumberEnd ?? req.NumberStart;
+
+        if (!useIds && (numberStart is null || numberEnd is null || numberEnd < numberStart))
             throw new DomainException("VALIDATION_INVALID", "編號錯誤");
 
         var reportType = (req.ReportType ?? string.Empty).Trim().ToLowerInvariant();
@@ -53,15 +57,15 @@ public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer r
         {
             // 普桌不另限 SignupType — 對齊舊系統批次 case 5：只跟隨呼叫端的搜尋篩選
             var query = new SignupRangeQuery(
-                NumberStart: req.NumberStart!.Value,
-                NumberEnd: req.NumberEnd!.Value,
+                NumberStart: numberStart!.Value,
+                NumberEnd: numberEnd!.Value,
                 Year: req.Year,
                 YearGte: req.YearGte,
                 CeremonyCategoryId: req.CeremonyCategoryId,
                 SignupType: req.SignupType);
 
             signups = await repo.SearchByNumberRangeAsync(query, ct);
-            fileName = $"batch-{reportType}-{req.NumberStart}-{req.NumberEnd}.pdf";
+            fileName = $"batch-{reportType}-{numberStart}-{numberEnd}.pdf";
         }
 
         if (signups.Count == 0)

@@ -7,7 +7,7 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-07-31 (搜尋「編號」改起~迄區間、批次列印起迄改為只需填一端〔只填一端＝只查/只印那一筆〕；`GET /signups` 參數 number → numberStart/numberEnd；dotnet 225 綠 + ng test 47 綠，版面待實機複驗。同日先前修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
@@ -159,6 +159,13 @@ last_updated: 2026-07-31 (修客訴「報名維護切到其他功能再回來，
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **搜尋「編號」改起迄區間 + 批次列印起迄只需填一端** — Done 2026-07-31
+  - 需求（使用者指定）：報名維護搜尋的「編號」也要能用起~迄範圍查；只輸入起**或**只輸入迄時＝只查那一筆；批次列印同理
+  - 前端：搜尋 form `number` → `numberStart`/`numberEnd`（各自 ▲▼ stepper，共用 `.number-field` 均分寬度、RWD 兩層斷點跟著縮）；`buildQuery()` 補同值；`search()` 在起 > 迄時擋下並顯示「編號錯誤」（與批次列印同一句）。批次列印 `batchForm` 兩格改非必填、改用 group validator `atLeastOneNumber`，`submitBatchPrint()` 補同值，單筆時成功訊息只顯示一個編號
+  - 後端：`SignupSearchQuery.Number` → `NumberStart`/`NumberEnd`（`GET /signups` query 參數同步改名）；`SearchSignupsHandler.Normalize` 做「0 視為未填 + 只給一端補同值」；`SignupRepository.SearchAsync` 改 `Number >= @NumberStart AND Number <= @NumberEnd`（只給一端時退化成等值＝舊行為）。`BatchReportHandler.ResolveAsync` 同樣補同值，兩端皆空才回 400「編號錯誤」；起 > 迄仍 400（既有測試不變）
+  - 驗證：`dotnet build` 0 warning、Application 單元測試 **225 綠**（Search normalize 新增 3 案：只給起 / 只給迄 / 區間保留）；`tsc` 0 err、`ng build` 0 warning、`ng test` **47 綠**。**版面待實機複驗**（搜尋面板編號欄由 1 格變 2 格）
+  - Docs: [signup-management.md](blueprints/signup-management.md)「編號改起迄區間」、[get-signups.md](blueprints/api-endpoints/get-signups.md)、[post-reports-batch.md](blueprints/api-endpoints/post-reports-batch.md)、[post-reports-batch-jobs.md](blueprints/api-endpoints/post-reports-batch-jobs.md)、[api-design.md](design/api-design.md)、[legacy-coverage/signup-form.md](blueprints/legacy-coverage/signup-form.md) rows 16/24
 
 - [x] **客訴：報名維護切到其他功能再回來被重置** — Done 2026-07-31
   - 症狀：勾了「範圍」、勾了「顯示完整表格」，切去別的功能再切回報名維護，兩者都變回沒勾

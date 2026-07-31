@@ -7,7 +7,7 @@ legacy_path: reference/old/Ceremony/SignupForm.cs
 legacy_lines: 1944
 audit_status: complete
 coverage_percentage: 100
-last_audited: 2026-07-29
+last_audited: 2026-07-31
 baseline_completed: 2026-05-27
 total_methods: 43
 related_agents:
@@ -19,7 +19,7 @@ related_docs:
   - ../printing-reports-positions.md
   - README.md
 keywords: [legacy, coverage, signup, rdlc, variant]
-last_updated: 2026-07-31 (rows 36/37 由「❌ 故意捨棄」改為「⚠️ 語意刻意不同／部分對應」：舊 printDocument_PrintPage 是 DrawImage 拉滿 PageBounds 的 fit-to-page，新版改 1:1 送印並提供 fit 退路；printPreview_PrintClick 的對話框改自建、紙張改 X-Report-Page-Size，但「依 PaperName 撈驅動自訂 form」做不到，現場仍需建同尺寸紙張。先前 2026-07-29 (rows 22/42 更新：`showAll`（顯示完整表格）取消 localStorage 持久化、每次開頁不勾〔反而更貼近舊 cbShowAll 每次開 Form 未勾〕；「全部」新版增強收斂為只解除年份/法會/類型，其餘條件仍可搜尋。先前 2026-07-28 rows 16/33 補上批次列印 job 版對應〔UI 改走 POST /reports/batch/jobs，查詢/驗證邏輯不變，進度與取消為新版加值、舊系統無對應〕；同日先前 row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統))
+last_updated: 2026-07-31 (rows 16/24 更新：搜尋編號改起迄區間（`Number >= @NumberStart AND Number <= @NumberEnd`）、批次列印起迄改為只需填一端，只填一端＝只查/只印那一筆——兩者皆為新版加值（舊 nudSearchNumber 單格、舊 nudStart/nudEnd 兩格必填）；順手修正 row 24 誤植的「TOP 200 限制」（實作無 TOP）。同日先前 rows 36/37 由「❌ 故意捨棄」改為「⚠️ 語意刻意不同／部分對應」：舊 printDocument_PrintPage 是 DrawImage 拉滿 PageBounds 的 fit-to-page，新版改 1:1 送印並提供 fit 退路；printPreview_PrintClick 的對話框改自建、紙張改 X-Report-Page-Size，但「依 PaperName 撈驅動自訂 form」做不到，現場仍需建同尺寸紙張。先前 2026-07-29 (rows 22/42 更新：`showAll`（顯示完整表格）取消 localStorage 持久化、每次開頁不勾〔反而更貼近舊 cbShowAll 每次開 Form 未勾〕；「全部」新版增強收斂為只解除年份/法會/類型，其餘條件仍可搜尋。先前 2026-07-28 rows 16/33 補上批次列印 job 版對應〔UI 改走 POST /reports/batch/jobs，查詢/驗證邏輯不變，進度與取消為新版加值、舊系統無對應〕；同日先前 row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統))
 ---
 
 > ✅ **完成 (2026-06-02)**：43 個方法中 39 個已實作、4 個故意捨棄（WinForms printDocument 內部 :34-37，改走 Web/PDF 路徑）。查詢 / 列印（5 類 + RDLC 變體）/ 右鍵選單 / 搜尋範圍切換 / 顯示完整欄位 / 歷程 全 ship。
@@ -59,7 +59,7 @@ last_updated: 2026-07-31 (rows 36/37 由「❌ 故意捨棄」改為「⚠️ �
 | 13 | `tsmiPrintWorship_Click` | 380-403 | 列印普桌 (含格式選擇) | ✅ 已實作 | `GET /api/v1/reports/worship?signupId=` | 6 變體 `ChooseWorship`；**不限 SignupType**（2026-07-18 對齊舊系統選什麼印什麼，撤回原 422 WORSHIP_ONLY_TYPE_4）；worship2.png 背景已嵌入；2026-07-04 六變體各自座標 + 直書 Stack + GroupFontPt 縮字（每格 5 字）+ 同欄上下排全形空格 |
 | 14 | `tsmiDelete_Click` | 405-426 | 刪除報名紀錄 (確認對話) | ✅ 已實作 | `DELETE /api/v1/signups/:id` | `DeleteSignupHandler` 硬刪除（沿用舊行為）；SignupLog 保留作審計 |
 | 15 | `tsmiLog_Click` | 428-445 | 顯示報名修改日誌 | ✅ 已實作 | 前端 nav `/signups/:id/logs` + `GET /api/v1/signups/:id/logs` | 選單「瀏覽歷程」`actionLogs(item)` → `navigateByUrl('/signups/:id/logs')` → `signup-logs-page` + `ListSignupLogsHandler` |
-| 16 | `btnPrint_Click` | 447-653 | **複合邏輯：編號範圍查詢 + 5 種列印類型**（206 行；含 1148-1228 RDLC 薦牌 9 變體選擇、1335-1357 文牒 2 變體、1554-1593 普桌動態字級） | ✅ 已實作 | `POST /api/v1/reports/batch` | `BatchReportHandler` + `SignupRepository.SearchByNumberRangeAsync`（編號範圍 + year/yearGte/ceremony/signupType 篩選）+ 5 種 reportType（reuse `ReportModelBuilders` 共享單筆 handler 邏輯）+ `PdfSharpMerger` 合併；worship 不另限 SignupType、只跟隨呼叫端篩選（2026-07-18 解鎖，同舊 case 5）；錯誤碼 `編號錯誤` / `報表類型錯誤` / `BATCH_NO_SIGNUPS`。**2026-07-28**：UI 改走 job 版 `POST /api/v1/reports/batch/jobs`（+ GET 進度 / GET file / DELETE 取消），查詢與驗證邏輯不變（`BatchReportHandler.ResolveAsync`）、渲染搬到 `BatchReportComposer`；**進度回報與取消是新版加值，舊系統無對應**（舊 `btnPrint_Click` 全程凍結 UI）。同步版 endpoint 後端保留為相容契約與整合測試 |
+| 16 | `btnPrint_Click` | 447-653 | **複合邏輯：編號範圍查詢 + 5 種列印類型**（206 行；含 1148-1228 RDLC 薦牌 9 變體選擇、1335-1357 文牒 2 變體、1554-1593 普桌動態字級） | ✅ 已實作 | `POST /api/v1/reports/batch` | `BatchReportHandler` + `SignupRepository.SearchByNumberRangeAsync`（編號範圍 + year/yearGte/ceremony/signupType 篩選）+ 5 種 reportType（reuse `ReportModelBuilders` 共享單筆 handler 邏輯）+ `PdfSharpMerger` 合併；worship 不另限 SignupType、只跟隨呼叫端篩選（2026-07-18 解鎖，同舊 case 5）；錯誤碼 `編號錯誤` / `報表類型錯誤` / `BATCH_NO_SIGNUPS`。**2026-07-28**：UI 改走 job 版 `POST /api/v1/reports/batch/jobs`（+ GET 進度 / GET file / DELETE 取消），查詢與驗證邏輯不變（`BatchReportHandler.ResolveAsync`）、渲染搬到 `BatchReportComposer`；**進度回報與取消是新版加值，舊系統無對應**（舊 `btnPrint_Click` 全程凍結 UI）。同步版 endpoint 後端保留為相容契約與整合測試。**2026-07-31**：起迄改為只需填一端（只填一端＝另一端補同值、只印那一筆），兩端皆空才是 400「編號錯誤」；舊 `nudStart`/`nudEnd` 兩格必填，此為新版加值 |
 | 17 | `btnExportExcel_Click` | 655-728 | 匯出搜尋結果為 Excel | ✅ 已實作 | `POST /api/v1/signups/export` | `ExportSignupsHandler` 用 ClosedXML (.xlsx)；32 欄對齊舊順序；reuse `SearchSignupsHandler` |
 | 18 | `cbSearchName_CheckedChanged` | 730-741 | 切換姓名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `signup-list-page` `scopeName` checkbox；任一 scope* 勾選 → 啟用 `searchKey` 輸入（見 #43）。**刻意偏離：5 個 scope 預設全勾**（舊 Designer 未設 `Checked`＝全不勾），2026-07-28 使用者指定 |
 | 19 | `cbSearchLivingName_CheckedChanged` | 743-754 | 切換陽上名搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopeLivingName` checkbox 驅動 searchKey 啟用 |
@@ -67,7 +67,7 @@ last_updated: 2026-07-31 (rows 36/37 由「❌ 故意捨棄」改為「⚠️ �
 | 21 | `cbSearchPhone_CheckedChanged` | 769-780 | 切換電話搜尋鍵啟用 | ✅ 已實作 | 前端 form logic | `scopePhone` checkbox 驅動 searchKey 啟用 |
 | 22 | `cbShowAll_CheckedChanged` | 782-793 | 切換完整欄位顯示 | ✅ 已實作 | 前端 grid columns | `showAll` signal（`toggleShowAll`）。**2026-07-29 起不持久化**：原本用 effect 寫 `localStorage['ceremony.signupList.showAll']`，客訴「不用預設勾選」→ 每次開頁一律不勾（舊系統 `cbShowAll` 同樣是每次開 Form 都未勾，此改動反而更貼近舊行為） |
 | 23 | `dgvSignups_DataBindingComplete` | 795-805 | 資料繫結完成後調整欄位顯示 | ✅ 已實作 | 前端 grid hook | 欄位可見性由 `showAll` signal + computed 欄位清單驅動（取代繫結後 hook）|
-| 24 | `LoadSearchSignups()` public | 807-864 | **複合邏輯：動態述詞搜尋 + 結果繫結** (OR/AND 組合，PredicateBuilder) | ✅ 已實作 | `GET /api/v1/signups` | `SignupRepository.SearchAsync` 用 Dapper StringBuilder 動態組 WHERE；AND/OR 兩群組邏輯逐條對齊；用既有 `dbo.SignupView` view；LIKE wildcard escape；TOP 200 限制；ORDER BY Year/CeremonySort/NumberTitle/Number |
+| 24 | `LoadSearchSignups()` public | 807-864 | **複合邏輯：動態述詞搜尋 + 結果繫結** (OR/AND 組合，PredicateBuilder) | ✅ 已實作 | `GET /api/v1/signups` | `SignupRepository.SearchAsync` 用 Dapper StringBuilder 動態組 WHERE；AND/OR 兩群組邏輯逐條對齊；用既有 `dbo.SignupView` view；LIKE wildcard escape；**無 TOP 上限**（與舊系統一致，前端靠 virtual scroll 撐住）；ORDER BY Year/CeremonySort/NumberTitle/Number。**2026-07-31**：編號條件由單值 `Number = @Number` 改為區間 `Number >= @NumberStart AND Number <= @NumberEnd`，只給一端時 `SearchSignupsHandler.Normalize` 補成同值 → 退化為等值（＝舊行為）；**起迄區間是新版加值，舊 `nudSearchNumber` 只有一格** |
 | 25 | `LoadCeremony()` helper | 866-883 | 載入法會下拉清單 | ✅ 已實作 | `GET /api/v1/categories` | `signup-list-page.loadCategories()` 填法會篩選下拉 |
 | 26 | `LoadPrintType()` helper | 885-913 | 載入列印類型清單 (5 類) | ✅ 已實作 | enum | `REPORT_TYPES` → 右鍵列印選單項（資料卡/收據/薦牌/文牒/普桌）|
 | 27 | `LoadSignupType()` helper | 915-954 | 載入報名類型清單 (5 類+全部) | ✅ 已實作 | enum | `SIGNUP_TYPES`（`shared/util/signup-type`）→ `signupTypes` 餵報名類型下拉 |

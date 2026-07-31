@@ -51,13 +51,21 @@
             <option [value]="t.value">{{ t.label }}</option>
           }
         </select>
-        <div class="r3c4 number-field">
+        <div class="r3c4 number-field" title="只填一端＝只搜尋該編號那一筆；兩端皆空＝不限編號">
           <label class="lbl">編號</label>
           <div class="num-stepper">
-            <input type="text" inputmode="numeric" appNumericInput formControlName="number" />
+            <input type="text" inputmode="numeric" appNumericInput formControlName="numberStart" placeholder="起" aria-label="編號起" />
             <span class="num-steps">
-              <button type="button" tabindex="-1" aria-label="編號加一" (click)="stepNumber(form.controls.number, 1)">▲</button>
-              <button type="button" tabindex="-1" aria-label="編號減一" (click)="stepNumber(form.controls.number, -1)">▼</button>
+              <button type="button" tabindex="-1" aria-label="起始編號加一" (click)="stepNumber(form.controls.numberStart, 1)">▲</button>
+              <button type="button" tabindex="-1" aria-label="起始編號減一" (click)="stepNumber(form.controls.numberStart, -1)">▼</button>
+            </span>
+          </div>
+          <span class="tilde">～</span>
+          <div class="num-stepper">
+            <input type="text" inputmode="numeric" appNumericInput formControlName="numberEnd" placeholder="迄" aria-label="編號迄" />
+            <span class="num-steps">
+              <button type="button" tabindex="-1" aria-label="結束編號加一" (click)="stepNumber(form.controls.numberEnd, 1)">▲</button>
+              <button type="button" tabindex="-1" aria-label="結束編號減一" (click)="stepNumber(form.controls.numberEnd, -1)">▼</button>
             </span>
           </div>
         </div>
@@ -72,7 +80,12 @@
 
     <fieldset class="pane print-pane">
       <legend>批次列印</legend>
-      <form class="print-grid dense-controls" [formGroup]="batchForm" (ngSubmit)="submitBatchPrint()">
+      <form
+        class="print-grid dense-controls"
+        [formGroup]="batchForm"
+        (ngSubmit)="submitBatchPrint()"
+        title="只填一端＝只列印該編號那一筆"
+      >
         <div class="num-stepper num-start">
           <input type="text" inputmode="numeric" appNumericInput formControlName="numberStart" placeholder="起" />
           <span class="num-steps">

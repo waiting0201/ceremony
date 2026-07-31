@@ -12,7 +12,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormBuilder, FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  AbstractControl,
+  FormBuilder,
+  FormControl,
+  ReactiveFormsModule,
+  ValidationErrors,
+  Validators,
+} from '@angular/forms';
 import { Router } from '@angular/router';
 import { CdkVirtualScrollViewport, ScrollingModule } from '@angular/cdk/scrolling';
 import { SignupApi } from '../../core/api/signups/signup.api';
@@ -230,7 +237,9 @@ export class SignupListPage implements OnInit {
     isScope: [false],
     ceremonyCategoryId: [''],
     signupType: [-1],
-    number: [null as number | null],
+    // 編號起迄（2026-07-31）：只填一端＝只查那一筆編號；兩端皆空＝不限編號
+    numberStart: [null as number | null],
+    numberEnd: [null as number | null],
     isFixedNumber: [false],
     // 範圍 5 項預設全勾（2026-07-28 使用者指定，刻意不同於舊系統的全不勾）：
     // 打關鍵字就能搜，不必先勾欄位；關鍵字欄因此一開始就是啟用狀態（見 keyEnabled 初值）
@@ -242,11 +251,18 @@ export class SignupListPage implements OnInit {
     scopeRemark: [true],
   });
 
-  protected readonly batchForm = this.fb.nonNullable.group({
-    numberStart: [null as number | null, [Validators.required, Validators.min(1)]],
-    numberEnd: [null as number | null, [Validators.required, Validators.min(1)]],
-    reportType: ['datacard' as SingleReportType, [Validators.required]],
-  });
+  /**
+   * 批次列印起迄。2026-07-31 起兩端都非必填：只填一端＝該端當起也當迄，只印那一筆編號；
+   * 兩端皆空才擋（groupValidator `atLeastOneNumber`，供列印鈕 disabled 綁定）。
+   */
+  protected readonly batchForm = this.fb.nonNullable.group(
+    {
+      numberStart: [null as number | null, [Validators.min(1)]],
+      numberEnd: [null as number | null, [Validators.min(1)]],
+      reportType: ['datacard' as SingleReportType, [Validators.required]],
+    },
+    { validators: atLeastOneNumber },
+  );
 
   protected readonly signupTypeLabel = signupTypeLabel;
 
@@ -551,7 +567,9 @@ export class SignupListPage implements OnInit {
       isScope: all ? false : v.isScope,
       ceremonyCategoryId: all ? null : v.ceremonyCategoryId || null,
       signupType: all ? -1 : v.signupType,
-      number: v.number,
+      // 只填一端＝只查那一筆編號（兩端補同值），兩端皆空＝不限編號
+      numberStart: v.numberStart ?? v.numberEnd,
+      numberEnd: v.numberEnd ?? v.numberStart,
       searchKey: v.searchKey?.trim() || null,
       scopeName: v.scopeName,
       scopeLivingName: v.scopeLivingName,
@@ -563,6 +581,13 @@ export class SignupListPage implements OnInit {
   }
 
   protected async search(): Promise<void> {
+    // 編號起迄填反了就直接擋下（與批次列印同一套訊息），否則 >=/<= 交集為空、看起來像「查無資料」
+    const range = this.form.getRawValue();
+    if (range.numberStart != null && range.numberEnd != null && range.numberEnd < range.numberStart) {
+      this.errorMessage.set('編號錯誤');
+      this.successMessage.set(null);
+      return;
+    }
     this.loading.set(true);
     this.errorMessage.set(null);
     this.successMessage.set(null);
@@ -588,7 +613,8 @@ export class SignupListPage implements OnInit {
       isScope: false,
       ceremonyCategoryId: '',
       signupType: -1,
-      number: null,
+      numberStart: null,
+      numberEnd: null,
       isFixedNumber: false,
       searchKey: '',
       scopeName: true,
@@ -1004,7 +1030,8 @@ export class SignupListPage implements OnInit {
         { detail: reportTypeLabel(type) },
       );
       if (!sent) return;
-      this.successMessage.set(`已送出列印批次${reportTypeLabel(type)}（編號 ${numberStart}–${numberEnd}）`);
+      const range = numberStart === numberEnd ? `${numberStart}` : `${numberStart}–${numberEnd}`;
+      this.successMessage.set(`已送出列印批次${reportTypeLabel(type)}（編號 ${range}）`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -1015,16 +1042,25 @@ export class SignupListPage implements OnInit {
   protected async submitBatchPrint(): Promise<void> {
     if (this.batchForm.invalid || this.printing()) return;
     const v = this.batchForm.getRawValue();
-    if (v.numberStart == null || v.numberEnd == null) return;
-    if (v.numberEnd < v.numberStart) {
+    // 只填一端＝該端當起也當迄，只印那一筆編號
+    const start = v.numberStart ?? v.numberEnd;
+    const end = v.numberEnd ?? v.numberStart;
+    if (start == null || end == null) return;
+    if (end < start) {
       this.errorMessage.set('編號錯誤');
       return;
     }
-    await this.printBatch(v.reportType, v.numberStart, v.numberEnd);
+    await this.printBatch(v.reportType, start, end);
   }
 
   protected trackRow = (_: number, item: SignupListItem): string => item.id;
   protected trackCol = (_: number, col: SignupColumnDef): SignupColumnId => col.id;
+}
+
+/** 批次列印起迄：至少填一端（只填一端＝只印那一筆編號）。 */
+function atLeastOneNumber(group: AbstractControl): ValidationErrors | null {
+  const v = group.value as { numberStart: number | null; numberEnd: number | null };
+  return v.numberStart == null && v.numberEnd == null ? { numberRequired: true } : null;
 }
 
 function buildPrintItem(

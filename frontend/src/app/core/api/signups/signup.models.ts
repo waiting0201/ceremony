@@ -43,7 +43,9 @@ export interface SignupSearchQuery {
   isScope?: boolean;
   ceremonyCategoryId?: string | null;
   signupType?: number | null;
-  number?: number | null;
+  /** 編號區間；只給一端＝該端當起也當迄（只查那一筆編號），兩端皆空＝不過濾。 */
+  numberStart?: number | null;
+  numberEnd?: number | null;
   searchKey?: string | null;
   scopeName?: boolean;
   scopeLivingName?: boolean;

@@ -56,8 +56,8 @@ public sealed class SignupsEndpointsTests(CeremonyApiFactory factory) : IClassFi
     public async Task GET_signups_with_sentinel_values_treated_as_unset()
     {
         var client = await AuthedAsync();
-        // -1 SignupType + 0 Number + Guid.Empty CeremonyCategoryId 都應被 normalize 掉
-        var resp = await client.GetAsync($"/api/v1/signups?year=115&signupType=-1&number=0&ceremonyCategoryId={Guid.Empty}");
+        // -1 SignupType + 0 編號起迄 + Guid.Empty CeremonyCategoryId 都應被 normalize 掉
+        var resp = await client.GetAsync($"/api/v1/signups?year=115&signupType=-1&numberStart=0&numberEnd=0&ceremonyCategoryId={Guid.Empty}");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await resp.Content.ReadFromJsonAsync<SignupListResponse>();
         body.Should().NotBeNull();

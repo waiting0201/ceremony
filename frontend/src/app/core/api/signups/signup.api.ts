@@ -22,7 +22,8 @@ export class SignupApi {
     if (query.isScope) params = params.set('isScope', 'true');
     if (query.ceremonyCategoryId) params = params.set('ceremonyCategoryId', query.ceremonyCategoryId);
     if (query.signupType != null) params = params.set('signupType', query.signupType);
-    if (query.number != null) params = params.set('number', query.number);
+    if (query.numberStart != null) params = params.set('numberStart', query.numberStart);
+    if (query.numberEnd != null) params = params.set('numberEnd', query.numberEnd);
     if (query.searchKey) params = params.set('searchKey', query.searchKey);
     if (query.scopeName) params = params.set('scopeName', 'true');
     if (query.scopeLivingName) params = params.set('scopeLivingName', 'true');
