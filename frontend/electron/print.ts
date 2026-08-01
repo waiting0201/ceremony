@@ -1,21 +1,28 @@
-// Electron 主行程列印通道：把後端產的 PDF 直接送到印表機，紙張 / 邊界 / 縮放由程式指定。
+// Electron 主行程列印通道：把後端產的 PDF 送到指定印表機。
 //
-// 為什麼要有這條路：舊做法是 renderer 做 window.open(blob:...) 就結束，紙張與縮放全交給
-// 不知名的 PDF 檢視器與驅動 → 同一份 PDF 在三台機器有三種結果（有的正常、有的要手動調、有的
-// 因為 plugins 未開而變成下載，看起來像「讀不到印表機」）。詳見 docs/gotchas.md。
+// 為什麼要有這條路：更早的做法是 renderer 做 window.open(blob:...) 就結束，連「印到哪一台」
+// 都無法指定，而且 plugins 未開時會變成下載，看起來像「讀不到印表機」。詳見 docs/gotchas.md。
 //
 // 為什麼是 silent:true + 自建對話框：Electron 的 print({silent:false}) 在 Windows 走原生 PrintDlgEx，
-// 建立對話框時 hDevMode/hDevNames 為 null → 初值來自驅動預設，我們傳的 pageSize/deviceName
-// 沒有注入點（官方型別註解也只對 silent:true 保證設定生效）。要「預設值一定正確」只能自己畫對話框，
-// 再用 silent:true 把完整設定送出去。決策見 docs/blueprints/print-channel-electron.md。
+// 建立對話框時 hDevMode/hDevNames 為 null → 我們傳的 deviceName 沒有注入點（官方型別註解也只對
+// silent:true 保證設定生效）；而且大量列印分段會每段跳一次。所以自己畫對話框（印表機 / 份數 /
+// 預覽）再用 silent:true 送出。
+//
+// ⚠️ 送印的**預設**是「什麼都不指定」——紙張 / 邊界 / 縮放 / 方向全交回驅動 DEVMODE。
+// 對話框把它攤成 scale / orientation / paper 三個獨立軸讓使用者可以自救，預設全部 'driver'。
+// 見 print-options.ts 的說明與 docs/blueprints/print-channel-electron.md。
+// 要調驅動本身的紙匣 / 自訂紙張，走對話框的「用 PDF 檢視器列印」（openPdfInViewerWindow）——
+// 那條路會落到原生對話框，有「內容」按鈕。
 import { BrowserWindow } from 'electron';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import crypto from 'crypto';
-import { streamApiToFile } from './api-stream';
-import { resolvePageSize, PageSizeMicrons } from './paper';
-import { readPrintSettings, ScaleMode } from './print-config';
+import { resolvePageSize } from './paper';
+import { buildPrintOptions } from './print-options';
+import type { BuiltPrintOptions, PrintModes } from './print-options';
+import { logPrintEvent, sweepOldLogs } from './print-log';
+import { readPrintSettings } from './print-config';
 
 export interface PrintResult {
   ok: boolean;
@@ -23,10 +30,9 @@ export interface PrintResult {
   error?: string;
 }
 
-export interface PrintOverrides {
+export interface PrintOverrides extends PrintModes {
   deviceName?: string;
   copies?: number;
-  scaleMode?: ScaleMode;
 }
 
 // 曾經有一條「main 自己 net.request 去 sidecar 取 PDF 再送印」的路徑（printReport /
@@ -37,8 +43,8 @@ export interface PrintOverrides {
 /**
  * 列印 renderer 手上既有的 PDF bytes（預覽用：blob 已在前端，或 job 的 /file 已被取走）。
  *
- * pageSizeHeader 由 renderer 從 X-Report-Page-Size 讀出後傳進來——沒帶就只能用 fallback 表，
- * 紙張尺寸的權威值會靜默失效（印歪時很難查）。
+ * pageSizeHeader 由 renderer 從 X-Report-Page-Size 讀出後傳進來。送印本身不再使用它
+ * （紙張交回驅動），但它會被記進診斷紀錄——「驅動有沒有選對紙」的第一個線索就是那裡。
  */
 export async function printPdfBuffer(
   reportType: string,
@@ -50,7 +56,13 @@ export async function printPdfBuffer(
   try {
     await fs.mkdir(path.dirname(pdfPath), { recursive: true });
     await fs.writeFile(pdfPath, bytes);
-    return await printResolved(reportType, pdfPath, pageSizeHeader ?? null, overrides);
+    return await printResolved(
+      reportType,
+      pdfPath,
+      pageSizeHeader ?? null,
+      overrides,
+      bytes.length,
+    );
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   } finally {
@@ -63,27 +75,47 @@ async function printResolved(
   pdfPath: string,
   pageSizeHeader: string | null | undefined,
   overrides: PrintOverrides,
+  bytes: number,
 ): Promise<PrintResult> {
   const saved = (await readPrintSettings()).byReportType[reportType] ?? {};
   const deviceName = overrides.deviceName ?? saved.deviceName;
   const copies = overrides.copies ?? saved.copies ?? 1;
-  const scaleMode: ScaleMode = overrides.scaleMode ?? saved.scaleMode ?? 'actual';
+  const scale = overrides.scale ?? saved.scale ?? 'driver';
+  const orientation = overrides.orientation ?? saved.orientation ?? 'driver';
+  const paper = overrides.paper ?? saved.paper ?? 'driver';
 
+  // 只有 paper:'report' 會真的用到 size；其餘情況仍解析一次是為了留痕——
+  // source !== 'header' 代表 sidecar 版本不合或 report type 未知，
+  // 而印歪時第一個要問的就是「驅動當時用的是哪張紙」。
   const { size, source } = resolvePageSize(reportType, pageSizeHeader);
-  if (source !== 'header') {
-    // 走到這裡代表 sidecar 沒帶 X-Report-Page-Size（版本不合）或 report type 未知。
-    // 不是致命錯誤（fallback 表通常是對的），但值得留痕：印歪時這行 log 是第一個線索。
-    console.warn(`[print] ${reportType} 未取得 X-Report-Page-Size，改用 ${source}`);
-  }
 
-  return printPdfFile(pdfPath, { deviceName, copies, scaleMode, pageSize: size });
-}
+  const options = buildPrintOptions({
+    copies,
+    deviceName,
+    scale,
+    orientation,
+    paper,
+    pageSize: size,
+  });
+  const startedAt = Date.now();
+  const { result, attempts } = await printPdfFile(pdfPath, options);
 
-interface PdfPrintOptions {
-  deviceName?: string;
-  copies: number;
-  scaleMode: ScaleMode;
-  pageSize: PageSizeMicrons | null;
+  void logPrintEvent({
+    reportType,
+    deviceName,
+    modes: { scale, orientation, paper },
+    pageSizeSource: source,
+    pageSizeMicrons: size,
+    pageSizeHeaderRaw: pageSizeHeader ?? null,
+    options,
+    bytes,
+    attempts,
+    durationMs: Date.now() - startedAt,
+    result: result.ok ? 'ok' : result.canceled ? 'canceled' : 'error',
+    error: result.error,
+  });
+
+  return result;
 }
 
 const LOAD_TIMEOUT_MS = 30_000;
@@ -100,8 +132,11 @@ const MAX_ATTEMPTS = 3;
  * - did-finish-load 早於 PDF plugin 渲染完成（OOPIF 是另一個 frame），要再等子 frame 掛上。
  * - 一定要等 print 的 callback 才關窗：callback 代表 job 已交給 spooler，提早關窗會殺掉列印。
  */
-export function printPdfFile(pdfPath: string, opts: PdfPrintOptions): Promise<PrintResult> {
-  return new Promise<PrintResult>((resolve) => {
+function printPdfFile(
+  pdfPath: string,
+  options: BuiltPrintOptions,
+): Promise<{ result: PrintResult; attempts: number }> {
+  return new Promise((resolve) => {
     const win = new BrowserWindow({
       show: false,
       webPreferences: {
@@ -113,12 +148,13 @@ export function printPdfFile(pdfPath: string, opts: PdfPrintOptions): Promise<Pr
     });
 
     let settled = false;
-    const finish = (r: PrintResult) => {
+    let attempts = 0;
+    const finish = (result: PrintResult) => {
       if (settled) return;
       settled = true;
       clearTimeout(guard);
       if (!win.isDestroyed()) win.destroy();
-      resolve(r);
+      resolve({ result, attempts });
     };
     const guard = setTimeout(
       () => finish({ ok: false, error: '列印逾時（印表機無回應）' }),
@@ -131,7 +167,8 @@ export function printPdfFile(pdfPath: string, opts: PdfPrintOptions): Promise<Pr
       if (settled) return;
 
       for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        const r = await printOnce(win, opts);
+        attempts = attempt;
+        const r = await printOnce(win, options);
         if (r.ok || r.canceled) return finish(r);
         if (attempt === MAX_ATTEMPTS || settled) return finish(r);
         await delay(500);
@@ -142,28 +179,8 @@ export function printPdfFile(pdfPath: string, opts: PdfPrintOptions): Promise<Pr
   });
 }
 
-function printOnce(win: BrowserWindow, opts: PdfPrintOptions): Promise<PrintResult> {
+function printOnce(win: BrowserWindow, options: BuiltPrintOptions): Promise<PrintResult> {
   return new Promise<PrintResult>((resolve) => {
-    // actual：頁面尺寸 = 實體紙張尺寸、邊界 0、100% → 1:1 對位（座標表才有意義）。
-    // fit：不指定 pageSize，用驅動預設紙張 + 可列印範圍，Chromium 會把 PDF 縮到符合——
-    //      這是舊系統 DrawImage(PageBounds) 拉伸行為的等價替代（Electron 未暴露 fitToPage 選項）。
-    const base = {
-      silent: true,
-      printBackground: true,
-      copies: opts.copies,
-      ...(opts.deviceName ? { deviceName: opts.deviceName } : {}),
-    } as const;
-
-    const options =
-      opts.scaleMode === 'fit'
-        ? { ...base, margins: { marginType: 'printableArea' as const } }
-        : {
-            ...base,
-            margins: { marginType: 'none' as const },
-            scaleFactor: 100,
-            ...(opts.pageSize ? { pageSize: opts.pageSize } : {}),
-          };
-
     win.webContents.print(options, (success, failureReason) => {
       if (success) return resolve({ ok: true });
       const reason = failureReason ?? '';
@@ -190,6 +207,50 @@ async function waitForPdfFrame(win: BrowserWindow): Promise<void> {
   }
   // plugin 掛上後仍需一小段時間完成首次 paint；實測 250ms 足夠且不影響體感。
   await delay(250);
+}
+
+/**
+ * 把 PDF 開在一個可見的 Chromium PDF 檢視器視窗，然後什麼都不做。
+ *
+ * 這是 v2.3.6 以前那條路，逐位元：使用者按檢視器工具列的列印鈕 → Electron build 不含
+ * print preview WebUI → 落到 Windows 原生 PrintDlgEx（**有「內容」按鈕**）。
+ *
+ * 三個用途：
+ * 1. 現場對照組的基準線產生器——不必為了比對而回裝舊版
+ * 2. 萬一新的送印基準在某台機器仍不對，這是逃生門
+ * 3. 在 Phase 2 的「印表機內容」按鈕做出來之前，這是唯一能進驅動設定的路
+ *
+ * 刻意 **不** 加 `#toolbar=0`：那顆工具列列印鈕正是本功能的重點（列印對話框裡的預覽 iframe
+ * 才需要藏它，避免使用者誤按而繞過通道）。
+ * temp 檔在 closed 才刪——提早刪會讓使用者按列印時檔案已不在。
+ */
+export async function openPdfInViewerWindow(
+  reportType: string,
+  bytes: Uint8Array,
+  parent: BrowserWindow | null,
+): Promise<PrintResult> {
+  const pdfPath = tempPdfPath(reportType);
+  try {
+    await fs.mkdir(path.dirname(pdfPath), { recursive: true });
+    await fs.writeFile(pdfPath, bytes);
+
+    const win = new BrowserWindow({
+      width: 900,
+      height: 1000,
+      title: '列印預覽（請用工具列的列印鈕）',
+      autoHideMenuBar: true,
+      ...(parent ? { parent } : {}),
+      webPreferences: { plugins: true, contextIsolation: true, nodeIntegration: false },
+    });
+    win.on('closed', () => void safeUnlink(pdfPath));
+    await win.loadFile(pdfPath);
+
+    void logPrintEvent({ reportType, via: 'viewer-window', bytes: bytes.length, result: 'opened' });
+    return { ok: true };
+  } catch (e) {
+    void safeUnlink(pdfPath);
+    return { ok: false, error: (e as Error).message };
+  }
 }
 
 /** 列印設定 UI 用的印表機清單。需要一個既有 webContents（getPrintersAsync 掛在 webContents 上）。 */
@@ -223,10 +284,11 @@ async function safeUnlink(p: string): Promise<void> {
 }
 
 /**
- * 清理殘留的列印暫存檔（app 崩潰 / spooler 卡住時會留下）。
- * 啟動與離開各掃一次；只刪 1 小時前的，避免誤刪另一個 instance 正在送印的檔。
+ * 清理殘留的列印暫存檔（app 崩潰 / spooler 卡住時會留下）與過期的診斷紀錄。
+ * 啟動與離開各掃一次；temp 檔只刪 1 小時前的，避免誤刪另一個 instance 正在送印的檔。
  */
 export async function sweepTempDir(): Promise<void> {
+  void sweepOldLogs();
   try {
     const dir = tempDir();
     const cutoff = Date.now() - 60 * 60_000;

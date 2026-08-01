@@ -8,7 +8,9 @@ describe('PrintDialogComponent', () => {
     paperLabel: '21 × 14.8 cm',
     printers: [{ name: 'HP-1', displayName: 'HP LaserJet', isDefault: true, status: 0 }],
     copies: 1,
-    scaleMode: 'actual',
+    scale: 'driver',
+    orientation: 'driver',
+    paper: 'driver',
     mode: 'printer',
     previewUrl: null,
   };
@@ -77,9 +79,26 @@ describe('PrintDialogComponent', () => {
     expect(result).toEqual({
       deviceName: undefined,
       copies: 1,
-      scaleMode: 'actual',
+      scale: 'driver',
+      orientation: 'driver',
+      paper: 'driver',
       remember: false,
     });
+  });
+
+  it('三個列印方式下拉預設都是「印表機預設」（＝什麼都不指定，改版前的基準）', async () => {
+    const f = await open();
+    const values = [...el(f).querySelectorAll<HTMLSelectElement>('select')]
+      .slice(1) // 第一個是印表機下拉
+      .map((s) => s.value);
+
+    expect(values).toEqual(['driver', 'driver', 'driver']);
+  });
+
+  it('preview-only 不顯示列印方式三選單（瀏覽器沒有印表機能力）', async () => {
+    const f = await open({ mode: 'preview-only', printers: [] });
+
+    expect(el(f).querySelectorAll('select')).toHaveLength(0);
   });
 
   it('份數超出範圍會被夾回 1–99（送進驅動的值不能是垃圾）', async () => {

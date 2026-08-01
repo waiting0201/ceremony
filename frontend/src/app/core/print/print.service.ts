@@ -14,6 +14,7 @@ import type {
 } from '../api/reports/report.models';
 import { openPdfInNewTab } from '../../shared/util/pdf';
 import { PrintDialogService } from '../../shared/print-dialog/print-dialog.service';
+import type { PrintDiagnosticAction } from '../../shared/print-dialog/print-dialog.types';
 import { UserFacingError } from '../errors/to-message';
 
 /** 報表中文名與紙張尺寸（顯示用）。權威值在後端 ReportPageSizes，這裡只為了對話框有字可讀。 */
@@ -38,13 +39,13 @@ const PREVIEW_MAX_BYTES = 64 * 1024 * 1024;
 /**
  * 列印的唯一入口。
  *
- * Electron：跳自建列印對話框（PDF 預覽 + 印表機 / 份數 / 縮放）→ 主行程用指定的紙張
- * 與 100% 縮放 silent 送印。
+ * Electron：跳自建列印對話框（PDF 預覽 + 印表機 / 份數）→ 主行程 silent 送到選定的印表機。
+ * 紙張 / 邊界 / 縮放一律不指定，交回驅動 DEVMODE（＝改版前的行為，見 electron/print-options.ts）。
  * 瀏覽器（ng serve / 測試）：沒有印表機能力，對話框以 preview-only 模式只做預覽，
  * 確認後退回既有的「開新分頁，使用者自行列印」。
  *
- * 為什麼要有這層：舊做法直接 openPdfInNewTab，紙張與縮放全交給檢視器與驅動 → 同一份 PDF
- * 在不同機器結果不同。背景與決策見 docs/blueprints/print-channel-electron.md。
+ * 為什麼要有這層：不經對話框就無法指定印表機與份數，也沒有送印前的預覽。
+ * 背景與決策見 docs/blueprints/print-channel-electron.md。
  */
 @Injectable({ providedIn: 'root' })
 export class PrintService {
@@ -89,10 +90,7 @@ export class PrintService {
 
     if (plan.total <= SEGMENT_SIZE) {
       // signupIds 帶進去：用 plan 已經選定的那一批，不讓後端再查一次而有機會不一致
-      const pdf = await this.batch.run(
-        { ...req, signupIds: plan.items.map((i) => i.id) },
-        opts,
-      );
+      const pdf = await this.batch.run({ ...req, signupIds: plan.items.map((i) => i.id) }, opts);
       if (!pdf) return false;
       return this.confirmAndPrint(
         req.reportType,
@@ -130,6 +128,7 @@ export class PrintService {
         choice = await this.askFor(req.reportType, {
           detail: `共 ${plan.total} 筆，分 ${segments} 段`,
           previewBlob: firstSegmentPdf,
+          diagnoseBlob: firstSegmentPdf,
         });
         return choice !== null;
       },
@@ -167,6 +166,7 @@ export class PrintService {
       detail,
       previewBlob: tooBig ? null : blob,
       previewNotice: tooBig ? '檔案較大，略過預覽' : undefined,
+      diagnoseBlob: blob,
     });
     if (!choice) return false;
 
@@ -176,9 +176,7 @@ export class PrintService {
     }
 
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    return this.report(
-      await this.bridge().printPdfBuffer(type, bytes, choice, pageSizeHeader),
-    );
+    return this.report(await this.bridge().printPdfBuffer(type, bytes, choice, pageSizeHeader));
   }
 
   /**
@@ -187,20 +185,29 @@ export class PrintService {
    */
   private async askFor(
     type: SingleReportType,
-    o: { detail?: string; previewBlob?: Blob | null; previewNotice?: string } = {},
+    o: {
+      detail?: string;
+      previewBlob?: Blob | null;
+      previewNotice?: string;
+      /** 診斷用的完整 PDF（略過預覽時 previewBlob 是 null，但診斷仍需要 bytes） */
+      diagnoseBlob?: Blob | null;
+    } = {},
   ): Promise<ReportPrintSetting | null> {
     const meta = REPORT_META[type];
-    const base = { reportLabel: meta.label, paperLabel: meta.paper, ...o };
+    const { diagnoseBlob, ...rest } = o;
+    const base = { reportLabel: meta.label, paperLabel: meta.paper, ...rest };
+
+    const DEFAULTS = { scale: 'driver', orientation: 'driver', paper: 'driver' } as const;
 
     if (!isElectron()) {
       const r = await this.dialog.ask({
         ...base,
+        ...DEFAULTS,
         mode: 'preview-only',
         printers: [],
         copies: 1,
-        scaleMode: 'actual',
       });
-      return r ? { copies: 1, scaleMode: 'actual' } : null;
+      return r ? { copies: 1, ...DEFAULTS } : null;
     }
 
     const bridge = this.bridge();
@@ -216,17 +223,42 @@ export class PrintService {
       printers,
       deviceName: saved.deviceName,
       copies: saved.copies ?? 1,
-      scaleMode: saved.scaleMode ?? 'actual',
+      scale: saved.scale ?? DEFAULTS.scale,
+      orientation: saved.orientation ?? DEFAULTS.orientation,
+      paper: saved.paper ?? DEFAULTS.paper,
+      onDiagnose: (action) => void this.diagnose(action, type, diagnoseBlob ?? null),
     });
     if (!result) return null;
 
     const setting: ReportPrintSetting = {
       deviceName: result.deviceName,
       copies: result.copies,
-      scaleMode: result.scaleMode,
+      scale: result.scale,
+      orientation: result.orientation,
+      paper: result.paper,
     };
     if (result.remember) await bridge.savePrintSetting(type, setting);
     return setting;
+  }
+
+  /**
+   * 診斷區的兩個動作。刻意不關對話框、也不把失敗丟給呼叫端——這是輔助功能，
+   * 出錯不該打斷使用者手上的列印（真正的失敗訊息會落在主行程的診斷紀錄裡）。
+   */
+  private async diagnose(
+    action: PrintDiagnosticAction,
+    type: SingleReportType,
+    blob: Blob | null,
+  ): Promise<void> {
+    const bridge = ceremony();
+    if (!bridge) return;
+    if (action === 'log') {
+      await bridge.openPrintLogFolder().catch(() => undefined);
+      return;
+    }
+    if (!blob) return;
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    await bridge.openPdfInViewer(type, bytes).catch(() => undefined);
   }
 
   /**

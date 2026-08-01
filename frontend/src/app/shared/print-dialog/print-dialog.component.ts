@@ -11,19 +11,26 @@ import {
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { inject } from '@angular/core';
-import type { ScaleMode } from '../../core/platform/electron';
-import type { PrintDialogConfig, PrintDialogResult } from './print-dialog.types';
+import type { OrientationMode, PaperMode, ScaleMode } from '../../core/platform/electron';
+import type {
+  PrintDialogConfig,
+  PrintDialogResult,
+  PrintDiagnosticAction,
+} from './print-dialog.types';
 
 /**
  * 列印對話框（自建，不是系統對話框）：左邊 PDF 預覽、右邊列印設定。
  *
  * 為什麼不用 Windows 原生列印對話框：Electron 的 print({silent:false}) 走原生 PrintDlgEx，
- * 我們傳的 pageSize / deviceName 進不去對話框初值 → 使用者又要手動調紙張，等於沒修。
- * 自己畫才能保證「紙張是對的、按下去就印對」。決策見 docs/blueprints/print-channel-electron.md。
+ * 我們傳的 deviceName 進不去對話框初值，而且大量列印分段會每段跳一次。
  * 代價是 silent:true 送出去前使用者什麼都看不到，所以預覽必須內建在這裡（舊系統的
- * PrintPreviewDialog 等價物）。
+ * PrintPreviewDialog 等價物）。決策見 docs/blueprints/print-channel-electron.md。
  *
- * 紙張尺寸刻意做成唯讀：那是報表規格（座標系的基準），不是使用者選項。
+ * 列印方式 / 方向 / 紙張三個下拉的**預設全部是「印表機預設」**（什麼都不指定，交回驅動），
+ * 那就是 2026-08-01 回退後的基準、也是 printing-reports-positions.md 座標的驗收前提。
+ * 之所以仍然攤開給使用者選：我們無法在開發機證明它等價於改版前，而現場的印表機與驅動各不相同——
+ * 任何一台需要別的組合時使用者要能自救，不能把風險全押在一個沒驗證過的假設上。
+ * 要調驅動本身的紙匣 / 自訂紙張，走診斷區的「用 PDF 檢視器列印」（那條路有原生「內容」按鈕）。
  */
 @Component({
   selector: 'app-print-dialog',
@@ -85,31 +92,70 @@ import type { PrintDialogConfig, PrintDialogResult } from './print-dialog.types'
               </label>
             }
 
-            <div class="print-row">
-              <span class="print-label">紙張</span>
-              <span class="print-static">{{ config().paperLabel }}</span>
-            </div>
-
-            @if (!previewOnly()) {
+            @if (previewOnly()) {
+              <div class="print-row">
+                <span class="print-label">紙張</span>
+                <span class="print-static">{{ config().paperLabel }}</span>
+              </div>
+            } @else {
               <label class="print-row">
-                <span class="print-label">縮放</span>
+                <span class="print-label">列印方式</span>
                 <select class="print-control" [(ngModel)]="scale">
-                  <option value="actual">實際大小（100%）</option>
+                  <option value="driver">印表機預設（建議）</option>
+                  <option value="actual">實際大小 100%</option>
                   <option value="fit">符合紙張</option>
                 </select>
               </label>
+
+              <label class="print-row">
+                <span class="print-label">方向</span>
+                <select class="print-control" [(ngModel)]="orientation">
+                  <option value="driver">跟隨印表機</option>
+                  <option value="portrait">直向</option>
+                  <option value="landscape">橫向</option>
+                </select>
+              </label>
+
+              <label class="print-row">
+                <span class="print-label">紙張</span>
+                <select class="print-control" [(ngModel)]="paper">
+                  <option value="driver">印表機預設</option>
+                  <option value="report">報表尺寸（{{ config().paperLabel }}）</option>
+                </select>
+              </label>
+
+              <p class="print-hint">
+                印出來位置不對時才需要動這三項；「印表機預設」全部交給印表機驅動，與舊版相同。
+              </p>
 
               <label class="print-remember">
                 <input type="checkbox" [(ngModel)]="remember" />
                 <span>記住這台印表機與設定，下次列印{{ config().reportLabel }}直接沿用</span>
               </label>
             }
+
+            @if (hasDiagnostics()) {
+              <div class="print-diagnostics">
+                <span class="print-diag-title">列印不正確時</span>
+                <button type="button" class="print-link" (click)="diagnose('viewer')">
+                  用 PDF 檢視器列印（可進印表機內容）
+                </button>
+                <button type="button" class="print-link" (click)="diagnose('log')">
+                  開啟診斷紀錄
+                </button>
+              </div>
+            }
           </div>
         </div>
 
         <div class="print-actions">
           <button type="button" class="btn" (click)="cancel.emit()">取消</button>
-          <button type="button" class="btn btn-primary" [disabled]="!canSubmit()" (click)="submit()">
+          <button
+            type="button"
+            class="btn btn-primary"
+            [disabled]="!canSubmit()"
+            (click)="submit()"
+          >
             {{ confirmLabel() }}
           </button>
         </div>
@@ -228,6 +274,12 @@ import type { PrintDialogConfig, PrintDialogResult } from './print-dialog.types'
       font-size: var(--font-size-sm);
       white-space: nowrap;
     }
+    .print-hint {
+      margin: calc(-1 * var(--space-sm)) 0 0;
+      font-size: var(--font-size-sm);
+      color: var(--c-text-secondary);
+      line-height: 1.5;
+    }
     .print-remember {
       display: flex;
       align-items: flex-start;
@@ -235,6 +287,31 @@ import type { PrintDialogConfig, PrintDialogResult } from './print-dialog.types'
       font-size: var(--font-size-sm);
       color: var(--c-text-secondary);
       line-height: 1.5;
+    }
+    /* 診斷區刻意低調：日常不該用到，但出事時要找得到 */
+    .print-diagnostics {
+      margin-top: auto;
+      padding-top: var(--space-md);
+      border-top: 1px solid var(--c-border-soft);
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-xs, 0.25rem);
+    }
+    .print-diag-title {
+      font-size: var(--font-size-sm);
+      color: var(--c-text-secondary);
+    }
+    .print-link {
+      background: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      font-size: var(--font-size-sm);
+      color: var(--c-link, #5b6ec4);
+      text-align: left;
+      cursor: pointer;
+      text-decoration: underline;
     }
     .print-actions {
       display: flex;
@@ -273,6 +350,7 @@ export class PrintDialogComponent {
   readonly cancel = output<void>();
 
   protected readonly hasPreview = computed(() => !!this.config().previewUrl);
+  protected readonly hasDiagnostics = computed(() => !!this.config().onDiagnose);
   protected readonly previewOnly = computed(() => this.config().mode === 'preview-only');
   /** 瀏覽器沒有印表機能力，主鈕做的事是「開新分頁自己列印」，文案不能騙人 */
   protected readonly confirmLabel = computed(() => (this.previewOnly() ? '在新分頁開啟' : '列印'));
@@ -298,16 +376,21 @@ export class PrintDialogComponent {
 
   protected readonly device = signal('');
   protected readonly copies = signal(1);
-  protected readonly scale = signal<ScaleMode>('actual');
+  protected readonly scale = signal<ScaleMode>('driver');
+  protected readonly orientation = signal<OrientationMode>('driver');
+  protected readonly paper = signal<PaperMode>('driver');
   protected readonly remember = signal(true);
 
   constructor() {
     // config 是 required input，在第一次變更偵測後才有值 → 用 effect 之外的最簡方式：
     // queueMicrotask 讓 input 先就緒再套預設值（對話框只建立一次，不需要持續同步）。
     queueMicrotask(() => {
+      const c = this.config();
       this.device.set(this.initialDevice());
-      this.copies.set(this.config().copies);
-      this.scale.set(this.config().scaleMode);
+      this.copies.set(c.copies);
+      this.scale.set(c.scale);
+      this.orientation.set(c.orientation);
+      this.paper.set(c.paper);
     });
   }
 
@@ -315,10 +398,16 @@ export class PrintDialogComponent {
     this.print.emit({
       deviceName: this.device() || undefined,
       copies: Math.min(99, Math.max(1, Math.round(Number(this.copies()) || 1))),
-      scaleMode: this.scale(),
+      scale: this.scale(),
+      orientation: this.orientation(),
+      paper: this.paper(),
       // preview-only 沒有印表機設定可記，記了下次進 Electron 反而會套到空值
       remember: this.previewOnly() ? false : this.remember(),
     });
+  }
+
+  protected diagnose(action: PrintDiagnosticAction): void {
+    this.config().onDiagnose?.(action);
   }
 
   @HostListener('document:keydown.escape')

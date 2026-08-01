@@ -95,7 +95,7 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
           provide: PrintDialogService,
           useValue: {
             ask: () =>
-              Promise.resolve({ copies: 1, scaleMode: 'actual' as const, remember: false }),
+              Promise.resolve({ copies: 1, remember: false }),
           },
         },
       ],

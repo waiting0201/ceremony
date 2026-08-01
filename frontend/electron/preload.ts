@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld('ceremony', {
     ipcRenderer.invoke('ceremony:downloadBackup', fileName, token),
   /** 列印：可用印表機清單（含 isDefault） */
   listPrinters: () => ipcRenderer.invoke('ceremony:listPrinters'),
-  /** 列印：讀每種報表記住的印表機 / 份數 / 縮放 */
+  /** 列印：讀每種報表記住的印表機 / 份數 */
   getPrintSettings: () => ipcRenderer.invoke('ceremony:getPrintSettings'),
   /** 列印：記住某種報表的設定（只覆寫該報表那一格） */
   savePrintSetting: (reportType: string, setting: unknown) =>
@@ -29,8 +29,12 @@ contextBridge.exposeInMainWorld('ceremony', {
     bytes: Uint8Array,
     overrides: unknown,
     pageSizeHeader?: string | null,
-  ) =>
-    ipcRenderer.invoke('ceremony:printPdfBuffer', reportType, bytes, overrides, pageSizeHeader),
+  ) => ipcRenderer.invoke('ceremony:printPdfBuffer', reportType, bytes, overrides, pageSizeHeader),
+  /** 診斷：把 PDF 開在檢視器視窗，使用者自己按工具列列印鈕 → 原生對話框（有「印表機內容」） */
+  openPdfInViewer: (reportType: string, bytes: Uint8Array) =>
+    ipcRenderer.invoke('ceremony:openPdfInViewer', reportType, bytes),
+  /** 診斷：在檔案總管中選取今天的列印紀錄 */
+  openPrintLogFolder: () => ipcRenderer.invoke('ceremony:openPrintLogFolder'),
   /** 開外部連結（官方下載頁等） */
   openExternal: (url: string) => ipcRenderer.invoke('ceremony:openExternal', url),
   /** 執行 bundle 的 prereq installer（缺檔則開官方下載頁） */

@@ -19,7 +19,9 @@ describe('PrintDialogService', () => {
     paperLabel: '21 × 14.8 cm',
     printers: [{ name: 'HP-1', displayName: 'HP', isDefault: true, status: 0 }],
     copies: 1,
-    scaleMode: 'actual',
+    scale: 'driver',
+    orientation: 'driver',
+    paper: 'driver',
     mode: 'printer',
     ...patch,
   });
@@ -68,7 +70,7 @@ describe('PrintDialogService', () => {
     expect(confirm().textContent!.trim()).toBe('列印');
     confirm().click();
 
-    await expect(p).resolves.toMatchObject({ copies: 1, scaleMode: 'actual' });
+    await expect(p).resolves.toMatchObject({ copies: 1 });
     expect(revoked).toEqual(['blob:fake-0']);
   });
 

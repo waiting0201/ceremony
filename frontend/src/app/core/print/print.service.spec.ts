@@ -5,7 +5,10 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { authInterceptor } from '../http/auth.interceptor';
 import { PrintDialogService } from '../../shared/print-dialog/print-dialog.service';
-import type { PrintDialogRequest, PrintDialogResult } from '../../shared/print-dialog/print-dialog.types';
+import type {
+  PrintDialogRequest,
+  PrintDialogResult,
+} from '../../shared/print-dialog/print-dialog.types';
 import {
   ProgressOverlayService,
   type ProgressOverlayHandle,
@@ -35,7 +38,16 @@ describe('PrintService', () => {
     pageSizeHeader?: string | null;
   }
 
+  interface DiagnoseCall {
+    action: 'viewer' | 'log';
+    reportType?: string;
+    bytes?: Uint8Array;
+  }
+
+  const DRIVER = { scale: 'driver', orientation: 'driver', paper: 'driver' } as const;
+
   let asked: PrintDialogRequest[];
+  let diagnoseCalls: DiagnoseCall[];
   let dialogAnswer: PrintDialogResult | null;
   let pdfBufferCalls: PdfBufferCall[];
   /** 分段面板被開啟幾次（測試用 fake：一跑完就自動關，真面板要等使用者按「關閉」）。 */
@@ -51,14 +63,22 @@ describe('PrintService', () => {
       listPrinters: async () => [
         { name: 'HP-1', displayName: 'HP LaserJet', isDefault: true, status: 0 },
       ],
-      getPrintSettings: async () => ({ version: 1 as const, byReportType: {} }),
+      getPrintSettings: async () => ({ version: 2 as const, byReportType: {} }),
       savePrintSetting: async (reportType: string) => {
         savedSettings.push({ reportType });
-        return { version: 1 as const, byReportType: {} };
+        return { version: 2 as const, byReportType: {} };
       },
       printPdfBuffer: async (reportType, bytes, _o, pageSizeHeader) => {
         pdfBufferCalls.push({ reportType, bytes, pageSizeHeader });
         return printResult;
+      },
+      openPdfInViewer: async (reportType, bytes) => {
+        diagnoseCalls.push({ action: 'viewer', reportType, bytes });
+        return { ok: true };
+      },
+      openPrintLogFolder: async () => {
+        diagnoseCalls.push({ action: 'log' });
+        return { ok: true };
       },
     };
     return partial as CeremonyBridge;
@@ -78,10 +98,11 @@ describe('PrintService', () => {
   beforeEach(() => {
     installBlobPolyfill(); // jsdom 的 Blob 沒有 arrayBuffer()，送印那步會炸
     asked = [];
+    diagnoseCalls = [];
     pdfBufferCalls = [];
     panelOpens = [];
     savedSettings = [];
-    dialogAnswer = { copies: 1, scaleMode: 'actual', remember: false };
+    dialogAnswer = { copies: 1, ...DRIVER, remember: false };
     printResult = { ok: true };
 
     TestBed.configureTestingModule({
@@ -184,6 +205,41 @@ describe('PrintService', () => {
     expect(pdfBufferCalls[0].pageSizeHeader).toBe('210000x148000');
   });
 
+  /**
+   * 診斷區是客訴「進不去印表機設定」的解：檢視器那條路會落到 Windows 原生列印對話框，
+   * 有「印表機內容」按鈕，而且就是 v2.3.6 以前的送印路徑（現場對照組的基準線）。
+   */
+  it('診斷區把動作接到主行程，且不影響手上這次列印的結果', async () => {
+    asElectron();
+    const run = sut.printSingle('datacard', 's1');
+    flushSinglePdf();
+    await run;
+
+    const diagnose = asked[0].onDiagnose;
+    expect(diagnose).toBeTypeOf('function');
+
+    diagnose!('log');
+    diagnose!('viewer');
+    // viewer 那條要先 blob.arrayBuffer()（polyfill 走 FileReader 事件），一個 tick 不夠
+    for (let i = 0; i < 100 && diagnoseCalls.length < 2; i++) {
+      await new Promise((r) => setTimeout(r, 0));
+    }
+
+    expect(diagnoseCalls.map((c) => c.action)).toEqual(['log', 'viewer']);
+    // 略過預覽的大檔也要能診斷 → bytes 走的是 diagnoseBlob 而不是 previewBlob
+    expect(diagnoseCalls[1].reportType).toBe('datacard');
+    expect(diagnoseCalls[1].bytes!.length).toBeGreaterThan(0);
+  });
+
+  it('瀏覽器（preview-only）不給診斷區——那些能力只有 Electron 有', async () => {
+    const run = sut.printSingle('datacard', 's1');
+    flushSinglePdf();
+    await run;
+
+    expect(asked[0].mode).toBe('preview-only');
+    expect(asked[0].onDiagnose).toBeUndefined();
+  });
+
   it('使用者在對話框按取消 → 回 false，完全不呼叫主行程', async () => {
     asElectron();
     dialogAnswer = null;
@@ -197,7 +253,7 @@ describe('PrintService', () => {
 
   it('勾「記住設定」才寫回 print-settings.json', async () => {
     asElectron();
-    dialogAnswer = { copies: 2, scaleMode: 'fit', remember: true };
+    dialogAnswer = { copies: 2, ...DRIVER, remember: true };
 
     const run = sut.printSingle('tablet', 's1');
     flushSinglePdf('tablet');
@@ -262,7 +318,12 @@ describe('PrintService', () => {
       const create = await nextRequest('POST', `${BASE}/batch/jobs`);
       const ids = (create.request.body as { signupIds: string[] }).signupIds;
       segmentSizes.push(ids.length);
-      create.flush({ jobId: JOB_ID, total: ids.length, fileName: 'seg.pdf', reportType: 'datacard' });
+      create.flush({
+        jobId: JOB_ID,
+        total: ids.length,
+        fileName: 'seg.pdf',
+        reportType: 'datacard',
+      });
 
       (await nextRequest('GET', `${BASE}/batch/jobs/${JOB_ID}`)).flush(jobDone(ids.length));
       (await nextRequest('GET', `${BASE}/batch/jobs/${JOB_ID}/file`)).flush(
@@ -365,9 +426,7 @@ describe('PrintService', () => {
   it('printBlob 在 Electron 開對話框並把呼叫端給的紙張 header 傳下去', async () => {
     asElectron();
 
-    await expect(
-      sut.printBlob('text', new Blob(['%PDF-']), '365000x262000'),
-    ).resolves.toBe(true);
+    await expect(sut.printBlob('text', new Blob(['%PDF-']), '365000x262000')).resolves.toBe(true);
 
     expect(asked[0].mode).toBe('printer');
     expect(pdfBufferCalls[0].pageSizeHeader).toBe('365000x262000');

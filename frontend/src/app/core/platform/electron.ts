@@ -57,7 +57,8 @@ export interface DownloadResult {
 }
 
 // ── 列印通道（見 docs/blueprints/print-channel-electron.md）──
-// 紙張 / 邊界 / 縮放由 Electron 主行程指定；瀏覽器沒有這些能力，非 Electron 環境會退回開新分頁預覽。
+// 送印基準是「什麼都不指定」：紙張 / 邊界 / 縮放交回印表機驅動，主行程只指定印表機與份數。
+// 瀏覽器沒有印表機能力，非 Electron 環境會退回開新分頁預覽。
 
 export interface PrinterInfo {
   name: string;
@@ -66,17 +67,25 @@ export interface PrinterInfo {
   status: number;
 }
 
-/** 'actual' = 100% 實際大小（1:1 對位）；'fit' = 縮放至符合紙張（等同舊系統的拉伸行為）。 */
-export type ScaleMode = 'actual' | 'fit';
+/**
+ * 送印的三個獨立軸，預設全部 'driver'ㄧ「什麼都不指定，交回印表機驅動」。
+ * 權威定義與理由在 electron/print-options.ts，這裡只是 renderer 側的鏡射。
+ */
+export type ScaleMode = 'driver' | 'actual' | 'fit';
+export type OrientationMode = 'driver' | 'portrait' | 'landscape';
+export type PaperMode = 'driver' | 'report';
 
 export interface ReportPrintSetting {
   deviceName?: string;
   copies?: number;
-  scaleMode?: ScaleMode;
+  scale?: ScaleMode;
+  orientation?: OrientationMode;
+  paper?: PaperMode;
 }
 
+/** v1 的 `scaleMode` 在主行程讀取時就地遷移成三軸（見 electron/print-settings-migrate.ts）。 */
 export interface PrintSettings {
-  version: 1;
+  version: 2;
   byReportType: Record<string, ReportPrintSetting>;
 }
 
@@ -104,9 +113,16 @@ export interface CeremonyBridge {
     reportType: string,
     bytes: Uint8Array,
     overrides: ReportPrintSetting,
-    /** X-Report-Page-Size 原字串；省略時主行程只能用 fallback 紙張表 */
+    /** X-Report-Page-Size 原字串；送印不用它，但會記進診斷紀錄 */
     pageSizeHeader?: string | null,
   ): Promise<PrintResult>;
+  /**
+   * 診斷 / 逃生門：把 PDF 開在 Chromium 檢視器視窗，使用者自己按工具列的列印鈕。
+   * 那條路會落到 Windows 原生列印對話框，**有「印表機內容」按鈕**，也是改版前的行為。
+   */
+  openPdfInViewer(reportType: string, bytes: Uint8Array): Promise<PrintResult>;
+  /** 診斷：在檔案總管中選取今天的列印紀錄，讓使用者把檔案傳回來。 */
+  openPrintLogFolder(): Promise<{ ok: boolean }>;
   openExternal(url: string): Promise<{ ok: boolean }>;
   launchInstaller(key: string): Promise<{ ok: boolean; launched?: boolean; error?: string }>;
 }

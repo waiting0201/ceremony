@@ -9,7 +9,14 @@ import { readConfig, writeConfig, readDefaultConfig, CeremonyConfig } from './co
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
-import { listPrinters, printPdfBuffer, PrintOverrides, sweepTempDir } from './print';
+import {
+  listPrinters,
+  openPdfInViewerWindow,
+  printPdfBuffer,
+  PrintOverrides,
+  sweepTempDir,
+} from './print';
+import { printLogPath } from './print-log';
 import { readPrintSettings, savePrintSetting, ReportPrintSetting } from './print-config';
 
 let mainWindow: BrowserWindow | null = null;
@@ -172,8 +179,8 @@ ipcMain.handle('ceremony:downloadBackup', async (_e, fileName: string, token: st
 });
 
 // ── 列印通道 ──
-// 紙張 / 邊界 / 縮放由主行程指定，不再交給 PDF 檢視器與驅動自由發揮。
-// 契約見 docs/blueprints/print-channel-electron.md。
+// 送印基準是「什麼都不指定」：紙張 / 邊界 / 縮放交回驅動 DEVMODE（見 print-options.ts）。
+// 主行程只負責「印到哪一台、幾份」與診斷留痕。契約見 docs/blueprints/print-channel-electron.md。
 
 ipcMain.handle('ceremony:listPrinters', () => listPrinters(mainWindow));
 
@@ -194,6 +201,17 @@ ipcMain.handle(
     pageSizeHeader?: string | null,
   ) => printPdfBuffer(reportType, bytes, o ?? {}, pageSizeHeader),
 );
+
+/** 診斷：把 PDF 開在檢視器視窗，讓使用者走原生列印對話框（有「印表機內容」）。 */
+ipcMain.handle('ceremony:openPdfInViewer', (_e, reportType: string, bytes: Uint8Array) =>
+  openPdfInViewerWindow(reportType, bytes, mainWindow),
+);
+
+/** 診斷：在檔案總管中選取今天的列印紀錄，讓使用者直接把檔案傳回來。 */
+ipcMain.handle('ceremony:openPrintLogFolder', () => {
+  shell.showItemInFolder(printLogPath());
+  return { ok: true };
+});
 
 ipcMain.handle('ceremony:openExternal', async (_e, url: string) => {
   await shell.openExternal(url);

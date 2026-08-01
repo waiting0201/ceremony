@@ -7,14 +7,14 @@ related_docs:
   - blueprints/README.md
   - workflows/feature-development.md
 keywords: [status, 狀態, 進度, todo, backlog, in-progress, blocked, done, roadmap]
-last_updated: 2026-07-31 (大量列印分段：客訴「1000–5000 筆印到一半卡紙要整批重印」→ 新增 POST /reports/batch/plan，前端切成 200 筆一段逐段建 job 送印，峰值記憶體與總筆數無關〔PdfSharp 2GB 上限碰不到，後端串流化合併因此不必要〕，並附分段面板可暫停／單段重印；順帶修掉 SearchByIdsAsync 的 SQL Server 2100 參數上限，以及移除因分段而成死碼的 main 串流取檔路徑；dotnet 230/124/80 綠 + ng test 95 綠，Windows 實機待驗。同日先前修客訴「列印跳操作失敗請稍後再試、且沒有預覽列印」：根因是 streamApiToFile 沒建父目錄〔乾淨機器必 ENOENT〕＋ toMessage 複製 13 份把所有列印錯誤吞成通用句；同時把預覽做進列印對話框〔左 iframe 右設定，瀏覽器 preview-only〕、批次依 job.total 分流大檔略過預覽、X-Report-Page-Size 一路帶到主行程、移除無用的 ceremony:printReport IPC；ng build 0 warning + electron:compile 0 err + ng test 85 綠，Windows 實機列印待驗。同日先前修客訴「既有的寄件/文牒地址與堂號刪不掉」：信眾表單移除遺留的 mailAddress required、報名三個 handler 移除「文牒欄留空就抄寄件段」的隱性 fallback、報名堂號清空改存空字串以避開 SignupView 的 COALESCE 回退；dotnet 230/124/77 綠 + ng test 53 綠，含跑真 DB 的端到端清空驗證。同日先前搜尋「編號」改起~迄區間、批次列印起迄改為只需填一端〔只填一端＝只查/只印那一筆〕；`GET /signups` 參數 number → numberStart/numberEnd；dotnet 225 綠 + ng test 47 綠，版面待實機複驗。同日先前修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
+last_updated: 2026-08-01 (發版 v2.3.8〔PATCH：把 v2.3.7 弄壞的列印位置修回來；**Windows 實機對照組未做**，發版是為了讓現場拿到能跑對照組的建置〕。客訴「列印格式全部跑掉＋進不去印表機設定」：根因是 v2.3.7 把送印改成 margins:'none'+scaleFactor:100+自訂 pageSize，而 positions 那套 ±0.05cm 座標全是在改版前基準下驗收的〔座標表沒記錄驗收前提〕→ 送印基準改回「什麼都不指定」，新增 print-options.ts〔預設什麼都不傳〕並把送印攤成 scale/orientation/paper 三個獨立軸供使用者選〔預設全 driver；刻意不釘死單一基準，因為無法在開發機證明等價、現場機器各異〕、print-settings v1→v2 read 端就地遷移〔舊 scaleMode 一律重設 driver〕〔「記住」預設勾選故現場已落地舊值，只改預設值等於沒改〕、對話框加診斷區〔「用 PDF 檢視器列印」＝改版前路徑有原生「內容」按鈕，兼作對照組基準線〕、新增送印診斷紀錄 print-log.ts；ng test 131 綠、prod build 0 warning、electron:compile 0 err；**Windows 實機 V/D/A 三路對照組未做，尚未發版**；Phase 2 的 printui.dll「印表機內容」按鈕未做)；先前 2026-07-31 (大量列印分段：客訴「1000–5000 筆印到一半卡紙要整批重印」→ 新增 POST /reports/batch/plan，前端切成 200 筆一段逐段建 job 送印，峰值記憶體與總筆數無關〔PdfSharp 2GB 上限碰不到，後端串流化合併因此不必要〕，並附分段面板可暫停／單段重印；順帶修掉 SearchByIdsAsync 的 SQL Server 2100 參數上限，以及移除因分段而成死碼的 main 串流取檔路徑；dotnet 230/124/80 綠 + ng test 95 綠，Windows 實機待驗。同日先前修客訴「列印跳操作失敗請稍後再試、且沒有預覽列印」：根因是 streamApiToFile 沒建父目錄〔乾淨機器必 ENOENT〕＋ toMessage 複製 13 份把所有列印錯誤吞成通用句；同時把預覽做進列印對話框〔左 iframe 右設定，瀏覽器 preview-only〕、批次依 job.total 分流大檔略過預覽、X-Report-Page-Size 一路帶到主行程、移除無用的 ceremony:printReport IPC；ng build 0 warning + electron:compile 0 err + ng test 85 綠，Windows 實機列印待驗。同日先前修客訴「既有的寄件/文牒地址與堂號刪不掉」：信眾表單移除遺留的 mailAddress required、報名三個 handler 移除「文牒欄留空就抄寄件段」的隱性 fallback、報名堂號清空改存空字串以避開 SignupView 的 COALESCE 回退；dotnet 230/124/77 綠 + ng test 53 綠，含跑真 DB 的端到端清空驗證。同日先前搜尋「編號」改起~迄區間、批次列印起迄改為只需填一端〔只填一端＝只查/只印那一筆〕；`GET /signups` 參數 number → numberStart/numberEnd；dotnet 225 綠 + ng test 47 綠，版面待實機複驗。同日先前修客訴「報名維護切到其他功能再回來，勾的『範圍』與『顯示完整表格』被重置」：條件快照改由 `form.valueChanges` 驅動〔不必先按搜尋〕、`SignupSearchState` 新增 `showAll` 一格；仍只存記憶體故不違反 07-29「開軟體不記憶完整表格」；ng test 47 綠。同日先前修客訴「法會的預繳被錯帶到普桌」：`pickBeliever` 的預繳改取該列自身值、刪 `prefillPrepayHistory`，`GET /prepay?believerId&year` 保留但無呼叫端；新增 business-rules-implicit §19 標刻意偏離 legacy；ng test 46 綠、實機待驗。同日先前發版 v2.3.6：自 v2.3.5 起累積的 6 項客訴修復；同日先前新增報名「員工類型」下拉寬度改為＝右欄「費用」欄寬〔`.grid.basic-side` 沿用費用那組三等分軌道〕；同日先前列印通道大改：Electron 主行程接管送印〔plugins:true + setWindowOpenHandler + 自建列印對話框 + silent print + 紙張 SSoT/X-Report-Page-Size〕，修掉「有的印表機可以、有的要手動調、有的讀不到印表機」客訴，待 Windows 實機驗收；同日先前報名維護 toolbar RWD 改用 container query 三層斷點；同日先前資料卡往者 2 位左右相反修正)
 
 
 ---
 
 > 本檔由 Claude **自動維護**。任務開始/完成/卡住都必須更新。新增項目也要寫入。詳細規則見 [../CLAUDE.md](../CLAUDE.md) 「狀態追蹤規則」。
 
-**Current Version**: `v2.3.7`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
+**Current Version**: `v2.3.8`（SemVer；版號單一真實來源為 `frontend/package.json`，UI 自動連動；規範見 [conventions.md](conventions.md) 「軟體版本規範」）
 
 ## 🔄 In Progress
 
@@ -159,6 +159,27 @@ last_updated: 2026-07-31 (大量列印分段：客訴「1000–5000 筆印到一
 ## ✅ Recently Done
 
 > 最近完成的項目（保留最近 10 項或 30 天，滿了搬到 Archive）
+
+- [x] **發版 v2.3.8** — Done 2026-08-01（單一項目：列印送印基準回退）
+  - `frontend/package.json` version 2.3.7→2.3.8（`package-lock.json` root 同步）、status.md 標頭同步、tag `v2.3.8`
+  - 內容：見下一筆。**PATCH 版**：對使用者而言是「把 v2.3.7 弄壞的列印位置修回來」，新增的三軸下拉與診斷區都是為了這件事服務，不是獨立新功能
+  - **⚠️ 這一版尚未經 Windows 實機對照組驗證**——發版是為了讓現場能拿到可跑對照組的建置，不是宣告修好了。對照組通過前不要當成結案
+
+- [x] **客訴：列印格式全部跑掉 + 進不去印表機設定 → 送印基準改回改版前** — Done 2026-08-01（**Windows 實機對照組未做**）
+  - **客訴**：「可以選印表機，但無法進去印表機裡面的設定；直接列印格式也不對，**跟之前我們調好的位置都跑掉了**」。資料卡／薦牌／文牒全部不對，而客戶原本已經確認得差不多了
+  - **根因**：v2.3.7 的 `9264a23` 把送印從「什麼都不指定」改成 `margins:'none'` + `scaleFactor:100` + 強制自訂 `pageSize`，**一次改了三件事**。而 [printing-reports-positions.md](blueprints/printing-reports-positions.md) 那套 ±0.05cm 座標，全部是在改版前的基準（PDF 檢視器按列印 → 原生 PrintDlgEx → 驅動當前紙張 + fit-to-printable-area）下實機驗收的——**座標表沒記錄驗收前提，送印路徑一換整份就作廢**。`margins:'none'` 把版面推到實體紙緣，而印表機有 0.3–0.5cm 不可列印邊界
+  - **「進不去印表機設定」不是漏做**：那是 [print-channel-electron.md](blueprints/print-channel-electron.md) 決策 1 白紙黑字寫下的代價（自建對話框沒有「印表機內容」按鈕）。改版前之所以有，是因為那條路會落到原生 PrintDlgEx
+  - **修法（使用者定案：只改送印基準，對話框維持現狀，`actual` 整個移除）**
+    - 新增 `electron/print-options.ts`：**預設**只送 `{silent, printBackground, copies, deviceName}`，沒有別的 key
+    - 對話框把送印攤成 **scale / orientation / paper 三個獨立軸**（預設全部「印表機預設」）。**刻意保留選項而非釘死單一基準**——我們無法在開發機證明 driver 等價於改版前（Electron 可能無條件寫入 `landscape:false`），現場印表機又各不相同，任何一台需要別的組合時使用者要能自救。v2.3.7 的「實際大小」= `scale:'actual'+paper:'report'`，仍可選回來
+    - **v1→v2 就地遷移**（`print-settings-migrate.ts`）：對話框「記住」預設勾選，現場設定檔幾乎都已落地 `scaleMode:'actual'`，**只改程式預設值等於沒改** → 遷移必須做在 read 端，保留 deviceName/copies、舊 scaleMode 一律重設為 driver（重設後三個下拉都還在，需要的人自己調回去）
+    - **診斷區**（對話框底部）：「用 PDF 檢視器列印」把 PDF 開在可見的檢視器視窗讓使用者自己按工具列列印鈕 → 落到原生 PrintDlgEx（**有「內容」按鈕**），這就是改版前那條路逐位元，同時是現場對照組的基準線與逃生門；「開啟診斷紀錄」→ `shell.showItemInFolder`
+    - **送印診斷紀錄**（`print-log.ts`）：`%APPDATA%/Ceremony/logs/print-YYYYMMDD.log`，每次送印一行 JSON（含**真正丟給 `webContents.print` 的完整 options**、`pageSizeSource`、result、耗時）。上一輪查不出症狀細節就是因為 packaged 版沒有 console
+  - **未證明等價**：Electron 33 的 `.d.ts` 為 `landscape`(false)/`color`(true) 標了明文預設值，暗示是無條件寫入（省略 ≠ 不送）→ 文牒（36.5×26.2 橫向）仍可能被強制直向。**只能實機對照判定**
+  - 驗證：`ng test` **131 綠**（新增 `electron-print-options.spec` 鎖「三軸皆 driver → key 集合**恰好**只有四個」＋各軸分支、`electron-print-settings-migrate.spec` 鎖 v1→v2 與白名單、`print.service.spec` 診斷區接線、對話框三軸預設）、`ng build --configuration production` 0 warning、`electron:compile` 0 err
+  - **🚧 上線前必做**：Windows 實機 V／D／A 三路對照組（3 報表 × 2 印表機，用真預印紙），通過標準與證據清單見 [print-channel-electron.md](blueprints/print-channel-electron.md)「待驗證」
+  - **Phase 2（未做）**：對話框加「印表機內容…」按鈕（`rundll32 printui.dll,PrintUIEntry`），唯一能「設一次、之後每次送印都吃到」的入口
+  - Docs: [print-channel-electron.md](blueprints/print-channel-electron.md)（決策 2 推翻改寫 + 新增決策 8/9/10 + Phase 2）、[gotchas.md](gotchas.md)（新增最重要的元教訓一條）、[printing-reports-positions.md](blueprints/printing-reports-positions.md)（檔頭新增「驗收前提：送印基準」）
 
 - [x] **發版 v2.3.7** — Done 2026-07-31（自 v2.3.6 起累積 2 項，都圍繞列印客訴）
   - `frontend/package.json` version 2.3.6→2.3.7（`package-lock.json` root 同步）、status.md 標頭同步、tag `v2.3.7`
