@@ -9,15 +9,8 @@ import { readConfig, writeConfig, readDefaultConfig, CeremonyConfig } from './co
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
-import {
-  listPrinters,
-  openPdfInViewerWindow,
-  printPdfBuffer,
-  PrintOverrides,
-  sweepTempDir,
-} from './print';
+import { openPdfInViewer, openReportInViewer, sweepTempDir } from './print';
 import { printLogPath } from './print-log';
-import { readPrintSettings, savePrintSetting, ReportPrintSetting } from './print-config';
 
 let mainWindow: BrowserWindow | null = null;
 let prereqs: PrereqReport;
@@ -179,32 +172,22 @@ ipcMain.handle('ceremony:downloadBackup', async (_e, fileName: string, token: st
 });
 
 // ── 列印通道 ──
-// 送印基準是「什麼都不指定」：紙張 / 邊界 / 縮放交回驅動 DEVMODE（見 print-options.ts）。
-// 主行程只負責「印到哪一台、幾份」與診斷留痕。契約見 docs/blueprints/print-channel-electron.md。
+// 主行程只做兩件事：把 PDF 弄到本機檔案、開檢視器視窗。送印本身（印表機／份數／紙張／方向／
+// 頁面範圍）全部由 Windows 原生列印對話框接手——與舊系統相同。
+// 契約見 docs/blueprints/print-channel-electron.md。
 
-ipcMain.handle('ceremony:listPrinters', () => listPrinters(mainWindow));
-
-ipcMain.handle('ceremony:getPrintSettings', () => readPrintSettings());
-
-ipcMain.handle('ceremony:savePrintSetting', (_e, reportType: string, s: ReportPrintSetting) =>
-  savePrintSetting(reportType, s),
-);
-
-/** PDF 已在 renderer 手上（預覽用，或 job 已消耗）才走 IPC 傳 bytes；紙張 header 一併帶過來。 */
+/** 主力路徑：main 自己向 sidecar 串流取 PDF，數百 MB 的批次也不會經過 renderer。 */
 ipcMain.handle(
-  'ceremony:printPdfBuffer',
-  async (
-    _e,
-    reportType: string,
-    bytes: Uint8Array,
-    o: PrintOverrides,
-    pageSizeHeader?: string | null,
-  ) => printPdfBuffer(reportType, bytes, o ?? {}, pageSizeHeader),
+  'ceremony:openReportInViewer',
+  async (_e, reportType: string, apiPath: string, token: string) => {
+    if (!apiBase) return { ok: false, error: '尚未連線' };
+    return openReportInViewer(reportType, apiBase, apiPath, token, mainWindow);
+  },
 );
 
-/** 診斷：把 PDF 開在檢視器視窗，讓使用者走原生列印對話框（有「印表機內容」）。 */
+/** PDF 已在 renderer 手上（報表預覽頁）才走 IPC 傳 bytes。 */
 ipcMain.handle('ceremony:openPdfInViewer', (_e, reportType: string, bytes: Uint8Array) =>
-  openPdfInViewerWindow(reportType, bytes, mainWindow),
+  openPdfInViewer(reportType, bytes, mainWindow),
 );
 
 /** 診斷：在檔案總管中選取今天的列印紀錄，讓使用者直接把檔案傳回來。 */

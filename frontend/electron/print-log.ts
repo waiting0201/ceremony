@@ -1,15 +1,17 @@
-// %APPDATA%/Ceremony/logs/print-YYYYMMDD.log — 每次送印一行 JSON。
+// %APPDATA%/Ceremony/logs/print-YYYYMMDD.log — 每次開列印預覽視窗一行 JSON。
 //
-// 為什麼需要：packaged 版沒有 console，print.ts 原本那行「未取得 X-Report-Page-Size」的 console.warn
-// 等於不存在。2026-08-01 那輪客訴（「格式不對」）查不出症狀細節，就是因為現場什麼證據都留不下來。
-// 現在對話框有一顆「開啟診斷紀錄」，使用者可以直接把檔案傳回來。
+// 為什麼需要：packaged 版沒有 console。2026-08-01 那輪客訴（「格式不對」）查不出症狀細節，
+// 就是因為現場什麼證據都留不下來。左側選單的「開啟診斷紀錄」讓使用者直接把檔案傳回來。
 //
-// 刻意跟 print-settings.json 同一個目錄樹（appData/Ceremony），不用 app.getPath('logs')——
-// 那會落到另一個以 productName 命名的目錄，現場找不到。
+// 2026-08-02 起送印本身由 Windows 原生對話框接手，我們不再決定任何送印參數，
+// 所以這裡記的是「哪一種報表、多大、從哪條路來、開得起來嗎」——**印歪的第一個線索
+// 變成 pageSizeHeader（PDF 的實際頁面尺寸）對不對得上驅動裡選的紙**。
+//
+// 刻意放 appData/Ceremony/logs，不用 app.getPath('logs')——那會落到另一個以 productName
+// 命名的目錄，現場找不到。
 //
 // 隱私：這裡不得出現 signupId、姓名、堂號、任何報表內容、token，或 temp 檔完整路徑。
-// deviceName 例外——診斷必需，且它有可能含人名（「王小明的印表機」）。這是有意識的取捨：
-// 檔案純本機，只有使用者主動送出時才外流。見 docs/design/security.md。
+// 見 docs/design/security.md。
 import { app } from 'electron';
 import { promises as fs } from 'fs';
 import path from 'path';

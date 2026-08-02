@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/believer-management.md
   - ../blueprints/signup-management.md
 keywords: [visual, ui, design, layout, 版型, 樣式, 編排, WinForms, 一致性, Claude配色, 暖米色, 珊瑚橘, 對比度, a11y, WCAG]
-last_updated: 2026-07-31 (新增「列印對話框」元件規格段：內建 PDF 預覽的兩欄版面〔minmax(0,1fr) 300px、iframe #toolbar=0、紙張永遠唯讀〕、preview-only 模式隱藏印表機欄位、無預覽時的 .no-preview 窄版退化與必須說明原因。同日先前左側選單字級改 20px：新增「側欄選單字級」段〔nav-label 硬寫 20px 不開 token、圖示 size 20→24、`.nav-item` 圖示欄寬 24→28px〕，並把報名維護 vgrid 與 dialog 內文兩處「對齊 nav-label 字級」敘述改為記錄歷史來由、明註 2026-07-31 起脫鉤不跟進。同日先前搜尋面板「編號」改為起 ~ 迄兩格 `.num-stepper`（中間 `～`），與批次列印面板同形態。同日先前報名維護「切到其他功能再回來被重置」客訴：ShowAll 段改寫為「不落磁碟、但活在當次執行期間」（存 `SignupSearchState.showAll` 記憶體 singleton），並補「搜尋條件任何變動即寫回快照、不必先按搜尋」。同日先前報名維護 toolbar RWD 改寫：斷點由 `@media` 視窗寬改為 `@container` 量 toolbar 容器寬，分 >1100 / ≤1100 / ≤700 三層（≤700 一層依使用者指定：批次列印與動作**維持同一列**，靠壓縮起迄欄換空間）——修掉窄寬時批次列印與動作區各自 100% 寬、列印/新增報名鈕被拉成滿版的客訴，同時修掉預設 1280px 視窗下三 panel 排不下、搜尋鈕壓到「備註」的既有問題。同日先前報名表單版面客訴第四輪：NewSignupForm 段版面圖改繪〔**部分反轉 07-29 的「全部無外框」**〕——地址拆「寄件地址」「文牒地址」兩個 fieldset 且框內欄位標題全拿掉改 placeholder、「同寄件地址」移進文牒框內靠右、往生/陽上名單各自恢復外框與 legend〔解掉「填字後失去標示」取捨〕、基本資料改序 堂號→姓名→電話→員工類型→固定編號 且前三欄與地址框逐像素等寬；目前無外框的只剩「基本資料」與「編號·費用·備註·預繳」兩區。先前 2026-07-29 (報名維護清單客訴三項：DataGrid 段新增「欄位預設寬度」抓法〔n 字 ≈ 17n+13px〕並把「法會」由 100px 改 64px＝三個字；「ShowAll 持久化」改為**不持久化**〔每次開頁不勾，欄寬持久化不動〕；搜尋 pane「全部」勾選時的淡化/停用範圍由「整個條件區」收斂為「年份／法會／類型＋範圍」四者。同日先前報名表單版面客訴第三輪：Button 表新增 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2，只給送出/結果確認鈕〕；MessageBox 段新增「結果型提示可再放大」〔ConfirmDialog `emphasis`：訊息 20px + 確認鈕加寬，僅「新增報名成功」〕；NewSignupForm 段補新版版面圖〔基本資料改全寬單列、按鈕列靠左、右側五個區塊全部拿掉 fieldset 外框與 legend——只剩「法會資料」保留外框〕。同日先前新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)))
+last_updated: 2026-08-02 (「列印對話框」段改寫為「列印預覽視窗」：自建對話框整組移除，改為 Chromium PDF 檢視器視窗 + Windows 原生列印對話框〔外觀不歸我們管，也不該再加控制項——webContents.print 會把工具列一起印進去〕。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增「列印對話框」元件規格段：內建 PDF 預覽的兩欄版面〔minmax(0,1fr) 300px、iframe #toolbar=0、紙張永遠唯讀〕、preview-only 模式隱藏印表機欄位、無預覽時的 .no-preview 窄版退化與必須說明原因。同日先前左側選單字級改 20px：新增「側欄選單字級」段〔nav-label 硬寫 20px 不開 token、圖示 size 20→24、`.nav-item` 圖示欄寬 24→28px〕，並把報名維護 vgrid 與 dialog 內文兩處「對齊 nav-label 字級」敘述改為記錄歷史來由、明註 2026-07-31 起脫鉤不跟進。同日先前搜尋面板「編號」改為起 ~ 迄兩格 `.num-stepper`（中間 `～`），與批次列印面板同形態。同日先前報名維護「切到其他功能再回來被重置」客訴：ShowAll 段改寫為「不落磁碟、但活在當次執行期間」（存 `SignupSearchState.showAll` 記憶體 singleton），並補「搜尋條件任何變動即寫回快照、不必先按搜尋」。同日先前報名維護 toolbar RWD 改寫：斷點由 `@media` 視窗寬改為 `@container` 量 toolbar 容器寬，分 >1100 / ≤1100 / ≤700 三層（≤700 一層依使用者指定：批次列印與動作**維持同一列**，靠壓縮起迄欄換空間）——修掉窄寬時批次列印與動作區各自 100% 寬、列印/新增報名鈕被拉成滿版的客訴，同時修掉預設 1280px 視窗下三 panel 排不下、搜尋鈕壓到「備註」的既有問題。同日先前報名表單版面客訴第四輪：NewSignupForm 段版面圖改繪〔**部分反轉 07-29 的「全部無外框」**〕——地址拆「寄件地址」「文牒地址」兩個 fieldset 且框內欄位標題全拿掉改 placeholder、「同寄件地址」移進文牒框內靠右、往生/陽上名單各自恢復外框與 legend〔解掉「填字後失去標示」取捨〕、基本資料改序 堂號→姓名→電話→員工類型→固定編號 且前三欄與地址框逐像素等寬；目前無外框的只剩「基本資料」與「編號·費用·備註·預繳」兩區。先前 2026-07-29 (報名維護清單客訴三項：DataGrid 段新增「欄位預設寬度」抓法〔n 字 ≈ 17n+13px〕並把「法會」由 100px 改 64px＝三個字；「ShowAll 持久化」改為**不持久化**〔每次開頁不勾，欄寬持久化不動〕；搜尋 pane「全部」勾選時的淡化/停用範圍由「整個條件區」收斂為「年份／法會／類型＋範圍」四者。同日先前報名表單版面客訴第三輪：Button 表新增 `.btn-wide`〔min-width 112px＝兩字鈕自然寬 ×2，只給送出/結果確認鈕〕；MessageBox 段新增「結果型提示可再放大」〔ConfirmDialog `emphasis`：訊息 20px + 確認鈕加寬，僅「新增報名成功」〕；NewSignupForm 段補新版版面圖〔基本資料改全寬單列、按鈕列靠左、右側五個區塊全部拿掉 fieldset 外框與 legend——只剩「法會資料」保留外框〕。同日先前新增「互動元素 +1px 級距」段：另開 --font-size-*-plus 平行 token，只給輸入框/按鈕/清單列用，標題維持基礎級距不加大〔使用者指定「標題不用」〕；同步更新 DataGrid 段與 vgrid 規格的字級標註。先前 2026-07-28：新增「進度 Overlay」元件規格〔批次列印用：置中卡片、大百分比、8px 進度條、i/N 計數、取消鈕、a11y、不可 backdrop 關閉的理由〕，並附 Overlay z-index 層級表 form-overlay 900 / confirm 1000 / progress 1100；同日先前 Form Overlay 互動加「只能用 × 關」例外〔dismissible=false，報名維護新增/編輯 overlay 客訴〕；同日先前confirm/alert dialog 內文字級放大到 --font-size-md＝側欄選單同級（客訴「報名成功提示字太小」，改共用 .confirm-body）；同日 form-overlay 底部 actions footer 可用 showActions=false 關掉〔報名表單按鈕列改放備註下方〕；先前 2026-07-27：報名維護搜尋 pane 的 col 1 checkbox 欄改為 全部／範圍／顯示完整表格 三層（「全部」插在「範圍」上方，其餘各下移一列、維持三列不加高）＋「全部」勾選時條件區 .all-mode 淡化 opacity .5；同日先前 Form Overlay 補「寬度」規則：內容含寬表格要用 [width] 給 panel 定寬（限制內層表單無效、會讓 actions 落單）；同日新增「表單控件 disabled 樣式」段：.field 無條件設 background/color 會蓋掉瀏覽器預設 disabled 外觀，全域補 :disabled 灰底＋not-allowed，文字用 --c-text-secondary 保持可讀；同日 Form Overlay 互動加例外：有跨路由草稿保護的表單〔新增報名純新增模式〕關閉時不跳「未儲存的變更」確認；2026-07-21：報名維護 UI 客訴四項：搜尋/列印按鈕補 align-self:stretch 真正撐滿列高（客訴按鈕太矮，根因為 grid align-items:center）、編號＋批次起迄加 .num-stepper ▲▼ ±1、編輯表單預繳民國年移到下一行置於預繳法會前；2026-07-18：--c-dead-name-bg 輸入框例外擴及 believer-edit-form（客訴）；2026-07-17：「清單/資料格配色規範」定案為全站唯一權威（DataGrid 段改寫，廢棄舊斑馬紋敘述）；.data-table.dense 補直向格線對齊 vgrid；報名維護 list 字級改 --font-size-md 對齊左側欄；--c-dead-name-bg 改用 --c-primary-soft；--c-row-selected 改深為 #E9C79C 拉開層次)))
 ---
 
 ## 設計原則
@@ -214,48 +214,32 @@ last_updated: 2026-07-31 (新增「列印對話框」元件規格段：內建 PD
 - **文字 verbatim**：「新增信眾成功！」「刪除成功！」「請輸入姓名」等
 - **結果型提示可再放大（2026-07-29）**：`ConfirmDialogConfig.emphasis = true` → 訊息 **20px** + 確認鈕套 `.btn-wide`。目前唯一使用者是「編號X，新增報名成功」（編號要一眼看到）。一般二選一確認框維持 `--font-size-md`（2026-07-28 已全站放大過一次），**不要**把 20px 直接寫進 `.confirm-body`
 
-### 列印對話框（**2026-07-31 加入內建預覽**）
+### 列印預覽視窗（**2026-08-02：自建列印對話框已移除**）
 
-元件：[shared/print-dialog/](../../frontend/src/app/shared/print-dialog/)。自建而非系統對話框的理由見
-[print-channel-electron.md](../blueprints/print-channel-electron.md)；`silent:true` 送印前使用者
-什麼都看不到，所以預覽必須內建在這裡（舊系統 `PrintPreviewDialog` 的等價物）。
-
-**版面**（有預覽時）
+新系統不再有自建的列印對話框。按「列印」之後是**可見的 Chromium PDF 檢視器視窗**
+（`BrowserWindow({ plugins:true })`，標題「列印預覽 — 請按工具列的列印鈕」），
+使用者按檢視器工具列的 🖨 就會落到 **Windows 原生列印對話框**——印表機、份數、紙張、方向、
+頁面範圍全在那裡選。這是舊系統 `PrintPreviewDialog → PrintDialog` 的等價物。
 
 ```
 ┌───────────────────────────────────────────────┐
-│ 列印資料卡                        共 128 筆     │  header（右側附註）
-├──────────────────────────┬────────────────────┤
-│   <iframe .pdf-frame>    │ 印表機  [▼]         │
-│   blob: PDF              │ 份數    [1]         │
-│                          │ 紙張    21×14.8 cm  │  ← 唯讀（報表規格）
-│                          │ 縮放    [▼]         │
-│                          │ ☑ 記住這台印表機…   │
-├──────────────────────────┴────────────────────┤
-│                            [取消]  [列印]      │
+│ 列印預覽 — 請按工具列的列印鈕                    │
+├───────────────────────────────────────────────┤
+│  ⌄ 1 / 128    ─ ＋      ⤓  🖨  ⋮               │ ← Chromium PDF 工具列（原生，非我們畫的）
+│ ┌───────────────────────────────────────────┐ │
+│ │                                           │ │
+│ │              資料卡 PDF                    │ │
+│ │                                           │ │
+│ └───────────────────────────────────────────┘ │
 └───────────────────────────────────────────────┘
 ```
 
-| 元素 | 樣式 |
-|---|---|
-| 對話框 | `width: min(1080px, 94vw)`；`height: min(760px, 88vh)`；flex column |
-| body | `display:grid`；`grid-template-columns: minmax(0, 1fr) 300px`；`flex:1; min-height:0` |
-| 預覽格 | 右側 1px `--c-border-soft` 分隔線 |
-| `.pdf-frame` | `100% × 100%`、`border:0`、背景 `#525659`（與列印預覽頁同一組值） |
-| 設定格 | `padding: var(--space-lg)`；`overflow-y:auto` |
-| 無預覽退化 | 加 `.no-preview`：寬回 `min(460px, 92vw)`、`height:auto`、單欄，預覽格換成一行 `.print-notice` |
+**設計含意**：
+- 這個視窗的外觀**不歸我們管**，也不該再往上加控制項——`webContents.print` 會把工具列一起印進去
+- 批次列印期間仍會顯示我們自己的 `progress-overlay`（那是**渲染**進度，不是列印進度）
+- 報表預覽頁（`/reports/preview`）的 iframe 預覽維持不變，它是另一個東西（頁內預覽）
 
-**規則**
-
-- **`minmax(0, 1fr)` 不可寫成 `1fr`**：純 `1fr` 的 `min-width` 是 `auto`，iframe 會把整格撐爆
-  （列印預覽頁 2026-05-28 踩過同一個坑，見 [frontend-design.md](frontend-design.md)）。
-- iframe src 接 `#toolbar=0`：Chromium PDF viewer 自帶的列印鈕會繞過整條列印通道。
-- **紙張永遠唯讀**：那是報表規格（座標系基準），不是使用者選項。連 `preview-only` 模式也顯示。
-- `mode:'preview-only'`（瀏覽器）：隱藏印表機 / 份數 / 縮放 / 記住四列，主鈕文案改「在新分頁開啟」——
-  瀏覽器沒有印表機能力，顯示那些欄位是說謊。
-- 無預覽時必須說明原因（「資料量大（共 N 筆），略過預覽」／「檔案較大，略過預覽」），
-  不要只留一片空白讓使用者以為壞了。
-- backdrop `rgba(44,42,38,0.42)` + `fadeIn 120ms`、卡片 `pop 140ms`，與 confirm / progress 一致。
+理由與完整契約見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
 
 ### 進度 Overlay（**2026-07-28 新增**，批次列印用）
 

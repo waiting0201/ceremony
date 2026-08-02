@@ -16,21 +16,13 @@ contextBridge.exposeInMainWorld('ceremony', {
   /** 下載備份檔到本機另存（原生對話框 + 串流寫檔；目前 UI 未掛，屬備用能力） */
   downloadBackup: (fileName: string, token: string) =>
     ipcRenderer.invoke('ceremony:downloadBackup', fileName, token),
-  /** 列印：可用印表機清單（含 isDefault） */
-  listPrinters: () => ipcRenderer.invoke('ceremony:listPrinters'),
-  /** 列印：讀每種報表記住的印表機 / 份數 */
-  getPrintSettings: () => ipcRenderer.invoke('ceremony:getPrintSettings'),
-  /** 列印：記住某種報表的設定（只覆寫該報表那一格） */
-  savePrintSetting: (reportType: string, setting: unknown) =>
-    ipcRenderer.invoke('ceremony:savePrintSetting', reportType, setting),
-  /** 列印：renderer 手上既有的 PDF bytes；pageSizeHeader 是 renderer 讀到的 X-Report-Page-Size */
-  printPdfBuffer: (
-    reportType: string,
-    bytes: Uint8Array,
-    overrides: unknown,
-    pageSizeHeader?: string | null,
-  ) => ipcRenderer.invoke('ceremony:printPdfBuffer', reportType, bytes, overrides, pageSizeHeader),
-  /** 診斷：把 PDF 開在檢視器視窗，使用者自己按工具列列印鈕 → 原生對話框（有「印表機內容」） */
+  /**
+   * 列印：main 直接向 sidecar 串流取報表 PDF，開在檢視器視窗（PDF 不經 renderer）。
+   * 使用者按工具列列印鈕 → Windows 原生對話框。
+   */
+  openReportInViewer: (reportType: string, apiPath: string, token: string) =>
+    ipcRenderer.invoke('ceremony:openReportInViewer', reportType, apiPath, token),
+  /** 列印：renderer 手上已有的 PDF bytes（報表預覽頁），同樣開檢視器視窗 */
   openPdfInViewer: (reportType: string, bytes: Uint8Array) =>
     ipcRenderer.invoke('ceremony:openPdfInViewer', reportType, bytes),
   /** 診斷：在檔案總管中選取今天的列印紀錄 */

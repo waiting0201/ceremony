@@ -21,6 +21,7 @@ import { flattenCategories, type FlatCategory } from '../../shared/util/categori
 import { SIGNUP_TYPES } from '../../shared/util/signup-type';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
+import { isElectron } from '../../core/platform/electron';
 
 type Mode = 'single' | 'batch';
 
@@ -69,10 +70,10 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   protected readonly errorMessage = signal<string | null>(null);
   private currentObjectUrl: string | null = null;
   private currentBlob: Blob | null = null;
-  /** 送印時要原樣交給主行程，否則紙張尺寸會靜默退化成 electron/paper.ts 的 fallback 表 */
-  private currentPageSize: string | null = null;
   protected readonly currentType = signal<SingleReportType | null>(null);
   protected readonly printing = signal(false);
+  /** 診斷紀錄按鈕只在桌面版有意義（紀錄寫在 %APPDATA%/Ceremony/logs）。 */
+  protected readonly isDesktop = isElectron();
 
   protected readonly initialType = computed<SingleReportType>(() => {
     const t = this.route.snapshot.paramMap.get('type');
@@ -125,8 +126,8 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.errorMessage.set(null);
     this.signupCount.set(null);
     try {
-      const { blob, fileName, pageSizeHeader } = await this.api.single(type, signupId.trim());
-      this.displayBlob(blob, fileName, type, pageSizeHeader);
+      const { blob, fileName } = await this.api.single(type, signupId.trim());
+      this.displayBlob(blob, fileName, type);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -155,7 +156,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
         { detail: REPORT_TYPES.find((r) => r.value === v.reportType)?.label },
       );
       if (!resp) return;
-      this.displayBlob(resp.blob, resp.fileName, v.reportType, resp.pageSizeHeader);
+      this.displayBlob(resp.blob, resp.fileName, v.reportType);
       this.signupCount.set(resp.signupCount ?? null);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
@@ -164,18 +165,12 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     }
   }
 
-  private displayBlob(
-    blob: Blob,
-    fileName: string,
-    type: SingleReportType,
-    pageSizeHeader?: string,
-  ): void {
+  private displayBlob(blob: Blob, fileName: string, type: SingleReportType): void {
     this.releaseUrl();
     const url = URL.createObjectURL(blob);
     this.currentObjectUrl = url;
     // 保留 blob 供「列印」用：此頁的 batch job 已被取檔消耗，不能再叫 main 去取一次
     this.currentBlob = blob;
-    this.currentPageSize = pageSizeHeader ?? null;
     this.currentType.set(type);
     this.previewUrl.set(this.sanitizer.bypassSecurityTrustResourceUrl(url));
     this.fileName.set(fileName);
@@ -187,7 +182,6 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
       this.currentObjectUrl = null;
     }
     this.currentBlob = null;
-    this.currentPageSize = null;
   }
 
   protected closePreview(): void {
@@ -213,7 +207,12 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     window.open(this.currentObjectUrl, '_blank');
   }
 
-  /** 送印目前預覽中的 PDF（Electron 會跳列印對話框，紙張與縮放由主行程指定）。 */
+  /** 印歪 / 印不出來時的第一手證據：在檔案總管中選取今天的列印紀錄。 */
+  protected async openPrintLog(): Promise<void> {
+    await this.print.openPrintLog();
+  }
+
+  /** 把目前預覽中的 PDF 開在列印預覽視窗，使用者按工具列列印鈕走 Windows 原生對話框。 */
   protected async printPreview(): Promise<void> {
     const blob = this.currentBlob;
     const type = this.currentType();
@@ -221,7 +220,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.printing.set(true);
     this.errorMessage.set(null);
     try {
-      await this.print.printBlob(type, blob, this.currentPageSize);
+      await this.print.printBlob(type, blob);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {

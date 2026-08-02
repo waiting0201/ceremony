@@ -1,7 +1,7 @@
 ---
 title: 大量列印分段（Chunked Batch Printing）
-purpose: 讓 1000–5000 筆的批次列印不爆記憶體，且中途卡紙時只需重印那一段而非整批重來
-status: implemented
+purpose: （已廢止）曾用分段解決大量列印的卡紙續印；2026-08-02 改由 Windows 原生列印對話框的「頁面範圍」承接
+status: superseded
 applicable_when: 要改批次列印流程、要調段大小、大量列印出問題、要加續印能力時
 related_agents:
   - frontend-architect
@@ -15,7 +15,32 @@ related_docs:
   - ../design/frontend-design.md
   - ../gotchas.md
 keywords: [大量列印, 分段, chunk, 續印, 重印, 暫停, SEGMENT_SIZE, 2GB, PdfSharp, spooler]
-last_updated: 2026-07-31
+last_updated: 2026-08-02 (**整份廢止**：分段機制連同 batch/plan 端點、ChunkedPrintService、分段面板全部移除，理由見下方「為什麼廢止」；本檔保留為決策史)
+---
+
+## ⚠️ 已廢止（2026-08-02）
+
+本文描述的分段機制**已整個移除**。現在的大量列印是「合併成一份 PDF → 開預覽視窗 →
+使用者按原生列印對話框」，見 [print-channel-electron.md](print-channel-electron.md)。
+
+### 為什麼廢止
+
+分段真正解的是**卡紙續印**（下方客訴原文），不是記憶體——記憶體只是順帶。
+改走 Windows 原生列印對話框之後，**「頁面範圍」欄位把續印能力補了回來**：
+卡在第 3000 張時預覽視窗還開著，再按一次列印鈕填 `3000-` 即可。
+這比分段面板更接近舊系統（舊系統 `CombinePDFs` 就是全部合成一份），操作也更直覺。
+
+2 GB 的技術天花板改由**後端串流落檔**解決（`IPdfMerger` 改吃檔案路徑、job 成品存暫存檔），
+也就是本文「不做什麼」原本說「分段後沒有收益」的那件事——取消分段後那個前提消失了。
+
+### 已移除的東西
+
+`core/reports/chunked-print.service.ts`、`chunked-print.types.ts`、
+`shared/batch-print-panel/`、`POST /reports/batch/plan`（及其 blueprint）、
+`SEGMENT_SIZE`、段狀態機、暫停／單段重印。
+
+以下內容保留為決策史。
+
 ---
 
 ## 背景與動機

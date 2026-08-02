@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結))
+last_updated: 2026-08-02 (**「列印通道」段改寫**：送印交回 Windows 原生列印對話框，程式只開 PDF 檢視器視窗；print-settings.json 與所有送印參數移除；自訂紙張 runbook 改標為「不做等於白改」〔Chromium 檢視器是 fit-to-printable-area 等比縮放，不像舊系統非等比拉滿，選錯紙就位置全跑掉〕。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結))
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -256,31 +256,41 @@ Electron main 開機先偵測 client 是否裝齊必要元件，缺了走 `/prer
 - **路徑可讀限制**：API process 須讀得到 `Backup:Directory`。prod sidecar 模式建議 `Backup:Directory` 設 **UNC 共用**（`\\dbserver\Backups\Ceremony\`），讓 SQL Server 服務帳號可寫、client API process 可讀；dev docker MSSQL 的容器內路徑 API 端讀不到 → download 回 404（屬已知限制，dev 不影響備份本身）。
 - 瀏覽器 fallback（非 Electron）：`BackupApi.fetchBlob` 抓 blob + `<a download>` 另存。
 
-### 列印通道（**2026-07-31 新增**）
+### 列印通道（**2026-08-02 改寫：回歸舊系統形狀**）
 
-報表列印不再是「開新分頁讓使用者自己按列印」，而是由 Electron 主行程送印，紙張／邊界／縮放由程式指定。
-完整背景與決策見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
+程式只負責把 PDF 開在預覽視窗，**送印本身交給 Windows 原生列印對話框**（印表機／份數／紙張／
+方向／頁面範圍）。完整背景與決策見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
 
 ```
-按列印 → app 內列印對話框（選印表機 / 份數 / 縮放，紙張唯讀）
-  → window.ceremony.printReport / printBatchJob / printPdfBuffer
-  → main：Electron net GET {apiBase}/reports/...（帶 Bearer，串流落 %TEMP%/ceremony-print/）
-  → 讀 X-Report-Page-Size（微米）→ 隱藏視窗（plugins:true）載入 file://x.pdf
-  → webContents.print({ silent:true, deviceName, pageSize, margins:none, scaleFactor:100 })
-  → callback 後關窗 + 刪 temp
+按列印
+  → window.ceremony.openReportInViewer(type, apiPath, token)
+  → main：Electron net GET {apiBase}{apiPath}（帶 Bearer，串流落 %TEMP%/ceremony-print/）
+  → BrowserWindow({ plugins:true, parent: mainWindow }).loadFile(file://x.pdf)
+  → 使用者按 Chromium PDF 檢視器工具列的 🖨 → Windows 原生 PrintDlgEx（有「內容」「頁面範圍」）
+  → 視窗 closed → 刪 temp
 ```
 
-- **設定檔**：`%APPDATA%/Ceremony/print-settings.json`（每種報表記住印表機 / 份數 / 縮放）。
-  **刻意不放 `config.json`**：bootstrap 每次啟動都用 `default-config.json` 種子覆寫 config（只保留 `jwtKey`），
-  放進去會被吃掉；且印表機是每台機器的屬性，與「連線權威由出廠種子決定」的語意衝突。缺檔／壞檔一律走系統預設，不阻斷列印。
-- **`webPreferences.plugins: true` 是必要條件**：Chromium 內建 PDF viewer 預設關閉，沒開的話報表預覽 iframe 空白、
-  `window.open(blob:)` 變成下載。`noopener` 子視窗不繼承，另用 `setWindowOpenHandler` 補（見 [security.md](security.md)）。
-- **瀏覽器 fallback**（非 Electron）：`PrintService` 退回 `openPdfInNewTab`，`ng serve` 與單元測試行為完全不變。
+- **沒有列印設定檔**：`print-settings.json` 與所有送印參數（印表機／份數／縮放／方向／紙張）
+  已於 2026-08-02 移除。原生對話框自己會記（Windows 的每使用者 DEVMODE），我們再記一份
+  只會有兩個真相來源。現場殘留的舊 `print-settings.json` 不再被讀取，留著無害。
+- **紙張尺寸在後端定案**：`ReportPageSizes.cs` → QuestPDF `page.Size()`，
+  ＝舊系統「RDLC 只是排版，真正尺寸由 `DeviceInfo` 決定」的位置。送印端不再二次指定。
+- **PDF 不經 renderer**：`streamApiToFile`（與備份下載共用）直接落檔，
+  批次合併成一份可達數百 MB。
+- **`webPreferences.plugins: true` 是必要條件**：Chromium 內建 PDF viewer 預設關閉，
+  沒開的話檢視器視窗與報表預覽 iframe 都是空白（見 [security.md](security.md)）。
+- **診斷紀錄**：`%APPDATA%/Ceremony/logs/print-YYYYMMDD.log`，
+  入口在 `/reports/preview` 工具列的「診斷紀錄」按鈕。
+- **瀏覽器 fallback**（非 Electron）：`PrintService` 退回 `openPdfInNewTab`，
+  `ng serve` 與單元測試行為完全不變。
 
 #### 現場印表機自訂紙張設定（IT 一次性，**每台 client 都要做**）
 
-Electron 的 `pageSize` 只有 `{width, height}`、**沒有 `vendor_id`** → 無法依名稱指定驅動裡的自訂 form，只能靠尺寸命中。
-雷射印表機多半吃 `dmPaperWidth/dmPaperLength`，但點陣／標籤機常常忽略，非得有具名 form 不可。
+**這一步不做，等於白改**。程式不再傳任何紙張參數，紙張完全由使用者在原生列印對話框
+（或驅動的列印喜好設定）裡選——沒有正確尺寸的 form 可選，就只能選 A4。
+
+而 Chromium PDF 檢視器是 **fit-to-printable-area 等比縮放置中**（舊系統是 `DrawImage` 非等比拉滿
+整張紙，所以驅動裡是什麼紙都無所謂）。用 A4 印 21×14.8 的資料卡 → 內容被縮小置中 → 位置全跑掉。
 
 Windows：**控制台 → 裝置和印表機 → 選任一印表機 → 上方「列印伺服器內容」→「表單」頁籤 → 勾「建立新表單」**，
 逐一建立下表 6 種（單位選公分，四邊邊界全填 0）：

@@ -4,25 +4,20 @@ using Ceremony.Domain.Exceptions;
 namespace Ceremony.Application.Reports;
 
 /// <summary>
-/// 按編號範圍 + 條件批次列印同一類報表，合併成單一 PDF。
+/// 批次列印的「選取」：按編號範圍或勾選的 id 查出要印哪些報名。
 /// </summary>
 /// <remarks>
-/// Legacy: SignupForm.cs:447-653 (btnPrint_Click) + :1698-1722 (CombinePDFs PdfSharp)
-/// Blueprint: docs/blueprints/api-endpoints/post-reports-batch.md
+/// Legacy: SignupForm.cs:447-653 (btnPrint_Click)
+/// Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
 /// Coverage:  docs/blueprints/legacy-coverage/signup-form.md rows 16, 33
 ///
-/// 2026-07-28 拆成 <see cref="ResolveAsync"/>（驗證＋查詢，同步）與 <see cref="BatchReportComposer.Render"/>
-/// （渲染＋合併，可回報進度／可取消），供 job 版端點使用；<see cref="HandleAsync"/> 行為與簽章維持不變。
+/// 只做驗證＋查詢（同步、錯誤碼明確），渲染＋合併由 <see cref="BatchReportComposer.Render"/>
+/// 在背景 job 裡做（可回報進度／可取消）。
+/// 2026-08-02 移除同步版 <c>HandleAsync</c>：<c>POST /reports/batch</c> 端點連同它一起刪除，
+/// 前端早已只走 job 版，留著等於維護第二條渲染路徑。
 /// </remarks>
-public sealed class BatchReportHandler(ISignupRepository repo, IReportRenderer renderer, IPdfMerger merger)
+public sealed class BatchReportHandler(ISignupRepository repo)
 {
-    public async Task<(byte[] Pdf, string FileName, int SignupCount)> HandleAsync(BatchReportRequest req, CancellationToken ct = default)
-    {
-        var plan = await ResolveAsync(req, ct);
-        var merged = BatchReportComposer.Render(renderer, merger, plan, null, ct);
-        return (merged, plan.FileName, plan.Signups.Count);
-    }
-
     /// <summary>
     /// 驗證請求、查出要印的 signups、決定檔名。不做任何渲染。
     /// </summary>

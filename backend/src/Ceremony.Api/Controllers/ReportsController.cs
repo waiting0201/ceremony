@@ -128,45 +128,6 @@ public sealed class ReportsController(
         return File(pdf, "application/pdf", fileName);
     }
 
-    /// <summary>按編號範圍批次列印同一類報表，合併為單一 PDF（同步阻塞版）。</summary>
-    /// <remarks>
-    /// Legacy: SignupForm.cs:447-653 (btnPrint_Click) + :1698-1722 (CombinePDFs PdfSharp)
-    /// Blueprint: docs/blueprints/api-endpoints/post-reports-batch.md
-    ///
-    /// 2026-07-28 起 UI 已改走 POST batch/jobs（有進度回報與取消）；本 endpoint 保留為
-    /// 相容契約與批次渲染路徑的整合測試覆蓋，前端不再呼叫。
-    /// </remarks>
-    [HttpPost("batch")]
-    public async Task<IActionResult> Batch([FromBody] BatchReportRequest req, CancellationToken ct)
-    {
-        var (pdf, fileName, count) = await batch.HandleAsync(req, ct);
-        Response.Headers.Append("X-Signup-Count", count.ToString());
-        AppendPageSize(req.ReportType);
-        return File(pdf, "application/pdf", fileName);
-    }
-
-    /// <summary>解析批次列印範圍，回傳要印的報名清單（不渲染），供前端分段送印。</summary>
-    /// <remarks>
-    /// Blueprint: docs/blueprints/api-endpoints/post-reports-batch-plan.md
-    ///
-    /// 大量列印（實測 799 筆 = 107 MB、19018 筆會爆 PdfSharp 的 2 GB MemoryStream）不能做成
-    /// 單一 PDF。前端拿這份有序清單切成固定大小的段，逐段走 batch/jobs 送印：
-    /// 峰值記憶體變成與總筆數無關的固定值，中途卡紙也只需重印那一段。
-    ///
-    /// 選取邏輯完全複用 ResolveAsync → 錯誤碼／訊息／筆數與 batch/jobs 完全一致，
-    /// 前端不需要（也不可以）自己重查一次。
-    /// </remarks>
-    [HttpPost("batch/plan")]
-    public async Task<IActionResult> CreateBatchPlan([FromBody] BatchReportRequest req, CancellationToken ct)
-    {
-        var plan = await batch.ResolveAsync(req, ct);
-        return Ok(new BatchReportPlanResponse(
-            plan.ReportType,
-            plan.FileName,
-            plan.Signups.Count,
-            [.. plan.Signups.Select(s => new BatchReportPlanItem(s.Id, s.Number))]));
-    }
-
     /// <summary>建立批次列印背景工作，立刻回 jobId 與總筆數（驗證與查詢仍是同步的）。</summary>
     /// <remarks>Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md</remarks>
     [HttpPost("batch/jobs")]
@@ -185,14 +146,29 @@ public sealed class ReportsController(
         => Ok(jobs.GetState(jobId, OwnerSub()));
 
     /// <summary>取出批次列印成品 PDF。成功後 job 立即釋放（one-shot）。</summary>
-    /// <remarks>Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md</remarks>
+    /// <remarks>
+    /// Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
+    ///
+    /// 成品是暫存檔而非 byte[]（取消分段後單一批次可達數百 MB），所以用
+    /// <see cref="FileOptions.DeleteOnClose"/> 串流回應：ASP.NET 送完會 dispose stream，
+    /// 檔案跟著消失——不需要另外排清理，客戶端中途斷線也一樣會刪。
+    /// </remarks>
     [HttpGet("batch/jobs/{jobId:guid}/file")]
     public IActionResult GetBatchJobFile(Guid jobId)
     {
-        var (pdf, fileName, total, reportType) = jobs.TakeFile(jobId, OwnerSub());
+        var (pdfPath, fileName, total, reportType) = jobs.TakeFile(jobId, OwnerSub());
         Response.Headers.Append("X-Signup-Count", total.ToString());
         AppendPageSize(reportType);
-        return File(pdf, "application/pdf", fileName);
+
+        var stream = new FileStream(
+            pdfPath,
+            FileMode.Open,
+            FileAccess.Read,
+            FileShare.Read,
+            bufferSize: 64 * 1024,
+            FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+
+        return File(stream, "application/pdf", fileName);
     }
 
     /// <summary>取消批次列印工作。冪等：未知 id 也回 204。</summary>

@@ -12,7 +12,7 @@ related_docs:
   - ../blueprints/signup-management.md
   - ../blueprints/printing-reports.md
 keywords: [performance, 效能, 索引, index, cache, dapper, query, paging, virtualization, signals]
-last_updated: 2026-07-31 (§8 補記：2 GB 上限已由前端分段解決〔plan 取清單 → 200 筆一段逐段建 job，峰值與總筆數無關〕，後端串流化合併因此不必要；記錄被順帶修掉的 SearchByIdsAsync 2100 參數上限；補「列印時間由印表機決定，5000 張約 2.8 小時，分段不會變快」。先前 2026-07-28 (§8 列印批次改寫成 job 模型：補實測數據〔799 筆 datacard 渲染 5.4s／合併 1.6s／成品 107 MB〕、記錄 PdfSharp 合併的 2 GB MemoryStream 上限〔19018 筆會爆，屬既有限制〕、250ms 輪詢的成本與理由、記憶體保留策略；SLA 表加「進度回報延遲」一列。先前 2026-06-29 DB 解除凍結：索引改為可走 migration 的待評估選項)
+last_updated: 2026-08-02 (§8 改寫：前端分段廢止〔續印改由 Windows 原生列印對話框的「頁面範圍」承接〕，2 GB 上限改由**後端串流落檔**解決〔Merge 吃檔案路徑、成品寫 FileStream、job 存暫存檔、/file 用 DeleteOnClose〕；明記這不是常數峰值〔PdfSharp AddPage 仍 O(頁數)，5000 筆 ~700MB 安全、15000 筆仍吃緊〕；SearchByIdsAsync 的 2100 參數上限**隨分段移除而回歸**，改記為仍存在的限制。先前 2026-07-31 (§8 補記：2 GB 上限已由前端分段解決〔plan 取清單 → 200 筆一段逐段建 job，峰值與總筆數無關〕，後端串流化合併因此不必要；記錄被順帶修掉的 SearchByIdsAsync 2100 參數上限；補「列印時間由印表機決定，5000 張約 2.8 小時，分段不會變快」)。先前 2026-07-28 (§8 列印批次改寫成 job 模型：補實測數據〔799 筆 datacard 渲染 5.4s／合併 1.6s／成品 107 MB〕、記錄 PdfSharp 合併的 2 GB MemoryStream 上限〔19018 筆會爆，屬既有限制〕、250ms 輪詢的成本與理由、記憶體保留策略；SLA 表加「進度回報延遲」一列。先前 2026-06-29 DB 解除凍結：索引改為可走 migration 的待評估選項)
 ---
 
 ## ⚠️ 重要前提
@@ -227,17 +227,27 @@ FROM @Buffer; -- TVP
 （`List<byte[]>` + 每個 `PdfDocument` object graph + `MemoryStream` + `.ToArray()` 又一份），
 所以實際上遠在 2 GB 之前就開始難受。
 
-**✅ 2026-07-31 已由前端分段解決**：大量列印改成
-「[`POST /batch/plan`](../blueprints/api-endpoints/post-reports-batch-plan.md) 取清單 →
-前端切成 200 筆一段 → 逐段建 job 送印」。單一 job 最多 200 筆 ≈ 27 MB、峰值 ~100 MB，
-**與總筆數無關**，2 GB 上限因此碰不到。詳見
-[chunked-batch-printing.md](../blueprints/chunked-batch-printing.md)。
+**✅ 2026-08-02 改由後端串流落檔解決**（前端分段已廢止，見下）：
 
-因為分段，**後端串流化合併（`Merge` 改吃 `Stream`、job 成品存暫存檔）已不必要**——
-每段只有 27 MB，那層工作沒有收益。若日後段大小要拉到數千筆才需重新評估。
+- `IPdfMerger.Merge(IReadOnlyList<string> srcPaths, string destPath)` — 來源與成品都是檔案，
+  成品寫 `FileStream` 而非 `MemoryStream`
+- `BatchReportComposer.Render` 逐筆落檔到 work dir，不再累積 `List<byte[]>`
+- `BatchPrintJob.PdfPath`（原 `byte[] Pdf`）；`/file` 用 `FileOptions.DeleteOnClose` 串流回應
 
-另一個被分段順帶修掉的硬上限：`SearchByIdsAsync` 的 `WHERE SignupID IN @Ids` 經 Dapper
-展開成 N 個參數，**SQL Server 上限 2100** → 分段之前，勾選 3000 筆列印會直接炸在這裡。
+⚠️ **這不是常數峰值**：PdfSharp 的 `AddPage` 會把來源頁面複製進目標 document 的物件表，
+峰值仍與總頁數相關。實際解掉的是 (a) 2 GB `MemoryStream` 硬上限 (b) `ToArray()` 的整份複製
+(c) job 不再常駐 `byte[]`。5000 筆（≈670 MB）峰值從 ~2 GB 降到 ~700 MB → 安全；
+15000 筆以上仍會吃緊。真正的常數峰值要換 PDF library 或 append-mode 合併，尚未做。
+
+**為什麼不再分段**：分段（2026-07-31 ~ 2026-08-02）真正解的是卡紙續印，不是記憶體。
+列印通道改走 Windows 原生對話框後，續印由對話框的「頁面範圍」承接，分段機制連同
+`POST /batch/plan` 一併移除。見 [print-channel-electron.md](../blueprints/print-channel-electron.md)
+與 [chunked-batch-printing.md](../blueprints/chunked-batch-printing.md)（已標記 superseded）。
+
+⚠️ **仍然存在的硬上限**：`SearchByIdsAsync` 的 `WHERE SignupID IN @Ids` 經 Dapper 展開成 N 個參數，
+**SQL Server 上限 2100**。分段期間這條被順帶避開了，取消分段後它**回來了**——
+勾選 2100 筆以上再按列印會炸在這裡。編號區間模式（`SearchByNumberRangeAsync`）不受影響，
+實務上大量列印都走區間，但這條若被踩到需要改成分批 IN 或 TVP。
 
 **進度回報成本**：前端每 250ms 輪詢一次 `GET /reports/batch/jobs/{id}`（實測回應 0.15ms）。
 選輪詢而非 SSE 的理由見 [api-design.md](api-design.md)。250ms 已比「渲染完一筆」（6.5ms）稀疏，

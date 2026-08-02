@@ -57,41 +57,12 @@ export interface DownloadResult {
 }
 
 // ── 列印通道（見 docs/blueprints/print-channel-electron.md）──
-// 送印基準是「什麼都不指定」：紙張 / 邊界 / 縮放交回印表機驅動，主行程只指定印表機與份數。
-// 瀏覽器沒有印表機能力，非 Electron 環境會退回開新分頁預覽。
-
-export interface PrinterInfo {
-  name: string;
-  displayName: string;
-  isDefault: boolean;
-  status: number;
-}
-
-/**
- * 送印的三個獨立軸，預設全部 'driver'ㄧ「什麼都不指定，交回印表機驅動」。
- * 權威定義與理由在 electron/print-options.ts，這裡只是 renderer 側的鏡射。
- */
-export type ScaleMode = 'driver' | 'actual' | 'fit';
-export type OrientationMode = 'driver' | 'portrait' | 'landscape';
-export type PaperMode = 'driver' | 'report';
-
-export interface ReportPrintSetting {
-  deviceName?: string;
-  copies?: number;
-  scale?: ScaleMode;
-  orientation?: OrientationMode;
-  paper?: PaperMode;
-}
-
-/** v1 的 `scaleMode` 在主行程讀取時就地遷移成三軸（見 electron/print-settings-migrate.ts）。 */
-export interface PrintSettings {
-  version: 2;
-  byReportType: Record<string, ReportPrintSetting>;
-}
+// 程式只負責把 PDF 開在檢視器視窗（＝舊系統的 PrintPreviewDialog）；印表機、份數、紙張、
+// 方向、頁面範圍全部由 Windows 原生列印對話框決定，不記任何列印偏好。
+// 瀏覽器沒有這個能力，非 Electron 環境退回開新分頁。
 
 export interface PrintResult {
   ok: boolean;
-  canceled?: boolean;
   error?: string;
 }
 
@@ -102,24 +73,14 @@ export interface CeremonyBridge {
   saveConfigAndConnect(cfg: DbConfigInput): Promise<ConnectResult>;
   connect(): Promise<ConnectResult>;
   downloadBackup(fileName: string, token: string): Promise<DownloadResult>;
-  listPrinters(): Promise<PrinterInfo[]>;
-  getPrintSettings(): Promise<PrintSettings>;
-  savePrintSetting(reportType: string, setting: ReportPrintSetting): Promise<PrintSettings>;
   /**
-   * 送印 renderer 手上的 PDF bytes。這是**唯一**的送印通道——大量列印在前端切成
-   * ≤200 筆的段，每段約 27 MB，IPC 傳 bytes 沒有成本問題。
+   * 主力列印路徑：main 自己向 sidecar 串流取報表 PDF，開在檢視器視窗。
+   *
+   * PDF **不經過 renderer**——批次合併成一份可達數百 MB，走 IPC 會 renderer + main 各一份。
+   * @param apiPath 例如 `/api/v1/reports/datacard?signupId=…`
    */
-  printPdfBuffer(
-    reportType: string,
-    bytes: Uint8Array,
-    overrides: ReportPrintSetting,
-    /** X-Report-Page-Size 原字串；送印不用它，但會記進診斷紀錄 */
-    pageSizeHeader?: string | null,
-  ): Promise<PrintResult>;
-  /**
-   * 診斷 / 逃生門：把 PDF 開在 Chromium 檢視器視窗，使用者自己按工具列的列印鈕。
-   * 那條路會落到 Windows 原生列印對話框，**有「印表機內容」按鈕**，也是改版前的行為。
-   */
+  openReportInViewer(reportType: string, apiPath: string, token: string): Promise<PrintResult>;
+  /** PDF 已在 renderer 手上（報表預覽頁）時走這條，一樣開檢視器視窗。 */
   openPdfInViewer(reportType: string, bytes: Uint8Array): Promise<PrintResult>;
   /** 診斷：在檔案總管中選取今天的列印紀錄，讓使用者把檔案傳回來。 */
   openPrintLogFolder(): Promise<{ ok: boolean }>;

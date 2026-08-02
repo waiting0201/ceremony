@@ -91,162 +91,6 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
         bytes[0].Should().Be(0x25);  // %PDF magic
     }
 
-    [Fact]
-    public async Task POST_batch_without_token_returns_401()
-    {
-        var resp = await _factory.CreateClient().PostAsJsonAsync("/api/v1/reports/batch",
-            new BatchReportRequest("datacard", 1, 10));
-        resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
-    public async Task POST_batch_invalid_range_returns_400()
-    {
-        var client = await AuthedAsync();
-        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch",
-            new BatchReportRequest("datacard", NumberStart: 50, NumberEnd: 10));
-        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var body = await resp.Content.ReadAsStringAsync();
-        body.Should().Contain("編號錯誤");
-    }
-
-    [Fact]
-    public async Task POST_batch_invalid_reportType_returns_400()
-    {
-        var client = await AuthedAsync();
-        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch",
-            new BatchReportRequest("invoice", 1, 10));
-        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var body = await resp.Content.ReadAsStringAsync();
-        body.Should().Contain("報表類型錯誤");
-    }
-
-    [Fact]
-    public async Task POST_batch_no_signups_returns_404()
-    {
-        var client = await AuthedAsync();
-        // 用 100 年 + 不存在範圍盡量保證 0 命中
-        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch",
-            new BatchReportRequest("datacard", 999_990, 999_999, Year: 100));
-        resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        var body = await resp.Content.ReadAsStringAsync();
-        body.Should().Contain("BATCH_NO_SIGNUPS");
-    }
-
-    [Fact]
-    public async Task POST_batch_datacard_returns_merged_PDF_with_count_header()
-    {
-        var client = await AuthedAsync();
-
-        // 找一個年份 + signupType=1 的範圍，預期至少 1 筆
-        var listResp = await client.GetAsync("/api/v1/signups?year=115&signupType=1");
-        var list = await listResp.Content.ReadFromJsonAsync<SignupListResponse>();
-        list!.Items.Should().NotBeEmpty();
-
-        var minNumber = list.Items.Min(i => i.Number ?? int.MaxValue);
-        var maxNumber = list.Items.Max(i => i.Number ?? 0);
-
-        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch",
-            new BatchReportRequest("datacard", minNumber, maxNumber, Year: 115, SignupType: 1));
-
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        resp.Content.Headers.ContentType?.MediaType.Should().Be("application/pdf");
-        resp.Content.Headers.ContentDisposition?.FileName.Should().StartWith("batch-datacard-");
-        resp.Headers.GetValues("X-Signup-Count").Single().Should().NotBeNullOrEmpty();
-
-        var bytes = await resp.Content.ReadAsByteArrayAsync();
-        bytes.Length.Should().BeGreaterThan(1000);
-        bytes[0].Should().Be(0x25);  // %PDF
-        bytes[1].Should().Be(0x50);
-        bytes[2].Should().Be(0x44);
-        bytes[3].Should().Be(0x46);
-    }
-
-    [Fact]
-    public async Task POST_batch_ids_returns_merged_PDF_for_exact_selection_regardless_of_gaps()
-    {
-        var client = await AuthedAsync();
-
-        var listResp = await client.GetAsync("/api/v1/signups?year=115&signupType=1");
-        var list = await listResp.Content.ReadFromJsonAsync<SignupListResponse>();
-        list!.Items.Should().HaveCountGreaterThanOrEqualTo(2);
-
-        var ordered = list.Items.OrderBy(i => i.Number).ToList();
-        var picked = new[] { ordered[0].Id, ordered[^1].Id };
-
-        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch",
-            new BatchReportRequest("datacard", SignupIds: picked));
-
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        resp.Content.Headers.ContentDisposition?.FileName.Should().Be("batch-datacard-selected-2.pdf");
-        resp.Headers.GetValues("X-Signup-Count").Single().Should().Be("2");
-
-        var bytes = await resp.Content.ReadAsByteArrayAsync();
-        bytes.Length.Should().BeGreaterThan(1000);
-        bytes[0].Should().Be(0x25);
-    }
-
-    [Fact]
-    public async Task POST_batch_missing_ids_and_range_returns_400()
-    {
-        var client = await AuthedAsync();
-        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch", new BatchReportRequest("datacard"));
-        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        var body = await resp.Content.ReadAsStringAsync();
-        body.Should().Contain("編號錯誤");
-    }
-
-    // ── 批次列印 plan（前端分段列印的入口）─────────────────────────────
-    // Blueprint: docs/blueprints/api-endpoints/post-reports-batch-plan.md
-
-    [Fact]
-    public async Task POST_batch_plan_without_token_returns_401()
-    {
-        var anon = _factory.CreateClient();
-        var resp = await anon.PostAsJsonAsync("/api/v1/reports/batch/plan",
-            new BatchReportRequest("datacard", 1, 10));
-        resp.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
-    }
-
-    [Fact]
-    public async Task POST_batch_plan_returns_ordered_items_without_rendering()
-    {
-        var client = await AuthedAsync();
-        var picked = await PickTwoSignupIdsAsync(client);
-
-        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch/plan",
-            new BatchReportRequest("datacard", SignupIds: picked));
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
-
-        var plan = await resp.Content.ReadFromJsonAsync<BatchReportPlanResponse>();
-        plan.Should().NotBeNull();
-        plan!.ReportType.Should().Be("datacard");
-        plan.Total.Should().Be(2);
-        plan.Items.Should().HaveCount(2);
-        plan.Items.Select(i => i.Id).Should().BeEquivalentTo(picked);
-        // 檔名與 job 版一致 → 前端顯示的名稱不會因為走哪條路而不同
-        plan.FileName.Should().Be("batch-datacard-selected-2.pdf");
-        // ORDER BY Number：分段要靠這個順序才切得出連續的編號範圍
-        plan.Items.Where(i => i.Number.HasValue).Select(i => i.Number!.Value)
-            .Should().BeInAscendingOrder();
-    }
-
-    [Fact]
-    public async Task POST_batch_plan_shares_validation_with_job_version()
-    {
-        var client = await AuthedAsync();
-
-        var bad = await client.PostAsJsonAsync("/api/v1/reports/batch/plan",
-            new BatchReportRequest("datacard", NumberStart: 50, NumberEnd: 10));
-        bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
-        (await bad.Content.ReadAsStringAsync()).Should().Contain("編號錯誤");
-
-        var empty = await client.PostAsJsonAsync("/api/v1/reports/batch/plan",
-            new BatchReportRequest("datacard", 999_990, 999_999, Year: 100));
-        empty.StatusCode.Should().Be(HttpStatusCode.NotFound);
-        (await empty.Content.ReadAsStringAsync()).Should().Contain("BATCH_NO_SIGNUPS");
-    }
-
     // ── 批次列印 job 版（有進度回報與取消）─────────────────────────────
     // Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
 
@@ -267,13 +111,65 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
     }
 
     [Fact]
-    public async Task POST_batch_job_invalid_range_returns_400_same_as_sync_version()
+    public async Task POST_batch_job_invalid_range_returns_400()
     {
         var client = await AuthedAsync();
         var resp = await client.PostAsJsonAsync("/api/v1/reports/batch/jobs",
             new BatchReportRequest("datacard", NumberStart: 50, NumberEnd: 10));
         resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
         (await resp.Content.ReadAsStringAsync()).Should().Contain("編號錯誤");
+    }
+
+    [Fact]
+    public async Task POST_batch_job_invalid_reportType_returns_400()
+    {
+        var client = await AuthedAsync();
+        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch/jobs",
+            new BatchReportRequest("invoice", 1, 10));
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await resp.Content.ReadAsStringAsync()).Should().Contain("報表類型錯誤");
+    }
+
+    [Fact]
+    public async Task POST_batch_job_missing_ids_and_range_returns_400()
+    {
+        var client = await AuthedAsync();
+        var resp = await client.PostAsJsonAsync("/api/v1/reports/batch/jobs",
+            new BatchReportRequest("datacard"));
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await resp.Content.ReadAsStringAsync()).Should().Contain("編號錯誤");
+    }
+
+    /// <summary>編號區間選取（非勾選 id）走到底：確認 SearchByNumberRangeAsync 這條路也印得出 PDF。</summary>
+    [Fact]
+    public async Task Batch_job_by_number_range_serves_merged_pdf()
+    {
+        var client = await AuthedAsync();
+
+        var listResp = await client.GetAsync("/api/v1/signups?year=115&signupType=1");
+        var list = await listResp.Content.ReadFromJsonAsync<SignupListResponse>();
+        list!.Items.Should().NotBeEmpty();
+
+        // 刻意只取最小編號那一小段：本測試要驗的是「編號區間這條選取路徑」，
+        // 不是渲染吞吐量。整年份全撈會讓 job 跑掉整個輪詢時限。
+        var minNumber = list.Items.Min(i => i.Number ?? int.MaxValue);
+
+        var createResp = await client.PostAsJsonAsync("/api/v1/reports/batch/jobs",
+            new BatchReportRequest("datacard", minNumber, minNumber + 1, Year: 115, SignupType: 1));
+        createResp.StatusCode.Should().Be(HttpStatusCode.Accepted);
+        var created = (await createResp.Content.ReadFromJsonAsync<BatchPrintJobCreated>())!;
+        created.FileName.Should().StartWith("batch-datacard-");
+
+        (await PollUntilTerminalAsync(client, created.JobId)).Status.Should().Be("completed");
+
+        var fileResp = await client.GetAsync($"/api/v1/reports/batch/jobs/{created.JobId}/file");
+        fileResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        fileResp.Content.Headers.ContentType?.MediaType.Should().Be("application/pdf");
+        fileResp.Headers.GetValues("X-Signup-Count").Single().Should().NotBeNullOrEmpty();
+
+        var bytes = await fileResp.Content.ReadAsByteArrayAsync();
+        bytes.Length.Should().BeGreaterThan(1000);
+        bytes[0].Should().Be(0x25);  // %PDF
     }
 
     [Fact]

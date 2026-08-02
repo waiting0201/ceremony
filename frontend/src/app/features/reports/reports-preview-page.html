@@ -134,6 +134,10 @@
         <button type="button" class="btn btn-sm" (click)="openExternal()">新分頁開啟</button>
         <button type="button" class="btn btn-sm" (click)="download()">下載</button>
         <button type="button" class="btn btn-sm" (click)="closePreview()">關閉</button>
+        @if (isDesktop) {
+          <!-- 印歪 / 印不出來時，請使用者把這個資料夾裡的 print-*.log 傳回來 -->
+          <button type="button" class="btn btn-sm" (click)="openPrintLog()">診斷紀錄</button>
+        }
       </div>
       <iframe class="pdf-frame" [src]="url" title="PDF Preview"></iframe>
     } @else {

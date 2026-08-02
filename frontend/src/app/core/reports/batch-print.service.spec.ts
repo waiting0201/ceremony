@@ -114,7 +114,7 @@ describe('BatchPrintService', () => {
     // 進度確實從 0 推到 3；筆數跑滿但還在 running 時要提示正在合併
     expect(overlay.updates.map((u) => u.completed)).toEqual([0, 1, 3, 3]);
     expect(overlay.updates[2].note).toBe('合併 PDF…');
-    expect(overlay.updates.at(-1)!.note).toBe('下載中…');
+    expect(overlay.updates.at(-1)!.note).toBe('開啟預覽…');
   });
 
   it('使用者取消 → 送出 DELETE，run() 回 null 且不取檔', async () => {

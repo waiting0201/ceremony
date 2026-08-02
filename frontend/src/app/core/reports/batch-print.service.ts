@@ -9,6 +9,12 @@ const POLL_INTERVAL_MS = 250;
 /** 保險絲：超過就主動取消 job，避免 overlay 永遠關不掉。 */
 const MAX_WAIT_MS = 10 * 60 * 1000;
 
+/** {@link BatchPrintService.render} 的結果：job 已渲染完成，成品還在伺服器上等人取。 */
+export interface RenderedBatch {
+  jobId: string;
+  fileName: string;
+}
+
 export interface BatchPrintOptions {
   /** overlay 標題，預設「批次列印中」 */
   title?: string;
@@ -19,8 +25,10 @@ export interface BatchPrintOptions {
 /**
  * 單一批次 job 的流程總管：建 job → 顯示進度 overlay → 輪詢 → 取檔 / 取消。
  *
- * 只服務「一個 job 就能印完」的情境（≤ SEGMENT_SIZE 筆）與報表預覽頁的產生。
- * 大量列印不走這裡——見 {@link ChunkedPrintService}，那邊要顯示的是分段面板而非單一進度條。
+ * 兩種收尾方式：
+ * - {@link render}：只等渲染完成，回 jobId。Electron 走這條——成品由主行程串流取檔，
+ *   合併成一份的批次可達數百 MB，經 renderer 就是白白多一份記憶體。
+ * - {@link run}：連成品 blob 一起取回。瀏覽器（ng serve）與報表預覽頁走這條。
  *
  * 放在 core/ 是因為 signups 與 reports 兩個 feature 都要用；放任一 feature 會造成跨 feature 相依。
  * Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
@@ -31,11 +39,15 @@ export class BatchPrintService {
   private readonly overlay = inject(ProgressOverlayService);
 
   /**
-   * @returns 成品 PDF；使用者中途取消時回 `null`。
+   * 建 job 並等到渲染完成。**不取檔**——`/file` 是 one-shot，留給真正要拿成品的人呼叫。
+   * @returns jobId 與成品檔名；使用者中途取消時回 `null`。
    * @throws {ApiError} 建立失敗（編號錯誤／查無資料…）或渲染失敗
    */
-  async run(req: BatchReportRequest, opts: BatchPrintOptions = {}): Promise<ReportPdf | null> {
-    // 這一步的錯誤直接往上丟：狀態碼與訊息與舊的同步版完全相同，呼叫端錯誤處理不用改
+  async render(
+    req: BatchReportRequest,
+    opts: BatchPrintOptions = {},
+  ): Promise<RenderedBatch | null> {
+    // 這一步的錯誤直接往上丟：狀態碼與訊息與同步版完全相同，呼叫端錯誤處理不用改
     const job = await this.api.createBatchJob(req);
 
     const handle = this.overlay.open({
@@ -73,10 +85,9 @@ export class BatchPrintService {
             });
             break;
 
-          case 'completed': {
-            handle.update({ completed: state.total, note: '下載中…', cancelable: false });
-            return await this.api.getBatchJobFile(job.jobId, state.fileName || job.fileName);
-          }
+          case 'completed':
+            handle.update({ completed: state.total, note: '開啟預覽…', cancelable: false });
+            return { jobId: job.jobId, fileName: state.fileName || job.fileName };
 
           case 'canceled':
             return null;
@@ -94,6 +105,16 @@ export class BatchPrintService {
     } finally {
       handle.close();
     }
+  }
+
+  /**
+   * 同 {@link render}，但連成品一起取回 renderer。
+   * @returns 成品 PDF；使用者中途取消時回 `null`。
+   */
+  async run(req: BatchReportRequest, opts: BatchPrintOptions = {}): Promise<ReportPdf | null> {
+    const rendered = await this.render(req, opts);
+    if (!rendered) return null;
+    return this.api.getBatchJobFile(rendered.jobId, rendered.fileName);
   }
 
   /** 取消是 best-effort：使用者已經要走了，這裡再失敗也沒有補救動作可做。 */

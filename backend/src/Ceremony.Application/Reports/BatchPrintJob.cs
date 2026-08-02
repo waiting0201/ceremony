@@ -40,7 +40,15 @@ public sealed class BatchPrintJob(Guid id, string ownerSub, string reportType, s
         set => Volatile.Write(ref _status, (int)value);
     }
 
-    public byte[]? Pdf { get; set; }
+    /// <summary>
+    /// 成品 PDF 的檔案路徑（completed 才有值）。
+    /// </summary>
+    /// <remarks>
+    /// 2026-08-02 從 <c>byte[] Pdf</c> 改成路徑：取消分段後單一批次可達數百 MB，成品常駐記憶體
+    /// 直到使用者取檔為止。落檔之後 job 物件本身只剩幾十 bytes。
+    /// </remarks>
+    public string? PdfPath { get; set; }
+
     public string? ErrorCode { get; set; }
     public string? Message { get; set; }
 

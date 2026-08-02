@@ -16,73 +16,97 @@ public sealed record BatchReportPlan(
     IReadOnlyList<SignupListItem> Signups);
 
 /// <summary>
-/// <c>POST /reports/batch/plan</c> 的回應：這批要印哪些報名，但不渲染。
-/// </summary>
-/// <remarks>
-/// 給前端做「大量列印分段」用：前端拿到有序清單後切成固定大小的段，逐段建 job 送印，
-/// 峰值記憶體因此與總筆數無關，中途卡紙也只需重印那一段。
-/// 選取的權威仍在 <see cref="BatchReportHandler.ResolveAsync"/>——前端只負責切，不重新查一次，
-/// 否則「印出來的筆數」與「批次條件算出的筆數」有機會不一致。
-/// Blueprint: docs/blueprints/api-endpoints/post-reports-batch-plan.md
-/// </remarks>
-public sealed record BatchReportPlanResponse(
-    string ReportType,
-    string FileName,
-    int Total,
-    IReadOnlyList<BatchReportPlanItem> Items);
-
-/// <param name="Number">
-/// 報名編號，可能為 null（尚未配號）。前端用來顯示「第 7 段：編號 1201–1400」——
-/// 卡紙時使用者要能把段對上手裡那疊紙。
-/// </param>
-public sealed record BatchReportPlanItem(Guid Id, int? Number);
-
-/// <summary>
-/// 逐筆渲染 <see cref="BatchReportPlan"/> 的 signups 並合併成單一 PDF。
+/// 逐筆渲染 <see cref="BatchReportPlan"/> 的 signups 並合併成單一 PDF 檔。
 /// </summary>
 /// <remarks>
 /// Legacy: SignupForm.cs:447-653 (btnPrint_Click) + :1698-1722 (CombinePDFs PdfSharp)
-/// 刻意做成 static：<see cref="BatchReportHandler"/> 的建構子不必多吃相依（既有測試不動），
-/// 而背景 job service 可直接注入 Singleton 的 renderer / merger 自行呼叫。
+/// 刻意做成 static：背景 job service 可直接注入 Singleton 的 renderer / merger 自行呼叫。
+///
+/// 2026-08-02 起單筆結果**逐筆落檔**而不是累積成 <c>List&lt;byte[]&gt;</c>：大量列印取消分段後
+/// 又變回一次印完整批，累積在記憶體的是 O(N)（15000 筆 ≈ 2 GB）。
+/// 見 docs/blueprints/print-channel-electron.md。
 /// </remarks>
 public static class BatchReportComposer
 {
+    /// <param name="workDir">
+    /// 本次批次的暫存目錄，用來放逐筆的中間 PDF。函式負責建立，**離開時一律整個刪除**
+    /// （成功、失敗、取消三條路都是）。
+    /// </param>
+    /// <param name="outputPath">
+    /// 成品輸出路徑。刻意放在 <paramref name="workDir"/> **之外**：成品要活到使用者取檔為止，
+    /// 而中間檔在合併完就沒有用了，兩者生命週期不同。
+    /// </param>
     /// <param name="onRendered">
     /// 每渲染完一筆就以「已完成筆數」回呼（1-based）。刻意用 <see cref="Action{T}"/> 而非
     /// <see cref="IProgress{T}"/>：後者會 post 到 SynchronizationContext / thread pool，回報可能延遲或亂序；
     /// 這裡只是同步寫一個 int，直接呼叫最準。
     /// </param>
-    public static byte[] Render(
+    /// <returns><paramref name="outputPath"/>，成品已寫入。</returns>
+    public static string Render(
         IReportRenderer renderer,
         IPdfMerger merger,
         BatchReportPlan plan,
+        string workDir,
+        string outputPath,
         Action<int>? onRendered,
         CancellationToken ct = default)
     {
         var now = DateTime.Now;
-        var pdfs = new List<byte[]>(plan.Signups.Count);
+        var parts = new List<string>(plan.Signups.Count);
 
-        for (var i = 0; i < plan.Signups.Count; i++)
+        Directory.CreateDirectory(workDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
+
+        try
         {
-            // 放在 render 之前：取消時最多只多跑「當下這一筆」。
-            ct.ThrowIfCancellationRequested();
-
-            var s = plan.Signups[i];
-            pdfs.Add(plan.ReportType switch
+            for (var i = 0; i < plan.Signups.Count; i++)
             {
-                "datacard" => renderer.RenderDataCard(ReportModelBuilders.DataCard(s)),
-                "receipt" => renderer.RenderReceipt(ReportModelBuilders.Receipt(s, now)),
-                "tablet" => renderer.RenderTablet(ReportModelBuilders.Tablet(s)),
-                "text" => renderer.RenderText(ReportModelBuilders.Text(s)),
-                "worship" => renderer.RenderWorship(ReportModelBuilders.Worship(s)),
-                "worshipcard" => renderer.RenderWorshipCard(ReportModelBuilders.WorshipCard(s)),
-                _ => throw new InvalidOperationException(),
-            });
+                // 放在 render 之前：取消時最多只多跑「當下這一筆」。
+                ct.ThrowIfCancellationRequested();
 
-            onRendered?.Invoke(i + 1);
+                var s = plan.Signups[i];
+                var bytes = plan.ReportType switch
+                {
+                    "datacard" => renderer.RenderDataCard(ReportModelBuilders.DataCard(s)),
+                    "receipt" => renderer.RenderReceipt(ReportModelBuilders.Receipt(s, now)),
+                    "tablet" => renderer.RenderTablet(ReportModelBuilders.Tablet(s)),
+                    "text" => renderer.RenderText(ReportModelBuilders.Text(s)),
+                    "worship" => renderer.RenderWorship(ReportModelBuilders.Worship(s)),
+                    "worshipcard" => renderer.RenderWorshipCard(ReportModelBuilders.WorshipCard(s)),
+                    _ => throw new InvalidOperationException(),
+                };
+
+                // 檔名補零：合併時靠檔案順序決定頁序，字串排序必須與筆序一致
+                var part = Path.Combine(workDir, $"{i:D6}.pdf");
+                File.WriteAllBytes(part, bytes);
+                parts.Add(part);
+
+                onRendered?.Invoke(i + 1);
+            }
+
+            ct.ThrowIfCancellationRequested();
+            merger.Merge(parts, outputPath);
+            return outputPath;
         }
+        finally
+        {
+            TryDeleteDirectory(workDir);
+        }
+    }
 
-        ct.ThrowIfCancellationRequested();
-        return merger.Merge(pdfs);
+    private static void TryDeleteDirectory(string dir)
+    {
+        try
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+        catch (IOException)
+        {
+            // 中間檔清不掉不該讓整批列印失敗；殘留由 BatchPrintJobService 的啟動掃描收拾
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // 同上
+        }
     }
 }

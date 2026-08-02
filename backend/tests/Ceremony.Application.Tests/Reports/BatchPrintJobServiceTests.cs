@@ -42,10 +42,15 @@ public sealed class BatchPrintJobServiceTests
     private static BatchReportPlan Plan(int count = 3) =>
         new("datacard", $"batch-datacard-selected-{count}.pdf", Enumerable.Range(1, count).Select(Make).ToList());
 
+    /// <summary>合併＝把假成品寫到 dest（成品現在是檔案，不是 byte[]）。</summary>
+    private void SetupMerge()
+        => _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>()))
+                  .Callback<IReadOnlyList<string>, string>((_, dest) => File.WriteAllBytes(dest, [9, 9]));
+
     private void RenderFast()
     {
         _renderer.Setup(r => r.RenderDataCard(It.IsAny<DataCardModel>())).Returns([1]);
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns([9, 9]);
+        SetupMerge();
     }
 
     /// <summary>擋住渲染，讓測試能在 running 狀態下做斷言；回傳的 gate Set() 後才會繼續。</summary>
@@ -54,7 +59,7 @@ public sealed class BatchPrintJobServiceTests
         var gate = new ManualResetEventSlim(false);
         _renderer.Setup(r => r.RenderDataCard(It.IsAny<DataCardModel>()))
                  .Returns(() => { gate.Wait(TimeSpan.FromSeconds(10)); return [1]; });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns([9, 9]);
+        SetupMerge();
         return gate;
     }
 
@@ -99,7 +104,7 @@ public sealed class BatchPrintJobServiceTests
     }
 
     [Fact]
-    public void TakeFile_returns_pdf_once_then_job_is_gone()
+    public void TakeFile_returns_pdf_path_once_then_job_is_gone()
     {
         RenderFast();
         using var sut = Sut();
@@ -107,16 +112,45 @@ public sealed class BatchPrintJobServiceTests
         var created = sut.Start(Plan(2), Owner);
         WaitForStatus(sut, created.JobId, "completed");
 
-        var (pdf, fileName, total, reportType) = sut.TakeFile(created.JobId, Owner);
-        pdf.Should().Equal(9, 9);
+        var (pdfPath, fileName, total, reportType) = sut.TakeFile(created.JobId, Owner);
+        // 檔案刻意不在 TakeFile 刪：controller 用 DeleteOnClose 串流回應後才消失
+        File.Exists(pdfPath).Should().BeTrue();
+        File.ReadAllBytes(pdfPath).Should().Equal(9, 9);
         fileName.Should().Be("batch-datacard-selected-2.pdf");
         total.Should().Be(2);
-        // controller 用它掛 X-Report-Page-Size（列印端據此指定 pageSize）
+        // controller 用它掛 X-Report-Page-Size
         reportType.Should().Be("datacard");
 
         // one-shot：第二次就當作不存在
         var act = () => sut.TakeFile(created.JobId, Owner);
         act.Should().Throw<DomainException>().Where(e => e.ErrorCode == "BATCH_JOB_NOT_FOUND");
+
+        File.Delete(pdfPath);
+    }
+
+    /// <summary>沒被取走的成品不能留在磁碟上（TTL / 上限 / Dispose 都走 Discard）。</summary>
+    [Fact]
+    public void Discarded_job_deletes_its_output_file()
+    {
+        RenderFast();
+        var sut = Sut();
+
+        var created = sut.Start(Plan(2), Owner);
+        WaitForStatus(sut, created.JobId, "completed");
+
+        // 先偷看路徑（取檔會把 job 移除，但不刪檔），再放回去讓 Dispose 走 Discard
+        var (pdfPath, _, _, _) = sut.TakeFile(created.JobId, Owner);
+        File.Delete(pdfPath);
+
+        var root = Path.GetDirectoryName(pdfPath)!;
+        var second = sut.Start(Plan(1), Owner);
+        WaitForStatus(sut, second.JobId, "completed");
+        var secondPath = Path.Combine(root, $"{second.JobId:N}.pdf");
+        File.Exists(secondPath).Should().BeTrue();
+
+        sut.Dispose();
+
+        File.Exists(secondPath).Should().BeFalse();
     }
 
     [Fact]
@@ -146,7 +180,7 @@ public sealed class BatchPrintJobServiceTests
 
         var state = WaitForStatus(sut, created.JobId, "canceled");
         state.Completed.Should().BeLessThan(5);
-        _merger.Verify(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>()), Times.Never);
+        _merger.Verify(m => m.Merge(It.IsAny<IReadOnlyList<string>>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

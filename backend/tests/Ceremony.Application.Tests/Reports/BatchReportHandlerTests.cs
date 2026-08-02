@@ -6,13 +6,18 @@ using Moq;
 
 namespace Ceremony.Application.Tests.Reports;
 
+/// <summary>
+/// 批次列印的「選取」：驗證、查詢、檔名。渲染與合併不在這裡（見 <see cref="BatchReportComposerTests"/>）。
+/// </summary>
+/// <remarks>
+/// 2026-08-02 起 <see cref="BatchReportHandler"/> 只剩 ResolveAsync——同步版 HandleAsync 隨
+/// <c>POST /reports/batch</c> 端點一起移除，前端只走 job 版。
+/// </remarks>
 public sealed class BatchReportHandlerTests
 {
     private readonly Mock<ISignupRepository> _repo = new();
-    private readonly Mock<IReportRenderer> _renderer = new();
-    private readonly Mock<IPdfMerger> _merger = new();
 
-    private BatchReportHandler Sut() => new(_repo.Object, _renderer.Object, _merger.Object);
+    private BatchReportHandler Sut() => new(_repo.Object);
 
     private static SignupListItem Make(int number, int signupType = 1) => new(
         Id: Guid.NewGuid(),
@@ -39,7 +44,7 @@ public sealed class BatchReportHandlerTests
     [Fact]
     public async Task Invalid_range_throws_VALIDATION_INVALID()
     {
-        var act = () => Sut().HandleAsync(new BatchReportRequest("datacard", NumberStart: 50, NumberEnd: 10));
+        var act = () => Sut().ResolveAsync(new BatchReportRequest("datacard", NumberStart: 50, NumberEnd: 10));
         await act.Should().ThrowAsync<DomainException>()
             .Where(e => e.ErrorCode == "VALIDATION_INVALID" && e.Message == "編號錯誤");
     }
@@ -50,7 +55,7 @@ public sealed class BatchReportHandlerTests
     [InlineData("foo")]
     public async Task Invalid_reportType_throws_VALIDATION_INVALID(string type)
     {
-        var act = () => Sut().HandleAsync(new BatchReportRequest(type, 1, 10));
+        var act = () => Sut().ResolveAsync(new BatchReportRequest(type, 1, 10));
         await act.Should().ThrowAsync<DomainException>()
             .Where(e => e.ErrorCode == "VALIDATION_INVALID" && e.Message == "報表類型錯誤");
     }
@@ -61,27 +66,23 @@ public sealed class BatchReportHandlerTests
         _repo.Setup(r => r.SearchByNumberRangeAsync(It.IsAny<SignupRangeQuery>(), It.IsAny<CancellationToken>()))
              .ReturnsAsync(Array.Empty<SignupListItem>());
 
-        var act = () => Sut().HandleAsync(new BatchReportRequest("datacard", 1, 10));
+        var act = () => Sut().ResolveAsync(new BatchReportRequest("datacard", 1, 10));
         await act.Should().ThrowAsync<DomainException>()
             .Where(e => e.ErrorCode == "BATCH_NO_SIGNUPS" && e.Message == "查無符合條件的報名資料");
     }
 
     [Fact]
-    public async Task Datacard_renders_per_signup_and_merges()
+    public async Task Range_selection_returns_all_matches_with_range_filename()
     {
         var signups = new[] { Make(1), Make(2), Make(3) };
         _repo.Setup(r => r.SearchByNumberRangeAsync(It.IsAny<SignupRangeQuery>(), It.IsAny<CancellationToken>()))
              .ReturnsAsync(signups);
-        _renderer.Setup(r => r.RenderDataCard(It.IsAny<DataCardModel>())).Returns(new byte[] { 1, 2, 3 });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 9, 9, 9 });
 
-        var (pdf, fileName, count) = await Sut().HandleAsync(new BatchReportRequest("datacard", 1, 50));
+        var plan = await Sut().ResolveAsync(new BatchReportRequest("datacard", 1, 50));
 
-        count.Should().Be(3);
-        fileName.Should().Be("batch-datacard-1-50.pdf");
-        pdf.Should().Equal(9, 9, 9);
-        _renderer.Verify(r => r.RenderDataCard(It.IsAny<DataCardModel>()), Times.Exactly(3));
-        _merger.Verify(m => m.Merge(It.Is<IReadOnlyList<byte[]>>(l => l.Count == 3)), Times.Once);
+        plan.ReportType.Should().Be("datacard");
+        plan.Signups.Should().HaveCount(3);
+        plan.FileName.Should().Be("batch-datacard-1-50.pdf");
     }
 
     [Fact]
@@ -91,12 +92,10 @@ public sealed class BatchReportHandlerTests
                 It.Is<SignupRangeQuery>(q => q.SignupType == 1),
                 It.IsAny<CancellationToken>()))
              .ReturnsAsync([Make(1, signupType: 1)]);
-        _renderer.Setup(r => r.RenderWorship(It.IsAny<WorshipModel>())).Returns(new byte[] { 1 });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 1 });
 
         // 2026-07-18 解鎖：普桌不再強制 SignupType=4，跟隨呼叫端篩選（對齊舊系統批次 case 5）
-        var (_, _, count) = await Sut().HandleAsync(new BatchReportRequest("worship", 1, 10, SignupType: 1));
-        count.Should().Be(1);
+        var plan = await Sut().ResolveAsync(new BatchReportRequest("worship", 1, 10, SignupType: 1));
+        plan.Signups.Should().HaveCount(1);
 
         _repo.Verify(r => r.SearchByNumberRangeAsync(
             It.Is<SignupRangeQuery>(q => q.SignupType == 1),
@@ -108,11 +107,11 @@ public sealed class BatchReportHandlerTests
     {
         _repo.Setup(r => r.SearchByNumberRangeAsync(It.IsAny<SignupRangeQuery>(), It.IsAny<CancellationToken>()))
              .ReturnsAsync([Make(1)]);
-        _renderer.Setup(r => r.RenderTablet(It.IsAny<TabletModel>())).Returns(new byte[] { 1 });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 1 });
 
-        var (_, fileName, _) = await Sut().HandleAsync(new BatchReportRequest("  TABLET ", 1, 10));
-        fileName.Should().Be("batch-tablet-1-10.pdf");
+        var plan = await Sut().ResolveAsync(new BatchReportRequest("  TABLET ", 1, 10));
+
+        plan.ReportType.Should().Be("tablet");
+        plan.FileName.Should().Be("batch-tablet-1-10.pdf");
     }
 
     [Fact]
@@ -122,11 +121,9 @@ public sealed class BatchReportHandlerTests
         _repo.Setup(r => r.SearchByNumberRangeAsync(It.IsAny<SignupRangeQuery>(), It.IsAny<CancellationToken>()))
              .Callback<SignupRangeQuery, CancellationToken>((q, _) => captured = q)
              .ReturnsAsync([Make(5)]);
-        _renderer.Setup(r => r.RenderReceipt(It.IsAny<ReceiptModel>())).Returns(new byte[] { 1 });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 1 });
 
         var cid = Guid.NewGuid();
-        await Sut().HandleAsync(new BatchReportRequest("receipt", 1, 100,
+        await Sut().ResolveAsync(new BatchReportRequest("receipt", 1, 100,
             Year: 115, YearGte: true, CeremonyCategoryId: cid, SignupType: 2));
 
         captured.Should().NotBeNull();
@@ -150,28 +147,26 @@ public sealed class BatchReportHandlerTests
         _repo.Setup(r => r.SearchByNumberRangeAsync(It.IsAny<SignupRangeQuery>(), It.IsAny<CancellationToken>()))
              .Callback<SignupRangeQuery, CancellationToken>((q, _) => captured = q)
              .ReturnsAsync([Make(42)]);
-        _renderer.Setup(r => r.RenderReceipt(It.IsAny<ReceiptModel>())).Returns(new byte[] { 1 });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 1 });
 
-        var (_, fileName, _) = await Sut().HandleAsync(
+        var plan = await Sut().ResolveAsync(
             new BatchReportRequest("receipt", NumberStart: start, NumberEnd: end));
 
         captured.Should().NotBeNull();
         captured!.NumberStart.Should().Be(42);
         captured.NumberEnd.Should().Be(42);
-        fileName.Should().Be("batch-receipt-42-42.pdf");
+        plan.FileName.Should().Be("batch-receipt-42-42.pdf");
     }
 
     [Fact]
     public async Task Missing_both_ids_and_range_throws_VALIDATION_INVALID()
     {
-        var act = () => Sut().HandleAsync(new BatchReportRequest("datacard"));
+        var act = () => Sut().ResolveAsync(new BatchReportRequest("datacard"));
         await act.Should().ThrowAsync<DomainException>()
             .Where(e => e.ErrorCode == "VALIDATION_INVALID" && e.Message == "編號錯誤");
     }
 
     [Fact]
-    public async Task SignupIds_prints_exact_selection_ignoring_gaps()
+    public async Task SignupIds_selects_exactly_those_ignoring_gaps()
     {
         var signups = new[] { Make(1), Make(9) };
         var ids = signups.Select(s => s.Id).ToList();
@@ -179,16 +174,12 @@ public sealed class BatchReportHandlerTests
                 It.Is<IReadOnlyList<Guid>>(l => l.SequenceEqual(ids)),
                 It.IsAny<CancellationToken>()))
              .ReturnsAsync(signups);
-        _renderer.Setup(r => r.RenderDataCard(It.IsAny<DataCardModel>())).Returns(new byte[] { 1 });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 9, 9 });
 
-        var (pdf, fileName, count) = await Sut().HandleAsync(new BatchReportRequest("datacard", SignupIds: ids));
+        var plan = await Sut().ResolveAsync(new BatchReportRequest("datacard", SignupIds: ids));
 
-        count.Should().Be(2);
-        fileName.Should().Be("batch-datacard-selected-2.pdf");
-        pdf.Should().Equal(9, 9);
+        plan.Signups.Should().HaveCount(2);
+        plan.FileName.Should().Be("batch-datacard-selected-2.pdf");
         _repo.Verify(r => r.SearchByNumberRangeAsync(It.IsAny<SignupRangeQuery>(), It.IsAny<CancellationToken>()), Times.Never);
-        _renderer.Verify(r => r.RenderDataCard(It.IsAny<DataCardModel>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -198,30 +189,25 @@ public sealed class BatchReportHandlerTests
         var ids = signups.Select(s => s.Id).ToList();
         _repo.Setup(r => r.SearchByIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>()))
              .ReturnsAsync(signups);
-        _renderer.Setup(r => r.RenderDataCard(It.IsAny<DataCardModel>())).Returns(new byte[] { 1 });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 1 });
 
-        await Sut().HandleAsync(new BatchReportRequest("datacard", NumberStart: 1, NumberEnd: 10, SignupIds: ids));
+        await Sut().ResolveAsync(new BatchReportRequest("datacard", NumberStart: 1, NumberEnd: 10, SignupIds: ids));
 
         _repo.Verify(r => r.SearchByNumberRangeAsync(It.IsAny<SignupRangeQuery>(), It.IsAny<CancellationToken>()), Times.Never);
         _repo.Verify(r => r.SearchByIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task SignupIds_worship_prints_all_selected_regardless_of_type()
+    public async Task SignupIds_worship_selects_all_regardless_of_type()
     {
         // 2026-07-18 解鎖：混選非普桌不再過濾，選什麼印什麼（對齊舊系統 tsmiPrintWorship）
         var signups = new[] { Make(1, signupType: 1), Make(2, signupType: 4) };
         var ids = signups.Select(s => s.Id).ToList();
         _repo.Setup(r => r.SearchByIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>()))
              .ReturnsAsync(signups);
-        _renderer.Setup(r => r.RenderWorship(It.IsAny<WorshipModel>())).Returns(new byte[] { 1 });
-        _merger.Setup(m => m.Merge(It.IsAny<IReadOnlyList<byte[]>>())).Returns(new byte[] { 1 });
 
-        var (_, _, count) = await Sut().HandleAsync(new BatchReportRequest("worship", SignupIds: ids));
+        var plan = await Sut().ResolveAsync(new BatchReportRequest("worship", SignupIds: ids));
 
-        count.Should().Be(2);
-        _renderer.Verify(r => r.RenderWorship(It.IsAny<WorshipModel>()), Times.Exactly(2));
+        plan.Signups.Should().HaveCount(2);
     }
 
     [Fact]
@@ -230,7 +216,7 @@ public sealed class BatchReportHandlerTests
         _repo.Setup(r => r.SearchByIdsAsync(It.IsAny<IReadOnlyList<Guid>>(), It.IsAny<CancellationToken>()))
              .ReturnsAsync([]);
 
-        var act = () => Sut().HandleAsync(new BatchReportRequest("worship", SignupIds: [Guid.NewGuid()]));
+        var act = () => Sut().ResolveAsync(new BatchReportRequest("worship", SignupIds: [Guid.NewGuid()]));
         await act.Should().ThrowAsync<DomainException>()
             .Where(e => e.ErrorCode == "BATCH_NO_SIGNUPS" && e.Message == "查無符合條件的報名資料");
     }

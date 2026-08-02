@@ -979,9 +979,10 @@ export class SignupListPage implements OnInit {
     this.printing.set(true);
     this.errorMessage.set(null);
     try {
-      // PrintService 內部分流：Electron 送印表機（紙張/縮放由主行程指定）、瀏覽器退回開新分頁
+      // PrintService 內部分流：Electron 開列印預覽視窗（送印由 Windows 原生對話框接手）、
+      // 瀏覽器退回開新分頁
       const sent = await this.print.printSingle(type, item.id);
-      if (sent) this.successMessage.set(`已送出列印${reportTypeLabel(type)}`);
+      if (sent) this.successMessage.set(`已開啟${reportTypeLabel(type)}列印預覽`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -994,13 +995,13 @@ export class SignupListPage implements OnInit {
     this.printing.set(true);
     this.errorMessage.set(null);
     try {
-      // 走 job 版：進度 overlay 由 BatchPrintService 負責；回 false 代表使用者取消
+      // 走 job 版：渲染進度 overlay 由 BatchPrintService 負責；回 false 代表使用者取消
       const sent = await this.print.printBatch(
         { reportType: type, signupIds: items.map((i) => i.id) },
         { detail: reportTypeLabel(type) },
       );
       if (!sent) return;
-      this.successMessage.set(`已送出列印 ${items.length} 筆${reportTypeLabel(type)}`);
+      this.successMessage.set(`已開啟 ${items.length} 筆${reportTypeLabel(type)}的列印預覽`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -1031,7 +1032,7 @@ export class SignupListPage implements OnInit {
       );
       if (!sent) return;
       const range = numberStart === numberEnd ? `${numberStart}` : `${numberStart}–${numberEnd}`;
-      this.successMessage.set(`已送出列印批次${reportTypeLabel(type)}（編號 ${range}）`);
+      this.successMessage.set(`已開啟批次${reportTypeLabel(type)}列印預覽（編號 ${range}）`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {

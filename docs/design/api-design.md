@@ -11,7 +11,7 @@ related_docs:
   - frontend-design.md
   - security.md
 keywords: [api, REST, endpoint, contract, DTO, error, OpenAPI]
-last_updated: 2026-07-31 (新增 POST /reports/batch/plan：只解析不渲染、回依 Number 升冪的 {id, number} 清單，供前端切段做大量列印〔單一大 PDF 會爆 PdfSharp 2GB；驗證與錯誤碼與 batch/jobs 共用 ResolveAsync 故逐字相同〕。同日先前錯誤碼表廢除 BELIEVER_MAIL_ADDRESS_REQUIRED〔地址自 2026-07-21 起非必填，2026-07-31 前端信眾表單的 required 一併移除，既有地址可整段清空〕；同日先前 GET /signups 編號由單值 number 改為 numberStart/numberEnd 區間，只給一端＝只查那一筆；POST /reports/batch(+jobs) 編號區間同步改為只需填一端；順手修正 Signups 表誤植的 /signups/search + page/pageSize/sort（實際為 GET /signups 不分頁）。先前 2026-07-31 所有回 PDF 的 endpoint 新增 X-Report-Page-Size response header（微米），供 Electron 列印通道指定 pageSize；CORS WithExposedHeaders 同步加入。先前 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差))
+last_updated: 2026-08-02 (**移除 POST /reports/batch 與 POST /reports/batch/plan**：前者是前端早已停用的同步版、後者唯一用途是大量列印分段，而分段已隨列印通道改版整條廢止〔改為合併成一份 PDF + 原生列印對話框的「頁面範圍」續印〕；batch/jobs 成為批次列印唯一入口，/file 改以 DeleteOnClose 串流暫存檔回應。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增 POST /reports/batch/plan：只解析不渲染、回依 Number 升冪的 {id, number} 清單，供前端切段做大量列印〔單一大 PDF 會爆 PdfSharp 2GB；驗證與錯誤碼與 batch/jobs 共用 ResolveAsync 故逐字相同〕。同日先前錯誤碼表廢除 BELIEVER_MAIL_ADDRESS_REQUIRED〔地址自 2026-07-21 起非必填，2026-07-31 前端信眾表單的 required 一併移除，既有地址可整段清空〕；同日先前 GET /signups 編號由單值 number 改為 numberStart/numberEnd 區間，只給一端＝只查那一筆；POST /reports/batch(+jobs) 編號區間同步改為只需填一端；順手修正 Signups 表誤植的 /signups/search + page/pageSize/sort（實際為 GET /signups 不分頁）。先前 2026-07-31 所有回 PDF 的 endpoint 新增 X-Report-Page-Size response header（微米），供 Electron 列印通道指定 pageSize；CORS WithExposedHeaders 同步加入。先前 2026-07-28 (批次列印改 job 模型：新增 POST /reports/batch/jobs + GET 進度 + GET /file + DELETE 取消 4 支，讓 UI 顯示真實 i/N 百分比並可取消；驗證與查詢仍留在 POST 故錯誤碼/訊息不變；記錄「為何用輪詢而非 SSE」（EventSource 帶不了 Authorization，token 進 query 會被 Serilog 記錄）；新增 3 個 BATCH_JOB_* 錯誤碼；CORS 補 WithExposedHeaders 修正前端讀不到 Content-Disposition/X-Signup-Count 的既有 bug；舊 POST /reports/batch 後端保留、前端停用。先前 2026-07-27 GET /believers 加 searchKey 單一關鍵字參數（14 欄 OR，對齊舊 NewSignupForm txtQ），供新增報名信眾搜尋補「從未報名過的信眾」；順手修正 Believers 表該列寫成 /believers/search?...&page=&pageSize= 的舊路徑，實際為 GET /believers 不分頁；先前 2026-07-18 worship/worshipcard 解鎖：移除 signupType=4 限制與 422 WORSHIP_ONLY_TYPE_4，單筆/批次皆選什麼印什麼，對齊舊系統（客訴右鍵選項被鎖）；先前 2026-07-04 新增 GET /reports/worshipcard 普桌資料卡端點：全新報表、限 signupType=4、支援 dev-only debugOverlay，batch 白名單同步加入；先前：GET /reports/tablet/sample dev-only 端點；POST /reports/batch 加 signupIds[] 精準勾選列印；reports 三個 endpoint 的 dev-only debugOverlay 參數；註記既有 Reports/Print 表格與 Controller 實際落差)))
 ---
 
 ## 通則
@@ -185,11 +185,9 @@ HTTP status 映射：
 | POST | `/reports/text` | body: `{signupIds[]}` → application/pdf（含垂直地址 PNG） |
 | POST | `/reports/worship` | body: `{signupIds[]}` → application/pdf（不限 signupType，2026-07-18 解鎖） |
 | GET | `/reports/worshipcard` | `?signupId=` → application/pdf（普桌資料卡，A5 橫預印卡紙套印；不限 signupType（2026-07-18 解鎖）；支援 dev-only `?debugOverlay=true`）。2026-07-04 新增（全新報表，直接以實際 GET 簽章記載）。Blueprint: [get-reports-worshipcard.md](../blueprints/api-endpoints/get-reports-worshipcard.md) |
-| POST | `/reports/batch` | body: `{reportType, numberStart?, numberEnd?, signupIds?[], year?, yearGte?, ceremonyCategoryId?, signupType?}` → 統一入口（`signupIds` 有值時精準印該幾筆，優先於 `numberStart`/`numberEnd` 編號區間；區間只給一端 → 另一端補同值＝只印那一筆；`signupIds` 空且兩端皆缺才回 400 `編號錯誤`）。**同步阻塞版**：2026-07-28 起 UI 已改走下方 job 版，本 endpoint 保留為相容契約與批次渲染路徑的整合測試覆蓋 |
-| POST | `/reports/batch/plan` | body 同 `/reports/batch` → **200** `{reportType, fileName, total, items:[{id, number}]}`。**只解析不渲染**，供前端切段做大量列印（見 [chunked-batch-printing.md](../blueprints/chunked-batch-printing.md)）。items 依 `Number` 升冪。驗證與錯誤碼與 job 版**逐字相同**（共用 `ResolveAsync`）——兩者若有差，使用者會看到「plan 說 500 筆、jobs 說編號錯誤」的矛盾狀態 |
-| POST | `/reports/batch/jobs` | body 同 `/reports/batch` → **202** `{jobId, total, fileName, reportType}`。驗證與 DB 查詢仍同步執行，只有 render+merge 進背景。大量列印時前端會對**每一段**各打一次（`signupIds` = 該段） |
+| POST | `/reports/batch/jobs` | body: `{reportType, numberStart?, numberEnd?, signupIds?[], year?, yearGte?, ceremonyCategoryId?, signupType?}` → **202** `{jobId, total, fileName, reportType}`。批次列印**唯一**入口（`signupIds` 有值時精準印該幾筆，優先於 `numberStart`/`numberEnd` 編號區間；區間只給一端 → 另一端補同值＝只印那一筆；`signupIds` 空且兩端皆缺才回 400 `編號錯誤`）。驗證與 DB 查詢仍同步執行，只有 render+merge 進背景 |
 | GET | `/reports/batch/jobs/{jobId}` | → `{jobId, status, total, completed, fileName, errorCode?, message?}`，`status ∈ running/completed/failed/canceled`。前端每 250ms 輪詢 |
-| GET | `/reports/batch/jobs/{jobId}/file` | → application/pdf + `Content-Disposition` + `X-Signup-Count`。**one-shot**：取走即釋放 job |
+| GET | `/reports/batch/jobs/{jobId}/file` | → application/pdf + `Content-Disposition` + `X-Signup-Count`。**one-shot**：取走即釋放 job。成品是伺服器上的暫存檔，以 `FileOptions.DeleteOnClose` 串流回應（送完或客戶端斷線都會刪） |
 | DELETE | `/reports/batch/jobs/{jobId}` | → 204。取消渲染，冪等（未知 id 也回 204，避開「剛好完成」競態） |
 
 **批次列印 job 版（2026-07-28）**：讓 UI 能顯示真實的「第 i / 共 N 筆」百分比進度並中途取消。
@@ -204,17 +202,19 @@ Blueprint: [post-reports-batch-jobs.md](../blueprints/api-endpoints/post-reports
   且比「渲染完一筆」（實測約 6.5ms）還密。job 資源模型與 SSE 完全相容，日後可無痛改推送。
 - **CORS**：`Content-Disposition`、`X-Signup-Count`、`X-Report-Page-Size` 不在 CORS safelist，已在
   `Program.cs` 加 `WithExposedHeaders`（前兩者是修正一個既有 bug：先前前端讀不到，檔名一直退回 fallback）。
-- **`X-Report-Page-Size`（2026-07-31 新增）**：所有回 PDF 的 endpoint（6 個單筆 + `tablet/sample` +
-  `POST /batch` + `GET /batch/jobs/{id}/file`）都會掛，值為**微米整數** `<寬>x<高>`（如資料卡 `210000x148000`）。
-  Electron 主行程用它指定 `webContents.print` 的 `pageSize`，這是「同一份 PDF 在不同機器印出同樣結果」的關鍵。
+- **`X-Report-Page-Size`**：所有回 PDF 的 endpoint（6 個單筆 + `tablet/sample` +
+  `GET /batch/jobs/{id}/file`）都會掛，值為**微米整數** `<寬>x<高>`（如資料卡 `210000x148000`）。
   權威值在 `Ceremony.Domain.Reports.ReportPageSizes`（`ReportPageSizeConsistencyTests` 鎖住它與各 renderer 的
-  `PageWidthCm/PageHeightCm` 一致）。見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
+  `PageWidthCm/PageHeightCm` 一致）——**這就是舊系統 `DeviceInfo` 的位置：紙張尺寸在產 PDF 那一刻定案**。
+  2026-08-02 起 header **不參與送印**（送印全由 Windows 原生對話框接手），它現在的用途是寫進
+  Electron 的診斷紀錄——印歪時第一個要對的就是「PDF 的頁面尺寸」與「驅動裡選的紙」。
+  見 [print-channel-electron.md](../blueprints/print-channel-electron.md)。
 
 每個單筆 endpoint 支援：
 - `?format=pdf|preview`（preview 走相同格式但加 watermark「預覽」）
 - `?variant=auto|tabletOne|tabletOneOne|...` 強制指定模板變體（auto 走 server 端邏輯）
 
-> ⚠️ **本表與目前 [ReportsController](../../backend/src/Ceremony.Api/Controllers/ReportsController.cs) 實際行為部分落差**（既有落差，非本次任務範圍）：5 個單筆 endpoint 實際是 `GET` + `[FromQuery] signupId`（單筆），不是 `POST` + `body: {signupIds[]}`；`format=preview` / `variant=` 這兩個 query 參數在現有 Controller 中也未實作。**`/reports/batch` 已於 2026-07-03 補上 `signupIds[]`**（見上一列的實際簽章），此列的落差已消除，其餘 5 個單筆 endpoint 落差維持原狀。
+> ⚠️ **本表與目前 [ReportsController](../../backend/src/Ceremony.Api/Controllers/ReportsController.cs) 實際行為部分落差**（既有落差，非本次任務範圍）：5 個單筆 endpoint 實際是 `GET` + `[FromQuery] signupId`（單筆），不是 `POST` + `body: {signupIds[]}`；`format=preview` / `variant=` 這兩個 query 參數在現有 Controller 中也未實作。**批次列印列已於 2026-08-02 更新為 `POST /reports/batch/jobs` 的實際簽章**（同步版 `POST /reports/batch` 與 `POST /reports/batch/plan` 已移除），其餘 5 個單筆 endpoint 落差維持原狀。
 
 **`debugOverlay`（dev-only，2026-07-03 新增）**：`datacard` / `tablet` / `text` / `worshipcard`（2026-07-04 加入）四個 GET endpoint 額外支援 `?debugOverlay=true`，會在產出的 PDF 疊上 `reference/template/` 對應的實體樣板照片，供開發人員檢視列印位置是否對齊。**僅 `ASPNETCORE_ENVIRONMENT=Development` 可用，其他環境回 404**。詳見 [printing-reports.md](../blueprints/printing-reports.md)「開發用列印位置檢視工具」。
 

@@ -26,7 +26,7 @@ describe('ReportApi', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('single() 讀出 X-Report-Page-Size（紙張權威值，缺了就只能用 fallback 表）', async () => {
+  it('single() 讀出 Content-Disposition 的檔名', async () => {
     const p = sut.single('datacard', 's1');
 
     const req = httpMock.expectOne((r) => r.url === `${BASE}/datacard`);
@@ -38,14 +38,13 @@ describe('ReportApi', () => {
     });
 
     const pdf = await p;
-    expect(pdf.pageSizeHeader).toBe('210000x148000');
     expect(pdf.fileName).toBe('datacard-1.pdf');
   });
 
-  it('header 缺席時 pageSizeHeader 是 undefined，不會變成空字串', async () => {
+  it('沒有 Content-Disposition 時退回 type-signupId 的檔名', async () => {
     const p = sut.single('datacard', 's1');
     httpMock.expectOne((r) => r.url === `${BASE}/datacard`).flush(new Blob(['%PDF-']));
-    expect((await p).pageSizeHeader).toBeUndefined();
+    expect((await p).fileName).toBe('datacard-s1.pdf');
   });
 
   /**
