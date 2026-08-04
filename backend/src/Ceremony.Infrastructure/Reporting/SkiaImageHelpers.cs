@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using SkiaSharp;
 
 namespace Ceremony.Infrastructure.Reporting;
@@ -39,6 +40,41 @@ internal static class SkiaImageHelpers
         return SKTypeface.FromFamilyName(FontFamily) ?? SKTypeface.Default;
     }
 
+    // ── 缺字 fallback ────────────────────────────────────────────────────────────
+    // QuestPDF 走 Skia 的 shaper，缺字會自動 fallback；但這裡是 canvas.DrawText 直接用**單一
+    // typeface** 繪製，**完全沒有 fallback**——標楷體沒有的字（現場姓名/地址含 Unicode 增補平面
+    // 罕用字 `𡍼`/`𤆬`/`𣸸`…）會直接畫不出來（留空白，不是豆腐，更難察覺）。故逐字素判斷標楷體
+    // 有沒有該字，沒有就向 OS 要一個有的字型。字級與行距一律沿用標楷體 metrics（見 VerticalAddress
+    // 的 step），fallback 只換字形不換版面，避免地址欄位位移。
+    private static readonly ConcurrentDictionary<int, SKTypeface> FallbackTypefaces = new();
+    private static readonly ConcurrentDictionary<SKTypeface, SKFont> Fonts = new();
+
+    private static SKTypeface TypefaceForElement(string element)
+    {
+        if (!TryFirstCodepoint(element, out var codepoint)) return KaiTypeface;
+        if (KaiTypeface.GetGlyph(codepoint) != 0) return KaiTypeface;
+        return FallbackTypefaces.GetOrAdd(codepoint,
+            cp => SKFontManager.Default.MatchCharacter(null, cp) ?? KaiTypeface);
+    }
+
+    private static bool TryFirstCodepoint(string element, out int codepoint)
+    {
+        codepoint = 0;
+        if (element.Length == 0) return false;
+        if (char.IsHighSurrogate(element[0]))
+        {
+            if (element.Length < 2 || !char.IsLowSurrogate(element[1])) return false;
+            codepoint = char.ConvertToUtf32(element[0], element[1]);
+            return true;
+        }
+        if (char.IsLowSurrogate(element[0])) return false;   // 孤兒低位（理論上不會發生）
+        codepoint = element[0];
+        return true;
+    }
+
+    private static SKFont FontFor(SKTypeface typeface)
+        => Fonts.GetOrAdd(typeface, tf => new SKFont(tf, AddressFontSize) { Edging = SKFontEdging.Alias });
+
     // 文牒垂直地址 canvas 規格。欄寬 = 字級；欄距對應 0.25cm，在兩欄折行時使用。
     // 與文牒嵌入帶等比：AddressColWidthPx px ↔ 0.75cm（見 TextRenderer PhotoAddress 段；TextRenderer
     // 用 0.75/AddressColWidthPx 換算，故放大像素不影響定位，只提高解析度）。
@@ -62,8 +98,9 @@ internal static class SkiaImageHelpers
     }
 
     /// <summary>超過單欄容量折兩欄（2026-07-18 使用者指定「太長的到左邊二行」）；再長仍兩欄（尾端裁切，46+ 字才會發生）。</summary>
+    /// <remarks>字數以字素計（<see cref="VerticalText.ElementCount"/>）——增補平面字在 <c>string.Length</c> 算兩個，會誤判成要折兩欄。</remarks>
     internal static int AddressColumns(string? text)
-        => string.IsNullOrEmpty(text) || text.Length <= AddressCharsPerColumn ? 1 : 2;
+        => VerticalText.ElementCount(text) <= AddressCharsPerColumn ? 1 : 2;
 
     /// <summary>
     /// 產垂直地址 PNG（透明底）。中文直排；英數 / dash / 括號旋轉 90°。
@@ -90,10 +127,11 @@ internal static class SkiaImageHelpers
         // Edging=Alias（不抗鋸齒）：抗鋸齒的邊緣半透明像素在這種窄欄（27px 寬）小字級下佔比高，
         // 疊加印表機網點後視覺上明顯偏灰，客戶反映「地址字要再黑一點」。改無鋸齒後每個像素非黑即透明，
         // 列印出來才是實黑（同 DashedLine 既有的 IsAntialias=false 選擇）。
-        using var font = new SKFont(KaiTypeface, AddressFontSize) { Edging = SKFontEdging.Alias };
+        // 版面（行高/步進/字級）一律以標楷體 metrics 為準；個別缺字才換 typeface 繪製（見 FontFor）。
+        var kaiFont = FontFor(KaiTypeface);
         using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = false };
 
-        var metrics = font.Metrics;
+        var metrics = kaiFont.Metrics;
         var glyphHeight = metrics.Descent - metrics.Ascent;     // = font 行高（≈ 字級）
         var midOffset = -(metrics.Ascent + metrics.Descent) / 2f; // baseline 置中修正
 
@@ -103,19 +141,23 @@ internal static class SkiaImageHelpers
         // 若再照搬「−9」會變 16.6px < 字面 23px → 字會疊在一起（黏住）。故直接用行高當步進。
         var step = glyphHeight;
 
-        // 平均拆欄（單欄時全給右欄）：右欄先讀、多的字給右欄，兩欄頂端對齊。
-        var rightCount = columns == 1 ? text.Length : (text.Length + 1) / 2;
+        // 逐「字素」而非逐 char：增補平面罕用字（`𡍼` 等）佔兩個 char，逐 char 走訪會拆成兩個孤兒
+        // surrogate → 兩格空白（見 docs/gotchas.md）。
+        var elements = VerticalText.Elements(text).ToArray();
 
-        for (var i = 0; i < text.Length; i++)
+        // 平均拆欄（單欄時全給右欄）：右欄先讀、多的字給右欄，兩欄頂端對齊。
+        var rightCount = columns == 1 ? elements.Length : (elements.Length + 1) / 2;
+
+        for (var i = 0; i < elements.Length; i++)
         {
             var inRight = i < rightCount;
             var colCenterX = inRight ? width - AddressColWidthPx / 2f : AddressColWidthPx / 2f;
             var y = (inRight ? i : i - rightCount) * step;
             if (y > height) continue; // 超出欄高的字略過（46+ 字才會發生），不可 break——右欄溢出時左欄還要畫
-            var c = text[i];
-            var s = c.ToString();
+            var s = elements[i];
+            var font = FontFor(TypefaceForElement(s));
 
-            if (IsRotatedChar(c))
+            if (IsRotatedElement(s))
             {
                 canvas.Save();
                 canvas.Translate(colCenterX, y + glyphHeight / 2f);
@@ -160,6 +202,10 @@ internal static class SkiaImageHelpers
         using var data = image.Encode(SKEncodedImageFormat.Png, 100);
         return data.ToArray();
     }
+
+    // 旋轉判定只針對半形英數與 -()，全部是單一 char；多 char 的字素（增補平面字／帶 IVS）一律直排。
+    private static bool IsRotatedElement(string s)
+        => s.Length == 1 && IsRotatedChar(s[0]);
 
     private static bool IsRotatedChar(char c)
         => (c is >= 'a' and <= 'z')

@@ -1049,4 +1049,86 @@ public sealed class RendererSmokeTests
         png.Should().NotBeNullOrEmpty();
         png[0].Should().Be(0x89);
     }
+
+    // ── 造字（Unicode 增補平面罕用字）回歸鎖 ────────────────────────────────────────
+    // 2026-08-04 客訴「舊系統的造字印得出來，新系統只有收據、資料卡陽上正常，其他都亂碼」。
+    // 現場姓名含 CJK Ext-B（U+20000 以上）罕用字，UTF-16 佔兩個 char；直書路徑原本逐 char 走訪
+    // → surrogate pair 被拆成兩個孤兒碼位（豆腐／空白），且列數多算一列連帶縮錯字級。
+    // 以下全部以「字素」為單位，任何一條掉了就是同一個 bug 回來了。見 docs/gotchas.md。
+
+    private const string Rare = "\U0002135C";   // 𡍼 U+2135C，dev DB Signups.Name / Believers.DeadName* 實有
+
+    [Fact]
+    public void Stack_KeepsSupplementaryPlaneCharIntact()
+    {
+        var lines = VerticalText.Stack(Rare + "家歷").Split('\n');
+        lines.Should().Equal([Rare, "家", "歷"], "增補平面字是一個字＝一列，不可被拆成兩個孤兒 surrogate");
+        lines[0].Should().HaveLength(2, "該字素本身仍是完整的 surrogate pair（兩個 char）");
+    }
+
+    [Theory]
+    [InlineData("\U0002135C家歷", 3)]
+    [InlineData("\U0002135C\U000241AC", 2)]
+    [InlineData("　\U0002135C家", 3)]           // 開頭全形空格照算一列（既有規則）
+    [InlineData("陳明", 2)]
+    public void ElementCount_CountsWhatTheEyeSees(string name, int expected)
+        => VerticalText.ElementCount(name).Should().Be(expected);
+
+    // 列數是**字級的輸入**：多算一列會讓整組字級被縮小，牌位/文牒的字會無故變小。
+    [Fact]
+    public void GroupFontPt_CountsSupplementaryCharAsOneRow()
+    {
+        var rare = VerticalText.GroupFontPt(0.6 * PtPerCm, (Rare + "家歷", 1.5));
+        var plain = VerticalText.GroupFontPt(0.6 * PtPerCm, ("陳家歷", 1.5));
+        rare.Should().BeApproximately(plain, 1e-9, "𡍼家歷 與 陳家歷 同為 3 列，字級必須一樣");
+        (rare / PtPerCm).Should().BeApproximately(1.5 / 3, 1e-6);
+    }
+
+    [Fact]
+    public void MatrixLayout_CountsSupplementaryCharAsOneRow()
+    {
+        var rare = VerticalText.MatrixLayout(0.6, 5.4, (Rare + "姓歷代祖先", "蔡黃氏"));
+        var plain = VerticalText.MatrixLayout(0.6, 5.4, ("蔡姓歷代祖先", "蔡黃氏"));
+        rare.Should().Be(plain, "字素數相同 → 字級與下排起點必須完全一致");
+    }
+
+    // 折欄門檻也吃字數：以 .Length 計會讓含造字的地址提早折成兩欄（帶寬跟著變 → 版面位移）。
+    [Fact]
+    public void AddressColumns_CountsSupplementaryCharAsOneChar()
+    {
+        var capacity = SkiaImageHelpers.AddressCharsPerColumn;
+        var addr = Rare + new string('號', capacity - 1);       // 恰好塞滿單欄的字素數
+        VerticalText.ElementCount(addr).Should().Be(capacity);
+        SkiaImageHelpers.AddressColumns(addr).Should().Be(1, "字素數沒超過容量就不該折兩欄");
+    }
+
+    // 文牒直書地址走 SkiaSharp canvas.DrawText（單一 typeface，**沒有**缺字 fallback）：
+    // 修好 surrogate 之後，標楷體若沒有該字仍會整字畫不出來（留空白）。這條鎖住 fallback 有生效。
+    [Fact]
+    public void Skia_VerticalAddress_DrawsSupplementaryPlaneChar()
+    {
+        using var bitmap = SkiaSharp.SKBitmap.Decode(SkiaImageHelpers.VerticalAddress(Rare + "北市"));
+
+        // 第一個字素佔的橫帶（頂端到 1/4 高的第一格）必須有墨；沒有＝字被吃掉了
+        var rowHeight = bitmap.Height / (double)SkiaImageHelpers.AddressCharsPerColumn;
+        var inkInFirstRow = 0;
+        for (var y = 0; y < (int)rowHeight; y++)
+            for (var x = 0; x < bitmap.Width; x++)
+                if (bitmap.GetPixel(x, y).Alpha != 0) inkInFirstRow++;
+
+        inkInFirstRow.Should().BeGreaterThan(0, "增補平面字必須畫得出來（標楷體沒有就要 fallback 到有的字型）");
+    }
+
+    // 端到端：六種報表都吃得下含造字的姓名/地址（不丟例外、產得出 PDF）。
+    [Fact]
+    public void AllRenderers_AcceptSupplementaryPlaneNames()
+    {
+        var name = Rare + "家歷代祖先";
+        var addr = "南投縣竹山鎮" + Rare + "路1號";
+
+        ShouldBePdf(new ReceiptRenderer().Render(new ReceiptData(name, "557", addr, "500", "A001", "", "115", "8", "4")));
+        ShouldBePdf(new TabletRenderer().Render(new TabletData("A001", null, null, N(name), N(name), 0.6, TabletTemplate.Base)));
+        ShouldBePdf(new TextRenderer().Render(new TextData("A001", null, null, N(name), N(name), addr, TextTemplate.Base)));
+        ShouldBePdf(new WorshipRenderer().Render(new WorshipData("A001", N(name), WorshipTemplate.Base)));
+    }
 }

@@ -182,16 +182,18 @@ public sealed class ReceiptRenderer
         var capacityEm = CoverAddressWidthCm / (fontPt / PointsPerCm) * 0.97;
         var lines = 1;
         var used = 0.0;
-        foreach (var ch in address)
+        // 逐 Rune 而非逐 char：增補平面罕用字（`𡍼` 等）佔兩個 char，逐 char 會把一個全形字算成兩格
+        // → 高估行數 → 字級無謂地降一階（見 docs/gotchas.md）。
+        foreach (var rune in address.EnumerateRunes())
         {
-            if (ch is '\n')
+            if (rune.Value is '\n')
             {
                 lines++;
                 used = 0;
                 continue;
             }
 
-            var em = ch < 0x1100 ? 0.5 : 1.0;                    // 0x1100 以下＝ASCII/拉丁/標點，視為半形
+            var em = rune.Value < 0x1100 ? 0.5 : 1.0;            // 0x1100 以下＝ASCII/拉丁/標點，視為半形
             if (used + em > capacityEm + 1e-9)
             {
                 lines++;

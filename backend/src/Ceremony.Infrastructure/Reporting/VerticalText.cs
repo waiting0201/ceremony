@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 
 namespace Ceremony.Infrastructure.Reporting;
@@ -7,23 +8,41 @@ namespace Ceremony.Infrastructure.Reporting;
 /// 共用同一套規則，避免各 renderer 各自重複（並各自踩同樣的雷）。
 /// </summary>
 /// <remarks>
-/// 兩個雷（見 docs/gotchas.md）：
+/// 三個雷（見 docs/gotchas.md）：
 /// 1. 全形標楷體字寬 ≈ 欄寬，靠「窄欄自動換行」會被 QuestPDF **靜默丟字** → 改用 <see cref="Stack"/> 顯式每字一行、且不要 .Width()。
 /// 2. 次要姓名格 RDLC `CanGrow=true`，名目格高很矮；可用高度要取「到下一格的列距」而非名目格高，
 ///    否則 <see cref="FitFontPt"/> 會過度縮小 → 用列距才不過縮又不重疊。
+/// 3. 「一個字」**不等於**一個 <c>char</c>：現場姓名含 Unicode 增補平面罕用字（`𡍼`/`𤆬`/`𣸸`…，
+///    U+20000 以上，UTF-16 佔兩個 code unit）。逐 <c>char</c> 走訪會把 surrogate pair 拆成兩個孤兒
+///    碼位 → 印成兩格豆腐，且列數多算一列連帶把整組字級縮錯。**本檔一律以 <see cref="Elements"/>
+///    （text element / 字素）為單位**，不可再出現 `foreach (var ch in ...)` 或 `name.Length`。
 /// </remarks>
 internal static class VerticalText
 {
     private const double PointsPerCm = 28.3464567;
 
+    /// <summary>
+    /// 把字串切成「人眼看到的一個字」。用 text element（字素）而非 <c>char</c>：
+    /// 增補平面字（surrogate pair）與帶異體字選擇器（IVS）的字都會維持成一個單位。
+    /// </summary>
+    public static IEnumerable<string> Elements(string text)
+    {
+        var e = StringInfo.GetTextElementEnumerator(text);
+        while (e.MoveNext()) yield return (string)e.Current;
+    }
+
+    /// <summary>直書列數＝字素數（不是 <c>string.Length</c>）。空字串／null 回 0。</summary>
+    public static int ElementCount(string? text)
+        => string.IsNullOrEmpty(text) ? 0 : new StringInfo(text).LengthInTextElements;
+
     /// <summary>每字一行（以 \n 分隔），讓 QuestPDF 逐字垂直堆疊，而非靠窄欄自動換行（會丟字）。</summary>
     public static string Stack(string text)
     {
         var sb = new StringBuilder(text.Length * 2);
-        foreach (var ch in text)
+        foreach (var element in Elements(text))
         {
             if (sb.Length > 0) sb.Append('\n');
-            sb.Append(ch);
+            sb.Append(element);
         }
         return sb.ToString();
     }
@@ -42,10 +61,11 @@ internal static class VerticalText
         foreach (var (name, avail) in cells)
         {
             if (string.IsNullOrWhiteSpace(name)) continue;
-            // 列數必須與 Stack 的渲染列數一致：Stack 逐字一列、**不 trim**（含開頭/結尾/中間空格）。
-            // 用 name.Length（非 Trim().Length）—— 否則開頭/結尾全形空格（U+3000，常用來把名字往下推作排版）
-            // 會被這裡 trim 掉而少算一列 → 字級沒縮 → Stack 多渲染的那列溢出、蓋到下一格（疊字）。
-            var n = name!.Length;
+            // 列數必須與 Stack 的渲染列數一致：Stack 逐「字素」一列、**不 trim**（含開頭/結尾/中間空格）。
+            // 不 trim —— 否則開頭/結尾全形空格（U+3000，常用來把名字往下推作排版）會被這裡 trim 掉而少算
+            // 一列 → 字級沒縮 → Stack 多渲染的那列溢出、蓋到下一格（疊字）。
+            // 用 ElementCount 而非 .Length —— 增補平面字（`𡍼` 等）在 .Length 算兩格，會多縮一列的字級。
+            var n = ElementCount(name);
             if (n <= 0) continue;
             var maxPt = avail / n * PointsPerCm;
             if (maxPt < fit) fit = maxPt;
@@ -81,9 +101,9 @@ internal static class VerticalText
         var maxBottom = 0;
         foreach (var (top, bottom) in columns)
         {
-            // 與 Stack/GroupFontPt 一致：不 trim，空格也算一列
-            var t = string.IsNullOrWhiteSpace(top) ? 0 : top!.Length;
-            var b = string.IsNullOrWhiteSpace(bottom) ? 0 : bottom!.Length;
+            // 與 Stack/GroupFontPt 一致：不 trim，空格也算一列；並以字素計（增補平面字算一列）
+            var t = string.IsNullOrWhiteSpace(top) ? 0 : ElementCount(top);
+            var b = string.IsNullOrWhiteSpace(bottom) ? 0 : ElementCount(bottom);
             if (t > maxTopAny) maxTopAny = t;
             if (b > 0)
             {
