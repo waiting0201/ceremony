@@ -11,8 +11,9 @@
   "include": [
     "src/**/*.d.ts",
     "src/**/*.spec.ts",
-    /* electron/ 的純函式（紙張尺寸表 / header 解析）由 src/app/core/print/electron-paper.spec.ts
-       測試；unit-test builder 只掃 src/，所以 spec 放 src、被測檔在這裡補進型別檢查範圍。 */
-    "electron/paper.ts"
+    /* electron/ 的純函式（helper 輸出解析 / 視窗標題 / log 欄位白名單）由
+       src/app/core/print/electron-print-form.spec.ts 測試；unit-test builder 只掃 src/，
+       所以 spec 放 src、被測檔在這裡補進型別檢查範圍。 */
+    "electron/print-form-core.ts"
   ]
 }

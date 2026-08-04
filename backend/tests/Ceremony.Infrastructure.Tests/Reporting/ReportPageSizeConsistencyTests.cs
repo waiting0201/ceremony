@@ -43,6 +43,15 @@ public sealed class ReportPageSizeConsistencyTests
             "datacard", "receipt", "tablet", "text", "worship", "worshipcard");
     }
 
+    [Fact]
+    public void Every_report_type_has_a_driver_form_name()
+    {
+        // 表單名是 Ceremony.PrintForm 拿去比對驅動紙張清單的 key（見 PrinterFormMatcher）。
+        // 新增第 7 種報表卻忘了給名字，失敗模式會是「現場印在 A4 上」——這裡把它變成 build 失敗。
+        ReportPageSizes.All.Values.Select(v => v.FormName).Should()
+            .OnlyContain(n => !string.IsNullOrWhiteSpace(n)).And.OnlyHaveUniqueItems();
+    }
+
     [Theory]
     [InlineData("datacard", "210000x148000")]
     [InlineData("tablet", "115000x255000")]

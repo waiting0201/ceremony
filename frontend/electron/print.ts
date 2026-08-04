@@ -11,8 +11,11 @@
 //
 // ⚠️ 紙張尺寸不在這一層。舊系統「RDLC 只是排版，真正尺寸由 DeviceInfo 決定」，新系統對應的是
 // 後端 ReportPageSizes.cs → QuestPDF page.Size()：**產 PDF 那一刻就定案**。送印端不指定任何
-// 紙張 / 縮放 / 方向參數（那正是 v2.3.7/v2.3.8 客訴的來源）。現場要做的是在驅動裡建對的自訂紙張。
-// 決策見 docs/blueprints/print-channel-electron.md。
+// 紙張 / 縮放 / 方向參數（那正是 v2.3.7/v2.3.8 客訴的來源）。
+//
+// 唯一的例外是 print-form.ts：開視窗前把**驅動的每使用者預設紙張**選成該報表對應的自訂表單。
+// 那不是送印參數（我們沒有多傳任何東西給 Chromium），而是 PrintDlgEx 開啟時的初值，
+// 也正是舊系統唯一會主動設定的那一格。決策見 docs/blueprints/print-channel-electron.md 決策 9。
 import { BrowserWindow } from 'electron';
 import { promises as fs } from 'fs';
 import os from 'os';
@@ -20,6 +23,8 @@ import path from 'path';
 import crypto from 'crypto';
 import { streamApiToFile } from './api-stream';
 import { logPrintEvent, sweepOldLogs } from './print-log';
+import { applyReportForm, noteViewerOpened, releaseReportForm } from './print-form';
+import { logFields, viewerTitle } from './print-form-core';
 
 export interface PrintResult {
   ok: boolean;
@@ -90,6 +95,8 @@ export async function openPdfInViewer(
  * - 刻意 **不** 加 `#toolbar=0`：那顆工具列列印鈕正是整條通道的入口。
  * - temp 檔在 `closed` 才刪：提早刪會讓使用者按列印時檔案已不在。
  * - 視窗 parent 綁主視窗：原生列印對話框才不會躲到主視窗後面（看起來像「按了沒反應」）。
+ * - 紙張預選（`applyReportForm`）必須在**開窗之前**完成：使用者有可能一開窗就按 🖨。
+ *   它是 best-effort，任何結果都不影響回傳的 ok——helper 失敗只會讓紙張回到驅動預設。
  */
 async function showViewerWindow(
   reportType: string,
@@ -97,26 +104,34 @@ async function showViewerWindow(
   parent: BrowserWindow | null,
   log: { via: string; bytes: number; pageSizeHeader?: string | null; signupCount?: string | null },
 ): Promise<PrintResult> {
+  const form = await applyReportForm(reportType).catch(() => ({ result: 'helper-error' }) as const);
+
   try {
     const win = new BrowserWindow({
       width: 900,
       height: 1000,
-      title: '列印預覽 — 請按工具列的列印鈕',
+      title: viewerTitle(form),
       autoHideMenuBar: true,
       ...(parent ? { parent } : {}),
       webPreferences: { plugins: true, contextIsolation: true, nodeIntegration: false },
     });
 
-    win.on('closed', () => void safeUnlink(pdfPath));
+    // temp 檔與紙張設定的生命週期一模一樣，共用同一個 hook 最不容易失聯。
+    win.on('closed', () => {
+      void safeUnlink(pdfPath);
+      void releaseReportForm();
+    });
     await win.loadFile(pdfPath);
+    noteViewerOpened();
     win.focus();
 
-    void logPrintEvent({ reportType, ...log, result: 'opened' });
+    void logPrintEvent({ reportType, ...log, ...logFields(form), result: 'opened' });
     return { ok: true };
   } catch (e) {
     void safeUnlink(pdfPath);
+    void releaseReportForm(); // 開窗失敗也要把驅動設定還原回去
     const error = (e as Error).message;
-    void logPrintEvent({ reportType, ...log, result: 'error', error });
+    void logPrintEvent({ reportType, ...log, ...logFields(form), result: 'error', error });
     return { ok: false, error };
   }
 }

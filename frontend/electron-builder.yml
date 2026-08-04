@@ -21,6 +21,11 @@ extraResources:
   - from: ../backend/publish/win-x64
     to: api
     filter: ['**/*', '!**/*.pdb']
+  # 列印前把驅動的每使用者預設紙張選成該報表的自訂表單（~2MB，Windows-only）。
+  # 由 backend/publish.sh|ps1 的第二段產出。缺檔時 print-form.ts 回 helper-missing、列印照常。
+  - from: ../backend/publish/win-x64-printform
+    to: printform
+    filter: ['**/*', '!**/*.pdb']
   - from: build/prereqs
     to: prereqs
     filter: ['**/*']

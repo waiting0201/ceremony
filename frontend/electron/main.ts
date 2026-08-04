@@ -11,6 +11,7 @@ import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
 import { openPdfInViewer, openReportInViewer, sweepTempDir } from './print';
 import { printLogPath } from './print-log';
+import { recoverPendingFormRestore, releaseReportForm } from './print-form';
 
 let mainWindow: BrowserWindow | null = null;
 let prereqs: PrereqReport;
@@ -83,6 +84,9 @@ async function loadAppWithApi(base: string): Promise<void> {
 
 async function bootstrap(): Promise<void> {
   void sweepTempDir(); // 清上次崩潰留下的列印暫存 PDF
+  // 上次崩潰時可能還停在「某報表的紙張」——那份設定是使用者工作階段共用的（Word/Excel 也會吃到），
+  // 所以開機先把它還原回去。見 docs/blueprints/print-channel-electron.md 決策 9。
+  void recoverPendingFormRestore();
   prereqs = await detectPrereqs();
   config = await readConfig();
   // default-config.json 為「連線權威」：每次啟動以出廠種子覆寫 config 的連線（保留既有 jwtKey），
@@ -114,6 +118,8 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   stopSidecar();
   void sweepTempDir();
+  // 正常關閉時檢視器視窗的 closed 通常已經還原過了；這裡補一次，接住「視窗還開著就關 app」。
+  void releaseReportForm();
 });
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) bootstrap();

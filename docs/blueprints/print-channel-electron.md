@@ -16,8 +16,8 @@ related_docs:
   - ../design/api-design.md
   - ../design/performance.md
   - ../gotchas.md
-keywords: [列印, 印表機, 紙張, PrintDlgEx, 原生對話框, 預覽視窗, PDF viewer, plugins, DeviceInfo, ReportPageSizes, 頁面範圍, 診斷紀錄, 串流取檔, streamApiToFile]
-last_updated: 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早)
+keywords: [列印, 印表機, 紙張, 自訂表單, PaperSizes, DEVMODE, SetPrinter, PrintDlgEx, 原生對話框, 預覽視窗, PDF viewer, plugins, DeviceInfo, ReportPageSizes, PrinterFormMatcher, 頁面範圍, 診斷紀錄, 串流取檔, streamApiToFile]
+last_updated: 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早)
 ---
 
 ## 背景與動機
@@ -28,7 +28,8 @@ last_updated: 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true
 |---|---|---|
 | 2026-07-31 | 「舊系統按列印不用調設定；新系統有的可以、有的要手動調、有的讀不到印表機」 | 自建列印對話框 + `silent:true` 指定印表機／份數／縮放 |
 | 2026-08-01 | 「可以選印表機，但**無法進去印表機裡面的設定**；格式也不對，之前調好的位置都跑掉了」 | 把送印基準攤成 scale/orientation/paper 三個軸讓現場自救 |
-| 2026-08-02 | （承上）位置對不對只能靠現場土法對照，且列印完畫面會卡在「列印中」 | **本次：整條拆掉，回歸舊系統形狀** |
+| 2026-08-02 | （承上）位置對不對只能靠現場土法對照，且列印完畫面會卡在「列印中」 | 整條拆掉，回歸舊系統形狀 |
+| 2026-08-04 | 「舊系統送出列印會自動找到印表機的設定，新系統不行」（對話框有跳、列印 OK，只是紙張每次都要手動選） | **本次：補回舊系統的表單名比對（決策 9）** |
 
 根因是**新系統把送印參數攬在自己手上**。自建對話框沒有「印表機內容」按鈕（進不去驅動的紙匣、
 進紙方式、自訂紙張），而我們在 macOS 上也無法證明自己組出來的 `webContents.print` 選項
@@ -45,7 +46,9 @@ PrintDialog                             → Windows 原生（印表機/份數/�
 printDocument.Print()
 ```
 
-程式只負責產內容與預覽，**送印參數一個都不記**。
+程式只負責產內容與預覽，**送印參數一個都不記**——除了一件事：跳 `PrintDialog` 之前
+用中文表單名去驅動的紙張清單撈同名表單（`SignupForm.cs:1770-1787`）。
+2026-08-02 那版漏掉了這一格，2026-08-04 由決策 9 補回。
 
 ### 關鍵結構：排版與紙張尺寸是兩層
 
@@ -85,22 +88,31 @@ Windows 的實際行為我們驗不了。檢視器那條路是**改版前使用�
 
 **代價**：多一次點擊（開視窗 → 按工具列列印鈕）。舊系統也是這樣。
 
-### 2. 送印基準 = 完全不參與
+### 2. 送印基準 = 不參與「這一次列印」的參數，但預先把驅動調到對的紙
+
+> **2026-08-04 修訂**（原標題為「送印基準 = 完全不參與」）。原本的論證仍然成立，
+> 但當時把「依名稱指定驅動自訂 form」也一起劃到界線外，那是錯的——見決策 9。
 
 `buildPrintOptions`、`print-options.ts`、三個軸、`print-settings.json`、v1→v2 遷移，
-**全部刪除**。程式不再有任何「送印選項」的概念。
+**全部刪除**。程式不再有任何「送印選項」的概念：不呼叫 `webContents.print`、
+不傳 `pageSize`／`scaleFactor`／`margins`／`deviceName`，**這一次列印**的參數一個都不由我們決定。
 
 連帶的好處是**驗收前提自動成立**：`printing-reports-positions.md` 那套 ±0.05cm 的座標，
 當初就是在「驅動 DEVMODE + Chromium PDF plugin 的 fit-to-printable-area」下實機驗收的
 （v2.3.6 以前的 `window.open('blob:…pdf')` 路徑）。現在的路徑逐位元就是它——
 不需要再證明「D ≡ V」，因為 D 就是 V。
 
+**界線在哪**：我們動的是**驅動的每使用者預設 DEVMODE**（＝ Windows 原生的「列印喜好設定」，
+PrintDlgEx 開啟時的初值來源），不是 Electron/Chromium 的送印參數。使用者仍可在對話框裡改掉，
+決定權沒有被拿走。這與 v2.3.7 的 `pageSize:{width,height}` 是**相反**的東西：
+那個是驅動不認得的 Custom 尺寸，這個是驅動自己的表單 ID。詳見決策 9。
+
 ⚠️ **與舊系統唯一的結構性差異**：舊系統 `DrawImage(pageImage, ev.PageBounds)` 是
 **非等比拉滿整張紙**，所以驅動裡是什麼紙都無所謂；Chromium PDF 檢視器是
 **fit-to-printable-area 等比縮放置中**。驅動選 A4 印 21×14.8 的資料卡，舊系統會拉滿、
 新系統會縮小置中 → 位置跑掉。
-**所以現場每台印表機必須依 `ReportPageSizes` 建正確的自訂紙張 form**，
-見 [../design/infrastructure.md](../design/infrastructure.md)。
+**所以現場每台印表機必須依 `ReportPageSizes` 建正確的自訂紙張 form**（名稱與尺寸都要對，
+決策 9 會依名稱去選它），見 [../design/infrastructure.md](../design/infrastructure.md)。
 
 ⚠️ 舊系統留下的自訂 form **尺寸對新系統是錯的**（它靠拉伸吃掉了差異）：
 
@@ -176,6 +188,80 @@ Windows 的實際行為我們驗不了。檢視器那條路是**改版前使用�
 隱私規則不變：不得出現 signupId、姓名、堂號、報表內容、token、temp 完整路徑。
 `deviceName` 隨著印表機清單一起消失，這條反而更乾淨了。見 [../design/security.md](../design/security.md)。
 
+**2026-08-04 追加欄位**（決策 9）：`formTarget`（想要哪張紙）、`formResult`、`formKind`、
+`formMismatchMm`、`formMs`、`printerVirtual`、`printerHash`；另有兩種獨立行
+`form-restore-recovered` / `form-restore-failed`（還原成功不寫，避免每次列印變兩行）。
+
+⚠️ 印表機**原始名稱**仍然不寫。現場名稱常是 `\\PC-王小明\HP LaserJet 1020`，
+等於同時洩漏使用者姓名與內網主機名——比隱私名單上任何一項都嚴重。
+helper 會回傳原始名稱（還原時需要指名同一台），但那條路只到還原 journal；
+`print-form-core.ts` 的 `logFields()` 是**白名單**，`electron-print-form.spec.ts` 有測試鎖住它。
+
+### 9. 開視窗前把驅動的紙張預選成該報表的自訂表單（2026-08-04）
+
+**客訴**：「使用者在印表機設定好，舊系統送出列印會自動找到印表機的設定，新系統不行。」
+現場症狀是原生對話框有正常跳出、列印也 OK，只是**紙張停在 A4／驅動預設，每次都要手動改**。
+
+**根因是決策 2 劃錯了一條界線。** 舊系統除了「不記任何送印偏好」之外，還做了一件事——
+在跳 `PrintDialog` 之前用中文表單名比對驅動的紙張清單（`SignupForm.cs:1770-1787`，
+註解原文「取得印表機尺寸設定」）：
+
+```csharp
+foreach (PaperSize ps in printDialog.PrinterSettings.PaperSizes)
+    if (ps.PaperName == paperSize.PaperName) { pss = ps; break; }
+printDialog.Document.DefaultPageSettings.PaperSize = pss != null ? pss : paperSize;
+```
+
+命中的 `pss` 帶著驅動自己的 `RawKind`（＝ DEVMODE 的 `dmPaperSize` 表單 ID），驅動因此自動套用
+該表單綁定的尺寸與紙匣。**一台印表機只有一個預設紙張，六種報表最多一種會對**——
+少了這段比對，其餘五種每次都得手動選。原本「不做什麼」寫著「依名稱指定驅動自訂 form」，
+那條就是本次客訴的來源，已刪除。
+
+**注入點**：JS 層沒有辦法（`silent:false` 帶不進設定、`silent:true` 的 `pageSize` 只能給
+驅動不認得的 Custom 尺寸，兩條都已實證，見 [../gotchas.md](../gotchas.md)）。
+唯一的注入點在 Win32：**`SetPrinter` Level 9 的每使用者預設 DEVMODE 正是 PrintDlgEx 的初值來源**，
+而且只需 `PRINTER_ACCESS_USE`（Level 8 的全域預設才要系統管理員）。
+
+```
+按列印 → 取檔成功
+  → Ceremony.PrintForm.exe apply <reportType>     ← best-effort，3s 逾時
+       PrinterSettings.PaperSizes 依中文名比對（＝舊系統那段，逐行相同）
+       → OpenPrinter → DocumentProperties(讀) → 改 dmPaperSize → DocumentProperties(驗證)
+       → SetPrinter(Level 9)
+  → 開檢視器視窗（標題依結果可能帶 ⚠ 警告）
+  → 使用者按 🖨 → PrintDlgEx 初值已是對的紙
+  → 視窗 closed → 還原
+```
+
+**落點是獨立 exe 而不是 sidecar**，三個理由：
+(a) `System.Drawing.Common` 的 API 全標 `[SupportedOSPlatform("windows")]`，塞進 `Ceremony.Api`
+就得把 TFM 改成 `net10.0-windows`，`Ceremony.Api.IntegrationTests` 跟著改 → macOS 開發機再也跑不了整合測試；
+(b) `DocumentProperties` 是驅動程式碼，網路印表機離線時會卡住整條執行緒且不吃 CancellationToken，
+獨立子行程才砍得掉；
+(c)「改這台電腦的印表機預設值」是桌面端的機器狀態變更，不該躲在 HTTP endpoint 後面。
+
+**尺寸不符時選它，但絕不安靜。** 現場很可能還留著舊系統建的同名表單（尺寸是錯的）。
+拒選只會讓客訴原封不動；而選了錯尺寸的同名表單一定比 A4 好（資料卡等比縮 ~3.9% vs 整份下移數公分）。
+代價是可見度：`formResult:"mismatch"` + `formMismatchMm` 進診斷紀錄，**檢視器視窗標題帶 ⚠ 警告**。
+`not-found`（驅動裡根本沒這張紙）同樣警告——那正是客訴的狀態。
+容差 **±0.5mm**：下界是 1/100 吋的量化步階 0.254mm 的兩倍，上界必須 <1.0mm 才抓得到舊薦牌表單的 −1.0mm。
+`PrinterFormMatcherTests` 用五張真實舊表單當 fixture 鎖住這個值。
+
+**副作用必須還原。** 每使用者預設 DEVMODE 是整個使用者工作階段共用的（Word/Excel 開新文件也會吃到），
+舊系統沒有這個副作用。所以：refcount（最後一個檢視器視窗關掉才還原，否則會弄掉另一個視窗的紙）
++ `%APPDATA%/Ceremony/print-form-restore.json` journal（app 崩潰時留下，下次啟動由
+`recoverPendingFormRestore()` 撿回來）。還原只寫回四個純量（kind/fields/w/h）而不是整包 DEVMODE blob
+——blob 會過期，使用者中途改過的驅動設定會被整包蓋掉。
+
+**不可退步**：`applyReportForm()` 的任何結果都不得影響 `PrintResult.ok`
+（`PrintService.report()` 會把 `ok:false` 丟成使用者看得到的紅字）。非 Windows 直接短路、
+exe 缺檔回 `helper-missing`、3s/3.5s 雙層逾時、**helper 的 exit code 一律是 0**（成敗只看 stdout 的
+`result`，用 exit code 表達失敗只會誘導呼叫端寫出「非 0 就當錯誤」的分支）。
+
+**表單名的 SSoT 在 `ReportPageSizes.FormName`**，與尺寸相鄰：名字用來比對、尺寸用來驗證，
+分開放就會有第二個真相來源。`ReportPageSizeConsistencyTests` 斷言每種報表都有非空且互異的表單名
+——新增第 7 種報表卻忘了給名字會是 build 失敗，不是現場印在 A4 上。
+
 ### 8. 順帶修掉「列印完卡在列印中」
 
 **現場回報（2026-08-02）**：列印完成後畫面卡在「列印中」，無法再選下一個列印，
@@ -223,10 +309,14 @@ UI（右鍵選單 / 批次區 / 新增後列印 / 報表預覽頁）
 | Application | `Reports/BatchPrintJob(Service).cs` | 成品檔路徑、TTL/上限刪檔、啟動殘檔掃描 |
 | Infrastructure | `Reporting/PdfSharpMerger.cs` | `PdfReader.Open(path)` → `Save(FileStream)` |
 | Api | `Controllers/ReportsController.cs` | `AppendPageSize()`；`/file` 用 `DeleteOnClose` 串流 |
+| Domain | `Ceremony.Domain/Reports/PrinterFormMatcher.cs` | 報表 → 驅動表單的比對與 ±0.5mm 容差（平台中立、可測） |
+| PrintForm | `Ceremony.PrintForm/`（Windows-only exe） | `PrinterSettings.PaperSizes` 名稱比對 + `SetPrinter` Level 9 + 還原 |
 | Electron | `electron/api-stream.ts` | `streamApiToFile`（備份下載共用） |
 | Electron | `electron/print.ts` | `openReportInViewer` / `openPdfInViewer` / `sweepTempDir` |
+| Electron | `electron/print-form.ts` | 子行程呼叫、refcount、還原 journal（best-effort） |
+| Electron | `electron/print-form-core.ts` | 純函式：輸出解析 / 視窗標題 / log 欄位白名單 |
 | Electron | `electron/print-log.ts` | 診斷紀錄（寫入 / 輪替 / 過期清理） |
-| Electron | `electron/main.ts` | `plugins: true`、2 個列印 IPC、temp/log 清理 |
+| Electron | `electron/main.ts` | `plugins: true`、2 個列印 IPC、temp/log 清理、開機還原紙張 |
 | Renderer | `core/print/print.service.ts` | 唯一列印入口（約 110 行，無對話框、無設定） |
 | Renderer | `core/reports/batch-print.service.ts` | `render()`（只等渲染）/ `run()`（連成品取回） |
 | Renderer | `shared/progress-overlay/` | 批次渲染進度 |
@@ -243,31 +333,62 @@ IPC `ceremony:listPrinters` / `getPrintSettings` / `savePrintSetting` / `printPd
 - **`silent:false` 直接跳原生對話框**：隱藏視窗當 owner 會讓對話框躲到主視窗後面；
   檢視器那條路涵蓋同樣需求且是使用者已經走過的路。見決策 1。
 - **靜默直印**：使用者要能先看到預覽。
-- **依名稱指定驅動自訂 form**：我們不傳任何紙張參數了，這件事完全交給使用者在驅動裡選。
 - **記住印表機／份數**：原生對話框自己會記（那是 Windows 的每使用者 DEVMODE），
   我們再記一份只會有兩個真相。
+- **批次套用到所有已安裝印表機**（決策 9）：副作用面積 × N、還原風險 × N，
+  收益只有「使用者懶得改預設印表機」。舊系統也只認預設印表機。
+- **Level 8（per-machine）預設**（決策 9）：需要系統管理員，而寺方使用者多半不是；
+  Level 9 才是「列印喜好設定」那個 UI 寫入的位置。
+- **現場可設定的表單名對照表**（決策 9）：名稱是契約，寫死在 `ReportPageSizes.FormName`。
+  多一層可設定就多一個「設錯了但沒人知道」的面。
+- **找不到同名表單時退回相近尺寸**（決策 9）：資料卡與普桌資料卡尺寸完全相同、名稱不同，
+  靜默代換＝印在別種報表的紙上而沒有任何訊號。找不到就是 `not-found` + 標題警告。
 - **後端 append-mode 合併 / 換 PDF library**：見決策 5 的限制說明，等真的撞到再說。
 
 ## 待驗證（Windows 實機，macOS 開發環境驗不了）
 
-### ⚠️ 阻斷性：檢視器工具列的列印鈕
+> 現場已回報「原生對話框有跳、列印也 OK」（2026-08-04 客訴），所以下面第 1 項的
+> (a)(b)(c)(d) 實務上已經過了；第 0 項是決策 9 的阻斷性前提，仍未驗。
 
-**這是整個方案的單一致命未知數**。Electron build 不含 print preview WebUI，
-Chromium PDF viewer 工具列列印鈕按下去的實際行為未經實機確認。
+### ⚠️ 阻斷性 0：PrintDlgEx 是否取每使用者預設 DEVMODE 當初值（決策 9 的前提）
+
+**零程式碼實驗，2 分鐘**：控制台 → 裝置和印表機 → 預設印表機 → 右鍵**列印喜好設定** →
+紙張改成已建好的「資料卡」→ 確定（這個 UI 底層做的事就是 `SetPrinter` Level 9，與 helper 等價）
+→ 開 app 列印資料卡 → 檢視器按 🖨 → 看對話框的「紙張」是不是已經是「資料卡」。
+
+**不通過 → 決策 9 作廢**（helper 白寫），改走 `printui.dll` 路線
+（`rundll32 printui.dll,PrintUIEntry /e /n "<name>"` 幫使用者開列印喜好設定；
+不用 `shell:true`，名稱先與印表機清單做白名單比對），並把否證寫進 gotchas。
+
+### ⚠️ 阻斷性 1：檢視器工具列的列印鈕
+
+Electron build 不含 print preview WebUI，Chromium PDF viewer 工具列列印鈕按下去的實際行為。
 
 1. 任一報名 → 右鍵「列印資料卡」→ 檢視器視窗出現
 2. 按工具列的 🖨
 3. 檢查：(a) 跳出 Windows 原生列印對話框 (b) 有「內容(R)…」按鈕
    (c) 有「頁面範圍」欄位 (d) 按確定真的印出來
 
-**不通過 → 本方案作廢**，改走 `printui.dll` 路線（`rundll32 printui.dll,PrintUIEntry /e /n "<name>"`
-開列印喜好設定；不用 `shell:true`，名稱先與印表機清單做白名單比對）。
+### 決策 9（紙張預選）
+
+1. 六種正確表單都建好後，六種報表各印一次，PrintDlgEx 開啟時紙張＝對應中文表單
+   （含**連續切換不同報表**，驗證 Chromium 沒有快取住第一次的 DEVMODE）
+2. 只留舊尺寸「資料卡」(201.7×142.2) → 仍選中、視窗標題出現 ⚠、
+   log `formResult:"mismatch"` 且 `formMismatchMm ≈ -8.32x-5.76`
+3. 刪掉「文牒」表單 → log `not-found`、標題出現 ⚠、視窗照常開、仍可正常列印
+4. 預設印表機設為 Microsoft Print to PDF → `not-found` + `printerVirtual:true`，不崩不報錯
+5. 關閉檢視器視窗後，「列印喜好設定」的紙張回到原值
+6. 開著視窗時用工作管理員強制結束 app → 重開 → 紙張已還原、
+   log 有 `form-restore-recovered`、journal 檔已刪
+7. 同時開資料卡 + 文牒兩個視窗 → 關掉一個，另一個紙張仍在；兩個都關才還原
+8. 在 PrintDlgEx 裡改選另一台印表機 → 紙張回到那台的預設（已知限制，舊系統相同），不出錯
+9. **非管理員帳號**登入執行 → 全部照常（Level 9 不需 admin 是選型的關鍵前提）
+10. 網路印表機離線／關機時列印 → helper 3 秒內放棄、視窗照常開、log `helper-timeout`
 
 ### 其他
 
 1. **實體對位**：用真正的預印紙印資料卡／薦牌／文牒各一張，量兩個錨點到 0.05cm，
-   與 v2.3.6 的樣張比對 → 應完全一致（同一條路徑）。
-   前提是驅動裡已建好對的自訂紙張。
+   與 v2.3.6 的樣張比對 → 應完全一致（同一條路徑；決策 9 只改紙張預選，沒動送印路徑）。
 2. **頁面範圍續印**：同一個檢視器視窗再按列印，填 `600-1200`，確認只印後半。
 3. **5000 筆**：後端記憶體峰值（工作管理員看 `Ceremony.Api`）、渲染時間、
    `%TEMP%/ceremony-batch/` 有無殘留。

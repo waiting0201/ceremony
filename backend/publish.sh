@@ -10,12 +10,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJ="$ROOT/src/Ceremony.Api/Ceremony.Api.csproj"
 OUT="$ROOT/publish/win-x64"
+PRINTFORM_PROJ="$ROOT/src/Ceremony.PrintForm/Ceremony.PrintForm.csproj"
+PRINTFORM_OUT="$ROOT/publish/win-x64-printform"
 
 echo "Publishing sidecar (framework-dependent .NET 10, win-x64) -> $OUT"
 dotnet publish "$PROJ" \
   -c Release \
   -r win-x64 \
-  --self-contained false \
+  -p:SelfContained=false \
   -p:PublishSingleFile=true \
   -p:IncludeNativeLibrariesForSelfExtract=true \
   -p:DebugType=none \
@@ -25,4 +27,18 @@ dotnet publish "$PROJ" \
 # 移除第三方原生庫的 debug symbols（如 libSkiaSharp.pdb ~80MB），不該進 installer。
 find "$OUT" -name '*.pdb' -delete 2>/dev/null || true
 
-echo "Done. Ceremony.Api.exe in $OUT"
+# 列印前預選驅動自訂表單的小工具（Windows-only，~2MB）。獨立輸出資料夾供 extraResources 對應。
+# 只需 Microsoft.NETCore.App 10（已含在既有的 ASP.NET Core Runtime prereq 裡），不新增 prereq。
+echo "Publishing print-form helper (win-x64) -> $PRINTFORM_OUT"
+dotnet publish "$PRINTFORM_PROJ" \
+  -c Release \
+  -r win-x64 \
+  -p:SelfContained=false \
+  -p:PublishSingleFile=true \
+  -p:DebugType=none \
+  -p:DebugSymbols=false \
+  -o "$PRINTFORM_OUT"
+
+find "$PRINTFORM_OUT" -name '*.pdb' -delete 2>/dev/null || true
+
+echo "Done. Ceremony.Api.exe in $OUT, Ceremony.PrintForm.exe in $PRINTFORM_OUT"

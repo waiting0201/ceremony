@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-08-02 (**「列印通道」段改寫**：送印交回 Windows 原生列印對話框，程式只開 PDF 檢視器視窗；print-settings.json 與所有送印參數移除；自訂紙張 runbook 改標為「不做等於白改」〔Chromium 檢視器是 fit-to-printable-area 等比縮放，不像舊系統非等比拉滿，選錯紙就位置全跑掉〕。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結))
+last_updated: 2026-08-04 (列印通道資料流插入 `Ceremony.PrintForm.exe apply <type>`〔開視窗前依報表名把驅動的每使用者預設紙張選成對應自訂表單，best-effort 3s 逾時，失敗不影響列印〕；打包樹與 CI 步驟補 `resources/printform/`；**自訂紙張 runbook 語意升級**——表單名稱從「建議」變成契約〔程式依名稱比對，名稱不符＝完全不會被選到〕，表格加 reportType 欄，補 ±0.5mm 容差與「尺寸不符仍選它但標題與診斷紀錄帶 ⚠」。見 blueprints/print-channel-electron.md 決策 9。先前 2026-08-02 (**「列印通道」段改寫**：送印交回 Windows 原生列印對話框，程式只開 PDF 檢視器視窗；print-settings.json 與所有送印參數移除；自訂紙張 runbook 改標為「不做等於白改」〔Chromium 檢視器是 fit-to-printable-area 等比縮放，不像舊系統非等比拉滿，選錯紙就位置全跑掉〕。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結))
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -196,9 +196,11 @@ Origin 為 `null`）都算跨源，兩邊都需要。見 [gotchas.md](../gotchas
 寶覺寺法會報名系統-<ver>-setup.exe   ← electron-builder 產出
 ├── electron/                       ← Electron main + preload
 ├── dist/                           ← Angular SPA (renderer)
-└── api/                            ← .NET sidecar
-    └── Ceremony.Api.exe            ← dotnet publish --self-contained --single-file
-        + 所有 dependencies（一檔內）
+├── api/                            ← .NET sidecar
+│   └── Ceremony.Api.exe            ← dotnet publish --self-contained --single-file
+│       + 所有 dependencies（一檔內）
+└── printform/                      ← 列印前預選驅動自訂表單（Windows-only，~2 MB）
+    └── Ceremony.PrintForm.exe      ← publish 腳本第二段；缺檔時列印照常，只是紙張不會被預選
 ```
 
 **Electron main 啟動流程**（**已實作**，實檔見 [frontend/electron/](../../frontend/electron/) `main.ts` / `sidecar.ts` / `config.ts` / `prereq.ts` / `download.ts` / `preload.ts`；下為示意，實作以動態 port + ready check 為準。**注意**：實作用內建 `findFreePort()`（node `net`）取代 `get-port`，因後者為 ESM-only 與 CJS main 不相容）：
@@ -265,14 +267,22 @@ Electron main 開機先偵測 client 是否裝齊必要元件，缺了走 `/prer
 按列印
   → window.ceremony.openReportInViewer(type, apiPath, token)
   → main：Electron net GET {apiBase}{apiPath}（帶 Bearer，串流落 %TEMP%/ceremony-print/）
+  → main：resources/printform/Ceremony.PrintForm.exe apply <type>（best-effort，3s 逾時）
+          ↳ 依中文表單名比對驅動紙張清單 → SetPrinter Level 9 寫每使用者預設 DEVMODE
   → BrowserWindow({ plugins:true, parent: mainWindow }).loadFile(file://x.pdf)
   → 使用者按 Chromium PDF 檢視器工具列的 🖨 → Windows 原生 PrintDlgEx（有「內容」「頁面範圍」）
-  → 視窗 closed → 刪 temp
+  → 視窗 closed → 刪 temp + 還原原本的紙張
 ```
 
 - **沒有列印設定檔**：`print-settings.json` 與所有送印參數（印表機／份數／縮放／方向／紙張）
   已於 2026-08-02 移除。原生對話框自己會記（Windows 的每使用者 DEVMODE），我們再記一份
   只會有兩個真相來源。現場殘留的舊 `print-settings.json` 不再被讀取，留著無害。
+- **程式仍不決定送印參數**（2026-08-04）：紙張預選動的是**驅動的每使用者預設 DEVMODE**
+  （＝「列印喜好設定」裡的值，PrintDlgEx 的初值來源），不是傳給 Chromium 的送印選項；
+  使用者仍可在對話框裡改掉。這是把舊系統唯一會主動設定的那一格補回來——
+  少了它，一台印表機只有一個預設紙張，六種報表最多一種會對。
+  helper 失敗（非 Windows／缺檔／逾時／驅動拒絕）一律略過，**絕不影響列印成敗**。
+  還原快照存 `%APPDATA%/Ceremony/print-form-restore.json`，app 崩潰時由下次啟動撿回。
 - **紙張尺寸在後端定案**：`ReportPageSizes.cs` → QuestPDF `page.Size()`，
   ＝舊系統「RDLC 只是排版，真正尺寸由 `DeviceInfo` 決定」的位置。送印端不再二次指定。
 - **PDF 不經 renderer**：`streamApiToFile`（與備份下載共用）直接落檔，
@@ -286,26 +296,34 @@ Electron main 開機先偵測 client 是否裝齊必要元件，缺了走 `/prer
 
 #### 現場印表機自訂紙張設定（IT 一次性，**每台 client 都要做**）
 
-**這一步不做，等於白改**。程式不再傳任何紙張參數，紙張完全由使用者在原生列印對話框
-（或驅動的列印喜好設定）裡選——沒有正確尺寸的 form 可選，就只能選 A4。
-
-而 Chromium PDF 檢視器是 **fit-to-printable-area 等比縮放置中**（舊系統是 `DrawImage` 非等比拉滿
-整張紙，所以驅動裡是什麼紙都無所謂）。用 A4 印 21×14.8 的資料卡 → 內容被縮小置中 → 位置全跑掉。
+**這一步不做，等於白改**。Chromium PDF 檢視器是 **fit-to-printable-area 等比縮放置中**
+（舊系統是 `DrawImage` 非等比拉滿整張紙，所以驅動裡是什麼紙都無所謂）。
+用 A4 印 21×14.8 的資料卡 → 內容被縮小置中 → 位置全跑掉。
 
 Windows：**控制台 → 裝置和印表機 → 選任一印表機 → 上方「列印伺服器內容」→「表單」頁籤 → 勾「建立新表單」**，
 逐一建立下表 6 種（單位選公分，四邊邊界全填 0）：
 
-| 表單名稱 | 寬 × 高 |
-|---|---|
-| 資料卡 | 21 × 14.8 cm |
-| 收據 | 21 × 29.7 cm |
-| 薦牌 | 11.5 × 25.5 cm |
-| 文牒 | 36.5 × 26.2 cm |
-| 普桌 | 21 × 29.6 cm |
-| 普桌資料卡 | 21 × 14.8 cm |
+| reportType | 表單名稱（**必須完全一致**） | 寬 × 高 |
+|---|---|---|
+| `datacard` | 資料卡 | 21 × 14.8 cm |
+| `receipt` | 收據 | 21 × 29.7 cm |
+| `tablet` | 薦牌 | 11.5 × 25.5 cm |
+| `text` | 文牒 | 36.5 × 26.2 cm |
+| `worship` | 普桌 | 21 × 29.6 cm |
+| `worshipcard` | 普桌資料卡 | 21 × 14.8 cm |
 
-⚠️ **舊系統留下的同名 form 尺寸是錯的，必須重建**：舊程式寫死的是資料卡 201.7×142.2mm、文牒 348×251.5mm
-（舊系統靠點陣圖拉伸吃掉差異，見 [gotchas.md](../gotchas.md)），1:1 送印後會變成真實裁切。
+⚠️ **表單名稱是契約，不是建議**（2026-08-04 起）：程式在開預覽視窗前會**依這個名稱**去驅動的紙張
+清單比對，命中就把它設成預設紙張（＝舊系統 `SignupForm.cs:1770-1787` 的行為）。
+名稱多一個空白、用了全形或別的字，就完全不會被選到 —— 使用者會退回「每次手動選紙」，
+也就是 2026-08-04 那則客訴的狀態。名稱的唯一權威是 `ReportPageSizes.FormName`。
+
+⚠️ **舊系統留下的同名 form 尺寸是錯的，必須重建**：舊程式寫死的是資料卡 201.7×142.2mm、
+薦牌 115.1×254.0mm、文牒 348×251.5mm（舊系統靠點陣圖拉伸吃掉差異，見 [gotchas.md](../gotchas.md)），
+1:1 送印後會變成真實裁切。收據與普桌的舊值本來就對，不必動。
+
+尺寸比對容差是 **±0.5mm**（寬高各自判定）。**尺寸不符時程式仍會選它**（比停在 A4 好得多），
+但會在檢視器視窗標題掛 ⚠ 警告、並在診斷紀錄寫 `formResult:"mismatch"` 與 `formMismatchMm`
+——看到警告就是「這台的表單該重建了」。驅動裡根本沒有同名表單時是 `not-found`，同樣有警告。
 
 ⚠️ **滿版（邊界 0）報表的欄位離紙緣至少 0.5cm**：印表機的實體不可列印邊界會整欄吃掉更靠邊的內容
 （已發生過薦牌客訴，見 [gotchas.md](../gotchas.md)）。這是硬體限制，設定 margin 0 也繞不過。
@@ -468,6 +486,7 @@ jobs:
 2. `npm ci`（frontend）
 3. **從 GitHub Actions secret `DEFAULT_DB_CONFIG` 寫出 `frontend/build/default-config.json`**（出廠連線種子，含 sa 密碼；secret 不入 repo，CI 注入）
 4. `pwsh backend/publish.ps1` → `backend/publish/win-x64/Ceremony.Api.exe`（framework-dependent sidecar）
+   + `backend/publish/win-x64-printform/Ceremony.PrintForm.exe`（同腳本第二段，~2 MB，只需 .NET Runtime）
 5. `npm run electron:build`（ng build + tsc electron）
 6. `npx electron-builder --win --publish never` → `frontend/release/…-setup.exe`（種子 bundle 進 `resources/default-config.json`）
 7. `actions/upload-artifact` + tag 觸發時 `softprops/action-gh-release` 附 `.exe` / `.blockmap` / `latest.yml`
