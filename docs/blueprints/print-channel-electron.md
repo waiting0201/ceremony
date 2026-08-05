@@ -17,7 +17,7 @@ related_docs:
   - ../design/performance.md
   - ../gotchas.md
 keywords: [列印, 印表機, 紙張, 自訂表單, PaperSizes, DEVMODE, SetPrinter, PrintDlgEx, 原生對話框, 預覽視窗, PDF viewer, plugins, DeviceInfo, ReportPageSizes, PrinterFormMatcher, 頁面範圍, 診斷紀錄, 串流取檔, streamApiToFile]
-last_updated: 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早)
+last_updated: 2026-08-05 (新增**決策 9a：DEVMODE 的旗標與值必須同進退**——客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』〔＝RPC_E_SERVERFAULT〕」的根因就在決策 9 自己：`WritePaperSize` 清了 `DM_PAPERWIDTH`/`DM_PAPERLENGTH` 旗標卻沒把欄位歸零、`WriteSnapshot` 還原時整包蓋回 `dmFields`，兩處都留下自相矛盾的 DEVMODE，v4 驅動做 DEVMODE⇄PrintTicket 轉換時丟例外。規則抽成平台中立的 `DevModePaperFields`（ForFormSelection / ForRestore / AlreadySelected）＋ merge 後的 `NormalizeUnusedPaperFields`，回歸鎖 `DevModePaperFieldsTests`；`AlreadySelected` 順帶補上「DM_PAPERSIZE 有設」的條件。元教訓：Windows-only 專案裡任何不需要 Win32 handle 的邏輯都該住在 Domain——本決策拆了「比對」卻沒拆「位元運算」，於是這段在 macOS 與 CI 上完全隱形。另把 `CEREMONY_PRINTFORM_EXE` 指向不存在路徑寫成受文件保證的現場止血開關。先前 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早))
 ---
 
 ## 背景與動機
@@ -261,6 +261,42 @@ exe 缺檔回 `helper-missing`、3s/3.5s 雙層逾時、**helper 的 exit code �
 **表單名的 SSoT 在 `ReportPageSizes.FormName`**，與尺寸相鄰：名字用來比對、尺寸用來驗證，
 分開放就會有第二個真相來源。`ReportPageSizeConsistencyTests` 斷言每種報表都有非空且互異的表單名
 ——新增第 7 種報表卻忘了給名字會是 build 失敗，不是現場印在 A4 上。
+
+#### 9a. DEVMODE 的旗標與值必須同進退（2026-08-05 修正，客訴 `0x80010105`）
+
+**客訴**：「選了印表機，卻出現**您的印表機已發生未預期的設定問題．0x80010105**。」
+
+`0x80010105 = RPC_E_SERVERFAULT`。Windows 的列印 UI 讀每使用者預設 DEVMODE、轉成 PrintTicket、
+開驅動設定頁時失敗就顯示這句——**而寫那份 DEVMODE 的正是本決策**。上面那段
+`SetPrinter` Level 9 的初版留下了一份自相矛盾的 DEVMODE：
+
+| 位置 | 初版做的事 | 問題 |
+|---|---|---|
+| `WritePaperSize` | 清 `DM_PAPERWIDTH`/`DM_PAPERLENGTH` **旗標**，不動欄位 | 旗標說「未使用」、結構裡卻躺著上一張紙的寬高 |
+| `WriteSnapshot`（還原） | 把快照的 `dmFields` **整包 32 位元**蓋回去 | 使用者在檢視器開著時按「內容」改的雙面／方向，旗標被清掉、值還在 |
+
+**不變式**：`dmFields` 的某個旗標沒設 ⇒ 對應欄位「未使用」⇒ 唯一合法的值是 0。
+規則收進平台中立的 `Ceremony.Domain.Reports.DevModePaperFields`：
+
+- `ForFormSelection(current)` — 選表單後的 `dmFields`；呼叫端**同時**把 `dmPaperWidth`/`dmPaperLength` 寫 0
+- `ForRestore(current, snapshot)` — 只換三個紙張位元，**其餘位元保留現況**
+- `AlreadySelected(kind, fields, wanted)` — 順帶補上「`DM_PAPERSIZE` 有設」這個條件（旗標沒設時
+  `dmPaperSize` 只是被驅動忽略的殘值，比對相等會誤判成「不必寫入」而讓該修的機器修不到）
+
+`DocumentProperties` merge 之後另加一道 `NormalizeUnusedPaperFields`：驅動的正規化結果也要守同一條
+規則。**刻意選「歸零」而不是 `driver-rejected`**——旗標沒設的欄位歸零在定義上是安全的，
+而整個放棄預選等於把 2026-08-04 那則客訴原封不動退回去。
+
+**為什麼上線兩天才發現**：`Ceremony.PrintForm` 是 `net10.0-windows` 的 exe，macOS 開發機連跑都跑不了，
+CI 也不印東西。本決策當初拆出 `PrinterFormMatcher` 的理由（「純邏輯要平台中立、測得到」）完全正確，
+只是**只拆了「比對」沒拆「位元運算」**。→ **Windows-only 專案裡任何不需要 Win32 handle 的邏輯都應該
+住在 Domain**；`Ceremony.PrintForm` 剩下的東西應該只有 P/Invoke 與 buffer 生命週期。
+回歸鎖 `DevModePaperFieldsTests`，其中一條斷言 `ForFormSelection` 的輸出必然被 `AlreadySelected`
+判為 true——兩個函式是同一條規則的兩面，任一邊被單獨改動就會炸（無窮寫入或永遠不寫）。
+
+**現場止血手段**（不必出新版）：環境變數 `CEREMONY_PRINTFORM_EXE` 指到不存在的路徑 →
+`helper-missing` → 整段跳過，列印本身完全不受影響。這是「不可退步」那條的自然結果，
+但它現在是**被文件保證的行為**，見 [../design/infrastructure.md](../design/infrastructure.md) 列印排障段。
 
 ### 8. 順帶修掉「列印完卡在列印中」
 

@@ -19,10 +19,9 @@ internal static class NativeMethods
     internal const int DM_IN_BUFFER = 8;
     internal const int IDOK = 1;
 
-    internal const uint DM_ORIENTATION = 0x00000001;
-    internal const uint DM_PAPERSIZE = 0x00000002;
-    internal const uint DM_PAPERLENGTH = 0x00000004;
-    internal const uint DM_PAPERWIDTH = 0x00000008;
+    // dmFields 的三個紙張位元刻意**不**放這裡：它們與「旗標和值必須同進退」那條不變式是同一件事，
+    // 分開放就會有人只引用常數而讀不到規則。SSoT 在 Ceremony.Domain.Reports.DevModePaperFields
+    // （平台中立，macOS 開發機測得到——這正是 0x80010105 那個 bug 逃過測試的原因）。
 
     [StructLayout(LayoutKind.Sequential)]
     internal struct PRINTER_DEFAULTS

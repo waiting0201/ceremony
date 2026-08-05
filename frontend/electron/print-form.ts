@@ -35,6 +35,12 @@ const HARD_TIMEOUT_MS = 3500;
 /** 同時開著的檢視器視窗數。最後一個關掉才還原——否則會弄掉另一個視窗的紙。 */
 let viewerCount = 0;
 
+/**
+ * ⚠️ `CEREMONY_PRINTFORM_EXE` 同時是**現場的緊急關閉開關**，不要「順手」改成只在檔案存在時採用：
+ * 指到一個不存在的路徑 → 下面的 `existsSync` 為 false → `helper-missing` → 整段紙張預選跳過，
+ * 列印本身完全不受影響（只是回到每次手動選紙）。這是 0x80010105 那類「驅動被我們寫壞」的客訴
+ * 在不重新出版本的前提下唯一的止血手段。見 docs/design/infrastructure.md 列印排障段。
+ */
 function helperPath(): string | null {
   if (process.env['CEREMONY_PRINTFORM_EXE']) return process.env['CEREMONY_PRINTFORM_EXE'];
   // dev 沒有這支 exe（macOS 上 System.Drawing.Common 連跑都跑不起來），刻意不做 dotnet run fallback。

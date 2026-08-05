@@ -144,17 +144,18 @@ internal static class PrinterFormApplier
         Write(printerName, (pOut, prev) =>
         {
             // 已經是對的紙就不動它——省一次 SetPrinter，也讓呼叫端知道不必寫還原 journal。
-            var untouched = prev.Kind == kind &&
-                            (prev.Fields & (NativeMethods.DM_PAPERWIDTH | NativeMethods.DM_PAPERLENGTH)) == 0;
-            if (untouched) return false;
+            if (DevModePaperFields.AlreadySelected(prev.Kind, prev.Fields, kind)) return false;
 
             Marshal.WriteInt16(pOut, NativeMethods.OffsetPaperSize, kind);
 
-            // 殘留的自訂寬高會與 dmPaperSize 打架（實務上寬高常會贏），那等同退回「驅動不認得的
-            // Custom 尺寸」——正是 v2.3.7 讓三種報表同時失準的形狀。務必清掉這兩個旗標。
-            var fields = (prev.Fields | NativeMethods.DM_PAPERSIZE)
-                         & ~(NativeMethods.DM_PAPERLENGTH | NativeMethods.DM_PAPERWIDTH);
-            Marshal.WriteInt32(pOut, NativeMethods.OffsetFields, unchecked((int)fields));
+            // 旗標與值必須同進退：清掉 DM_PAPERWIDTH/DM_PAPERLENGTH 就得把那兩個欄位一併寫 0。
+            // 只清旗標、留著上一張紙的寬高＝一份自相矛盾的 DEVMODE，v4 驅動在 DEVMODE→PrintTicket
+            // 轉換時會丟例外，使用者看到的就是「您的印表機已發生未預期的設定問題 0x80010105」。
+            // 見 DevModePaperFields 的不變式與 docs/gotchas.md。
+            Marshal.WriteInt16(pOut, NativeMethods.OffsetPaperWidth, 0);
+            Marshal.WriteInt16(pOut, NativeMethods.OffsetPaperLength, 0);
+            Marshal.WriteInt32(pOut, NativeMethods.OffsetFields,
+                unchecked((int)DevModePaperFields.ForFormSelection(prev.Fields)));
 
             // 刻意不碰 dmOrientation（舊系統 5 處 Landscape 都被註解掉）
             // 也不碰 dmDefaultSource（舊系統從頭到尾沒動過 PaperSource）。
@@ -162,21 +163,31 @@ internal static class PrinterFormApplier
         }, expectKind: kind);
 
     private static WriteResult WriteSnapshot(string printerName, Snapshot snap) =>
-        Write(printerName, (pOut, _) =>
+        Write(printerName, (pOut, cur) =>
         {
             Marshal.WriteInt16(pOut, NativeMethods.OffsetPaperSize, snap.Kind);
             Marshal.WriteInt16(pOut, NativeMethods.OffsetPaperWidth, snap.Width);
             Marshal.WriteInt16(pOut, NativeMethods.OffsetPaperLength, snap.Length);
-            Marshal.WriteInt32(pOut, NativeMethods.OffsetFields, unchecked((int)snap.Fields));
+
+            // 只換回三個紙張位元，其餘保留現況——使用者可能在對話框的「內容」改過方向／雙面，
+            // 那個 UI 寫的是同一份 DEVMODE。整包蓋回去會清掉那些旗標卻留著值，等於還原這個動作
+            // 自己又生出一份自相矛盾的 DEVMODE（同一個 0x80010105 的第二個入口）。
+            Marshal.WriteInt32(pOut, NativeMethods.OffsetFields,
+                unchecked((int)DevModePaperFields.ForRestore(cur.Fields, snap.Fields)));
             return true;
-        }, expectKind: snap.Kind);
+        },
+        // 快照當時 DM_PAPERSIZE 沒設的話，dmPaperSize 只是個被忽略的殘值，
+        // 驗證「驅動有沒有吃下這個 kind」就沒有意義（驅動正規化成別的值是合法的）。
+        expectKind: (snap.Fields & DevModePaperFields.PaperSize) != 0 ? snap.Kind : null);
 
     /// <summary>
     /// OpenPrinter → DocumentProperties(讀) → mutate → DocumentProperties(驗證) → SetPrinter(Level 9)。
     /// </summary>
     /// <param name="mutate">就地改 pOut；回傳 false 表示不需要寫入（現況已正確）。</param>
-    /// <param name="expectKind">驗證步驟讀回來的 dmPaperSize 必須等於此值，否則視為驅動拒絕。</param>
-    private static WriteResult Write(string printerName, Func<IntPtr, Snapshot, bool> mutate, short expectKind)
+    /// <param name="expectKind">
+    /// 驗證步驟讀回來的 dmPaperSize 必須等於此值，否則視為驅動拒絕。null ＝ 不驗（見 WriteSnapshot）。
+    /// </param>
+    private static WriteResult Write(string printerName, Func<IntPtr, Snapshot, bool> mutate, short? expectKind)
     {
         var defaults = new NativeMethods.PRINTER_DEFAULTS { DesiredAccess = NativeMethods.PRINTER_ACCESS_USE };
         if (!NativeMethods.OpenPrinter(printerName, out var hPrinter, ref defaults) || hPrinter == IntPtr.Zero)
@@ -218,8 +229,14 @@ internal static class PrinterFormApplier
                 return new WriteResult("driver-rejected", prev, Marshal.GetLastWin32Error(), "DocumentProperties(merge) failed");
 
             // 驅動可以合法地忽略我們的要求；讀回來對不上就不要寫進系統。
-            if (Marshal.ReadInt16(pOut, NativeMethods.OffsetPaperSize) != expectKind)
+            if (expectKind is { } want && Marshal.ReadInt16(pOut, NativeMethods.OffsetPaperSize) != want)
                 return new WriteResult("driver-rejected", prev, null, "driver ignored dmPaperSize");
+
+            // 驅動的正規化結果也要守同一條不變式。我們送進去的已經是一致的，但驅動有機會自己清掉
+            // 旗標卻留著值——而這份 blob 下一步就要成為每使用者預設值，被 Windows 列印 UI 反覆讀取。
+            // 旗標沒設＝該欄位「未使用」，把未使用的欄位歸零在定義上是安全的；不像 driver-rejected
+            // 那樣整個放棄預選（那會直接把 2026-08-04 的客訴原封不動退回去）。
+            NormalizeUnusedPaperFields(pOut);
 
             // ⑦ 存成每使用者預設（PRINTER_INFO_9 只有一個欄位：pDevMode）
             var pInfo9 = Marshal.AllocHGlobal(IntPtr.Size);
@@ -242,6 +259,19 @@ internal static class PrinterFormApplier
             if (pIn != IntPtr.Zero) Marshal.FreeHGlobal(pIn);
             NativeMethods.ClosePrinter(hPrinter);
         }
+    }
+
+    /// <summary>
+    /// 把 <c>dmFields</c> 說「未使用」的紙張欄位歸零，維持 <see cref="DevModePaperFields"/> 的不變式。
+    /// </summary>
+    private static void NormalizeUnusedPaperFields(IntPtr pDevMode)
+    {
+        var fields = unchecked((uint)Marshal.ReadInt32(pDevMode, NativeMethods.OffsetFields));
+
+        if ((fields & DevModePaperFields.PaperWidth) == 0)
+            Marshal.WriteInt16(pDevMode, NativeMethods.OffsetPaperWidth, 0);
+        if ((fields & DevModePaperFields.PaperLength) == 0)
+            Marshal.WriteInt16(pDevMode, NativeMethods.OffsetPaperLength, 0);
     }
 
     // ───────────────────────── 診斷用 ─────────────────────────
