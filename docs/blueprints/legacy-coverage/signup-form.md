@@ -7,7 +7,7 @@ legacy_path: reference/old/Ceremony/SignupForm.cs
 legacy_lines: 1944
 audit_status: complete
 coverage_percentage: 100
-last_audited: 2026-07-31
+last_audited: 2026-08-05
 baseline_completed: 2026-05-27
 total_methods: 43
 related_agents:
@@ -19,7 +19,7 @@ related_docs:
   - ../printing-reports-positions.md
   - README.md
 keywords: [legacy, coverage, signup, rdlc, variant]
-last_updated: 2026-08-02 (rows 36/37 更新：列印流程整條回歸舊系統形狀——row 37 由「⚠️ 部分對應」升為「✅ 已實作」〔開 PDF 檢視器視窗＝PrintPreviewDialog、使用者按工具列列印鈕＝PrintDialog 原生 PrintDlgEx〕，row 36 記錄新版改用 Chromium 的 fit-to-printable-area〔v2.3.7 的 1:1 送印已撤回，程式不再產生任何送印選項〕；row 16 補記 batch/plan 與同步版 batch 端點移除、後端合併改串流落檔。先前 2026-07-31 (rows 16/24 更新：搜尋編號改起迄區間（`Number >= @NumberStart AND Number <= @NumberEnd`）、批次列印起迄改為只需填一端，只填一端＝只查/只印那一筆——兩者皆為新版加值（舊 nudSearchNumber 單格、舊 nudStart/nudEnd 兩格必填）；順手修正 row 24 誤植的「TOP 200 限制」（實作無 TOP）。同日先前 rows 36/37 由「❌ 故意捨棄」改為「⚠️ 語意刻意不同／部分對應」：舊 printDocument_PrintPage 是 DrawImage 拉滿 PageBounds 的 fit-to-page，新版改 1:1 送印並提供 fit 退路；printPreview_PrintClick 的對話框改自建、紙張改 X-Report-Page-Size，但「依 PaperName 撈驅動自訂 form」做不到，現場仍需建同尺寸紙張)。先前 2026-07-29 (rows 22/42 更新：`showAll`（顯示完整表格）取消 localStorage 持久化、每次開頁不勾〔反而更貼近舊 cbShowAll 每次開 Form 未勾〕；「全部」新版增強收斂為只解除年份/法會/類型，其餘條件仍可搜尋。先前 2026-07-28 rows 16/33 補上批次列印 job 版對應〔UI 改走 POST /reports/batch/jobs，查詢/驗證邏輯不變，進度與取消為新版加值、舊系統無對應〕；同日先前 row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統))
+last_updated: 2026-08-05 (row 3 `btnNew_Click` 由「✅ 已實作」改「⚠️ 刻意偏離」：工具列「新增報名」補回代入邏輯——恰好選 1 筆時轉呼叫 `actionAddFrom`（與右鍵「代入新增」共用同一條路徑），沒選或選多筆才空白新增；偏離點是舊版 `selectedcount > 0 → SelectedRows[0]` 在新系統多選常態下會「隨機拿第一列代入」，故收斂為恰好 1 筆。row 7 補記兩入口共用 `actionAddFrom`。先前 2026-08-02 (rows 36/37 更新：列印流程整條回歸舊系統形狀——row 37 由「⚠️ 部分對應」升為「✅ 已實作」〔開 PDF 檢視器視窗＝PrintPreviewDialog、使用者按工具列列印鈕＝PrintDialog 原生 PrintDlgEx〕，row 36 記錄新版改用 Chromium 的 fit-to-printable-area〔v2.3.7 的 1:1 送印已撤回，程式不再產生任何送印選項〕；row 16 補記 batch/plan 與同步版 batch 端點移除、後端合併改串流落檔。先前 2026-07-31 (rows 16/24 更新：搜尋編號改起迄區間（`Number >= @NumberStart AND Number <= @NumberEnd`）、批次列印起迄改為只需填一端，只填一端＝只查/只印那一筆——兩者皆為新版加值（舊 nudSearchNumber 單格、舊 nudStart/nudEnd 兩格必填）；順手修正 row 24 誤植的「TOP 200 限制」（實作無 TOP）。同日先前 rows 36/37 由「❌ 故意捨棄」改為「⚠️ 語意刻意不同／部分對應」：舊 printDocument_PrintPage 是 DrawImage 拉滿 PageBounds 的 fit-to-page，新版改 1:1 送印並提供 fit 退路；printPreview_PrintClick 的對話框改自建、紙張改 X-Report-Page-Size，但「依 PaperName 撈驅動自訂 form」做不到，現場仍需建同尺寸紙張)。先前 2026-07-29 (rows 22/42 更新：`showAll`（顯示完整表格）取消 localStorage 持久化、每次開頁不勾〔反而更貼近舊 cbShowAll 每次開 Form 未勾〕；「全部」新版增強收斂為只解除年份/法會/類型，其餘條件仍可搜尋。先前 2026-07-28 rows 16/33 補上批次列印 job 版對應〔UI 改走 POST /reports/batch/jobs，查詢/驗證邏輯不變，進度與取消為新版加值、舊系統無對應〕；同日先前 row 18 註記「5 個搜尋範圍 checkbox 預設全勾」為刻意偏離舊系統〔舊 Designer 未設 Checked〕；先前 2026-07-18 (row 13 列印普桌解鎖：撤回 422 WORSHIP_ONLY_TYPE_4，不限 SignupType 對齊舊系統)))
 ---
 
 > ✅ **完成 (2026-06-02)**：43 個方法中 39 個已實作、4 個故意捨棄（WinForms printDocument 內部 :34-37，改走 Web/PDF 路徑）。查詢 / 列印（5 類 + RDLC 變體）/ 右鍵選單 / 搜尋範圍切換 / 顯示完整欄位 / 歷程 全 ship。
@@ -46,11 +46,11 @@ last_updated: 2026-08-02 (rows 36/37 更新：列印流程整條回歸舊系統�
 |---|---|---|---|---|---|---|
 | 1 | `SignupForm()` constructor | 56-69 | 初始化表單、DB 服務、載入法會/列印類型 | ✅ 已實作 (部分) | `GET /api/v1/categories` + 前端 init | 載入法會 dropdown 由 GET /categories 提供；列印類型 enum 在前端 |
 | 2 | `btnSearch_Click` | 71-74 | 觸發搜尋報名資料 | ✅ 已實作 | `GET /api/v1/signups` | 觸發為前端責任 |
-| 3 | `btnNew_Click` | 76-90 | 新增報名 (含代入邏輯) | ✅ 已實作 | 前端 overlay | `signup-list-page.openCreateOverlay()`（`editOverlay = { signupId: null, fromSignupId: null }`）→ `signup-edit-form` 新增模式 |
+| 3 | `btnNew_Click` | 76-90 | 新增報名 (含代入邏輯) | ⚠️ 刻意偏離 | 前端 overlay | **2026-08-05 補回代入邏輯**：`openCreateOverlay()` 在**恰好選 1 筆**時轉呼叫 `actionAddFrom(rows[0])`（＝與右鍵「代入新增」同一條路徑），沒選或選多筆才是空白新增（`fromSignupId: null`）。此前一律空白新增，與舊系統的「選了列就代入」不符。⚠️ **偏離點**：舊版是 `selectedcount > 0` 就取 `SelectedRows[0]`，新系統多選是常態（批次列印動輒數百列），沿用會變成「隨機拿第一列代入」→ 收斂為恰好 1 筆。連帶取捨：這一次不還原跨路由草稿（草稿不會被覆寫，清掉選取即可拿回），見 [signup-management.md](../signup-management.md) |
 | 4 | `btnEdit_Click` | 92-110 | 編輯已選擇報名資料 | ✅ 已實作 | 前端 overlay + `PUT /api/v1/signups/:id` | `actionEdit(item)` / `goEditSelected()` 開編輯 overlay → `signup-edit-form.submit()` → `UpdateSignupHandler` |
 | 5 | `dgvSignups_CellClick` | 112-119 | 選擇 DataGridView 行 | ✅ 已實作 | 前端 row select | `signup-list-page` `selectedIds` signal + `toggleRow` / row click（單筆/多筆選取）|
 | 6 | `dgvSignups_RowHeaderMouseClick` | 121-149 | 右鍵選單：新增/編輯/列印 | ✅ 已實作 | 前端 context menu | `openRowMenu`（右鍵）+ kebab 入口 → `ContextMenuService`；選單含 代入新增/修改資料/列印各類/刪除/瀏覽歷程 |
-| 7 | `tsmiAdd_Click` | 151-166 | 右鍵新增報名 | ✅ 已實作 | 前端 overlay | 選單「代入新增」`actionAddFrom(item)`（`fromSignupId` 帶入 → `prefillFromSignup`）/「新增」`openCreateOverlay` |
+| 7 | `tsmiAdd_Click` | 151-166 | 右鍵新增報名 | ✅ 已實作 | 前端 overlay | 選單「代入新增」`actionAddFrom(item)`（`fromSignupId` 帶入 → `prefillFromSignup`）；2026-08-05 起工具列鈕（row 3）也共用 `actionAddFrom`，兩個入口只有一種代入語意（舊系統本就是逐行重複的同一段程式）|
 | 8 | `tsmiEdit_Click` | 168-186 | 右鍵編輯報名 | ✅ 已實作 | 前端 overlay + `PUT /api/v1/signups/:id` | 選單「修改資料」`actionEdit(item)` → 編輯 overlay → `UpdateSignupHandler` |
 | 9 | `tsmiPrintDataCard_Click` | 188-240 | 列印資料卡 (含格式選擇) | ✅ 已實作 (核心 PDF) | `GET /api/v1/reports/datacard?signupId=` | PoC 已確認 QuestPDF 路徑可行；含格式選擇對話 UI 由前端負責 |
 | 10 | `tsmiPrintReceipt_Click` | 242-271 | 列印收據 (含格式選擇) | ✅ 已實作 (核心 PDF) | `GET /api/v1/reports/receipt?signupId=` | QuestPDF 路徑；UI 格式對話由前端處理 |

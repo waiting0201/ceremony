@@ -862,7 +862,21 @@ export class SignupListPage implements OnInit {
 
   // ──────────── Actions ────────────
 
+  /**
+   * 工具列「新增報名」。對齊舊 `SignupForm.btnNew_Click:76-90`——有選取列時把該列帶進新增表單
+   * （＝代入新增，同一位信眾續報下一場的主要動線），沒選才是空白新增。
+   *
+   * ⚠️ 刻意偏離：舊版是 `selectedcount > 0` 就取 `SelectedRows[0]`；新系統多選是常態
+   * （批次列印動輒選數百列），沿用會變成「隨機拿第一列代入」。故收斂為**恰好 1 筆才代入**，
+   * 與右鍵「代入新增」的 `enabledWhen`（selectedRows.length === 1）同一條規則。
+   * 用 `selectedRows()` 而非 `selectedIds()`：它會用 `results()` 過濾，搜尋換過後殘留的 id 自動失效。
+   */
   protected openCreateOverlay(): void {
+    const rows = this.selectedRows();
+    if (rows.length === 1) {
+      this.actionAddFrom(rows[0]);
+      return;
+    }
     this.editOverlay.set({ signupId: null, fromSignupId: null });
   }
 

@@ -13,7 +13,7 @@ related_docs:
   - blueprints/printing-reports.md
   - design/database-design.md
 keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季, 預繳, 普桌]
-last_updated: 2026-07-31 (新增 §12.1「地址／堂號清空必須清得掉」：移除信眾表單 mailAddress 的 required、移除文牒段抄寄件段的隱性 fallback、報名堂號清空改存空字串〔避開 SignupView 的 COALESCE 回退〕；同日先前新增 §19「預繳依單筆報名隔離 — 法會預繳 ≠ 普桌預繳」：客訴「同一次搜尋先點有預繳的法會列、再點沒預繳的普桌列，普桌沿用法會預繳」；真因是舊 BelieverSelected:1102-1115 的跨類型「最新一筆」反查完全不分 SignupType，新版改為選信眾時預繳取該列自身值、不再呼叫 GET /prepay?believerId&year〔endpoint 保留備用〕，標為刻意偏離 legacy。同日先前 §12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證))
+last_updated: 2026-08-05 (新增 §20「代入新增的選列規則與來源列 pin」：工具列「新增報名」補回代入邏輯，但**恰好選 1 筆才代入**〔偏離舊 `selectedcount > 0 → SelectedRows[0]`，因新系統多選是常態〕；代入後自動搜尋並選中來源列時，來源列若被 200 列 DOM 上限切掉會 pin 到最前〔舊 WinForms grid 無列數上限〕；連帶取捨：該情境不還原跨路由草稿。同時 §19 補記漏網路徑——代入新增先前沒帶預繳，現與 `pickBeliever` 共用 `applyBelieverRow` 已一致。先前 2026-07-31 (新增 §12.1「地址／堂號清空必須清得掉」：移除信眾表單 mailAddress 的 required、移除文牒段抄寄件段的隱性 fallback、報名堂號清空改存空字串〔避開 SignupView 的 COALESCE 回退〕；同日先前新增 §19「預繳依單筆報名隔離 — 法會預繳 ≠ 普桌預繳」：客訴「同一次搜尋先點有預繳的法會列、再點沒預繳的普桌列，普桌沿用法會預繳」；真因是舊 BelieverSelected:1102-1115 的跨類型「最新一筆」反查完全不分 SignupType，新版改為選信眾時預繳取該列自身值、不再呼叫 GET /prepay?believerId&year〔endpoint 保留備用〕，標為刻意偏離 legacy。同日先前 §12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)))
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -383,3 +383,16 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 - **不受影響**：編輯既有報名（`applyItem`）本就取該筆自身值；`resetBelow`（按「取消」）仍清空預繳；批次「載入預繳」（`POST /api/v1/prepay/load`）本來就有 `SignupType` 過濾（且 6 個分組不含普桌，見 [prepay-loading.md](blueprints/prepay-loading.md)）。
 
 **狀態：✅ 已實作（2026-07-31）。** [signup-edit-form.component.ts](../frontend/src/app/features/signups/signup-edit-form.component.ts) `pickBeliever` 改帶 `row.prepayYear` / `row.prepayCeremonyCategoryId ?? ''`，刪除 `prefillPrepayHistory`。回歸鎖：`signup-edit-form.component.spec.ts`「改選：法會列的預繳不會殘留到普桌列」（先點法會列 prepayYear=121 → 再點普桌列 prepayYear=null → 斷言清空且無 `/prepay` 請求）；已用「暫時改回 `prepayYear: null` → 轉紅」驗證有效。
+
+> **2026-08-05 補齊漏網路徑**：代入新增（`prefillFromSignup`）當時仍走自己那份 `patchValue`，**完全沒帶預繳**——同一條「從一筆報名帶資料」的規則在兩條路徑上不一致。現已讓代入新增改走與 `pickBeliever` 共用的 `applyBelieverRow`，找不到來源列時的 fallback（`applyPrefillItem`）也補上這兩欄。回歸鎖：「來源報名的預繳要跟著帶」。
+
+## 20. 「代入新增」的選列規則與來源列 pin（2026-08-05，**新版刻意偏離 legacy**）
+
+**Legacy 行為：** [SignupForm.cs:76-90](../reference/old/Ceremony/SignupForm.cs#L76-L90) `btnNew_Click` 與 [SignupForm.cs:151-166](../reference/old/Ceremony/SignupForm.cs#L151-L166) `tsmiAdd_Click` 是逐行重複的同一段——`selectedcount > 0` 就取 `SelectedRows[0]` 的 `SignupID` + `Name` 帶進 `NewSignupForm`（＝代入新增）。
+
+**新版兩處偏離：**
+
+1. **恰好選 1 筆才代入**（而非 `> 0` 取第一列）。舊系統的清單以單選為主，新系統多選是常態——批次列印動輒選數百列，此時沿用「取第一列」等於隨機拿一筆代入，使用者無從預期。故工具列鈕與右鍵「代入新增」統一為 `selectedRows.length === 1`；沒選或選多筆＝空白新增。
+2. **來源列 pin 到搜尋結果最前**。代入後會自動以來源姓名跑一次信眾搜尋並選中來源列（對齊舊 `btnNextStep_Click:97-111`），但新版結果列表有 `MAX_BELIEVER_RESULT_ROWS`(200) 的 DOM 保護上限（舊 WinForms grid 無此限制），同名者多時來源列可能被切掉 → 沒有列可高亮。故 `runBelieverSearch` 收 `pinSignupId`，來源列不在前 200 內時把它 `unshift` 到最前（破序）。
+
+**連帶取捨：** 工具列「選 1 筆按新增」自此屬代入模式 → 該次**不還原跨路由草稿**（草稿不會被覆寫，清掉選取再按新增即可拿回）。見 [signup-management.md](blueprints/signup-management.md)。

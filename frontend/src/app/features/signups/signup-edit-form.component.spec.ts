@@ -19,7 +19,7 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     form: FormGroup;
     resetBelow(): void;
     submit(): Promise<void>;
-    pickBeliever(row: SignupListItem): Promise<void>;
+    pickBeliever(row: SignupListItem): Promise<boolean>;
     lastCreatedSignupId: () => string | null;
     printDataCard(): Promise<void>;
     onSameMailAddressChange(): Promise<void>;
@@ -437,6 +437,247 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     probe(editing).form.patchValue({ name: '編輯中的名字' });
     probe(editing).form.markAsDirty();
     editing.destroy();
+
+    expect(draftState.draft()).toBeNull();
+  });
+});
+
+/**
+ * 代入新增（2026-08-05）：對齊舊 NewSignupForm.btnNextStep_Click:97-111「//代入新增」段——
+ * 姓名填進搜尋框 → 跑一次信眾搜尋 → 在結果中找到來源列並選中（高亮 + 以該列覆蓋欄位）。
+ * 先前只做 patchValue，搜尋框空白、結果表不渲染、無高亮，使用者無法就地改選同信眾別筆。
+ */
+describe('SignupEditFormComponent（代入新增：自動搜尋並選中來源列）', () => {
+  type Probe = {
+    form: FormGroup;
+    pickBeliever(row: SignupListItem): Promise<boolean>;
+    believerSearchTerm: () => string;
+    believerSearchResults: () => SignupListItem[];
+    believerHasSearched: () => boolean;
+    pickedRowId: () => string | null;
+  };
+
+  const probe = (f: ComponentFixture<SignupEditFormComponent>): Probe =>
+    f.componentInstance as unknown as Probe;
+
+  const val = (f: ComponentFixture<SignupEditFormComponent>, path: string): unknown =>
+    probe(f).form.get(path)!.value;
+
+  const signupRow = (
+    id: string, believerId: string, name: string, extra?: Partial<SignupListItem>,
+  ): SignupListItem => ({
+    id, year: 113, ceremonyCategoryId: 'c1', ceremonyTitle: null, signupType: 1,
+    numberTitle: null, number: null, fee: null, employee: null, employeeType: 1,
+    believerId, name, hallName: null, phone: `0900-${id}`, isFixedNumber: false,
+    livingNames: [`${name}陽上`], deadNames: [`${name}往生`],
+    mailCity: null, mailZone: null, mailZipcode: null, mailAddress: null,
+    textCity: null, textZone: null, textZipcode: null, textAddress: null,
+    prepayYear: null, prepayCeremonyCategoryId: null, prepayCeremonyTitle: null,
+    remark: `${name}的備註`, adminName: null, createDate: null,
+    ...extra,
+  });
+
+  const believerStub = (id: string, name: string): BelieverListItem => ({
+    id, employeeType: 1, employeeTypeTitle: '非員工', hallName: null, name,
+    phone: null, isFixedNumber: false,
+    mailZipcodeId: null, mailCity: null, mailArea: null, mailAddress: null,
+    textZipcodeId: null, textCity: null, textArea: null, textAddress: null,
+    livingNames: [], deadNames: [],
+  });
+
+  const flushMicrotasks = () => new Promise<void>((r) => setTimeout(r));
+
+  let httpMock: HttpTestingController;
+  let dirtyEvents: boolean[];
+
+  async function openFrom(
+    fromSignupId: string,
+  ): Promise<ComponentFixture<SignupEditFormComponent>> {
+    const f = TestBed.createComponent(SignupEditFormComponent);
+    f.componentRef.setInput('fromSignupId', fromSignupId);
+    dirtyEvents = [];
+    f.componentInstance.dirtyChange.subscribe((d) => dirtyEvents.push(d));
+    f.detectChanges();
+    await f.whenStable();
+    return f;
+  }
+
+  /** 來源報名的 GET；flush 後 prefill 才會往下走到搜尋。 */
+  const flushSource = (item: SignupListItem): void => {
+    httpMock
+      .expectOne((r) => r.method === 'GET' && r.url.endsWith(`/signups/${item.id}`))
+      .flush(item);
+  };
+
+  /** 併查的兩路搜尋（/signups + /believers）。 */
+  const flushSearch = (term: string, items: SignupListItem[]): void => {
+    httpMock
+      .expectOne((r) => r.url.endsWith('/signups') && r.params.get('searchKey') === term)
+      .flush({ items, total: items.length });
+    httpMock
+      .expectOne((r) => r.url.endsWith('/believers') && r.params.get('searchKey') === term)
+      .flush({ items: [], total: 0 });
+  };
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [SignupEditFormComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        {
+          provide: ConfirmDialogService,
+          useValue: { ask: () => Promise.resolve(true) },
+        },
+      ],
+    });
+    TestBed.inject(SignupDraftState).draft.set(null);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  it('搜尋框帶入姓名、跑搜尋、來源列高亮並覆蓋欄位', async () => {
+    const source = signupRow('s1', 'b1', '林大德');
+    const f = await openFrom('s1');
+
+    flushSource(source);
+    await flushMicrotasks();
+
+    expect(probe(f).believerSearchTerm()).toBe('林大德');
+    flushSearch('林大德', [signupRow('s0', 'b1', '林大德'), source]);
+    await flushMicrotasks();
+
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await flushMicrotasks();
+
+    expect(probe(f).believerHasSearched()).toBe(true);
+    expect(probe(f).believerSearchResults().length).toBe(2);
+    expect(probe(f).pickedRowId()).toBe('s1');
+    expect(val(f, 'name')).toBe('林大德');
+    expect(val(f, 'phone')).toBe('0900-s1');
+    expect(val(f, 'remark')).toBe('林大德的備註');
+    expect((val(f, 'deadNames') as string[])[0]).toBe('林大德往生');
+  });
+
+  it('代入後仍是 pristine（系統帶的不是使用者輸入 → 關 overlay 不跳未儲存）', async () => {
+    const source = signupRow('s1', 'b1', '林大德');
+    const f = await openFrom('s1');
+
+    flushSource(source);
+    await flushMicrotasks();
+    flushSearch('林大德', [source]);
+    await flushMicrotasks();
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await flushMicrotasks();
+
+    expect(probe(f).form.pristine).toBe(true);
+    expect(dirtyEvents).not.toContain(true);
+  });
+
+  it('來源報名的預繳要跟著帶（回歸鎖：先前 prefill 漏帶，與點結果列不一致）', async () => {
+    const source = signupRow('s1', 'b1', '林大德', {
+      prepayYear: 121, prepayCeremonyCategoryId: 'c9',
+    });
+    const f = await openFrom('s1');
+
+    flushSource(source);
+    await flushMicrotasks();
+    flushSearch('林大德', [source]);
+    await flushMicrotasks();
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await flushMicrotasks();
+
+    expect(val(f, 'prepayYear')).toBe(121);
+    expect(val(f, 'prepayCeremonyCategoryId')).toBe('c9');
+  });
+
+  it('來源姓名為空：完全不發搜尋，欄位由 fallback 填好（含預繳）', async () => {
+    // 舊 `if(ParamName != null && ParamName != string.Empty)`
+    const source = signupRow('s1', 'b1', '', { prepayYear: 118, prepayCeremonyCategoryId: 'c7' });
+    const f = await openFrom('s1');
+
+    flushSource(source);
+    await flushMicrotasks();
+
+    httpMock.expectNone((r) => r.params.get('searchKey') != null);
+    expect(probe(f).believerHasSearched()).toBe(false);
+    expect(probe(f).pickedRowId()).toBeNull();
+    expect(val(f, 'believerId')).toBe('b1');
+    expect(val(f, 'remark')).toBe('的備註');
+    expect(val(f, 'prepayYear')).toBe(118);
+    expect(val(f, 'prepayCeremonyCategoryId')).toBe('c7');
+    expect(probe(f).form.pristine).toBe(true);
+  });
+
+  it('搜尋結果不含來源列：不高亮，改走 fallback 填欄位，列表仍可改選', async () => {
+    const source = signupRow('s1', 'b1', '林大德', { prepayYear: 120 });
+    const f = await openFrom('s1');
+
+    flushSource(source);
+    await flushMicrotasks();
+    // 後端只回別筆（模擬來源列不在結果內）
+    flushSearch('林大德', [signupRow('s0', 'b1', '林大德')]);
+    await flushMicrotasks();
+
+    httpMock.expectNone((r) => r.url.endsWith('/believers/b1')); // 沒有選列 → 不查主檔
+    expect(probe(f).pickedRowId()).toBeNull();
+    expect(probe(f).believerSearchResults().length).toBe(1); // 使用者仍可自己點
+    expect(val(f, 'name')).toBe('林大德');
+    expect(val(f, 'prepayYear')).toBe(120);
+    expect(probe(f).form.pristine).toBe(true);
+  });
+
+  it('年份／法會／報名類型不被代入（新的一筆自己決定）', async () => {
+    const source = signupRow('s1', 'b1', '林大德', { year: 99, ceremonyCategoryId: 'cOld', signupType: 4 });
+    const f = await openFrom('s1');
+    const yearBefore = val(f, 'year');
+
+    flushSource(source);
+    await flushMicrotasks();
+    flushSearch('林大德', [source]);
+    await flushMicrotasks();
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await flushMicrotasks();
+
+    expect(val(f, 'year')).toBe(yearBefore);
+    expect(val(f, 'ceremonyCategoryId')).not.toBe('cOld');
+    expect(val(f, 'signupType')).toBe(1);
+  });
+
+  it('代入後使用者自己點別列 → 表單標髒（參數化沒把使用者路徑一起變乾淨）', async () => {
+    const source = signupRow('s1', 'b1', '林大德');
+    const f = await openFrom('s1');
+
+    flushSource(source);
+    await flushMicrotasks();
+    flushSearch('林大德', [source]);
+    await flushMicrotasks();
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await flushMicrotasks();
+    expect(probe(f).form.pristine).toBe(true);
+
+    const pick = probe(f).pickBeliever(signupRow('s2', 'b2', '陳小美'));
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b2')).flush(believerStub('b2', '陳小美'));
+    await pick;
+
+    expect(probe(f).form.dirty).toBe(true);
+    expect(val(f, 'name')).toBe('陳小美');
+  });
+
+  it('代入新增不存草稿（有自己的資料來源）', async () => {
+    const draftState = TestBed.inject(SignupDraftState);
+    const source = signupRow('s1', 'b1', '林大德');
+    const f = await openFrom('s1');
+
+    flushSource(source);
+    await flushMicrotasks();
+    flushSearch('林大德', [source]);
+    await flushMicrotasks();
+    httpMock.expectOne((r) => r.url.endsWith('/believers/b1')).flush(believerStub('b1', '林大德'));
+    await flushMicrotasks();
+
+    probe(f).form.patchValue({ fee: 500 });
+    probe(f).form.markAsDirty();
+    f.destroy();
 
     expect(draftState.draft()).toBeNull();
   });

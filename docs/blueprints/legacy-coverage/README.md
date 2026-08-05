@@ -61,7 +61,7 @@ reverse（每個舊 Form → 對照新實作）才能確認**沒漏功能**。�
 
 - **❌ 候選故意捨棄**（已標註）：
   - `AdminsForm.ProcessCmdKey` (Enter→Tab 轉換) — 新版用標準 Enter=submit
-  - `NewSignupForm.btnNextStep_Click` (兩步驟流程) — 新版用單頁表單（mockup v4）
+  - `NewSignupForm.btnNextStep_Click` (兩步驟流程) — 新版用單頁表單（mockup v4）。⚠️ 2026-08-05 修正：**只有兩步驟切換捨棄**，同方法內 97-111 的「//代入新增」段已補回（自動搜尋 + 選中來源列），見 [new-signup-form.md](new-signup-form.md) row 2
 - **🔥 重點業務邏輯**（實作時要小心）：
   - `LoginForm.ValidateUser` 舊系統含後門帳號 `weypro`（新版改為系統 SuperAdmin `sa@system.local`，受 `Auth:SuperAdminEnabled` 控制）
   - `LoadPrepayForm.btnConfirm_Click` 780 行單方法、6 case 分群、**無 idempotency 必修**

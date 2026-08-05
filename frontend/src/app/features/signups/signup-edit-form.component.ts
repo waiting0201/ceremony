@@ -45,7 +45,8 @@ import { SignupDraftState, type SignupDraft } from './signup-draft-state';
  * 地址/名單改上下堆疊對齊舊 Designer 版面，未選信眾送出自動先建新信眾（同舊 btnConfirm）。
  *
  * - signupId 有值 → 編輯模式
- * - fromSignupId 有值 → 代入新增模式（不帶 year/ceremony/type）
+ * - fromSignupId 有值 → 代入新增模式（不帶 year/ceremony/type）。2026-08-05 起會自動把來源
+ *   姓名填進搜尋框、跑一次信眾搜尋並選中來源列，對齊舊 btnNextStep_Click:97-111「//代入新增」段
  * - 兩者都 null → 純新增模式（唯一會存跨路由草稿的模式，見 signup-draft-state.ts）
  *
  * 由外部容器（route page / overlay）呼叫 `submit()` 觸發儲存；成功 emit `saved`。
@@ -396,31 +397,74 @@ export class SignupEditFormComponent implements OnInit {
     }
   }
 
+  /**
+   * 代入新增：以來源報名預填表單。對齊舊 `NewSignupForm.btnNextStep_Click:97-111`「//代入新增」段——
+   * 姓名填進搜尋框 → 跑一次信眾搜尋（舊 `LoadBelievers()`）→ 在結果中找到來源那一列 →
+   * 選中它（舊 `dgvRow.Selected = true` + `BelieverSelected(dgvRow)`＝我們的 `applyBelieverRow`）。
+   * 少了這段的話搜尋框空白、結果表不渲染、無高亮列，使用者也無法就地改選同信眾的別筆報名。
+   *
+   * 走 `applyBelieverRow` 而非自己 patchValue，同時讓兩條「從一筆報名帶資料」的路徑一致：
+   * 預繳（`prepayYear`/`prepayCeremonyCategoryId`）、地址整段為空時退回信眾主檔、`selectedBeliever`
+   * 取主檔而非 stub。年/法會/類型/編號/費用兩條路徑都不帶（那是新的一筆要自己決定的）。
+   *
+   * 三層 token 分工：`prefillToken`（input 又變 → 整條放棄）、`believerSearchToken`（使用者搶先按
+   * 搜尋 → rows 為 null → 不選列）、`pickToken`（使用者搶先點別列 → 連 fallback 都不跑）。
+   */
   private async prefillFromSignup(signupId: string): Promise<void> {
+    const token = ++this.prefillToken;
+    const pickTokenAtStart = this.pickToken;
     this.loading.set(true);
     try {
       const item = await this.api.getById(signupId);
-      this.form.patchValue({
-        believerId: item.believerId ?? '',
-        name: item.name ?? '',
-        phone: item.phone ?? '',
-        // per-signup 覆寫欄：帶回該筆報名自身值（2026-07-21）
-        employeeType: item.employeeType ?? 1,
-        isFixedNumber: item.isFixedNumber,
-        hallName: item.hallName ?? '',
-        remark: item.remark ?? '',
-      });
-      await this.applyAddress('mail', item.mailCity, null, item.mailZone, item.mailAddress);
-      await this.applyAddress('text', item.textCity, null, item.textZone, item.textAddress);
-      this.livingArray.setValue(pad6(item.livingNames));
-      this.deadArray.setValue(pad6(item.deadNames));
-      this.selectedBeliever.set(makeBelieverStubFromSignup(item));
+      if (token !== this.prefillToken) return;
+
+      let picked = false;
+      const term = (item.name ?? '').trim();
+      if (term) {
+        // 舊 `if(ParamName != null && ParamName != string.Empty)`：姓名為空就完全不發搜尋
+        this.believerSearchTerm.set(term);
+        const rows = await this.searchBelievers(term, signupId);
+        if (token !== this.prefillToken) return;
+        const source = rows?.find((r) => r.id === signupId) ?? null;
+        if (source) picked = await this.applyBelieverRow(source, { markDirty: false });
+        if (token !== this.prefillToken) return;
+      }
+      // fallback：姓名為空 / 搜尋失敗 / 來源列無 believerId。使用者若已搶先自己點過列
+      // （pickToken 變了）就尊重使用者的選擇，不覆蓋。
+      if (!picked && this.pickToken === pickTokenAtStart) await this.applyPrefillItem(item);
+      if (token !== this.prefillToken) return;
+
+      // 代入的內容全部來自系統，使用者一個字都沒打 → 維持 pristine，關 overlay 不跳未儲存確認。
+      // `markAsPristine()` 不會走 valueChanges，要主動同步 host 的 editFormDirty。
       this.form.markAsPristine();
+      this.dirtyChange.emit(false);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
-      this.loading.set(false);
+      if (token === this.prefillToken) this.loading.set(false);
     }
+  }
+
+  /** 代入新增在結果列中找不到來源列時的退路：直接以該筆報名的欄位填表（無高亮列可設）。 */
+  private async applyPrefillItem(item: SignupListItem): Promise<void> {
+    this.form.patchValue({
+      believerId: item.believerId ?? '',
+      name: item.name ?? '',
+      phone: item.phone ?? '',
+      // per-signup 覆寫欄：帶回該筆報名自身值（2026-07-21）
+      employeeType: item.employeeType ?? 1,
+      isFixedNumber: item.isFixedNumber,
+      hallName: item.hallName ?? '',
+      remark: item.remark ?? '',
+      // 預繳與 applyBelieverRow 同規則（帶該筆自身值）；先前這裡漏帶，兩條路徑不一致
+      prepayYear: item.prepayYear,
+      prepayCeremonyCategoryId: item.prepayCeremonyCategoryId ?? '',
+    });
+    await this.applyAddress('mail', item.mailCity, null, item.mailZone, item.mailAddress);
+    await this.applyAddress('text', item.textCity, null, item.textZone, item.textAddress);
+    this.livingArray.setValue(pad6(item.livingNames));
+    this.deadArray.setValue(pad6(item.deadNames));
+    this.selectedBeliever.set(makeBelieverStubFromSignup(item));
   }
 
   private async applyItem(item: SignupListItem): Promise<void> {
@@ -551,6 +595,8 @@ export class SignupEditFormComponent implements OnInit {
   private believerSearchToken = 0;
   /** 改選信眾的 in-flight guard（見 pickBeliever）。 */
   private pickToken = 0;
+  /** 代入新增的 in-flight guard（見 prefillFromSignup）。 */
+  private prefillToken = 0;
 
   /** 輸入只更新框內文字，不打 API；對齊舊 NewSignupForm 按「搜尋」鍵才查詢 */
   protected onBelieverSearchInput(term: string): void {
@@ -573,12 +619,32 @@ export class SignupEditFormComponent implements OnInit {
       this.believerHasSearched.set(false);
       return;
     }
-    this.believerSearching.set(true);
-    this.believerHasSearched.set(true);
-    void this.runBelieverSearch(trimmed);
+    void this.searchBelievers(trimmed);
   }
 
-  private async runBelieverSearch(trimmed: string): Promise<void> {
+  /**
+   * 由程式觸發的信眾搜尋（＝舊 `LoadBelievers()`），與使用者按「搜尋」共用同一組 token 與旗標。
+   * `believerSearchTerm` 刻意不在這裡設——使用者路徑不該被 trim 後的值回寫輸入框，
+   * 代入新增路徑自己設（見 `prefillFromSignup`）。
+   */
+  private async searchBelievers(
+    trimmed: string,
+    pinSignupId?: string | null,
+  ): Promise<SignupListItem[] | null> {
+    this.believerSearching.set(true);
+    this.believerHasSearched.set(true);
+    return this.runBelieverSearch(trimmed, pinSignupId);
+  }
+
+  /**
+   * @param pinSignupId 代入新增用：確保來源那筆報名一定在結果內（不被 200 列上限切掉）。
+   * @returns 結果列；null＝這次查詢已過期（使用者又搜了別的）或查詢失敗。呼叫端**不要**改讀
+   *          `believerSearchResults()`——stale 時那裡可能已是使用者自己搜的結果。
+   */
+  private async runBelieverSearch(
+    trimmed: string,
+    pinSignupId?: string | null,
+  ): Promise<SignupListItem[] | null> {
     const token = ++this.believerSearchToken;
     try {
       // 兩路併查後合併，等效舊 BelieverView（Believers LEFT JOIN Signups）：
@@ -596,11 +662,17 @@ export class SignupEditFormComponent implements OnInit {
         }),
         this.believerApi.search({ searchKey: trimmed }),
       ]);
-      if (token !== this.believerSearchToken) return; // 舊查詢的回應，畫面已經換了輸入內容
+      if (token !== this.believerSearchToken) return null; // 舊查詢的回應，畫面已經換了輸入內容
       // /signups 依 Year/CeremonySort/NumberTitle/Number 全部 ascending 排序；反轉近似舊系統「新的在前」。
       // 常駐列表只 render 前 N 列（不顯示截斷提示，2026-07-17 使用者指定拿掉）：
       // 模糊字（如單字「陳」）可命中 2 萬+ 列，全部塞進 DOM 會卡死頁面
       const signupRows = signupResp.items.slice().reverse().slice(0, MAX_BELIEVER_RESULT_ROWS);
+      // 代入新增：來源那筆若被上限切掉就沒有列可選中/高亮，使用者也看不到自己是從哪一筆代入的。
+      // 破序把它提到最前（舊系統無列數上限故無此問題，屬刻意偏離的加值）。
+      if (pinSignupId && !signupRows.some((r) => r.id === pinSignupId)) {
+        const pinned = signupResp.items.find((r) => r.id === pinSignupId);
+        if (pinned) signupRows.unshift(pinned);
+      }
       // 未報名過的信眾接在最後（舊 BelieverView 依 Year desc 排序，Year 為 null 的本來就墊底）。
       // 另有獨立額度，不與報名列互相排擠——這批正是最需要被找到的（要幫他報名）。
       const withSignup = new Set(signupResp.items.map((r) => r.believerId));
@@ -608,10 +680,13 @@ export class SignupEditFormComponent implements OnInit {
         .filter((b) => !withSignup.has(b.id))
         .slice(0, MAX_BELIEVER_ONLY_ROWS)
         .map(makeSignupRowFromBeliever);
-      this.believerSearchResults.set([...signupRows, ...believerOnlyRows]);
+      const rows = [...signupRows, ...believerOnlyRows];
+      this.believerSearchResults.set(rows);
+      return rows;
     } catch (err) {
-      if (token !== this.believerSearchToken) return;
+      if (token !== this.believerSearchToken) return null;
       this.errorMessage.set(toMessage(err));
+      return null;
     } finally {
       if (token === this.believerSearchToken) this.believerSearching.set(false);
     }
@@ -626,8 +701,25 @@ export class SignupEditFormComponent implements OnInit {
    * 信眾主檔只當該欄為空時的 fallback（同舊 `signup != null ? signup.X : believer.X` 分支）。
    * 年份/法會/報名類型/編號/費用不帶（那是新的一筆要自己決定的）；預繳自 2026-07-31 起改為「帶」的一組。
    */
-  protected async pickBeliever(row: SignupListItem): Promise<void> {
-    if (!row.believerId) return;
+  protected pickBeliever(row: SignupListItem): Promise<boolean> {
+    return this.applyBelieverRow(row, { markDirty: true });
+  }
+
+  /**
+   * 以某列報名覆蓋表單。使用者點列與系統代入（代入新增）共用同一段邏輯，只差在要不要標髒。
+   *
+   * @param markDirty 使用者親手點列＝實質輸入 → true；系統代入 → false
+   *   （內容 100% 來自系統、使用者一個字都沒打，關 overlay 不該被「尚未儲存」攔下；
+   *   且代入新增模式本來就不存草稿，`pickBeliever` 標髒的理由在此不成立）。
+   * @returns 是否真的套用（false＝該列無 believerId，或期間被更新的改選取代）
+   */
+  private async applyBelieverRow(
+    row: SignupListItem,
+    { markDirty }: { markDirty: boolean },
+  ): Promise<boolean> {
+    // 這個 early return 必須留在 `++this.pickToken` **之前**：唯有它不動 pickToken，
+    // `prefillFromSignup` 才能靠 pickToken 沒變來判斷「可以安全跑 fallback」。
+    if (!row.believerId) return false;
     // 改選 guard（2026-07-27）：整段有多個 await（信眾主檔 / 區域清單 / 預繳歷史），使用者在回應到齊前
     // 再點別列時，舊的慢回應會把新選的資料蓋掉、或與新選的混在一起（地址區域下拉尤其明顯）。
     // 同 believerSearchToken 手法：每次改選換一個 token，非最新的一律放棄寫入。
@@ -639,7 +731,7 @@ export class SignupEditFormComponent implements OnInit {
       if (!isStale()) this.errorMessage.set(toMessage(err));
       return null;
     });
-    if (isStale()) return;
+    if (isStale()) return false;
     this.selectedBeliever.set(master ?? makeBelieverStubFromSignup(row));
     this.pickedRowId.set(row.id);
     // **預繳取該筆報名自身值（2026-07-31 客訴，取代原本查 `GET /prepay?believerId&year`）**：
@@ -679,7 +771,7 @@ export class SignupEditFormComponent implements OnInit {
         master?.mailArea ?? null, master?.mailAddress ?? null, isStale,
       );
     }
-    if (isStale()) return;
+    if (isStale()) return false;
     if (row.textCity || row.textAddress) {
       await this.applyAddress('text', row.textCity, null, row.textZone, row.textAddress, isStale);
     } else {
@@ -688,14 +780,17 @@ export class SignupEditFormComponent implements OnInit {
         master?.textArea ?? null, master?.textAddress ?? null, isStale,
       );
     }
-    if (isStale()) return;
+    if (isStale()) return false;
     this.form.controls.sameMailAddress.setValue(false);
     this.livingArray.setValue(pad6(row.livingNames));
     this.deadArray.setValue(pad6(row.deadNames));
     // 選信眾＝使用者的實質輸入（patchValue 本身不會標髒）。沒標髒的話，「選了信眾但一個字都沒改就切走」
     // 會被草稿的 dirty 條件擋掉 → 回來又是空白，正是這次要修的客訴情境。
-    this.form.markAsDirty();
-    this.dirtyChange.emit(true);
+    if (markDirty) {
+      this.form.markAsDirty();
+      this.dirtyChange.emit(true);
+    }
+    return true;
   }
 
   /** 插入模式：帶入目標群組 + 插入位置編號，並鎖定年/法會/類型（避免改掉群組使插入位失義）。 */

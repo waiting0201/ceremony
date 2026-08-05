@@ -258,3 +258,68 @@ describe('SignupListPage（跨路由保留搜尋條件 / 檢視設定）', () =>
     expect(back.p.showAll()).toBe(true);
   });
 });
+
+/**
+ * 工具列「新增報名」的代入規則（2026-08-05）：對齊舊 SignupForm.btnNew_Click:76-90——
+ * 有選取列就代入該列。⚠️ 刻意偏離舊 `selectedcount > 0 → SelectedRows[0]`：新系統多選是常態
+ * （批次列印動輒數百列），故收斂為「恰好 1 筆才代入」，與右鍵「代入新增」同規則。
+ */
+describe('SignupListPage（工具列「新增報名」的代入規則）', () => {
+  type OverlayState = { signupId: string | null; fromSignupId: string | null } | null;
+  type Probe = {
+    results: WritableSignal<SignupListItem[]>;
+    toggleRow(item: SignupListItem, event: MouseEvent | null, index: number): void;
+    openCreateOverlay(): void;
+    editOverlay: () => OverlayState;
+  };
+
+  const row = (id: string): SignupListItem => ({
+    id, year: 113, ceremonyCategoryId: 'c1', ceremonyTitle: null, signupType: 1,
+    numberTitle: null, number: null, fee: null, employee: null, employeeType: 1,
+    believerId: `b-${id}`, name: id, hallName: null, phone: null, isFixedNumber: false,
+    livingNames: [], deadNames: [],
+    mailCity: null, mailZone: null, mailZipcode: null, mailAddress: null,
+    textCity: null, textZone: null, textZipcode: null, textAddress: null,
+    prepayYear: null, prepayCeremonyCategoryId: null, prepayCeremonyTitle: null,
+    remark: null, adminName: null, createDate: null,
+  });
+
+  const rows = ['r0', 'r1', 'r2'].map(row);
+  const click = (): MouseEvent => new MouseEvent('click', { cancelable: true });
+
+  let p: Probe;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    p = TestBed.createComponent(SignupListPage).componentInstance as unknown as Probe;
+    p.results.set(rows);
+  });
+
+  it('未選任何列 → 空白新增', () => {
+    p.openCreateOverlay();
+    expect(p.editOverlay()).toEqual({ signupId: null, fromSignupId: null });
+  });
+
+  it('恰好選 1 筆 → 代入該列（等同右鍵「代入新增」）', () => {
+    p.toggleRow(rows[1], click(), 1);
+    p.openCreateOverlay();
+    expect(p.editOverlay()?.fromSignupId).toBe('r1');
+    expect(p.editOverlay()?.signupId).toBeNull();
+  });
+
+  it('選 2 筆以上 → 不代入（回歸鎖：刻意偏離舊 SelectedRows[0]）', () => {
+    p.toggleRow(rows[0], click(), 0);
+    p.toggleRow(rows[1], click(), 1);
+    p.openCreateOverlay();
+    expect(p.editOverlay()?.fromSignupId).toBeNull();
+  });
+
+  it('選取的列已不在目前結果內 → 不代入（selectedRows() 以 results 過濾）', () => {
+    p.toggleRow(rows[1], click(), 1);
+    p.results.set([row('x0'), row('x1')]); // 重新搜尋換掉結果
+    p.openCreateOverlay();
+    expect(p.editOverlay()?.fromSignupId).toBeNull();
+  });
+});

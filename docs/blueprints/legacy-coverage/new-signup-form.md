@@ -7,7 +7,7 @@ legacy_path: reference/old/Ceremony/NewSignupForm.cs
 legacy_lines: 1118
 audit_status: complete
 coverage_percentage: 100
-last_audited: 2026-07-29
+last_audited: 2026-08-05
 baseline_completed: 2026-05-27
 total_methods: 34
 related_agents:
@@ -18,7 +18,7 @@ related_docs:
   - ../signup-management.md
   - README.md
 keywords: [legacy, coverage, new-signup, 報名建立]
-last_updated: 2026-07-31 (row 6 記入「TextAddress fallback 移除」與「堂號清空存空字串」兩項刻意偏離〔舊 244-251 文牒欄留空就抄寄件段，導致取消不掉文牒地址；SignupView 的 COALESCE 會把 null 堂號回退成信眾值〕；同日先前 row 34 預繳歷史改標**刻意偏離**：舊 1102-1115 的預繳反查不分 SignupType，會把法會預繳帶到普桌〔type 4〕；新版改取點到那一列自身的預繳，GET /prepay?believerId&year 保留但無呼叫端。同日先前 row 13「同寄件地址」改標**刻意偏離**：觸發門檻放寬為「城市/區域/地址三者全空才擋」、提示改「請先填寫寄件地址（城市／區域或地址）」；rows 28/34 記明編號欄（cbKeepNumber/txtNumber）只有 PanelFormEmpty 才清、BelieverSelected 不清——新版 2026-07-31 移除改選信眾時的清除後與舊系統 1:1，費用則維持刻意保留的偏離。先前 2026-07-29 (row 6 補回郵遞區號文字快照〔舊 248-250 兩欄都寫，新版原本只寫 FK ID，導致新增的報名郵遞區號空白〕；先前 2026-07-27 row 8 補回表單內「列印資料卡」按鈕（存檔前 disabled、成功後啟用，印剛新增那筆）；同日 row 5 改回 1:1 對齊：編號欄恆顯示、依 keepNumber 切 disabled/enable（先前「勾了才顯示」是自行簡化）；同日 row 6 補齊 btnConfirm 成功後行為 355-361：重查列表→「編號X，新增報名成功」單按鈕 dialog→表單資料留著不關閉；同日先前客訴：選定信眾回填來源改為「點到的那筆報名」快照；同日補回舊 BelieverView 語意——信眾搜尋併查 GET /believers?searchKey=（新參數，14 欄 OR）讓「從未報名過的信眾」也搜得到，rows 3/24 更新、信眾主檔降為 fallback，1:1 對齊舊 BelieverSelected:991-1101 分支語意——rows 4/34 更新；先前 2026-07-17 信眾搜尋改常駐 in-form 列表對齊舊 dgvBelievers；未選信眾自動建信眾由前端 orchestration 補齊——rows 3/4/6/24 與頂部註記更新))
+last_updated: 2026-08-05 (row 2 `btnNextStep_Click` 由「❌ 故意捨棄」改「✅ 已實作（部分）」：被捨棄的只有兩步驟切換，97-111「//代入新增」段〔姓名填進搜尋框→跑搜尋→選中來源列〕已補回；總覽 ✅ 28→29、❌ 6→5，覆蓋率仍 100%。代入新增改走 `applyBelieverRow`＝與「點結果列」同一段邏輯，順帶修掉 row 34 記載的三處落差之一「預繳未帶」〔`prefillFromSignup` 先前無 prepayYear/prepayCeremonyCategoryId，`pickBeliever` 有〕，以及地址整段為空時未退回信眾主檔；代入後表單維持 pristine。連帶工具列「新增報名」恰選 1 筆時也走代入〔見 signup-form.md row 3〕。先前 2026-07-31 (row 6 記入「TextAddress fallback 移除」與「堂號清空存空字串」兩項刻意偏離〔舊 244-251 文牒欄留空就抄寄件段，導致取消不掉文牒地址；SignupView 的 COALESCE 會把 null 堂號回退成信眾值〕；同日先前 row 34 預繳歷史改標**刻意偏離**：舊 1102-1115 的預繳反查不分 SignupType，會把法會預繳帶到普桌〔type 4〕；新版改取點到那一列自身的預繳，GET /prepay?believerId&year 保留但無呼叫端。同日先前 row 13「同寄件地址」改標**刻意偏離**：觸發門檻放寬為「城市/區域/地址三者全空才擋」、提示改「請先填寫寄件地址（城市／區域或地址）」；rows 28/34 記明編號欄（cbKeepNumber/txtNumber）只有 PanelFormEmpty 才清、BelieverSelected 不清——新版 2026-07-31 移除改選信眾時的清除後與舊系統 1:1，費用則維持刻意保留的偏離。先前 2026-07-29 (row 6 補回郵遞區號文字快照〔舊 248-250 兩欄都寫，新版原本只寫 FK ID，導致新增的報名郵遞區號空白〕；先前 2026-07-27 row 8 補回表單內「列印資料卡」按鈕（存檔前 disabled、成功後啟用，印剛新增那筆）；同日 row 5 改回 1:1 對齊：編號欄恆顯示、依 keepNumber 切 disabled/enable（先前「勾了才顯示」是自行簡化）；同日 row 6 補齊 btnConfirm 成功後行為 355-361：重查列表→「編號X，新增報名成功」單按鈕 dialog→表單資料留著不關閉；同日先前客訴：選定信眾回填來源改為「點到的那筆報名」快照；同日補回舊 BelieverView 語意——信眾搜尋併查 GET /believers?searchKey=（新參數，14 欄 OR）讓「從未報名過的信眾」也搜得到，rows 3/24 更新、信眾主檔降為 fallback，1:1 對齊舊 BelieverSelected:991-1101 分支語意——rows 4/34 更新；先前 2026-07-17 信眾搜尋改常駐 in-form 列表對齊舊 dgvBelievers；未選信眾自動建信眾由前端 orchestration 補齊——rows 3/4/6/24 與頂部註記更新)))
 ---
 
 > ✅ **完成 (2026-06-02 交叉稽核)**：核心 POST /signups + 表單編排對齊舊版 + 地址 city/area 連動下拉皆 shipped；剩餘 WinForms 列印內部事件（PrintDocument/EMF/列印對話）統一 ❌ 故意捨棄（改 server-side QuestPDF→PDF + 瀏覽器預覽，與 SignupForm rows 34-37 一致，不受列印 PoC 影響）。
@@ -26,6 +26,7 @@ last_updated: 2026-07-31 (row 6 記入「TextAddress fallback 移除」與「堂
 > - 表單驗證 + 編號分配 ✅ 已實作（UPDLOCK + HOLDLOCK 取代舊系統 race window）
 > - 避 4 規則 ✅ 已實作（`Domain.Services.AvoidFourFormatter` 純函式）
 > - 兩步驟流程（基本資料 → 名單）對應**新版單頁表單**（mockup v4 已決議）；2026-05-29 單頁**欄位編排對齊舊版**（法會→信眾→基本→地址→名單→編號/費用→備註/預繳）
+> - **代入新增自動搜尋 + 選中來源列 ✅ 補回（2026-08-05）**：舊 97-111 的「//代入新增」段先前跟著 `btnNextStep_Click` 一起被歸為「故意捨棄」，但該捨棄的只有兩步驟切換本身。現已補回（row 2），並讓代入新增改走 `applyBelieverRow`＝與「使用者點結果列」同一段邏輯，順帶修掉三處落差：預繳未帶、地址整段為空時未退回信眾主檔、`selectedBeliever` 只拿 stub。代入後表單維持 **pristine**（內容全來自系統，關 overlay 不跳未儲存確認）。連帶：工具列「新增報名」在恰好選 1 筆時也走代入（見 [signup-form.md](signup-form.md) row 3），該情境不還原跨路由草稿
 > - 地址 city→area 連動下拉 ✅（新增 `GET /zipcodes/cities` + `GET /zipcodes?city=`）+ 同寄件地址 checkbox
 > - inline 新建 Believer ✅ 已實作（2026-07-17 補齊）——API 層維持不做（`CreateSignupRequest.BelieverId` 必填），由前端 orchestration：未選信眾送出時 `submit()` 先 `POST /believers`（employeeType=1/isFixedNumber=false 同舊預設）再 `POST /signups`。此前前端漏做（believerId 掛 required），「沒選信眾就無法新增」與舊 `btnConfirm_Click:186-223` 自動建信眾行為不符——已修。inline **編輯**既有信眾屬性仍 ❌ 故意捨棄（於信眾維護調整）；員工類型 + 固定編號於報名表單唯讀顯示
 > - 選信眾自動帶入「預繳歷史」+ 固定編號顯示已補（2026-06-02，`BelieverListItem.IsFixedNumber` + `GET /prepay?believerId`）
@@ -39,8 +40,8 @@ last_updated: 2026-07-31 (row 6 記入「TextAddress fallback 移除」與「堂
 | 項目 | 值 |
 |---|---|
 | 總方法 / 事件 / 邏輯區塊數 | 34 |
-| ✅ 已實作 | 28 |
-| ❌ 故意捨棄 | 6 (btnNextStep 單頁表單取代；+ 5 WinForms 列印內部事件改 server-side PDF) |
+| ✅ 已實作 | 29 |
+| ❌ 故意捨棄 | 5 (WinForms 列印內部事件改 server-side PDF) |
 | ⏳ 缺口待補 | 0 |
 | 🤔 待確認 | 0 |
 | 覆蓋率 | 100% |
@@ -50,7 +51,7 @@ last_updated: 2026-07-31 (row 6 記入「TextAddress fallback 移除」與「堂
 | # | 舊方法/事件 | 舊 code line | 行為摘要 | 新系統狀態 | 對應 endpoint | 備註 |
 |---|---|---|---|---|---|---|
 | 1 | `NewSignupForm()` constructor | 58-83 | 初始化表單、服務、設定面板 | ✅ 已實作 | 前端 form init | `signup-edit-form.component` constructor：`loadCategories()` + `loadCities()` + create/edit mode effect |
-| 2 | `btnNextStep_Click` | 85-112 | 下一步：載入城市、員工類型，代入邏輯 | ❌ 故意捨棄 | – | 新版單頁表單（mockup v4），無「下一步」流程 |
+| 2 | `btnNextStep_Click` | 85-112 | 下一步：載入城市、員工類型，代入邏輯 | ✅ 已實作（部分） | 前端 form init + `GET /api/v1/signups`（searchKey） | **兩步驟切換捨棄**（85-96 的 `PanelFilterSwitch`/`PanelFormSwitch`/`PanelFormEmpty`/`LoadCity`/`LoadEmployeeType`）——新版單頁表單（mockup v4）無「下一步」流程，這些在 constructor 就做完。**97-111「//代入新增」段 2026-08-05 補回**：`prefillFromSignup` 取得來源報名後，把姓名填進搜尋框（舊 `txtQ.Text = ParamName`）→ 跑一次信眾搜尋（舊 `LoadBelievers()`）→ 在結果中找 `r.id === fromSignupId` 的列（舊走訪 `ColSignupID == ParamSignupID`）→ `applyBelieverRow(source, { markDirty: false })`（舊 `dgvRow.Selected = true` + `BelieverSelected`）。此前只做 patchValue，搜尋框空白、結果表不渲染、無高亮列，使用者無法就地改選同信眾的別筆報名。姓名為空則完全不發搜尋（同舊 `if(ParamName != string.Empty)`），改走 fallback `applyPrefillItem`。**加值偏離**：來源列若被 200 列上限切掉會被 pin 到結果最前（舊系統無列數上限故無此問題）|
 | 3 | `btnBelieverSearch_Click` | 114-124 | 驗證搜尋條件後查詢信眾 | ✅ 已實作 | `GET /api/v1/signups`（`searchKey`+4 scope flags） | signup-edit-form 信眾**常駐 in-form 搜尋**（2026-07-17 改：搜尋列+結果列表直接常駐於表單頂部，對齊舊 txtQ+dgvBelievers 常駐面板型態，取代 modal picker；最多 render 前 200 列+總數提示防 DOM 卡頓）。搜尋語意沿用 2026-07-02：單一輸入框 OR 比對 Name/Phone/6組陽上/6組往生共 14 欄，按鈕/Enter 觸發。2026-07-27：同一把關鍵字**並行**再查 `GET /api/v1/believers?searchKey=`，補回舊 BelieverView 才有的「未報名過的信眾」（見 row 24） |
 | 4 | `dgvBelievers_CellClick` | 126-137 | 選擇信眾行並加載其資料 | ✅ 已實作 | 前端 row select + `GET /api/v1/believers/{id}` | `pickBeliever` 選定後預填表單（基本資料 + 地址 city/area + 陽上/往生名單 + 備註）；2026-07-17：選定後**列表保留**、選定列高亮，可隨時再點別筆改選覆蓋（同舊 CellClick 重跑 BelieverSelected）；**2026-07-27 客訴修正**：帶入來源改為**該列自身的報名快照**（`SignupListItem`），`/believers/{id}` 降為欄位為空時的 fallback（同舊 BelieverSelected 分支語意，見 row 34） |
 | 5 | `cbKeepNumber_CheckedChanged` | 139-149 | 切換編號手動輸入啟用狀態 | ✅ 已實作 | 前端 form logic | **2026-07-27 起 1:1 對齊**：編號欄恆顯示，`keepNumber` 未勾＝`disabled`、勾選＝`enable`（`syncCustomNumberEnabled()`）；先前新版做成「勾了才顯示欄位」屬自行簡化，已改回 |
@@ -82,4 +83,4 @@ last_updated: 2026-07-31 (row 6 記入「TextAddress fallback 移除」與「堂
 | 31 | `BeginPrint()` event | 921-924 | 初始化列印頁面索引 | ❌ 故意捨棄 | – | WinForms PrintDocument 事件；web/PDF path 不需 |
 | 32 | `PrintPage()` event | 927-952 | 繪製列印頁面 (EMF → 影像) | ❌ 故意捨棄 | – | WinForms EMF 繪製；改 server-side PDF |
 | 33 | `printPreview_PrintClick` | 954-989 | 啟動列印對話 (含紙張設定) | ❌ 故意捨棄 | – | WinForms 列印對話；改瀏覽器 PDF 預覽（reports preview 頁） |
-| 34 | `BelieverSelected()` helper | 991-1116 | **複合邏輯：填入信眾資料 + 地址 + 預繳歷史** (125 行) | ✅ 已實作 | `GET /api/v1/believers`（picker）+ `GET /api/v1/prepay?believerId` | `pickBeliever` 預填姓名/電話/堂號/員工類型/固定編號/寄件+文牒地址（city/area cascade）/陽上+往生名單/備註。**2026-07-27 起 1:1 對齊舊分支語意**：姓名/電話/兩組地址/名單/備註取**點到那筆報名**（舊 `signup != null ? signup.X : dgvRow/believer.X`；名單與備註舊系統本就直接取 grid row），該欄為空才退回 `GET /believers/{id}` 主檔；堂號/員工類型/固定編號取該筆值（`SignupView` COALESCE 回退信眾，等效舊系統一律取 believer）。此前一律以主檔覆蓋，是與舊系統的實質落差（已修）。**費用與編號欄（`cbKeepNumber`/`txtNumber`）刻意不動**——舊 BelieverSelected 從頭到尾沒碰這三個控件，只有 `PanelFormEmpty()`（row 28）才清；新版 2026-07-27 起不清費用、2026-07-31 起不清編號勾選與數字，至此與舊系統 1:1；**預繳歷史（舊 1102-1115）2026-07-31 起刻意偏離**：舊碼反查「該信眾今年以前最新一筆」且**完全不分 `SignupType`**，同一位信眾點法會列與普桌列（type 4）都拿到同一份 → 普桌沿用法會預繳（客訴）。新版改取**點到那一列自身**的 `prepayYear` / `prepayCeremonyCategoryId`，與本 row 其他欄位同一規則；`GET /prepay?believerId&year` 保留但已無呼叫端（blueprint：[get-prepay-believer-latest.md](../api-endpoints/get-prepay-believer-latest.md)、規則：[business-rules-implicit §19](../../business-rules-implicit.md)）|
+| 34 | `BelieverSelected()` helper | 991-1116 | **複合邏輯：填入信眾資料 + 地址 + 預繳歷史** (125 行) | ✅ 已實作 | `GET /api/v1/believers`（picker）+ `GET /api/v1/prepay?believerId` | **2026-08-05 起實作抽成 `applyBelieverRow(row, { markDirty })`**，`pickBeliever`（使用者點列，標髒）與代入新增（系統帶入，維持 pristine）共用同一段；代入新增先前自己 patchValue、漏帶預繳且地址不退回信眾主檔，現已一致。以下敘述的「`pickBeliever`」即指這段共用邏輯。`pickBeliever` 預填姓名/電話/堂號/員工類型/固定編號/寄件+文牒地址（city/area cascade）/陽上+往生名單/備註。**2026-07-27 起 1:1 對齊舊分支語意**：姓名/電話/兩組地址/名單/備註取**點到那筆報名**（舊 `signup != null ? signup.X : dgvRow/believer.X`；名單與備註舊系統本就直接取 grid row），該欄為空才退回 `GET /believers/{id}` 主檔；堂號/員工類型/固定編號取該筆值（`SignupView` COALESCE 回退信眾，等效舊系統一律取 believer）。此前一律以主檔覆蓋，是與舊系統的實質落差（已修）。**費用與編號欄（`cbKeepNumber`/`txtNumber`）刻意不動**——舊 BelieverSelected 從頭到尾沒碰這三個控件，只有 `PanelFormEmpty()`（row 28）才清；新版 2026-07-27 起不清費用、2026-07-31 起不清編號勾選與數字，至此與舊系統 1:1；**預繳歷史（舊 1102-1115）2026-07-31 起刻意偏離**：舊碼反查「該信眾今年以前最新一筆」且**完全不分 `SignupType`**，同一位信眾點法會列與普桌列（type 4）都拿到同一份 → 普桌沿用法會預繳（客訴）。新版改取**點到那一列自身**的 `prepayYear` / `prepayCeremonyCategoryId`，與本 row 其他欄位同一規則；`GET /prepay?believerId&year` 保留但已無呼叫端（blueprint：[get-prepay-believer-latest.md](../api-endpoints/get-prepay-believer-latest.md)、規則：[business-rules-implicit §19](../../business-rules-implicit.md)）|
