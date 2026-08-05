@@ -25,6 +25,19 @@ public sealed class TabletRenderer
     // 0.1cm 空白，讓 PDF 頁面跟實體紙張尺寸一致（避免印表機用「符合紙張大小」縮放時整體跑位）。
     internal const double PageHeightCm = 25.5;
 
+    // 2026-08-05 使用者指定：「薦牌列印位置整個左移 2.5cm」。9 變體、全部欄位（編號／堂號／往者／
+    // 陽上）共用這一個全域水平位移，套在 DrawText 的最後一步，欄與欄的相對關係完全不變，日後要
+    // 回調或改量只動這個常數。
+    // ⚠️ 已知副作用（實作時已回報使用者，等實體套印確認）：本頁 Margin 0、內容原本從 Left 0.5 起排，
+    // 左移 2.5cm 後這些欄位的 X 會變成負值 → 落在 PDF 頁面（MediaBox）外，**整欄不會印出來**，
+    // 不是印歪：編號 0.5→−2.0；陽上 1 位 1.33528→−1.16472；陽上 2 位 1.7825→−0.7175、
+    // 0.80611→−1.69389；陽上矩陣 0.5/1.227/1.954→−2.0/−1.273/−0.546。堂號 3.9/5.9→1.4/3.4、
+    // 往者中心線 5.735→3.235（會整組移出樣板雕花窗框內緣 4.191~7.163cm）。
+    // 若客訴的是「實印整體偏右 2.5cm」，根因較可能在送印那端（驅動自訂表單尺寸 ≠ PDF 頁面 →
+    // fit-to-printable-area 整份偏移，見 gotchas「改列印通道會靜默作廢整份座標表」條），
+    // 座標端補不回來——內容一旦超出頁面就是消失。
+    internal const double GlobalShiftX = -2.5;
+
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
     private static readonly byte[] TemplateImage = LoadTemplate("tablet-template.jpg");
@@ -312,8 +325,11 @@ public sealed class TabletRenderer
         // vMiddle：以 translate 位移模擬 VerticalAlign=Middle（橫向單字，如 Number / 堂號）。
         var y = vMiddle ? top + (height - fontCm) / 2.0 : top;
 
+        // GlobalShiftX：9 變體所有欄位共用的整體水平位移（2026-08-05 使用者指定左移 2.5cm）。
+        // 收在這裡而不是加進各欄常數，是為了讓「整體位移」與「量測基準座標」分離——上面每個
+        // Left 常數都還是樣板量測／RDLC 的原始語意，位移只有一個改點。
         var layer = layers.Layer()
-            .TranslateX((float)left, Unit.Centimetre)
+            .TranslateX((float)(left + GlobalShiftX), Unit.Centimetre)
             .TranslateY((float)y, Unit.Centimetre);
         if (!vertical) layer = layer.Width((float)width, Unit.Centimetre);
 
