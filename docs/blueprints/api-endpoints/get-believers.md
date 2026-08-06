@@ -15,7 +15,7 @@ related_docs:
   - ../../design/database-design.md
   - ../legacy-coverage/believer-form.md
 keywords: [believers, search, query, dapper, livingname, deadname, searchKey, 未報名信眾]
-last_updated: 2026-07-27 (加 searchKey 單一關鍵字參數：OR 比對 Name/Phone/陽上1-6/往生1-6 共 14 欄，對齊舊 NewSignupForm.cs:715-722 LoadBelievers 的 txtQ；供新增報名信眾搜尋補「從未報名過的信眾」——/signups 只回報名紀錄，等效舊 BelieverView 的 LEFT JOIN)
+last_updated: 2026-08-06 (`phone` 查詢條件先 `ToNarrow` 轉半形再查：寫入端（BelieverWriteValidator / *SignupHandler）一律存半形，條件留全形永遠撈不到；只轉電話、其餘條件的全形字是資料本身。配合前端電話欄 `appNarrowInput`，見 business-rules-implicit §10。先前 2026-07-27 (加 searchKey 單一關鍵字參數：OR 比對 Name/Phone/陽上1-6/往生1-6 共 14 欄，對齊舊 NewSignupForm.cs:715-722 LoadBelievers 的 txtQ；供新增報名信眾搜尋補「從未報名過的信眾」——/signups 只回報名紀錄，等效舊 BelieverView 的 LEFT JOIN))
 ---
 
 ## 規格
@@ -31,7 +31,7 @@ last_updated: 2026-07-27 (加 searchKey 單一關鍵字參數：OR 比對 Name/P
 | 名稱 | 型別 | 必填 | 行為 |
 |---|---|---|---|
 | `name` | string | 0..1 (見下) | LIKE `%name%` 對 `Believers.Name` |
-| `phone` | string | 0..1 | LIKE `%phone%` 對 `Believers.Phone` |
+| `phone` | string | 0..1 | **先 `ToNarrow` 轉半形**再 LIKE `%phone%` 對 `Believers.Phone`（**2026-08-06 加**；寫入端一律存半形，條件留全形永遠撈不到。其他條件不轉，全形是資料本身） |
 | `hallName` | string | 0..1 | LIKE `%hallName%` 對 `Believers.HallName` |
 | `livingName` | string | 0..1 | LIKE `%livingName%` 對 6 個 `LivingNameOne..Six` 任一欄（OR） |
 | `deadName` | string | 0..1 | LIKE `%deadName%` 對 6 個 `DeadNameOne..Six` 任一欄（OR） |
@@ -116,6 +116,8 @@ last_updated: 2026-07-27 (加 searchKey 單一關鍵字參數：OR 比對 Name/P
 | 只給 searchKey（未報名過的信眾） | 舊 BelieverView 亦回該列（Signup 欄位 null） | 200，命中該信眾 | `GET_believers_searchKey_finds_believer_with_no_signup_by_name_or_deadName`（Integration） |
 | searchKey 全空白 | – | 400 `VALIDATION_REQUIRED` | `SearchKeyWhitespace_only_still_throws_VALIDATION_REQUIRED` |
 | searchKey 前後空白 | – | trim 後查詢 | `SearchKeyOnly_passes_validation_and_reaches_repo_trimmed` |
+| phone 條件含全形數字/符號 | 舊 grid 直接查，全形撈不到（存的是半形） | `ToNarrow` 後查詢 | `PhoneCriterion_is_converted_to_narrow_before_repo` |
+| name 條件含全形字 | LIKE 原樣 | 同（**不轉半形**） | `NameCriterion_keeps_fullwidth_characters` |
 | 條件含特殊字元 `%` `_` | LINQ Contains 自動 escape | Dapper 參數化 + 用 `LIKE @p ESCAPE '\\'` 或 explicit escape | TestSearch_SqlInjectionSafe |
 
 ## 業務規則

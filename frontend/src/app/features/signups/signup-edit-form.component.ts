@@ -32,6 +32,7 @@ import { flattenCategories, type FlatCategory } from '../../shared/util/categori
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-season';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
+import { NarrowInputDirective } from '../../shared/directives/narrow-input.directive';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { SignupDraftState, type SignupDraft } from './signup-draft-state';
 
@@ -71,7 +72,7 @@ export interface SignupSavedEvent {
 
 @Component({
   selector: 'app-signup-edit-form',
-  imports: [ReactiveFormsModule, NumericInputDirective],
+  imports: [ReactiveFormsModule, NumericInputDirective, NarrowInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './signup-edit-form.component.html',
   styleUrl: './signup-edit-form.component.scss',

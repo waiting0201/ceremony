@@ -12,7 +12,7 @@ related_docs:
   - ../conventions.md
   - security.md
 keywords: [coding-style, frontend, typescript, javascript, dart, style-guide, lint]
-last_updated: 2026-07-31 (錯誤處理段新增：「例外 → 顯示文字」一律走 core/errors/toMessage，本地訊息用 UserFacingError，禁止在 feature 內自寫 instanceof ApiError 三元式——該邏輯曾複製 13 份、把列印失敗原因全吞成「操作失敗，請稍後再試」。先前 2026-07-18：純數字欄禁 type=number、一律 appNumericInput——IME 組字被丟棄客訴根因)
+last_updated: 2026-08-06 (樣式/表單段新增：電話欄一律套 `appNarrowInput`（輸入當下全形→半形，與後端 ToNarrow 同規則），且電話不可改用 appNumericInput（會濾掉 - ( ) # 等合法分隔符）、此 directive 只准用於電話。先前 2026-07-31 (錯誤處理段新增：「例外 → 顯示文字」一律走 core/errors/toMessage，本地訊息用 UserFacingError，禁止在 feature 內自寫 instanceof ApiError 三元式——該邏輯曾複製 13 份、把列印失敗原因全吞成「操作失敗，請稍後再試」。先前 2026-07-18：純數字欄禁 type=number、一律 appNumericInput——IME 組字被丟棄客訴根因))
 ---
 
 ## 0. 元規則
@@ -145,6 +145,7 @@ last_updated: 2026-07-31 (錯誤處理段新增：「例外 → 顯示文字」�
 - 響應式：mobile-first，breakpoint 與 [frontend-design.md](frontend-design.md) 對齊
 - 對比度通過 WCAG AA（一般 4.5:1、大字 3:1）
 - **純數字欄禁用 `type="number"`**，一律 `type="text" inputmode="numeric"` + `appNumericInput`（shared/directives/numeric-input.directive.ts）：Chromium number input 會把中文輸入法組字整段丟棄且無回饋（見 [../gotchas.md](../gotchas.md) 2026-07-18 條）；directive 的 CVA 讓 control 值維持 `number | null`，元件端邏輯不變
+- **電話欄一律套 `appNarrowInput`**（shared/directives/narrow-input.directive.ts）：輸入/IME 組字結束當下把全形轉半形（U+FF01–U+FF5E、U+3000），與後端 `ToNarrow` 同規則、只是提前到輸入當下（見 [../business-rules-implicit.md](../business-rules-implicit.md) §10）。電話**不能**用 `appNumericInput`（會濾掉 `-` `(` `)` `#` 等合法分隔符）。**只用於電話**：姓名/堂號/地址/名單禁止套用，全形空格是使用者刻意的直書排版資料
 
 ## 5. 與其他文件的關係
 

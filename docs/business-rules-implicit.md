@@ -13,7 +13,7 @@ related_docs:
   - blueprints/printing-reports.md
   - design/database-design.md
 keywords: [business rules, 業務規則, 隱含, 不變式, 驗證, 編號, 月份, 季別, 春季, 中元, 秋季, 預繳, 普桌]
-last_updated: 2026-08-05 (新增 §20「代入新增的選列規則與來源列 pin」：工具列「新增報名」補回代入邏輯，但**恰好選 1 筆才代入**〔偏離舊 `selectedcount > 0 → SelectedRows[0]`，因新系統多選是常態〕；代入後自動搜尋並選中來源列時，來源列若被 200 列 DOM 上限切掉會 pin 到最前〔舊 WinForms grid 無列數上限〕；連帶取捨：該情境不還原跨路由草稿。同時 §19 補記漏網路徑——代入新增先前沒帶預繳，現與 `pickBeliever` 共用 `applyBelieverRow` 已一致。先前 2026-07-31 (新增 §12.1「地址／堂號清空必須清得掉」：移除信眾表單 mailAddress 的 required、移除文牒段抄寄件段的隱性 fallback、報名堂號清空改存空字串〔避開 SignupView 的 COALESCE 回退〕；同日先前新增 §19「預繳依單筆報名隔離 — 法會預繳 ≠ 普桌預繳」：客訴「同一次搜尋先點有預繳的法會列、再點沒預繳的普桌列，普桌沿用法會預繳」；真因是舊 BelieverSelected:1102-1115 的跨類型「最新一筆」反查完全不分 SignupType，新版改為選信眾時預繳取該列自身值、不再呼叫 GET /prepay?believerId&year〔endpoint 保留備用〕，標為刻意偏離 legacy。同日先前 §12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證)))
+last_updated: 2026-08-06 (§10 Phone 全/半形轉換擴寫：使用者指定「電話不管全形半形輸入，結果都是半形」，把原本只在存檔時做的 `ToNarrow` 往兩端延伸——前端電話欄新增 `appNarrowInput` directive 於輸入/組字結束當下即轉、信眾搜尋的 Phone 條件在 `SearchBelieversHandler` 也轉半形〔否則寫入端存半形、查詢帶全形永遠撈不到〕；同時寫明兩條邊界：**只轉電話**〔姓名/地址的全形空格是直書排版資料，不可轉〕、**載入時不轉顯示值**〔會讓 DOM 與 control 不一致，而在 writeValue 內回呼 onChange 會把表單誤標 dirty〕。先前 2026-08-05 (新增 §20「代入新增的選列規則與來源列 pin」：工具列「新增報名」補回代入邏輯，但**恰好選 1 筆才代入**〔偏離舊 `selectedcount > 0 → SelectedRows[0]`，因新系統多選是常態〕；代入後自動搜尋並選中來源列時，來源列若被 200 列 DOM 上限切掉會 pin 到最前〔舊 WinForms grid 無列數上限〕；連帶取捨：該情境不還原跨路由草稿。同時 §19 補記漏網路徑——代入新增先前沒帶預繳，現與 `pickBeliever` 共用 `applyBelieverRow` 已一致。先前 2026-07-31 (新增 §12.1「地址／堂號清空必須清得掉」：移除信眾表單 mailAddress 的 required、移除文牒段抄寄件段的隱性 fallback、報名堂號清空改存空字串〔避開 SignupView 的 COALESCE 回退〕；同日先前新增 §19「預繳依單筆報名隔離 — 法會預繳 ≠ 普桌預繳」：客訴「同一次搜尋先點有預繳的法會列、再點沒預繳的普桌列，普桌沿用法會預繳」；真因是舊 BelieverSelected:1102-1115 的跨類型「最新一筆」反查完全不分 SignupType，新版改為選信眾時預繳取該列自身值、不再呼叫 GET /prepay?believerId&year〔endpoint 保留備用〕，標為刻意偏離 legacy。同日先前 §12「同寄件地址」勾選門檻放寬為「城市/區域/地址三者全空才擋」〔取代 07-21 記錄的「仍要求先有寄件地址」〕，提示改「請先填寫寄件地址（城市／區域或地址）」，兩張表單同步；另記 believer-edit-form 的 mailAddress 仍 required、與 07-21 放寬不一致，已列 pending。先前 2026-07-21 (§3.1 反轉為方案 A：堂號/員工類型/固定編號改 per-signup 報名自有欄、可編輯只改這筆、不回寫信眾，view COALESCE 回退，預繳保號仍讀信眾；同日 §12 地址改非必填（前後端同步放寬）；先前 2026-07-18 §16 改版：右鍵普桌/普桌資料卡前端不再鎖、恆啟用，防呆交後端；2026-06-30 §1.4 補新版重複報名警示；§18 薦牌/文牒第 6 位往生/陽上已實作＋回歸測試＋影像驗證))))
 ---
 
 > 本文收錄**舊系統 code 內隱含、但原分析文件未明寫**的業務規則。每條都附 source 引用。新系統實作時要逐條沿用，否則容易與舊行為偏離。
@@ -207,7 +207,22 @@ foreach (DataGridViewRow dgvRow in dgvBelievers.SelectedRows) {
 - 規則：信眾與報名儲存時都做
 - Regex：`^0[0-9]*$`（必 0 開頭）
 
-新系統用自製工具實現（不依賴 VB runtime）。
+新系統用自製工具實現（不依賴 VB runtime）：`ToNarrow`（U+FF01–U+FF5E → ASCII、U+3000 → 半形空白），
+實作於 `BelieverWriteValidator` / `CreateSignupHandler` / `UpdateSignupHandler` / `InsertShiftSignupHandler`。
+
+**2026-08-06 追加（使用者指定「電話不管全形半形輸入，結果都是半形」）**——把同一規則往前後兩端延伸：
+
+- **輸入當下就轉**：電話欄套 `appNarrowInput` directive（`shared/directives/narrow-input.directive.ts`），
+  IME 組字結束（`compositionend`）或直接輸入時即轉半形，使用者當場看得到結果，不必等存檔。
+  套用處：信眾表單電話、報名表單電話、信眾搜尋電話。
+  游標位置在轉換後原樣還原（全/半形 1:1 對應、長度不變）。
+- **搜尋條件也轉**：`SearchBelieversHandler` 對 `Phone` 條件做 `ToNarrow`。
+  理由——寫入端一律存半形，條件若留全形（或舊 client 直接打 API）永遠撈不到資料。
+- **只轉電話**：姓名／堂號／地址／名單**不轉**。全形空格是資料本身（使用者用開頭全形空格把名字往下推做直書排版，
+  見 §「姓名中間空格」與 [gotchas.md](gotchas.md)），轉了會破壞套印版面。
+- **載入既有資料不轉顯示值**：directive 的 `writeValue` 原樣顯示。轉了會讓 DOM 與 control 值不一致，
+  而在 `writeValue` 內回呼 `onChange` 會把剛載入的表單標成 dirty（觸發「未儲存」提示）。
+  舊資料若殘留全形，使用者一動就轉，沒動也有後端 `ToNarrow` 兜底。
 
 ---
 

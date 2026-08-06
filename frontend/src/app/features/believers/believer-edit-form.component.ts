@@ -19,6 +19,7 @@ import type {
 import { ZipcodeApi } from '../../core/api/zipcodes/zipcode.api';
 import type { ZipcodeAreaItem } from '../../core/api/zipcodes/zipcode.models';
 import { toMessage } from '../../core/errors/to-message';
+import { NarrowInputDirective } from '../../shared/directives/narrow-input.directive';
 
 /**
  * 信眾 create/edit 表單。
@@ -30,7 +31,7 @@ import { toMessage } from '../../core/errors/to-message';
  */
 @Component({
   selector: 'app-believer-edit-form',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, NarrowInputDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './believer-edit-form.component.html',
   styleUrl: './believer-edit-form.component.scss',

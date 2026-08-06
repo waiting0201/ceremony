@@ -16,7 +16,7 @@
   <section class="search-card">
     <form [formGroup]="searchForm" (ngSubmit)="search()" class="search-row">
       <label class="field"><span>姓名</span><input type="text" formControlName="name" autocomplete="off" /></label>
-      <label class="field"><span>電話</span><input type="text" formControlName="phone" autocomplete="off" /></label>
+      <label class="field"><span>電話</span><input type="text" appNarrowInput formControlName="phone" autocomplete="off" /></label>
       <label class="field"><span>堂號</span><input type="text" formControlName="hallName" autocomplete="off" /></label>
       <label class="field"><span>陽上名單</span><input type="text" formControlName="livingName" autocomplete="off" /></label>
       <label class="field"><span>往生名單</span><input type="text" formControlName="deadName" autocomplete="off" /></label>

@@ -17,7 +17,9 @@ public sealed class SearchBelieversHandler(IBelieverRepository repo)
         // Trim 全部條件
         var normalized = new BelieverSearchQuery(
             Trim(query.Name),
-            Trim(query.Phone),
+            // 電話一律轉半形再查：寫入端（BelieverWriteValidator / *SignupHandler）都已 ToNarrow，
+            // 條件若留全形永遠撈不到。姓名/堂號/名單不轉，全形是資料本身的一部分。
+            ToNarrow(Trim(query.Phone)),
             Trim(query.HallName),
             Trim(query.LivingName),
             Trim(query.DeadName),
@@ -40,4 +42,16 @@ public sealed class SearchBelieversHandler(IBelieverRepository repo)
 
     private static string? Trim(string? s) =>
         string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    /// <summary>全形 → 半形（同 BelieverWriteValidator.ToNarrow）。</summary>
+    private static string? ToNarrow(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return s;
+        return new string(s.Select(c => c switch
+        {
+            >= '！' and <= '～' => (char)(c - 0xFEE0),
+            '　' => ' ',
+            _ => c,
+        }).ToArray());
+    }
 }

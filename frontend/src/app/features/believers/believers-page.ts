@@ -21,6 +21,7 @@ import { ContextMenuService } from '../../shared/context-menu/context-menu.servi
 import type { ContextMenuItem } from '../../shared/context-menu/context-menu.types';
 import { IconComponent } from '../../shared/icon/icon.component';
 import { CellTooltipDirective } from '../../shared/cell-tooltip/cell-tooltip.directive';
+import { NarrowInputDirective } from '../../shared/directives/narrow-input.directive';
 import { BelieverEditFormComponent } from './believer-edit-form.component';
 import { BELIEVER_COLUMNS, type BelieverColumnDef } from './believer-columns';
 
@@ -35,6 +36,7 @@ const ROW_HEIGHT = 26;
     BelieverEditFormComponent,
     IconComponent,
     CellTooltipDirective,
+    NarrowInputDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './believers-page.html',

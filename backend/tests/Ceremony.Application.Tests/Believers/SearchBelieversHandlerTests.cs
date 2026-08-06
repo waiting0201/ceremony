@@ -45,6 +45,34 @@ public sealed class SearchBelieversHandlerTests
     }
 
     [Fact]
+    public async Task PhoneCriterion_is_converted_to_narrow_before_repo()
+    {
+        // 電話寫入端一律 ToNarrow，條件若留全形永遠撈不到（2026-08-06 使用者指定「電話一律半形」）
+        _repo.Setup(r => r.SearchAsync(It.IsAny<BelieverSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        await CreateSut().HandleAsync(new BelieverSearchQuery(Phone: " ０９１２－３４５ "));
+
+        _repo.Verify(r => r.SearchAsync(
+            It.Is<BelieverSearchQuery>(q => q.Phone == "0912-345"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task NameCriterion_keeps_fullwidth_characters()
+    {
+        // 只有電話轉半形；姓名/堂號的全形字是資料本身
+        _repo.Setup(r => r.SearchAsync(It.IsAny<BelieverSearchQuery>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        await CreateSut().HandleAsync(new BelieverSearchQuery(Name: "Ａ陳"));
+
+        _repo.Verify(r => r.SearchAsync(
+            It.Is<BelieverSearchQuery>(q => q.Name == "Ａ陳"),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task SearchKeyOnly_passes_validation_and_reaches_repo_trimmed()
     {
         // 新增報名的信眾搜尋只給單一關鍵字（對齊舊 NewSignupForm txtQ），不應被「請輸入搜尋條件」擋下
