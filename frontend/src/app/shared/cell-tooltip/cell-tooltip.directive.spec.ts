@@ -3,10 +3,10 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { CellTooltipDirective } from './cell-tooltip.directive';
 
 /**
- * 行為鎖：對齊舊系統 WinForms DataGridView 的 ShowCellToolTips——
- * 只有「文字被欄寬截斷」的儲存格 hover 才冒出完整內容，沒截斷的不冒。
+ * 行為鎖：hover 任一儲存格（不論文字有沒有被欄寬截斷）停留 500ms 都顯示該格內容，
+ * 只有空白格不顯示。2026-08-06 使用者指定由「只有截斷才冒」改為「每一格都冒」。
  */
-describe('CellTooltipDirective（格線截斷才顯示完整內容）', () => {
+describe('CellTooltipDirective（格線 hover 顯示儲存格內容）', () => {
   @Component({
     selector: 'app-cell-tooltip-host',
     imports: [CellTooltipDirective],
@@ -22,13 +22,7 @@ describe('CellTooltipDirective（格線截斷才顯示完整內容）', () => {
   })
   class HostComponent {}
 
-  /** jsdom 不做排版，scrollWidth / clientWidth 恆為 0，得自己餵尺寸才能測「有沒有被截斷」 */
-  const setWidths = (id: string, scrollWidth: number, clientWidth: number): HTMLElement => {
-    const el = fixture.nativeElement.querySelector(`#${id}`) as HTMLElement;
-    Object.defineProperty(el, 'scrollWidth', { value: scrollWidth, configurable: true });
-    Object.defineProperty(el, 'clientWidth', { value: clientWidth, configurable: true });
-    return el;
-  };
+  const cell = (id: string): HTMLElement => fixture.nativeElement.querySelector(`#${id}`);
 
   const hover = (el: HTMLElement): void => {
     el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
@@ -56,9 +50,9 @@ describe('CellTooltipDirective（格線截斷才顯示完整內容）', () => {
   });
 
   it('文字被截斷 → 停留後顯示完整內容', () => {
-    const cell = setWidths('cut', 260, 120);
+    const target = cell('cut');
 
-    hover(cell);
+    hover(target);
     expect(tooltipText()).toBeNull(); // 尚未過 initial delay
 
     vi.advanceTimersByTime(500);
@@ -66,26 +60,24 @@ describe('CellTooltipDirective（格線截斷才顯示完整內容）', () => {
     expect(tooltipText()).toBe('台中市北屯區松竹路二段 100 號');
   });
 
-  it('文字沒被截斷 → 不顯示', () => {
-    hover(setWidths('fit', 60, 120));
+  it('文字沒被截斷也顯示（每一格都有）', () => {
+    hover(cell('fit'));
+    vi.advanceTimersByTime(500);
+    fixture.detectChanges();
+
+    expect(tooltipText()).toBe('王大明');
+  });
+
+  it('空儲存格不顯示（沒有內容可冒）', () => {
+    hover(cell('blank'));
     vi.advanceTimersByTime(500);
     fixture.detectChanges();
 
     expect(tooltipText()).toBeNull();
   });
 
-  it('空儲存格即使量到截斷也不顯示', () => {
-    hover(setWidths('blank', 260, 120));
-    vi.advanceTimersByTime(500);
-    fixture.detectChanges();
-
-    expect(tooltipText()).toBeNull();
-  });
-
-  it('表頭欄名被截斷也會顯示', () => {
+  it('表頭欄名也會顯示', () => {
     const label = fixture.nativeElement.querySelector('.vgrid-th-label') as HTMLElement;
-    Object.defineProperty(label, 'scrollWidth', { value: 200, configurable: true });
-    Object.defineProperty(label, 'clientWidth', { value: 40, configurable: true });
 
     hover(label);
     vi.advanceTimersByTime(500);
@@ -95,48 +87,48 @@ describe('CellTooltipDirective（格線截斷才顯示完整內容）', () => {
   });
 
   it('滑鼠離開 → 收起', () => {
-    const cell = setWidths('cut', 260, 120);
-    hover(cell);
+    const target = cell('cut');
+    hover(target);
     vi.advanceTimersByTime(500);
     fixture.detectChanges();
     expect(tooltipText()).not.toBeNull();
 
-    leave(cell);
+    leave(target);
     fixture.detectChanges();
     expect(tooltipText()).toBeNull();
   });
 
   it('捲動 → 收起（虛擬捲動會把該格拿去畫別列）', () => {
-    const cell = setWidths('cut', 260, 120);
-    hover(cell);
+    const target = cell('cut');
+    hover(target);
     vi.advanceTimersByTime(500);
     fixture.detectChanges();
     expect(tooltipText()).not.toBeNull();
 
-    cell.dispatchEvent(new Event('scroll'));
+    target.dispatchEvent(new Event('scroll'));
     fixture.detectChanges();
     expect(tooltipText()).toBeNull();
   });
 
   it('點擊 → 收起，不擋住選列', () => {
-    const cell = setWidths('cut', 260, 120);
-    hover(cell);
+    const target = cell('cut');
+    hover(target);
     vi.advanceTimersByTime(500);
     fixture.detectChanges();
 
-    cell.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     fixture.detectChanges();
     expect(tooltipText()).toBeNull();
   });
 
   it('移到另一格 → 換成該格內容', () => {
-    const first = setWidths('cut', 260, 120);
+    const first = cell('cut');
     hover(first);
     vi.advanceTimersByTime(500);
     fixture.detectChanges();
     expect(tooltipText()).toBe('台中市北屯區松竹路二段 100 號');
 
-    const second = setWidths('fit', 300, 40);
+    const second = cell('fit');
     leave(first, second);
     hover(second);
     vi.advanceTimersByTime(500);

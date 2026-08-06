@@ -3,8 +3,9 @@ import { ComponentPortal } from '@angular/cdk/portal';
 import { DestroyRef, Directive, ElementRef, HostListener, inject } from '@angular/core';
 import { CellTooltipPanelComponent } from './cell-tooltip-panel.component';
 
-// 舊 WinForms DataGridView 的 ShowCellToolTips 預設為 true：欄寬不足導致儲存格文字被截斷時，
-// 滑鼠停留就會冒出完整內容；沒被截斷則不冒。Web 沒有這個內建行為，這支 directive 補回來。
+// 滑鼠停留在儲存格（或表頭欄名）就冒出該格內容。舊 WinForms DataGridView 的 ShowCellToolTips
+// 只在文字被欄寬截斷時才冒，2026-08-06 使用者指定改為**每一格都冒**（不看有沒有截斷）；
+// 只有空白格例外——沒有文字可顯示。
 // 掛在 .vgrid-zone 上做事件委派（不是每格掛一個），因為虛擬捲動下 row 會不斷回收重建，
 // 逐格綁定會隨捲動反覆建立／銷毀監聽器。
 const SHOW_DELAY_MS = 500; // 對齊 WinForms ToolTip.InitialDelay 預設值
@@ -39,7 +40,7 @@ export class CellTooltipDirective {
     const cell = target.closest<HTMLElement>(TARGET_SELECTOR);
     if (cell === this.anchor) return;
     this.hide();
-    if (!cell || !isTruncated(cell)) return;
+    if (!cell) return;
     const text = cell.textContent?.trim() ?? '';
     if (!text) return;
     this.anchor = cell;
@@ -96,10 +97,4 @@ export class CellTooltipDirective {
       this.overlayRef = null;
     }
   };
-}
-
-// 量測對象是內層文字 span 而非 .vgrid-td：儲存格是 flex 容器，裸文字節點會變成匿名 flex item，
-// 匿名 item 量不到、也吃不到 text-overflow，scrollWidth 比較會恆等而永遠判成「沒截斷」。
-function isTruncated(el: HTMLElement): boolean {
-  return el.scrollWidth > el.clientWidth + 1;
 }
