@@ -29,15 +29,24 @@ export class PrintService {
   /**
    * 單筆報表。Electron 走串流取檔（renderer 完全不碰 PDF）；瀏覽器才需要自己抓 blob。
    * 取檔失敗時主行程會把後端的中文訊息原樣帶回來（「找不到報名」等）。
+   *
+   * @param opts.debugGrid 薦牌**現場對位校正版**：同一筆資料再疊 1cm 刻度格線，用來量出實體
+   *   牌位座真正的可用區（樣板照片量到的邊界不等於實印能用的邊界）。`type` 仍傳 `'tablet'`，
+   *   紙張 SSoT 與 `X-Report-Page-Size` 才會照薦牌走。見 docs/blueprints/printing-reports.md。
    * @returns 是否已開啟預覽視窗。
    */
-  async printSingle(type: SingleReportType, signupId: string): Promise<boolean> {
+  async printSingle(
+    type: SingleReportType,
+    signupId: string,
+    opts: { debugGrid?: boolean } = {},
+  ): Promise<boolean> {
     if (!isElectron()) {
-      const pdf = await this.api.single(type, signupId);
+      const pdf = await this.api.single(type, signupId, opts);
       openPdfInNewTab(pdf.blob);
       return true;
     }
-    return this.openInViewer(type, `/reports/${type}?signupId=${encodeURIComponent(signupId)}`);
+    const grid = opts.debugGrid ? '&debugGrid=true' : '';
+    return this.openInViewer(type, `/reports/${type}?signupId=${encodeURIComponent(signupId)}${grid}`);
   }
 
   /**

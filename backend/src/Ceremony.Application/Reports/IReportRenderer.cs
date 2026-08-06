@@ -9,7 +9,12 @@ public interface IReportRenderer
 {
     byte[] RenderDataCard(DataCardModel model, bool debugOverlay = false);
     byte[] RenderReceipt(ReceiptModel model);
-    byte[] RenderTablet(TabletModel model, bool debugOverlay = false);
+    /// <param name="debugGrid">
+    /// 疊 1cm 刻度格線的「現場對位校正版」。與 <c>debugOverlay</c>（疊樣板照片、僅 Development）不同，
+    /// 這個是**現場工具**，生產環境也要能印——樣板量測到的邊界不等於實印能用的邊界，只有把刻度尺
+    /// 印在同一張紙上、插進實體牌位座，才量得出真正的可用區。見 docs/blueprints/printing-reports.md。
+    /// </param>
+    byte[] RenderTablet(TabletModel model, bool debugOverlay = false, bool debugGrid = false);
     byte[] RenderText(TextModel model, bool debugOverlay = false);
     byte[] RenderWorship(WorshipModel model);
     byte[] RenderWorshipCard(WorshipCardModel model, bool debugOverlay = false);

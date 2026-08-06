@@ -26,11 +26,11 @@ public sealed class QuestPdfReportRenderer(
             model.Fee, model.Number, model.Prepay,
             model.Year, model.Month, model.Day));
 
-    public byte[] RenderTablet(TabletModel model, bool debugOverlay = false)
+    public byte[] RenderTablet(TabletModel model, bool debugOverlay = false, bool debugGrid = false)
         => tablet.Render(new TabletData(
             model.Number, model.HallNameFirst, model.HallNameSecond,
             model.DeadNames, model.LivingNames,
-            model.ParaFontSizeCm, model.Template), debugOverlay: debugOverlay);
+            model.ParaFontSizeCm, model.Template), debugGrid: debugGrid, debugOverlay: debugOverlay);
 
     public byte[] RenderText(TextModel model, bool debugOverlay = false)
         => text.Render(new TextData(

@@ -160,12 +160,34 @@ public sealed class TabletRenderer
     private const double DeadCenterX = 5.735;
     private const double DeadColumnGap = 0.1; // 相鄰欄位之間的留白，避免緊貼（1-2 位亡者變體用）
     // 「故」字下緣 Y=7.5946cm、「靈」字上緣 Y=13.462cm（同一次像素量測），中間空隙 5.8674cm。
-    private const double DeadGapTop = 7.5946;
-    private const double DeadGapHeight = 13.462 - 7.5946; // 5.8674
+    internal const double DeadGapTop = 7.5946;
+
+    /// <summary>
+    /// 往者文字的**下界**：1 位／2 位／3+ 位矩陣三種排法共用，任何字數都不得越過。
+    /// </summary>
+    /// <remarks>
+    /// 2026-08-06 客訴（reference 客戶實印照片）：往者的字壓在預印的「靈位」上。根因是**三種排法各自帶
+    /// 一個可用高常數、來源還不同**——1 位用 `DeadGapHeight−0.1`（下緣 13.362）、2 位用 RDLC 遺留值
+    /// `6.31`（下緣 **13.89**，早就越過「靈」上緣）、3+ 位用手寫量測方框 5.4（下緣 13.1946）。
+    /// 客戶那筆是 **2 位往生者、每格用全形空格把兩個人名塞成上下兩段**（8 個字素）＝走 2 位分支，
+    /// 8 × (6.31/8) 剛好吃滿錯誤的可用高 → 壓字 0.43cm。用同一筆資料重現、逐像素對得上照片。
+    ///
+    /// 取值 13.1946 ＝ 3+ 位矩陣沿用至今的框底（`DeadMatrixTop + 5.4`）：那條線已在生產跑過而且**沒有
+    /// 客訴**，是目前唯一有實務背書的下界；1 位／2 位一律收齊到同一條線，矩陣本身數值不變。
+    /// 距實體紙上「靈」字上緣（13.373 ＝樣板量測 13.462 − 照片紙外留白 0.089）尚有 0.18cm。
+    ///
+    /// 日後要再往上收（等現場格線校正版回報），**只動這一個常數**，三種排法同步——不要再回到
+    /// 「同語意散成三個常數、錯一個沒人發現」的狀態。
+    /// </remarks>
+    internal const double DeadTextBottom = DeadMatrixTop + DeadMatrixHeight; // 13.1946
+
+    /// <summary>1 位／2 位往者的可用高（3+ 位走 <see cref="DeadMatrixHeight"/>，起點低 0.2cm）。</summary>
+    private const double DeadGapHeight = DeadTextBottom - DeadGapTop;        // 5.6
 
     // 2026-07-17 使用者指定（reference/薦牌.jpg 手寫量測）：3+ 位亡者的 2×3 矩陣改在
-    // 「故」下緣 +0.2cm 起、寬 2.8cm × 高 5.4cm 的方框內排（框底 13.1946，離「靈」上緣 13.462
-    // 還有 0.27cm）；欄距取 2.8/3=0.9333cm（與舊 RDLC Rectangle 內 Left 0.1/1.0/1.9 的 0.9cm
+    // 「故」下緣 +0.2cm 起、寬 2.8cm × 高 5.4cm 的方框內排（框底 13.1946＝現在的 DeadTextBottom，
+    // 離實體紙上「靈」字上緣 13.373 還有 0.18cm——2026-08-06 修正：原註記的 0.27cm 是拿樣板照片座標
+    // 13.462 算的，而照片含 0.089cm 紙外留白）；欄距取 2.8/3=0.9333cm（與舊 RDLC Rectangle 內 Left 0.1/1.0/1.9 的 0.9cm
     // 欄距幾乎一致），中間欄置中在故/靈位中心線上。下排起點與字級由 VerticalText.MatrixLayout
     // 動態決定（取代固定列距 1.8639 + WithBottomGap——那組合會把 3 字名縮到 0.47cm，客訴「字太小」）。
     private const double DeadMatrixTop = DeadGapTop + 0.2;   // 7.7946
@@ -191,7 +213,9 @@ public sealed class TabletRenderer
                 // DeadGapTop 當 content-Y 用，會讓文字實際印到比「故」下緣低 2cm 的地方，蓋過「靈位」。
                 // OneTwo/One 沒有這個 margin，DeadGapTop 可以直接當 content-Y 用。
                 var marginCompensation = data.Template == TabletTemplate.OneOne ? 2.0 : 0.0;
-                var avail = DeadGapHeight - 0.1;
+                // 2026-08-06：可用高改由 DeadTextBottom 推導（原本是 DeadGapHeight−0.1＝5.7674，
+                // 下緣 13.362；收齊到 13.1946 這條三種排法共用的線）。
+                var avail = DeadGapHeight;
                 var f = VerticalText.GroupFontPt(paraPt, (d[0], avail));
                 var fontCm = f / PointsPerCm;
                 DrawText(layers, DeadGapTop - marginCompensation, DeadCenterX - fontCm / 2, 0.8, avail, f, d[0], vertical: true);
@@ -203,12 +227,19 @@ public sealed class TabletRenderer
             case TabletTemplate.Two:
             {
                 // 2 位亡者：以中心線對稱分居左右（One 右、Two 左，中間留 DeadColumnGap 不貼在一起）
-                var f = VerticalText.GroupFontPt(paraPt, (d[0], 6.31), (d[1], 6.31));
+                // 2026-08-06 客訴修正（客戶實印照片壓到「靈位」的根因就在這兩行）：
+                //  (a) 可用高 6.31 → DeadGapHeight。6.31 是 RDLC 遺留值，比實際空隙大 0.43cm，等於把
+                //      GroupFontPt 的保護上限設在真實邊界**之外**，自動縮字形同失效——8 個字素起
+                //      （客戶用全形空格把兩個人名塞在同一格就是 8 字素）文字下緣落到 13.89，壓進「靈位」。
+                //  (b) Top 7.5825 → DeadGapTop（7.5946）。7.5825 是 RDLC 值，與 1 位分支用的量測值
+                //      差 0.012cm；兩者本來就該是同一條「故」字下緣。
+                var avail = DeadGapHeight;
+                var f = VerticalText.GroupFontPt(paraPt, (d[0], avail), (d[1], avail));
                 var fontCm = f / PointsPerCm;
                 var rightX = DeadCenterX + DeadColumnGap / 2;
                 var leftX = DeadCenterX - DeadColumnGap / 2 - fontCm;
-                DrawText(layers, 7.5825, rightX, 0.8, 6.31, f, d[0], vertical: true);
-                DrawText(layers, 7.5825, leftX, 0.8, 6.31, f, d[1], vertical: true);
+                DrawText(layers, DeadGapTop, rightX, 0.8, avail, f, d[0], vertical: true);
+                DrawText(layers, DeadGapTop, leftX, 0.8, avail, f, d[1], vertical: true);
                 break;
             }
 

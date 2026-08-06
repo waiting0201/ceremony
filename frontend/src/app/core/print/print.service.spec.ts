@@ -116,6 +116,31 @@ describe('PrintService', () => {
     expect(viewerCalls[0].apiPath).toBe('/reports/tablet?signupId=a%20b%26c');
   });
 
+  // 薦牌對位校正版（2026-08-06 客訴「四位往生者壓到預印的靈位」的量測工具）：
+  // reportType 必須維持 'tablet'，紙張 SSoT 與 X-Report-Page-Size 才會照薦牌走——
+  // 若為了區分而傳一個假型別，校正版會用錯紙張，量出來的刻度就沒有意義。
+  it('單筆（Electron）：debugGrid 帶進 query，reportType 仍是 tablet', async () => {
+    asElectron();
+
+    await sut.printSingle('tablet', 's1', { debugGrid: true });
+
+    expect(viewerCalls[0]).toEqual({
+      reportType: 'tablet',
+      apiPath: '/reports/tablet?signupId=s1&debugGrid=true',
+      token: TOKEN,
+    });
+  });
+
+  it('單筆（瀏覽器）：debugGrid 帶進 HttpParams', async () => {
+    const done = sut.printSingle('tablet', 's1', { debugGrid: true });
+
+    const req = await nextRequest('GET', '/tablet');
+    expect(req.request.params.get('debugGrid')).toBe('true');
+    req.flush(new Blob(['%PDF'], { type: 'application/pdf' }));
+
+    await expect(done).resolves.toBe(true);
+  });
+
   it('批次（Electron）：等 job 完成後開預覽，renderer 不取檔', async () => {
     asElectron();
     const run = sut.printBatch({ reportType: 'datacard', numberStart: 1, numberEnd: 500 });

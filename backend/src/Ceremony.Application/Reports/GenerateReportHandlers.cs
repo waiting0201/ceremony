@@ -82,13 +82,16 @@ public sealed class GenerateReceiptHandler(ISignupRepository repo, IReportRender
 /// </remarks>
 public sealed class GenerateTabletHandler(ISignupRepository repo, IReportRenderer renderer)
 {
-    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, bool debugOverlay = false, CancellationToken ct = default)
+    public async Task<(byte[] Pdf, string FileName)> HandleAsync(Guid signupId, bool debugOverlay = false, bool debugGrid = false, CancellationToken ct = default)
     {
         var s = await repo.GetByIdAsync(signupId, ct)
             ?? throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名");
 
-        return (renderer.RenderTablet(ReportModelBuilders.Tablet(s), debugOverlay),
-                $"tablet-{s.Year}-{s.NumberTitle}-{s.Number}.pdf");
+        // 校正版的檔名要跟正式版分得開——現場會兩張並排比對，檔名是唯一的辨識依據
+        // （兩張都會被開在同一個 PDF 檢視器視窗的標題列上）。
+        var suffix = debugGrid ? "-calibration" : string.Empty;
+        return (renderer.RenderTablet(ReportModelBuilders.Tablet(s), debugOverlay, debugGrid),
+                $"tablet-{s.Year}-{s.NumberTitle}-{s.Number}{suffix}.pdf");
     }
 }
 

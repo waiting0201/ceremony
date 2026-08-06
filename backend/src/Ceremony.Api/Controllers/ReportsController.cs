@@ -58,13 +58,15 @@ public sealed class ReportsController(
     /// 變體選擇由 Domain.Services.PrintTemplateSelector.ChooseTablet 決定。
     /// debugOverlay：開發用列印位置檢視工具（樣板疊圖），僅 Development 環境可用，見
     /// docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
+    /// debugGrid：現場對位校正版（同一筆資料 + 1cm 刻度格線），**所有環境可用**——它要在現場的
+    /// Windows 機器上印在實體薦牌紙上、插進牌位座回報刻度，才量得出真正的可用區下界。
     /// </remarks>
     [HttpGet("tablet")]
-    public async Task<IActionResult> Tablet([FromQuery] Guid signupId, [FromQuery] bool debugOverlay, CancellationToken ct)
+    public async Task<IActionResult> Tablet([FromQuery] Guid signupId, [FromQuery] bool debugOverlay, [FromQuery] bool debugGrid, CancellationToken ct)
     {
         if (debugOverlay && !env.IsDevelopment()) return NotFound();
 
-        var (pdf, fileName) = await tablet.HandleAsync(signupId, debugOverlay, ct);
+        var (pdf, fileName) = await tablet.HandleAsync(signupId, debugOverlay, debugGrid, ct);
         AppendPageSize("tablet");
         return File(pdf, "application/pdf", fileName);
     }

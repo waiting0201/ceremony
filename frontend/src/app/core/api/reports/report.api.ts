@@ -15,8 +15,16 @@ export class ReportApi {
   private readonly http = inject(HttpClient);
   private readonly base = `${environment.apiBaseUrl}/reports`;
 
-  async single(type: SingleReportType, signupId: string): Promise<ReportPdf> {
-    const params = new HttpParams().set('signupId', signupId);
+  /**
+   * @param opts.debugGrid 薦牌「對位校正版」：同一筆資料 + 1cm 刻度格線（見 print.service.ts）。
+   */
+  async single(
+    type: SingleReportType,
+    signupId: string,
+    opts: { debugGrid?: boolean } = {},
+  ): Promise<ReportPdf> {
+    let params = new HttpParams().set('signupId', signupId);
+    if (opts.debugGrid) params = params.set('debugGrid', 'true');
     const resp = await firstValueFrom(
       this.http.get(`${this.base}/${type}`, {
         params,

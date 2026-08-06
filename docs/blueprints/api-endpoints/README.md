@@ -9,7 +9,7 @@ related_docs:
   - ../../design/api-design.md
   - ../legacy-coverage/README.md
 keywords: [api, endpoint, blueprint, index, 舊系統對照]
-last_updated: 2026-05-27.4
+last_updated: 2026-08-06 (補建 get-reports-tablet.md——這支長期只在索引掛「—」沒有 forward 藍圖，趁 `debugGrid` 現場對位校正版一起補齊；索引該列同步指向新藍圖並註記待現場刻度回報。先前 2026-05-27.4)
 ---
 
 > 本目錄是規則 A（forward）的落地處：**每個 API endpoint 必須有一份 blueprint**，列出舊系統對照、業務規則、資料存取與驗收標準。
@@ -90,7 +90,7 @@ last_updated: 2026-05-27.4
 |---|---|---|---|---|
 | `GET /api/v1/reports/datacard` | (in [printing-reports.md](../printing-reports.md)) | `SignupForm.cs:956-1050` + tmpDataCard.rdlc | [signup-form.md](../legacy-coverage/signup-form.md) rows 9,28 ✅ | **shipped (PoC)** |
 | `GET /api/v1/reports/receipt` | — | `SignupForm.cs:1052-1146` (PrintReceipt) | [signup-form.md](../legacy-coverage/signup-form.md) rows 10,29 ✅ | **shipped** |
-| `GET /api/v1/reports/tablet` | — | **`SignupForm.cs:1148-1333`** (PrintTablet 9 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 11,30 ✅ | **shipped (selector + base render)** |
+| `GET /api/v1/reports/tablet` | [get-reports-tablet.md](get-reports-tablet.md) | **`SignupForm.cs:1148-1333`** (PrintTablet 9 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 11,30 ✅ | **shipped**（含 2026-08-06 `debugGrid` 現場對位校正版；往者可用區下界待現場刻度回報） |
 | `GET /api/v1/reports/text` | — | **`SignupForm.cs:1335-1552`** (PrintText 2 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 12,31 ✅ | **shipped (selector + base render)** |
 | `GET /api/v1/reports/worship` | — | **`SignupForm.cs:1554-1696`** (PrintWorship 5 變體) | [signup-form.md](../legacy-coverage/signup-form.md) rows 13,32 ✅ | **shipped (selector + base render; only SignupType=4)** |
 | `GET /api/v1/reports/worshipcard` | [get-reports-worshipcard.md](get-reports-worshipcard.md) | N/A（全新複合報表，舊系統無對應） | N/A | **shipped（待實體卡紙驗收）** |

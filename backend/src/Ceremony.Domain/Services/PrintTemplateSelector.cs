@@ -22,11 +22,18 @@ public static class PrintTemplateSelector
         var deadTier = SlotTier(deadNames);
         var livingTier = SlotTier(livingNames);
 
-        var dead1Long = IsPresent(deadNames[0]) && RealCharCount(deadNames[0]) > 7;
-        var dead2Long = IsPresent(deadNames[1]) && RealCharCount(deadNames[1]) > 7;
-
-        // 2026-07-21 客訴：往者 1、2 位且 ≥8 真字時字級由 0.8cm 縮小。縮字目標由 0.6cm 再降到
-        // 0.5cm（使用者指定）。**僅 1、2 位往者**適用；3+ 位往者維持固定 0.6cm（見下方 fallback）。
+        // 2026-08-06 使用者定案「縮字改成自動縮到剛好」：撤掉 2026-07-21 的「≥8 真字 → 固定 0.5cm」
+        // 分支，1、2 位往者一律回 0.8cm **起點**，實際字級交給 renderer 依可用高等比縮
+        // （薦牌 VerticalText.GroupFontPt、資料卡 MatrixLayout）。
+        //
+        // 為什麼撤掉：固定值同時是「不夠」也是「太小」——它擋不住真正的溢出（客戶實印壓到「靈位」的
+        // 那筆是 2 位往者、每格用全形空格塞兩個人名共 8 個字素，`RealCharCount` 只算 6 真字，門檻根本
+        // 沒觸發；真正的根因是 TabletRenderer 2 位分支的可用高用了 RDLC 遺留值 6.31），卻又讓沒有溢出
+        // 風險的長名字被無條件縮到 0.5cm。可用高才是唯一該管溢出的地方，字級交給它算就好：
+        // 8 字素 → 0.7cm、10 字 → 0.56cm、12 字 → 0.47cm，都保證塞得下且盡量大。
+        // 連帶：`RealCharCount` 隨之移除（唯一呼叫端就是這裡；它用 `.Count(char)`，對增補平面造字會
+        // 多算一倍，是 gotchas「一個字不等於一個 char」那條的殘留破口）。
+        // ⚠️ 影響範圍不只薦牌：資料卡（ReportModelBuilders.DataCard）取的是同一個 ParaFontSize。
         return deadTier switch
         {
             1 => (livingTier switch
@@ -34,14 +41,14 @@ public static class PrintTemplateSelector
                 1 => TabletTemplate.OneOne,
                 2 => TabletTemplate.OneTwo,
                 _ => TabletTemplate.One,
-            }, dead1Long ? "0.5cm" : "0.8cm"),
+            }, "0.8cm"),
 
             2 => (livingTier switch
             {
                 1 => TabletTemplate.TwoOne,
                 2 => TabletTemplate.TwoTwo,
                 _ => TabletTemplate.Two,
-            }, (dead1Long || dead2Long) ? "0.5cm" : "0.8cm"),
+            }, "0.8cm"),
 
             _ => (livingTier switch
             {
@@ -94,16 +101,6 @@ public static class PrintTemplateSelector
 
     private static bool IsPresent(string? name)
         => !string.IsNullOrWhiteSpace(name);
-
-    /// <summary>
-    /// 真實字數（排除所有空白字元）。使用者會在姓名中間刻意輸入空格作排版間隙，
-    /// 直書渲染時保留（見 VerticalText.Stack），但這些間隙**不應計入** ">7 字 → 0.6cm" 字級門檻。
-    /// char.IsWhiteSpace 已涵蓋半形 (U+0020) 與全形空格 (U+3000)。
-    /// **刻意偏離 legacy**：舊 SignupForm.cs:1179/1203 用 Trim().Length，會把中間空格計入。
-    /// 注意：與 VerticalText.GroupFontPt（刻意計入空格以對齊渲染列數）語意相反，勿統一。
-    /// </summary>
-    private static int RealCharCount(string? name)
-        => name is null ? 0 : name.Count(c => !char.IsWhiteSpace(c));
 }
 
 public enum TabletTemplate

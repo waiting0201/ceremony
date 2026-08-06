@@ -91,6 +91,35 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
         bytes[0].Should().Be(0x25);  // %PDF magic
     }
 
+    /// <summary>
+    /// 薦牌現場對位校正版：同一筆資料 + 1cm 刻度格線，檔名帶 -calibration 與正式版分得開。
+    /// </summary>
+    /// <remarks>
+    /// 2026-08-06 客訴「四位往生者壓到預印的靈位」的量測工具。⚠️ 與 debugOverlay 不同，
+    /// **debugGrid 不做 Development 阻擋**——它要在現場的 Windows 機器上印在實體薦牌紙上。
+    /// 這裡只驗得到「Development 下可用」（工廠固定 Development，見 CeremonyApiFactory）；
+    /// 「Production 也可用」靠 ReportsController 只對 debugOverlay 設 env 判斷這個結構保證。
+    /// </remarks>
+    [Fact]
+    public async Task GET_tablet_debugGrid_returns_calibration_PDF()
+    {
+        var client = await AuthedAsync();
+        var signupId = await FirstSignupIdAsync(client, signupType: 1);
+
+        var plain = await client.GetAsync($"/api/v1/reports/tablet?signupId={signupId}");
+        var grid = await client.GetAsync($"/api/v1/reports/tablet?signupId={signupId}&debugGrid=true");
+
+        grid.StatusCode.Should().Be(HttpStatusCode.OK);
+        grid.Content.Headers.ContentType?.MediaType.Should().Be("application/pdf");
+        grid.Content.Headers.ContentDisposition?.FileName.Should().EndWith("-calibration.pdf");
+
+        // 格線是 12 條垂直 + 26 條水平線再加刻度數字 → 一定比正式版大；
+        // 相等就代表 debugGrid 沒接到 renderer（純粹多一個被忽略的 query 參數）。
+        var gridBytes = await grid.Content.ReadAsByteArrayAsync();
+        var plainBytes = await plain.Content.ReadAsByteArrayAsync();
+        gridBytes.Length.Should().BeGreaterThan(plainBytes.Length);
+    }
+
     // ── 批次列印 job 版（有進度回報與取消）─────────────────────────────
     // Blueprint: docs/blueprints/api-endpoints/post-reports-batch-jobs.md
 
@@ -285,15 +314,19 @@ public sealed class ReportsEndpointsTests(CeremonyApiFactory factory) : IClassFi
         throw new TimeoutException("批次列印 job 未在時限內結束");
     }
 
-    private async Task AssertReportEndpoint(string endpoint, int signupType, string expectedPrefix)
+    private static async Task<Guid> FirstSignupIdAsync(HttpClient client, int signupType)
     {
-        var client = await AuthedAsync();
-
         var listResp = await client.GetAsync($"/api/v1/signups?year=115&signupType={signupType}");
         var list = await listResp.Content.ReadFromJsonAsync<SignupListResponse>();
         list.Should().NotBeNull();
         list!.Items.Should().NotBeEmpty();
-        var signupId = list.Items[0].Id;
+        return list.Items[0].Id;
+    }
+
+    private async Task AssertReportEndpoint(string endpoint, int signupType, string expectedPrefix)
+    {
+        var client = await AuthedAsync();
+        var signupId = await FirstSignupIdAsync(client, signupType);
 
         var resp = await client.GetAsync($"/api/v1/reports/{endpoint}?signupId={signupId}");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);

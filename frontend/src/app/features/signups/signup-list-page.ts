@@ -841,6 +841,18 @@ export class SignupListPage implements OnInit {
       },
       { id: 'sep-print', label: '', divider: true, onClick: () => {} },
       ...REPORT_TYPES.map((r) => buildPrintItem(r, (ctx) => this.actionPrint(r.value, ctx))),
+      // 薦牌對位校正版：印同一筆資料 + 1cm 刻度格線，供現場量出實體牌位座真正的可用區
+      // （2026-08-06 客訴「四位往生者壓到預印的靈位」——樣板照片量到的邊界算起來明明還有
+      // 0.27cm 餘裕，代表量測基準本身要用實體校正版反推）。刻意只做單筆、不進批次：它是
+      // 量測工具不是報表，一次印一張就夠。
+      {
+        id: 'print-tablet-calibration',
+        label: '列印薦牌（對位校正）',
+        icon: 'printer',
+        enabledWhen: (ctx) =>
+          ctx.selectedRows.length === 1 || { enabled: false, reason: '請先選擇 1 筆' },
+        onClick: (ctx) => this.printSingle('tablet', ctx.selectedRows[0], { debugGrid: true }),
+      },
       { id: 'sep-danger', label: '', divider: true, onClick: () => {} },
       {
         id: 'delete',
@@ -990,15 +1002,20 @@ export class SignupListPage implements OnInit {
     await this.printSelected(type, items);
   }
 
-  private async printSingle(type: SingleReportType, item: SignupListItem): Promise<void> {
+  private async printSingle(
+    type: SingleReportType,
+    item: SignupListItem,
+    opts: { debugGrid?: boolean } = {},
+  ): Promise<void> {
     if (this.printing()) return;
     this.printing.set(true);
     this.errorMessage.set(null);
     try {
       // PrintService 內部分流：Electron 開列印預覽視窗（送印由 Windows 原生對話框接手）、
       // 瀏覽器退回開新分頁
-      const sent = await this.print.printSingle(type, item.id);
-      if (sent) this.successMessage.set(`已開啟${reportTypeLabel(type)}列印預覽`);
+      const sent = await this.print.printSingle(type, item.id, opts);
+      const label = opts.debugGrid ? `${reportTypeLabel(type)}對位校正版` : reportTypeLabel(type);
+      if (sent) this.successMessage.set(`已開啟${label}列印預覽`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {

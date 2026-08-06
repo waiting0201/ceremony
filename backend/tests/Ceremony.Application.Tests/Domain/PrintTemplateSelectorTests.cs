@@ -23,11 +23,14 @@ public sealed class PrintTemplateSelectorTests
     }
 
     [Fact]
-    public void Tablet_1deadLong_2living_OneTwo_para05()
+    public void Tablet_1deadLong_2living_OneTwo_keepsBaseFontStart()
     {
         var (t, p) = PrintTemplateSelector.ChooseTablet(N("一二三四五六七八"), N("子甲", "子乙"));
         t.Should().Be(TabletTemplate.OneTwo);
-        p.Should().Be("0.5cm", "2026-07-21 客訴：1 位往者 dead.Length > 7 → 0.5cm");
+        // 2026-08-06 使用者定案「自動縮到剛好」：撤掉 07-21 的「≥8 真字 → 固定 0.5cm」。
+        // 起點一律 0.8cm，實際字級由 renderer 依可用高等比縮（8 字素 → 0.7cm），
+        // 不再由這裡用字數猜——真正會溢出的是可用高，不是字數（見 ChooseTablet 註解）。
+        p.Should().Be("0.8cm", "字級起點固定 0.8cm，縮字交給 renderer 的可用高");
     }
 
     [Fact]
@@ -46,11 +49,11 @@ public sealed class PrintTemplateSelectorTests
     }
 
     [Fact]
-    public void Tablet_2dead_2living_dead2Long_para05()
+    public void Tablet_2dead_2living_dead2Long_keepsBaseFontStart()
     {
         var (t, p) = PrintTemplateSelector.ChooseTablet(N("陳", "一二三四五六七八"), N("子甲", "子乙"));
         t.Should().Be(TabletTemplate.TwoTwo);
-        p.Should().Be("0.5cm", "2026-07-21 客訴：2 位往者任一 > 7 字 → 0.5cm");
+        p.Should().Be("0.8cm", "同上：字級起點固定 0.8cm，縮字交給 renderer 的可用高");
     }
 
     [Fact]
@@ -101,11 +104,17 @@ public sealed class PrintTemplateSelectorTests
     }
 
     [Fact]
-    public void Tablet_dead8realChars_withSpace_still_para05()
+    public void Tablet_deadName_lengthNoLongerAffectsFontStart()
     {
-        // "一二三四 五六七八" = 8 真字 + 空格；真實字數 8 > 7 → 仍縮（沒把真字誤刪）
-        var (_, p) = PrintTemplateSelector.ChooseTablet(N("一二三四 五六七八"), N("子甲"));
-        p.Should().Be("0.5cm", "8 真字 > 7 門檻仍觸發（2026-07-21 客訴：縮到 0.5cm）");
+        // 2026-08-06：字數（不論算不算空格）都不再影響字級起點。
+        // 這正是 07-21 那條門檻的致命處——客戶實印壓到「靈位」的那筆是 2 位往者、每格用全形空格
+        // 塞兩個人名共 8 個「字素」，但 RealCharCount 只算 6 個真字、門檻根本沒觸發；
+        // 真正的溢出防線是 renderer 的可用高（TabletRenderer.DeadTextBottom）。
+        foreach (var name in new[] { "一二三四 五六七八", "一二三　四五六七", "施　棟　施郭秀鑾" })
+        {
+            var (_, p) = PrintTemplateSelector.ChooseTablet(N(name), N("子甲"));
+            p.Should().Be("0.8cm", "字數不再影響字級起點：{0}", name);
+        }
     }
 
     [Fact]

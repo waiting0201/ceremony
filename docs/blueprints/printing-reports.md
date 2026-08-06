@@ -13,7 +13,7 @@ related_docs:
   - signup-management.md
   - printing-reports-positions.md
 keywords: [print, 列印, 報表, RDLC, QuestPDF, 資料卡, 收據, 薦牌, 文牒, 普桌, PDF, NPOI, ClosedXML, 位置, position]
-last_updated: 2026-08-04 (新增「造字＝Unicode 增補平面罕用字」段：客訴「舊系統造字印得出來、新系統只有收據與資料卡陽上正常」的根因是直書路徑逐 `char` 走訪把 surrogate pair 拆成孤兒碼位〔不是字型問題〕；VerticalText 改以字素為單位、SkiaSharp 垂直地址補缺字 fallback；含造字的實體樣張需重新複驗字級/位置。先前 2026-07-31 (列印通道改由 Electron 主行程送印：「列印流程」與「批次範圍列印」段更新〔原本的 dialog.showSaveDialog / PDF.js 規劃已不採用〕、「不做什麼」的 OS 列印一條補註記，細節分流到新 blueprint print-channel-electron.md。同日先前§1 資料卡客訴：往者 2 位時左右相反——DeadColumnsX tier≤2 分支對調兩欄 X，往者一 d[0] 改在右（中軸+0.05）、往者二 d[1] 改在左（中軸−0.05−fontCm），與薦牌 One 右／Two 左一致；整組中心 17.278、間隙 0.1cm、字級/Top/框/3+ 矩陣/1 位置中皆不動，回歸鎖 DataCard_OneOrTwoDeadNames_AreCenteredInWindowFrame 補 CenterX>RightX 斷言，Renderer 81 綠、待實體複驗)；先前 2026-07-29 (§收據郵寄封面補註記：Zipcode 來源 `Signups.MailZipcode` 文字快照曾因寫入端漏寫而空白〔renderer 無誤〕，已於後端修正並回填。先前 2026-07-28 批次列印改 job 模型：「批次範圍列印」流程改寫、新增「批次列印進度與取消」段〔三個批次入口顯示真實 i/N 進度 overlay、可取消、合併階段提示、2GB 規模上限〕。先前 2026-07-27 文牒客訴兩項：①往者/陽上「不管幾位字級都跟一位一樣」——改 VerticalText.MatrixLayout（同薦牌 07-17），字級固定 0.8cm、下排起點動態，撤掉 07-21 的 WithBottomGap＋固定列距（把 3 字名縮到 ≈0.50cm）②往者最左欄離左側預印字 0.5cm 是**間距**不是位移——撤掉 07-21 的 DeadShiftX=0.5（實際變 0.793cm），改絕對錨點 DeadLeftX=11.707（量測「鳴呼既追攀…」欄右緣 11.207+0.5），Base/Two 皆以自己的最左欄對齊；堂號 Second 同錨、First 維持相對 2.03753；200DPI 回掃最左欄墨跡 11.756／堂號 11.769、6 位滿版字高 0.685cm 未超框——回歸鎖 Text_NameFontSize_StaysAtBase_RegardlessOfNameCount／Text_DeadNamesAndHallName_KeepHalfCentimeterFromPrePrintedText，Infrastructure 112 綠、待實體複驗)；同日先前 (資料卡客訴二度回報「往者 1／2 位沒置中」：改依實際字級動態置中於框中軸 17.278（1 位 中軸−fontCm/2、2 位對稱分居留 0.1cm），撤掉固定左移 0.3cm 的 FewDeadShiftX〔固定位移救不了兩種組寬，1 位偏左 0.19／2 位偏右 0.18〕；200 DPI 回掃誤差 ≤0.012cm；框與 3+ 矩陣不動；slot-based 判定用 public PrintTemplateSelector.SlotTier——回歸鎖 DataCard_OneOrTwoDeadNames_AreCenteredInWindowFrame，Infrastructure 110 綠、待實體複驗)；先前 2026-07-21 (資料卡客訴三項：編號抬頭與號碼分開繪製、中間 0.3cm 空隙、不再用「.」（NumberTitle/Number 分兩欄）；往者字級改與薦牌一致（ChooseTablet 的 ParaFontSize tier + MatrixLayout 於窗框動態縮，取代寫死 0.6cm+固定列距 2.6）；窗框含整個框右移 0.8cm（FrameShiftX）＋預繳右移 1.5cm（Left 12.133→13.633）——回歸鎖 DataCard_SixDeadNames_MatrixStaysWithinMeasuredWindow 改用 MatrixLayout、DataCard_number_is_number_only_title_separate，280 單元測試綠、待實體複驗)；先前 2026-07-18 (普桌資料卡客訴：template 一樣要全印——WorshipCardRenderer.DrawTemplate 生產路徑畫葫蘆（重用 worship2.png 墨跡對墨跡縮放）＋右側標題＋簽名底線，白紙可印；生產字型渲染回掃逐項誤差 ≤0.013cm，內容座標不動，回歸鎖 WorshipCard_EmptyContent_StillPrintsTemplate；同日資料卡客訴改版：template 由程式全印——§1 DrawTemplate 畫標題/簽名底線/窗框/故靈位，白紙可印、內容座標不動、亡者矩陣硬邊界不變，回歸鎖 DataCard_EmptyContent_StillPrintsTemplate；同日文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中)
+last_updated: 2026-08-06 (**客訴「往者壓到預印靈位」結案**：拿到客戶實印照片後逐像素比對，那筆**不是四位往生者走矩陣**，而是 **2 位往生者、每格用全形空格塞兩個人名**〔8／7 個字素〕走 2 位分支，根因就是該分支 `avail=6.31` 的遺留 bug，**與送印路徑無關**。用同一組資料重現，欄位配置與「鑾」壓「靈」的相對位置全部吻合。⚠️ **方法論教訓**：我一開始把照片讀成四位往生者——**「畫面上有幾個名字」不等於「資料填了幾格」**，從照片反推資料要先用**字級**判分支〔矩陣固定 0.6cm、1/2 位 0.8cm 起；本例量到 0.79cm 一眼排除矩陣〕。格線校正版仍有用但不再阻塞。同日先前 (「現場對位校正版」段追加**21 種情況的疊圖掃描結果**〔`ALL_CASES_overlay.pdf` 21 頁合併版 + 每種情況單張，皆在 reference/output/〕：客訴的四位重現不出來〔最壞 13.170、距真實「靈」上緣 13.373 還有 0.20cm〕，但 **2 位長名真的會壓字**〔12 字 −0.17、16 字 −0.50，根因即 `avail=6.31`，先前只是推算現在有回掃佐證〕；**最關鍵**：常見情況全擠在 13.14~13.34 這 0.2cm 帶內〔1 位 7 字 13.157／2 位 7 字 13.144／4~6 位 13.170／1 位 12 字 13.335〕，離邊界只剩 0.03~0.23cm ⇒ **整份下移約 0.2cm 就會同時全部壓字**，這正好解釋「算不出重疊卻實印壓到」，也把「先用格線版排除整份縮放／位移」從保險步驟升級為最可能的根因。同日先前新增「**現場對位校正版**」段：客訴「往生者四位時字壓到預印的靈位」，但依現行座標算 3+ 位矩陣下緣最遠只到 13.1946、離樣板量到的「靈」上緣 13.462 還有 0.27cm 餘裕〔`MatrixLayout` 保證不超框，回掃 13.144 印證〕→ **算出來的餘裕與實印矛盾，代表量測基準或送印路徑有問題**，不是調座標能解。把既有的 `debugGrid`（1cm 刻度格線）接出到現場：右鍵「列印薦牌（對位校正）」→ `GET /reports/tablet?signupId=&debugGrid=true`，印真實資料＋刻度尺，檔名帶 `-calibration`。⚠️ **與 debugOverlay 不同，debugGrid 刻意不做 Development 阻擋**——它要在客戶的 Windows 機器／實體牌位座上用。現場回報三項：相鄰刻度是否真 1.00cm〔先判斷有沒有被驅動縮放〕、「靈」字上緣落在第幾條線、牌位座視窗下緣落在第幾條線。回歸鎖 GenerateTabletHandlerTests／GET_tablet_debugGrid_returns_calibration_PDF／print.service.spec 兩案；dotnet 277/135/74 綠 + npm test 116 綠。**等現場回報後才動座標**。 先前 2026-08-04 (新增「造字＝Unicode 增補平面罕用字」段：客訴「舊系統造字印得出來、新系統只有收據與資料卡陽上正常」的根因是直書路徑逐 `char` 走訪把 surrogate pair 拆成孤兒碼位〔不是字型問題〕；VerticalText 改以字素為單位、SkiaSharp 垂直地址補缺字 fallback；含造字的實體樣張需重新複驗字級/位置。先前 2026-07-31 (列印通道改由 Electron 主行程送印：「列印流程」與「批次範圍列印」段更新〔原本的 dialog.showSaveDialog / PDF.js 規劃已不採用〕、「不做什麼」的 OS 列印一條補註記，細節分流到新 blueprint print-channel-electron.md。同日先前§1 資料卡客訴：往者 2 位時左右相反——DeadColumnsX tier≤2 分支對調兩欄 X，往者一 d[0] 改在右（中軸+0.05）、往者二 d[1] 改在左（中軸−0.05−fontCm），與薦牌 One 右／Two 左一致；整組中心 17.278、間隙 0.1cm、字級/Top/框/3+ 矩陣/1 位置中皆不動，回歸鎖 DataCard_OneOrTwoDeadNames_AreCenteredInWindowFrame 補 CenterX>RightX 斷言，Renderer 81 綠、待實體複驗)；先前 2026-07-29 (§收據郵寄封面補註記：Zipcode 來源 `Signups.MailZipcode` 文字快照曾因寫入端漏寫而空白〔renderer 無誤〕，已於後端修正並回填。先前 2026-07-28 批次列印改 job 模型：「批次範圍列印」流程改寫、新增「批次列印進度與取消」段〔三個批次入口顯示真實 i/N 進度 overlay、可取消、合併階段提示、2GB 規模上限〕。先前 2026-07-27 文牒客訴兩項：①往者/陽上「不管幾位字級都跟一位一樣」——改 VerticalText.MatrixLayout（同薦牌 07-17），字級固定 0.8cm、下排起點動態，撤掉 07-21 的 WithBottomGap＋固定列距（把 3 字名縮到 ≈0.50cm）②往者最左欄離左側預印字 0.5cm 是**間距**不是位移——撤掉 07-21 的 DeadShiftX=0.5（實際變 0.793cm），改絕對錨點 DeadLeftX=11.707（量測「鳴呼既追攀…」欄右緣 11.207+0.5），Base/Two 皆以自己的最左欄對齊；堂號 Second 同錨、First 維持相對 2.03753；200DPI 回掃最左欄墨跡 11.756／堂號 11.769、6 位滿版字高 0.685cm 未超框——回歸鎖 Text_NameFontSize_StaysAtBase_RegardlessOfNameCount／Text_DeadNamesAndHallName_KeepHalfCentimeterFromPrePrintedText，Infrastructure 112 綠、待實體複驗)；同日先前 (資料卡客訴二度回報「往者 1／2 位沒置中」：改依實際字級動態置中於框中軸 17.278（1 位 中軸−fontCm/2、2 位對稱分居留 0.1cm），撤掉固定左移 0.3cm 的 FewDeadShiftX〔固定位移救不了兩種組寬，1 位偏左 0.19／2 位偏右 0.18〕；200 DPI 回掃誤差 ≤0.012cm；框與 3+ 矩陣不動；slot-based 判定用 public PrintTemplateSelector.SlotTier——回歸鎖 DataCard_OneOrTwoDeadNames_AreCenteredInWindowFrame，Infrastructure 110 綠、待實體複驗)；先前 2026-07-21 (資料卡客訴三項：編號抬頭與號碼分開繪製、中間 0.3cm 空隙、不再用「.」（NumberTitle/Number 分兩欄）；往者字級改與薦牌一致（ChooseTablet 的 ParaFontSize tier + MatrixLayout 於窗框動態縮，取代寫死 0.6cm+固定列距 2.6）；窗框含整個框右移 0.8cm（FrameShiftX）＋預繳右移 1.5cm（Left 12.133→13.633）——回歸鎖 DataCard_SixDeadNames_MatrixStaysWithinMeasuredWindow 改用 MatrixLayout、DataCard_number_is_number_only_title_separate，280 單元測試綠、待實體複驗)；先前 2026-07-18 (普桌資料卡客訴：template 一樣要全印——WorshipCardRenderer.DrawTemplate 生產路徑畫葫蘆（重用 worship2.png 墨跡對墨跡縮放）＋右側標題＋簽名底線，白紙可印；生產字型渲染回掃逐項誤差 ≤0.013cm，內容座標不動，回歸鎖 WorshipCard_EmptyContent_StillPrintsTemplate；同日資料卡客訴改版：template 由程式全印——§1 DrawTemplate 畫標題/簽名底線/窗框/故靈位，白紙可印、內容座標不動、亡者矩陣硬邊界不變，回歸鎖 DataCard_EmptyContent_StillPrintsTemplate；同日文牒三項客訴：往生者沒印（根因＝模板選擇 count-based 誤實作，改 slot-based 對齊舊系統，薦牌同步修）＋地址置中預印「臺灣」正下方（Left 25.4/Top 4.9，三輪使用者回饋收斂）/加大 0.75cm/超長折兩欄（左欄接續）＋亡陽姓名 0.9cm 比地址大，371 測試綠、疊圖 PDF 待實體複驗；同日稍早收據第 1 頁座標依客戶樣張 reference/收據.jpg 校正：Name/Number/Prepay/年月日四項位移上下聯同步，待實體複驗；同日收據補第 2 頁郵寄封面（客訴沒印封面；Zipcode/Address/Name 16pt，空地址也輸出維持頁數）＋ Year 改民國年＋ Fee 千分位 N0 ＋ Prepay 改「預繳至X年Y」；資料卡/文牒 Address 改文牒地址（先前誤用郵寄地址，舊系統兩報表皆取 Text*）；同日普桌/普桌資料卡解鎖：移除 SignupType=4 限制（單筆 422 與批次過濾皆撤回），對齊舊系統選什麼印什麼——客訴右鍵選項被鎖；先前 2026-07-04 新增 §6 普桌資料卡 worshipcard：全新報表、A5 橫預印卡紙、葫蘆內普桌 6 變體縮小版墨跡仿射映射＋右側 Phone/Remark 套印、限 type-4、debugOverlay 支援，疊圖目視 OK 待實體驗收；普桌列印修正完成：One/Two/Three 丟字修復 + 6 變體各自座標 + 每格 5 字縮字 + 同欄上下排全形空格，340 測試綠；先前稽核：丟字範圍精確化為 One/Two/Three 變體、6 變體座標缺口量化、客戶樣張 reference/普桌.jpg 確認 RDLC 排版即客戶要求＋新增「每格容納 5 個字」需求；薦牌實體對位使用者確認 OK 結案；先前：記錄開發用列印位置檢視工具的手動產出 PDF 慣例：一律輸出到 reference/output/，用 CEREMONY_PDF_DUMP + dotnet test filter，暫時測試檔案用完即刪；先前新增 GET /reports/tablet/sample：5 亡者+5 陽上固定樣本 PDF，免 signupId，供列印位置檢視工具直接測試 Base 變體；2026-07-05 薦牌 OneOne 變體 Number/陽上/亡者 Y 座標修正 2cm Margin 偏移；debugOverlay 改用 page.Background()；亡者中心線置中))))
 ---
 
 ## 背景與動機
@@ -206,6 +206,70 @@ QuestPDF **與** SkiaSharp **都**需要標楷體。**關鍵踩雷**：renderer 
 **2026-07-05 再追加、後又修正：1 位亡者的垂直位置**。使用者指出「只有一位時，亡者位置沒在故靈位正中間」——當時把它理解成「整體垂直置中在故～靈位的空隙裡」，改成 `topY = 故下緣 + (空隙高度 − 實際文字高度) / 2`。使用者驗收後糾正：**「還是不對，要在故的正下方」**——「正中間」指的是水平方向在中心線上，不是把文字整塊漂浮置中在故跟靈位中間的空白處；垂直方向應該緊接在「故」正下方起排。改回 `topY = DeadGapTop`（故下緣 Y=7.5946cm，跟改版前的舊值 `7.5825`幾乎相同，等於保留原本的垂直起點、只套用水平置中）。`GroupFontPt` 的 avail 仍保留收緊到「故～靈位空隙 5.8674cm − 0.1 安全邊界」，避免長名字縮字上限跟實測空隙脫節（這部分改動是對的，沒有被這次糾正推翻）。**只有 1 位亡者這個情境需要水平置中**——2 位與 3+ 位矩陣都是明確的「上排/下排」列位，維持故下緣起排不變。
 
 **✅ 結案（2026-07-04）**：使用者確認薦牌目前列印結果 OK。先前「樣板照片是否 100% 對應客戶實際牌位座」的疑慮由使用者驗收解除，不再需要 debugGrid 刻度回報。`debugGrid` / `debugOverlay` 工具保留（dev-only），日後客戶更換牌位座樣式或再出現對位客訴時，依同一套「疊圖量測 → 修正 → 實體驗收」流程處理。
+
+**🔁 2026-08-06 重啟**：客訴「往生者四位時，字壓到預印的『靈位』」。這一次**不能**再靠樣板照片量測解決——見下方「現場對位校正版」。
+
+### 現場對位校正版（debugGrid 接出到現場，2026-08-06）
+
+**為什麼要重做這個工具**：客訴「四位往生者的字壓到預印的靈位」，但依現行座標算，四位那條路徑（3+ 位 2×3 矩陣）的文字下緣**最遠只到 13.1946cm**，離樣板照片量到的「靈」字上緣 13.462cm 還有 0.27cm 餘裕——`VerticalText.MatrixLayout` 保證「上排 + 1 格間距 + 下排」不超過方框，回掃 `tablet_base_long_dead_name.pdf` 實測墨跡止於 13.144 也印證了這點。**算得出來的餘裕與實印結果矛盾，代表量測基準本身（或送印路徑）有問題，不是座標值調一調就好**。所以先把刻度尺印在同一張紙上、插進實體牌位座，用回報的刻度反推真正的可用區。
+
+- **入口**：報名維護清單右鍵 →「**列印薦牌（對位校正）**」（選 1 筆時啟用）。走 `GET /api/v1/reports/tablet?signupId=...&debugGrid=true`，印的是**那一筆真實資料** + 1cm 桃紅刻度格線（`TabletRenderer.DrawCalibrationGrid`，橫向 0~11、縱向 0~25 各一條並標數字）。檔名帶 `-calibration` 尾綴，好與正式版並排比對。
+- **⚠️ 與 `debugOverlay` 的關鍵差異：`debugGrid` 不做 `Development` 阻擋，生產環境也能印。** 它是**現場量測工具**，必須在客戶的 Windows 機器、實體薦牌紙、實體牌位座上使用；擋在 Development 等於這個工具不存在。`debugOverlay`（疊樣板掃描照）維持 dev-only 不變。
+- **不進批次列印**：一次印一張就夠，批次只會浪費紙。
+- **給現場的量測步驟（回報這三項）**：
+  1. 用尺量**相鄰兩條刻度線**在實體紙上的距離是不是 1.00cm。**這一項要先做**——不是 1.00cm 就代表整份 PDF 被驅動縮放（自訂表單尺寸 ≠ 11.5×25.5cm → fit-to-printable-area），那要先修送印端，座標一個都不用動（見 [gotchas.md](../gotchas.md)「改列印通道會靜默作廢整份座標表」）
+  2. 預印「靈」字**上緣**落在第幾條線、離該線幾 mm
+  3. 牌位座插進去後，**可見視窗下緣**落在第幾條線（可能比「靈」字更早擋住——若是這一項，那從樣板照片永遠量不到）
+- **接線**：`ReportsController.Tablet` → `GenerateTabletHandler.HandleAsync(..., debugGrid)` → `IReportRenderer.RenderTablet(model, debugOverlay, debugGrid)` → `TabletRenderer.Render(data, debugGrid)`（renderer 這一層 07-03 就有了，只是一直沒有現場入口）。前端 `PrintService.printSingle(type, id, { debugGrid })` 組 query；`reportType` 仍傳 `'tablet'`，紙張 SSoT 與 `X-Report-Page-Size` 才會照薦牌走——**校正版若用錯紙張，量出來的刻度就沒有意義**。
+- **回歸鎖**：`GenerateTabletHandlerTests`（debugGrid 有傳到 renderer、檔名帶 `-calibration`）、`GET_tablet_debugGrid_returns_calibration_PDF`（格線版位元組數必須大於正式版，相等就代表參數沒接到）、`print.service.spec.ts` 兩案（Electron query 組法 + 瀏覽器 HttpParams）。
+
+#### 同日追加：用 `debugOverlay` 掃過 21 種情況（結論：**紙面上四位不會壓到，但 2 位長名真的會**）
+
+在請現場印格線版之前，先用既有的樣板疊圖把各種人數 × 名字長度掃一遍。變體與字級一律走生產路徑（`PrintTemplateSelector.ChooseTablet`）決定，不手動指定。樣張在 `reference/output/`：`ALL_CASES_overlay.pdf`（21 頁合併版，一次翻完）、`ALL_CASES_overlay_grid.pdf`（同上再加 1cm 刻度）、以及每種情況的 `case_*_{overlay,grid,plain}.pdf` 單張。
+
+200DPI 回掃 `plain` 版量往者墨跡下緣，對照**真實**「靈」字上緣 **13.373**（＝樣板量測 13.462 − 照片紙外留白 0.089，見下段）：
+
+| 情況 | 變體 / 字級 | 往者墨跡下緣 | 距「靈」 |
+|---|---|---|---|
+| 1 位 3 字 | One 0.8cm | 9.957 | 3.42 |
+| 1 位 7 字 | One 0.8cm | 13.157 | 0.22 |
+| 1 位 8 字 | One 0.5cm | 11.544 | 1.83 |
+| **1 位 12 字** | One 0.5cm | **13.335** | **⚠️ 0.04** |
+| 2 位 3 字 | Two 0.8cm | 9.944 | 3.43 |
+| 2 位 7 字 | Two 0.8cm | 13.144 | 0.23 |
+| 2 位 8 字 | Two 0.5cm | 11.532 | 1.84 |
+| **2 位 12 字** | Two 0.5cm | **13.538** | **❌ 壓字 0.17** |
+| **2 位 16 字** | Two 0.5cm | **13.868** | **❌ 壓字 0.50** |
+| 3 位 6 字 | Base 0.6cm | 11.366 | 2.01 |
+| 4 位 6 字 | Base 0.6cm | 13.157 | 0.22 |
+| 4 位（右欄 4+1+4 頂滿方框） | Base 0.6cm | 13.170 | 0.20 |
+| 5 位 4 字 / 6 位 4 字 / 6 位 8 字 | Base 0.6cm | 13.170 | 0.20 |
+
+陽上全部情況（1 位長名／2 位長名／6 位）墨跡下緣最大 **19.456**，離預印「拜薦」上緣 20.49 還有 1cm 以上，**安全**。
+
+> 🛑 **下面第 1、3 點的推論在同日拿到客戶實印照片後被推翻**（第 2 點成立且正是根因）：客訴那筆**不是四位往生者走矩陣**，而是 **2 位往生者、每格用全形空格塞兩個人名**走 2 位分支——也就是第 2 點那個 `avail=6.31` 的 bug。掃描表本身的數據仍然正確，只是「四位」這個前提是誤讀。結案見下一段。
+
+**三個結論**：
+
+1. ~~**客訴的四位重現不出來**——最壞情況也停在 13.170、還差 0.20cm。⇒ 問題在紙面之外（實體牌位座視窗，或送印端把整份縮放／位移）。~~（**已推翻**：客訴根本不走矩陣那條路徑）
+2. **但 2 位長名是真的會壓字**（12 字起，16 字達 0.50cm），根因就是 §3 記的 `avail=6.31`。這是獨立於客訴的既有 bug，之前只是推算，現在有回掃佐證。
+3. **常見情況全部擠在 13.14~13.34 這 0.2cm 帶內**（1 位 7 字 13.157、2 位 7 字 13.144、4 位 13.170、5/6 位 13.170、1 位 12 字 13.335），離真實邊界只剩 0.03~0.23cm。~~這使「先用格線版排除整份縮放／位移」升級為最可能的根因。~~（**已推翻**：根因是第 2 點。但這個觀察本身仍有價值——它說明**餘裕普遍很薄**，所以修正時把三種排法收斂到同一條有實務背書的下界，而不是各自微調。）
+
+#### ✅ 結案（同日，拿到客戶實印照片後）
+
+客戶提供實印照片後逐像素比對，**根因確定就是上面第 2 點的 2 位 `avail=6.31`**，與送印路徑無關：
+
+- 客訴那筆**不是四位往生者**，而是 **2 位往生者、每一格用全形空格把兩個人名塞成上下兩段**——`往生者一`＝「施　棟　施郭秀鑾」（8 個字素）、`往生者二`＝「施裕源　施林鳳」（7 個字素）。用同一組資料跑我們的 renderer，欄位配置、空格位置、「鑾」壓在「靈」上的相對位置**全部吻合**（樣張 `reference/output/cust_E_two_slots_with_space_overlay.pdf`）。
+- 8 字素 × (6.31/8) 剛好吃滿錯誤的可用高 → 下緣 13.89（回掃 13.818），壓進「靈位」0.43cm。**使用者最初那句「一行 8 個字以上會超出」精準命中門檻。**
+- **為什麼我一開始判斷成四位**：照片上看到四個人名，就假設是四位往生者走 3+ 位矩陣。**「畫面上有幾個名字」不等於「資料填了幾格」**——使用者用全形空格在一格裡排兩個人，是這個領域的實際用法（也正是使用者一開始說的「上下名字加空格」）。從照片反推資料時，要先用**字級**判斷走哪條分支（矩陣固定 0.6cm、1/2 位 0.8cm 起）：本例量到 0.79cm，一眼就能排除矩陣。
+- 修正見 [printing-reports-positions.md §3](printing-reports-positions.md) 2026-08-06 第三輪條目。修正後同一筆資料下緣 **13.132**（原 13.818）。
+- **格線校正版仍然有用但不再是阻塞**：它現在的用途是確認送印端沒有整份縮放／位移（第 3 點指出餘裕普遍只有 0.2cm 左右，值得一次量清楚）。
+
+**⚠️ 但這一輪疊圖也抓到一個真的量測基準錯誤**：`reference/template/薦牌.jpg` 是 907×2023px @200DPI ＝ **11.519 × 25.692cm**，比實體紙 11.5×25.5cm **高出 0.192cm**——因為照片包含紙張外的留白。紙緣線實測在 **y = 7px = 0.089cm**（該列 880/907 都是暗像素），左緣在 x ≈ 3px = 0.038cm；以「紙上緣 0.089 + 25.5cm」推得紙下緣落在 y=2015px、離照片底 2023px 差 8px，以「紙左緣 0.038 + 11.5cm」推得紙右緣 x=909px、比照片寬 907px 多 2px（右側被裁）——四個邊互相吻合，這個判讀是自洽的。
+
+**後果**：§3 所有「從樣板照片量到」的 Y 座標都是**照片座標**，比真實紙張座標大 **0.089cm**（X 大 0.038cm）。也就是「靈」字上緣在實體紙上其實是 **13.373**（不是 13.462），四位的真實餘裕是 **0.18cm** 而非文件以為的 0.27cm。疊圖之所以量到 13.373 而不是 13.462，是因為 `FitUnproportionally()` 把 25.692cm 的照片拉伸填進 25.5cm 的頁面，剛好近似抵掉了這個偏差——**等於這個 bug 一直被疊圖工具遮住**。
+
+**⚠️ 不可以直接把全部 Y 減 0.089**：歷次實體套印客訴微調（07-21 編號下移 0.1／07-31 往者左移 0.05 等）是**在有這個偏差的情況下**憑實印回饋調出來的，已經吸收掉一部分。要動基準必須跟現場刻度回報一起重算，不能兩邊各減一次。
 
 ### 開發用列印位置檢視工具（樣板疊圖，2026-07-03）
 

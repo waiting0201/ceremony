@@ -568,16 +568,83 @@ public sealed class RendererSmokeTests
         textBottomCm.Should().BeLessThanOrEqualTo(lingTopCm + 1e-6, "不應壓到樣板預印的「靈」字");
     }
 
-    // 2026-07-21 客訴回歸鎖：往者 1、2 位且 ≥8 真字時字級由 0.8cm 縮到 0.5cm（原 0.6cm 再下修，
-    // 使用者指定，僅 1/2 位往者；3+ 位仍 0.6cm）。用 PrintTemplateSelector 真實推導變體＋字級
-    // （＝生產路徑 ReportModelBuilders.Tablet 的做法），落地 overlay 供目視 8 字縮字樣張。
-    // 附帶斷言縮字目標＝0.5cm，避免未來誤把門檻或目標值改回。
+    // ★ 2026-08-06 客訴回歸鎖（客戶實印照片：往者的字壓在預印的「靈位」上）。
+    //
+    // 根因不是字級規則，而是**三種排法各自帶一個可用高常數、來源還不同**：
+    //   1 位   `DeadGapHeight−0.1`  → 下緣 13.362
+    //   2 位   RDLC 遺留值 `6.31`   → 下緣 13.89   ← 早就越過「靈」上緣，8 個字素起就壓字
+    //   3+ 位  手寫量測方框 5.4     → 下緣 13.1946
+    // 客戶那筆是 **2 位往生者、每格用全形空格把兩個人名塞成上下兩段**（8 個字素）＝走 2 位分支；
+    // 舊的 `>7 真字 → 0.5cm` 門檻用 RealCharCount 只算到 6 個真字，**根本沒觸發**——證明字數門檻
+    // 擋不住溢出，可用高才是唯一該管這件事的地方（該門檻已於同日撤除，字級改為自動縮到剛好）。
+    //
+    // 本鎖用生產路徑（PrintTemplateSelector + renderer 同一組公式）算出三種排法在**極端字數**下的
+    // 文字下緣，一律不得越過共用下界 TabletRenderer.DeadTextBottom。既有 17 支 Tablet smoke 只鎖
+    // 上界與字級、不鎖下緣，2 位那個洞才會長期沒被抓到。
     [Fact]
-    public void Tablet_1and2Dead_8chars_ShrinkTo05_DumpOverlays()
+    public void Tablet_AllLayouts_DeadNames_NeverCrossDeadTextBottom()
     {
-        // 8 真字往者名（觸發縮字）；控制組為 7 字（維持 0.8cm）供並排目視差異
+        const double bottom = TabletRenderer.DeadTextBottom;   // 13.1946
+        const double gapTop = TabletRenderer.DeadGapTop;       // 7.5946（1、2 位起點）
+        const double matrixTop = gapTop + 0.2;                 // 7.7946（3+ 位方框頂）
+        const double matrixBox = 5.4;
+        const double avail = bottom - gapTop;                  // 5.6
+
+        static double BasePt(string?[] dead, string?[] living)
+        {
+            var (_, para) = PrintTemplateSelector.ChooseTablet(dead, living);
+            return double.Parse(para.Replace("cm", "")) * 28.3464567;
+        }
+
+        // 客戶實際那筆：2 位往生者，每格用全形空格塞兩個人名（8 / 7 個字素）
+        var customer = N("施　棟　施郭秀鑾", "施裕源　施林鳳");
+        // 其餘極端：1 位超長、2 位超長、3+ 位上下排都超長
+        var oneLong = N(string.Concat(Enumerable.Repeat("蔡", 20)));
+        var twoLong = N(string.Concat(Enumerable.Repeat("蔡", 20)), string.Concat(Enumerable.Repeat("陳", 16)));
+        var manyLong = N("蔡蔡蔡蔡蔡蔡", "陳陳陳陳陳陳", "林林林林林林", "王王王王王王", "李李李李李李", "吳吳吳吳吳吳");
+        var living = N("子甲", "子乙");
+
+        // ── 1 位（One / OneOne / OneTwo）──
+        foreach (var dead in new[] { oneLong, N("蔡") })
+        {
+            var f = VerticalText.GroupFontPt(BasePt(dead, living), (dead[0], avail)) / 28.3464567;
+            var b = gapTop + VerticalText.ElementCount(dead[0]) * f;
+            b.Should().BeLessThanOrEqualTo(bottom + 1e-6, "1 位往者不得越過共用下界");
+        }
+
+        // ── 2 位（Two / TwoOne / TwoTwo）── 客訴就在這一支
+        foreach (var dead in new[] { customer, twoLong, N("蔡", "陳") })
+        {
+            var f = VerticalText.GroupFontPt(BasePt(dead, living), (dead[0], avail), (dead[1], avail)) / 28.3464567;
+            foreach (var name in new[] { dead[0], dead[1] })
+            {
+                var b = gapTop + VerticalText.ElementCount(name) * f;
+                b.Should().BeLessThanOrEqualTo(bottom + 1e-6,
+                    "2 位往者不得越過共用下界（客戶實印壓到「靈位」的就是這條路徑）");
+            }
+        }
+
+        // ── 3+ 位矩陣（Base / UnderscoreOne / UnderscoreTwo）──
+        var (mFont, mOffset) = VerticalText.MatrixLayout(
+            double.Parse(PrintTemplateSelector.ChooseTablet(manyLong, living).ParaFontSize.Replace("cm", "")),
+            matrixBox, (manyLong[0], manyLong[5]), (manyLong[1], manyLong[3]), (manyLong[2], manyLong[4]));
+        var matrixBottom = matrixTop + mOffset + VerticalText.ElementCount(manyLong[5]) * mFont;
+        matrixBottom.Should().BeLessThanOrEqualTo(bottom + 1e-6, "3+ 位矩陣不得越過共用下界");
+
+        // 三種排法必須收斂到**同一條**下界（別再散成三個常數）
+        (bottom - matrixTop).Should().BeApproximately(matrixBox, 1e-9,
+            "3+ 位方框高必須等於共用下界推出來的值");
+        avail.Should().BeApproximately(5.6, 1e-9, "1、2 位可用高＝共用下界 − 故下緣");
+    }
+
+    // 2026-08-06：撤掉「≥8 真字 → 固定 0.5cm」後的字級行為鎖 + 樣張。
+    // 字級起點一律 0.8cm，實際大小由 renderer 依可用高等比縮——長名字因此比舊規則**更大**
+    // （8 字素 0.7cm vs 舊 0.5cm）且仍保證不溢出，這正是使用者要的「自動縮到剛好」。
+    [Fact]
+    public void Tablet_1and2Dead_LongNames_AutoShrinkToFit_DumpOverlays()
+    {
         var name8 = "一二三四五六七八"; // 8 字
-        var name7 = "一二三四五六七";   // 7 字（不縮）
+        var name7 = "一二三四五六七";   // 7 字
 
         static TabletData Build(string?[] dead, string?[] living)
         {
@@ -586,26 +653,29 @@ public sealed class RendererSmokeTests
             return new TabletData("郵1", null, null, dead, living, paraCm, template);
         }
 
-        // 1 位往者 8 字 + 2 陽上 → OneTwo，往者字級 0.5cm
         var oneDead = Build(N(name8), N("子甲", "子乙"));
         oneDead.Template.Should().Be(TabletTemplate.OneTwo);
-        oneDead.ParaFontSizeCm.Should().BeApproximately(0.5, 1e-9, "1 位往者 8 字 → 0.5cm");
+        oneDead.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9, "字級起點不再受字數影響");
 
-        // 2 位往者（其一 8 字）+ 2 陽上 → TwoTwo，往者字級 0.5cm
         var twoDead = Build(N("陳", name8), N("子甲", "子乙"));
         twoDead.Template.Should().Be(TabletTemplate.TwoTwo);
-        twoDead.ParaFontSizeCm.Should().BeApproximately(0.5, 1e-9, "2 位往者任一 8 字 → 0.5cm");
+        twoDead.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9, "字級起點不再受字數影響");
 
-        // 控制組：1 位往者 7 字 → OneTwo，維持 0.8cm（不縮）
         var control = Build(N(name7), N("子甲", "子乙"));
-        control.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9, "7 字不觸發縮字");
+        control.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9);
+
+        // renderer 端：8 字素在 5.6cm 可用高下縮到 0.7cm（＝剛好塞滿），比舊規則的 0.5cm 大
+        const double avail = TabletRenderer.DeadTextBottom - TabletRenderer.DeadGapTop;
+        var f8 = VerticalText.GroupFontPt(0.8 * 28.3464567, (name8, avail)) / 28.3464567;
+        f8.Should().BeApproximately(avail / 8, 1e-9, "8 字素縮到剛好塞滿可用高");
+        f8.Should().BeGreaterThan(0.5, "自動縮字必須比舊的固定 0.5cm 大");
 
         foreach (var (data, tag) in new[] { (oneDead, "1dead8"), (twoDead, "2dead8"), (control, "1dead7_control") })
         {
             var plain = new TabletRenderer().Render(data);
             ShouldBePdf(plain);
-            DumpIfRequested(plain, $"tablet_shrink05_{tag}.pdf");
-            DumpIfRequested(new TabletRenderer().Render(data, debugOverlay: true), $"tablet_shrink05_{tag}_overlay.pdf");
+            DumpIfRequested(plain, $"tablet_autoshrink_{tag}.pdf");
+            DumpIfRequested(new TabletRenderer().Render(data, debugOverlay: true), $"tablet_autoshrink_{tag}_overlay.pdf");
         }
     }
 
