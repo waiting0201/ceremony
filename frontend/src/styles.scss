@@ -516,7 +516,6 @@ a {
   border-right: 1px solid var(--c-border-soft);
   overflow: hidden;
   white-space: nowrap;
-  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -531,6 +530,15 @@ a {
   }
   &.meta-date { font-size: var(--font-size-xs-plus); color: var(--c-text-secondary); }
   input[type='checkbox'] { width: 14px; height: 14px; margin: 0; cursor: pointer; }
+}
+// 儲存格文字一律包在這層 span，理由有二：
+// 1) .vgrid-td 是 flex 容器，裸文字節點是匿名 flex item，text-overflow 掛在容器上不生效（只會硬切）
+// 2) appCellTooltip 靠 scrollWidth > clientWidth 判斷有沒有被截斷，匿名 item 量不到
+.vgrid-td-text {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .vgrid-row.is-selected .vgrid-td.dead {
   background: color-mix(in srgb, var(--c-row-selected) 60%, var(--c-dead-name-bg));

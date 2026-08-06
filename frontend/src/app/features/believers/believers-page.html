@@ -44,7 +44,7 @@
         <div class="empty-hint">無資料，請重新搜尋！</div>
       </div>
     } @else {
-      <div class="vgrid-zone">
+      <div class="vgrid-zone" appCellTooltip>
         <div class="vgrid-header-clip">
           <div
             #headerInner
@@ -94,7 +94,9 @@
                     <app-icon name="more" [size]="16" />
                   </button>
                 } @else {
-                  {{ col.accessor ? col.accessor(item) : '' }}
+                  <!-- 文字包一層 span 才吃得到 text-overflow，也才量得出「有沒有被截斷」
+                       （appCellTooltip 據此決定是否顯示完整內容） -->
+                  <span class="vgrid-td-text">{{ col.accessor ? col.accessor(item) : '' }}</span>
                 }
               </div>
             }

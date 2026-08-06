@@ -40,6 +40,7 @@ import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { FormOverlayComponent } from '../../shared/form-overlay/form-overlay.component';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
+import { CellTooltipDirective } from '../../shared/cell-tooltip/cell-tooltip.directive';
 import {
   SignupEditFormComponent,
   type InsertAtContext,
@@ -108,6 +109,7 @@ interface EditOverlayState {
     FormOverlayComponent,
     SignupEditFormComponent,
     NumericInputDirective,
+    CellTooltipDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './signup-list-page.html',
