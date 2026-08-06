@@ -40,6 +40,15 @@ describe('print-form-core', () => {
       expect(r.mismatchMm).toBe('-8.32x-5.76');
     });
 
+    it('讀得懂 skipped-virtual（跨語言契約：C# 的 PrinterFormPolicy.ToResult）', () => {
+      // 這串沒列進 HELPER_RESULTS 的話會被退成 helper-error，診斷紀錄就看不出
+      // 「預設印表機是 Print to PDF」這個現場最常見的誤設。
+      const r = parseHelperOutput('{"result":"skipped-virtual","form":"薦牌","virtual":true}');
+
+      expect(r.result).toBe('skipped-virtual');
+      expect(r.virtual).toBe(true);
+    });
+
     it('只取最後一行 JSON（驅動可能往 stdout 吐東西）', () => {
       const r = parseHelperOutput('some driver noise\n\n{"result":"not-found","form":"文牒"}\n');
 
@@ -69,16 +78,26 @@ describe('print-form-core', () => {
   });
 
   describe('viewerTitle', () => {
-    it('尺寸不符要在標題警告使用者去重建表單', () => {
+    it('尺寸不符要講「沒幫你選」而不只是「請重建」', () => {
+      // 2026-08-06 起尺寸不符不再自動選用（PrinterFormPolicy）。標題只說「請重建」會讓
+      // 使用者以為這次還是選好了，然後直接按列印印在錯的紙上。
       const t = viewerTitle({ result: 'mismatch', form: '資料卡' });
 
       expect(t).toContain('⚠');
       expect(t).toContain('資料卡');
-      expect(t).toContain('請按工具列的列印鈕');
+      expect(t).toContain('未自動選用');
+      expect(t).toContain('手動選紙');
     });
 
     it('驅動裡沒有這張紙也要警告（那正是客訴的狀態）', () => {
       expect(viewerTitle({ result: 'not-found', form: '文牒' })).toContain('⚠');
+    });
+
+    it('另一個列印視窗開著時要說明為什麼沒自動選紙', () => {
+      const t = viewerTitle({ result: 'skipped-viewer-open' });
+
+      expect(t).toContain('⚠');
+      expect(t).toContain('手動選紙');
     });
 
     it.each<FormApplyResult['result']>([
@@ -90,6 +109,8 @@ describe('print-form-core', () => {
       'driver-rejected',
       'no-default-printer',
       'skipped-not-windows',
+      // 預設印表機是 Print to PDF 之類的機器：套印本來就無從談起，不值得用標題騷擾使用者。
+      'skipped-virtual',
     ])('%s 不警告——不是使用者能處理的事，而且列印照常可用', (result) => {
       expect(viewerTitle({ result })).toBe('列印預覽 — 請按工具列的列印鈕');
     });
@@ -139,10 +160,18 @@ describe('print-form-core', () => {
       const prev = { kind: 9, fields: 2, w: 0, h: 0 };
 
       expect(needsRestore({ result: 'exact', prev })).toBe(true);
-      expect(needsRestore({ result: 'mismatch', prev })).toBe(true);
       expect(needsRestore({ result: 'unchanged', prev })).toBe(false);
       expect(needsRestore({ result: 'not-found' })).toBe(false);
       expect(needsRestore({ result: 'exact' })).toBe(false);
+    });
+
+    it('mismatch 不再需要還原——2026-08-06 起它根本不寫入', () => {
+      // 就算 helper 因為某種理由還是帶了 prev 回來（舊版 exe 混搭新版前端），也不能當成
+      // 「動過」——記了 journal 就會在關窗時拿一份沒發生過的快照去覆蓋使用者的設定。
+      expect(needsRestore({ result: 'mismatch', prev: { kind: 9, fields: 2, w: 0, h: 0 } })).toBe(false);
+      expect(needsRestore({ result: 'skipped-virtual', prev: { kind: 9, fields: 2, w: 0, h: 0 } })).toBe(
+        false,
+      );
     });
   });
 

@@ -16,8 +16,8 @@ related_docs:
   - ../design/api-design.md
   - ../design/performance.md
   - ../gotchas.md
-keywords: [列印, 印表機, 紙張, 自訂表單, PaperSizes, DEVMODE, SetPrinter, PrintDlgEx, 原生對話框, 預覽視窗, PDF viewer, plugins, DeviceInfo, ReportPageSizes, PrinterFormMatcher, 頁面範圍, 診斷紀錄, 串流取檔, streamApiToFile]
-last_updated: 2026-08-05 (新增**決策 9a：DEVMODE 的旗標與值必須同進退**——客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』〔＝RPC_E_SERVERFAULT〕」的根因就在決策 9 自己：`WritePaperSize` 清了 `DM_PAPERWIDTH`/`DM_PAPERLENGTH` 旗標卻沒把欄位歸零、`WriteSnapshot` 還原時整包蓋回 `dmFields`，兩處都留下自相矛盾的 DEVMODE，v4 驅動做 DEVMODE⇄PrintTicket 轉換時丟例外。規則抽成平台中立的 `DevModePaperFields`（ForFormSelection / ForRestore / AlreadySelected）＋ merge 後的 `NormalizeUnusedPaperFields`，回歸鎖 `DevModePaperFieldsTests`；`AlreadySelected` 順帶補上「DM_PAPERSIZE 有設」的條件。元教訓：Windows-only 專案裡任何不需要 Win32 handle 的邏輯都該住在 Domain——本決策拆了「比對」卻沒拆「位元運算」，於是這段在 macOS 與 CI 上完全隱形。另把 `CEREMONY_PRINTFORM_EXE` 指向不存在路徑寫成受文件保證的現場止血開關。先前 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早))
+keywords: [列印, 印表機, 紙張, 自訂表單, PaperSizes, DEVMODE, SetPrinter, PrintDlgEx, 原生對話框, 預覽視窗, PDF viewer, plugins, DeviceInfo, ReportPageSizes, PrinterFormMatcher, PrinterFormPolicy, 虛擬印表機, 還原 journal, 頁面範圍, 診斷紀錄, 串流取檔, streamApiToFile]
+last_updated: 2026-08-06 (新增**決策 9b：只有「確定會變好」才動那份共用狀態**——起點是使用者的觀察「這問題在舊系統不會出現」，成立而且是結構性的〔舊系統寫的是 process-local 的 PrintDocument.DefaultPageSettings、值來自驅動給的現成物件；我們寫的是全域持久化的每使用者預設 DEVMODE、位元自己組 → 失敗代價差一個數量級，而這是 v2.3.9 改走 Chromium 檢視器後「沒有 PrintDocument 可綁」的連帶代價〕。既然代價不對稱門檻就要不對稱：判斷抽成平台中立的 `PrinterFormPolicy.Decide`，**只有 Exact + 實體印表機才寫入**——`SizeMismatch` 改成不寫〔**推翻 2026-08-04 的「仍選它」**：原本的比較漏了第三個選項，不寫 ≠ 停在 A4 而是停在使用者目前的紙且標題請他手動選，最壞是多按幾下不是印壞；且尺寸不符幾乎都代表現場表單建錯，靜默套一張已知不對的紙只會讓它更晚被發現〕、虛擬印表機從「靠 NotFound 間接擋住」改成明確 `skipped-virtual`。順帶修掉一個還原洩漏：寫 journal 的條件從 `viewerCount === 0` 改成「journal 是否已存在」〔舊條件下「第一個視窗 not-found ＋第二個視窗寫入成功」會寫進 DEVMODE 卻不留還原紀錄，那張紙就永遠留在使用者的 Word/Excel〕，連帶得到「已有 journal 就完全不呼叫 helper」〔`skipped-viewer-open`，不會換掉前一個視窗正在等按列印的紙〕。回歸鎖 `PrinterFormPolicyTests`〔核心斷言：掃過所有 FormMatch × 虛擬與否，會寫入的恰好只有一格〕。**Windows 實機待複驗**。先前 2026-08-05 (新增**決策 9a：DEVMODE 的旗標與值必須同進退**——客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』〔＝RPC_E_SERVERFAULT〕」的根因就在決策 9 自己：`WritePaperSize` 清了 `DM_PAPERWIDTH`/`DM_PAPERLENGTH` 旗標卻沒把欄位歸零、`WriteSnapshot` 還原時整包蓋回 `dmFields`，兩處都留下自相矛盾的 DEVMODE，v4 驅動做 DEVMODE⇄PrintTicket 轉換時丟例外。規則抽成平台中立的 `DevModePaperFields`（ForFormSelection / ForRestore / AlreadySelected）＋ merge 後的 `NormalizeUnusedPaperFields`，回歸鎖 `DevModePaperFieldsTests`；`AlreadySelected` 順帶補上「DM_PAPERSIZE 有設」的條件。元教訓：Windows-only 專案裡任何不需要 Win32 handle 的邏輯都該住在 Domain——本決策拆了「比對」卻沒拆「位元運算」，於是這段在 macOS 與 CI 上完全隱形。另把 `CEREMONY_PRINTFORM_EXE` 指向不存在路徑寫成受文件保證的現場止血開關。先前 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早))))
 ---
 
 ## 背景與動機
@@ -297,6 +297,51 @@ CI 也不印東西。本決策當初拆出 `PrinterFormMatcher` 的理由（「�
 **現場止血手段**（不必出新版）：環境變數 `CEREMONY_PRINTFORM_EXE` 指到不存在的路徑 →
 `helper-missing` → 整段跳過，列印本身完全不受影響。這是「不可退步」那條的自然結果，
 但它現在是**被文件保證的行為**，見 [../design/infrastructure.md](../design/infrastructure.md) 列印排障段。
+
+#### 9b. 只有「確定會變好」才動那份共用狀態（2026-08-06 縮小爆炸半徑）
+
+**起點是使用者的一句觀察**：「這問題在舊系統不會出現。」——完全正確，而且**不是運氣，是結構**：
+
+| | 舊系統 | 本決策（9／9a） |
+|---|---|---|
+| 寫到哪 | 自己那份 `PrintDocument.DefaultPageSettings` | 驅動的**每使用者預設 DEVMODE**（`SetPrinter` Level 9） |
+| 生命期 | process-local，程式關掉就沒了 | 持久化，留在系統裡 |
+| 影響範圍 | 只有這次列印 | 全域，外溢到 Word/Excel |
+| 值哪來 | 驅動給的現成 `PaperSize` 物件 | 我們自己組 `dmFields` 位元 |
+| 寫壞的後果 | 這次印不對，重開就好 | `0x80010105`；還原沒跑到就一直錯 |
+
+舊系統的做法沒有失敗模式可言；我們的做法有一整類。原因不是誰比較粗心，是 v2.3.9 把送印改成
+「Chromium PDF 檢視器 → 原生 PrintDlgEx」之後，手上**沒有 `PrintDocument` 可以綁**，
+唯一的注入點就只剩那份共用的 DEVMODE。這是那次決策的連帶代價，當時沒被算進去。
+
+**既然代價不對稱，門檻就必須不對稱**：只有「確定會讓列印變好」才動它。判斷收進平台中立的
+`Ceremony.Domain.Reports.PrinterFormPolicy.Decide(match, isVirtualPrinter)`：
+
+| 情況 | 舊行為 | 現行為 | 理由 |
+|---|---|---|---|
+| `Exact` + 實體印表機 | 寫入 | **寫入**（唯一入口） | 這正是決策 9 要解的客訴 |
+| `SizeMismatch` | 寫入 + 標題警告 | **不寫**，標題警告 | 見下 |
+| `NotFound` | 不寫 | 不寫 | 本來就沒東西可選 |
+| 虛擬印表機 | 靠 `NotFound` **間接**擋住 | **明確跳過**（`skipped-virtual`） | 「虛擬印表機不會有我們的表單」是推論不是保證，賭錯就改掉使用者的 PDF 輸出設定 |
+
+**`SizeMismatch` 改成不寫，推翻 2026-08-04 的決定。** 原本的理由是「選錯尺寸的同名表單頂多等比縮幾 %，
+停在 A4 則整份位移數公分完全不能用」——那個比較**漏了第三個選項**：不寫入 ≠ 停在 A4，而是停在
+使用者目前的預設紙，且檢視器標題會請他手動選（他仍然選得到那張表單）。所以最壞情況是多按幾下，
+不是印壞。用「多按幾下」換掉「動全域 DEVMODE」這個高代價動作，在尺寸本來就已經錯了的前提下划算；
+而且 `SizeMismatch` 幾乎都代表現場表單建錯（多半是舊系統留下的），靜默替他套一張已知不對的紙
+只會讓那件事更晚被發現。標題文案同步改成「**未自動選用**…請手動選紙」——只說「請重建」會讓使用者
+以為這次還是選好了。
+
+**順帶修掉一個還原洩漏**：`applyReportForm` 原本用 `viewerCount === 0` 當寫 journal 的條件，
+於是「第一個視窗 `not-found`（沒寫入）＋第二個視窗寫入成功」的組合會**寫進 DEVMODE 卻不留還原紀錄**，
+那張紙就永遠留在使用者的 Word/Excel 上。判準改成 **journal 是否已存在**——journal 才是
+「共用狀態被動過」的憑證，`viewerCount` 只是視窗數。連帶得到一個更好的行為：已有 journal 時
+**完全不呼叫 helper**（`skipped-viewer-open`），不會把前一個視窗正在等使用者按列印的紙換掉。
+
+回歸鎖 `PrinterFormPolicyTests`：核心那條斷言「掃過所有 `FormMatch` × 虛擬與否的組合，
+會寫入的**恰好只有一格**」——動全域共用狀態的入口只能有一個，新增分支想放行就會打破它。
+`ToResult` 的字串是與 `electron/print-form-core.ts` 的 `HELPER_RESULTS` 的跨語言契約
+（少一個 → `parseHelperOutput` 把整包退成 `helper-error`），兩邊各有測試鎖住。
 
 ### 8. 順帶修掉「列印完卡在列印中」
 

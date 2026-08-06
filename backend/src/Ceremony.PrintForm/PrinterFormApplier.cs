@@ -22,7 +22,13 @@ namespace Ceremony.PrintForm;
 /// </remarks>
 internal static class PrinterFormApplier
 {
-    /// <summary>名稱含這些字樣的一律視為虛擬印表機。預設印表機是虛擬機時必然找不到自訂表單。</summary>
+    /// <summary>
+    /// 名稱含這些字樣的一律視為虛擬印表機，直接跳過預選（見 <see cref="PrinterFormPolicy"/>）。
+    /// </summary>
+    /// <remarks>
+    /// 從前這只是一格診斷旗標，靠「虛擬印表機不會有我們的自訂表單」間接擋住寫入。
+    /// 2026-08-06 起改成明確的 skip：那是**推論**不是保證，而賭錯的代價是去改使用者的 PDF 輸出設定。
+    /// </remarks>
     private static readonly string[] VirtualMarkers =
     [
         "Print to PDF", "XPS Document Writer", "OneNote", "Fax", "Adobe PDF",
@@ -76,23 +82,35 @@ internal static class PrinterFormApplier
         }
 
         var match = PrinterFormMatcher.Match(reportType, forms);
-        if (match.Match == PrinterFormMatcher.FormMatch.NotFound)
-            return new Outcome { Result = "not-found", Form = match.FormName, PrinterHash = hash, Virtual = isVirtual };
+        var decision = PrinterFormPolicy.Decide(match.Match, isVirtual);
+
+        // 不寫入的三條路徑一律在這裡結束：Prev 是 null ⇒ 呼叫端不會寫還原 journal ⇒
+        // 這次列印完全沒碰過那份共用的每使用者預設 DEVMODE。理由見 PrinterFormPolicy。
+        if (decision != PrinterFormPolicy.FormApplyDecision.Apply)
+        {
+            var isMismatch = decision == PrinterFormPolicy.FormApplyDecision.SkipSizeMismatch;
+            return new Outcome
+            {
+                Result = PrinterFormPolicy.ToResult(decision),
+                Form = match.FormName,
+                // 刻意不回 Kind：它的語意是「我們設進去的表單 ID」，沒寫入就不該有值。
+                MismatchWidthMm = isMismatch ? Math.Round(match.WidthDiffMm, 2) : null,
+                MismatchHeightMm = isMismatch ? Math.Round(match.HeightDiffMm, 2) : null,
+                PrinterHash = hash,
+                Virtual = isVirtual,
+            };
+        }
 
         var form = match.Form!.Value;
         var write = WritePaperSize(printerName, form.Kind);
 
-        var mismatch = match.Match == PrinterFormMatcher.FormMatch.SizeMismatch;
         return new Outcome
         {
-            // 尺寸不符仍然選它（比停在 A4 好得多），但 result 要區分得出來，好讓呼叫端警告使用者。
-            Result = write.Result == "ok" ? (mismatch ? "mismatch" : "exact") : write.Result,
+            Result = write.Result == "ok" ? "exact" : write.Result,
             Form = match.FormName,
             Kind = form.Kind,
             Prev = write.Prev,
             Printer = write.Prev is null ? null : printerName,
-            MismatchWidthMm = mismatch ? Math.Round(match.WidthDiffMm, 2) : null,
-            MismatchHeightMm = mismatch ? Math.Round(match.HeightDiffMm, 2) : null,
             PrinterHash = hash,
             Virtual = isVirtual,
             Win32 = write.Win32,

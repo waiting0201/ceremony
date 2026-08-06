@@ -5,11 +5,17 @@
 // 新系統 v2.3.9 把這格拿掉了，於是六種報表都只能吃驅動的單一預設紙張。
 // 真正的 Win32 呼叫在 Ceremony.PrintForm.exe，這裡只負責解析它的輸出與轉成 UI／log 用的形狀。
 
-/** helper 自己會回的結果；電子端另有四種「helper 根本沒跑成功」的結果。 */
+/**
+ * helper 自己會回的結果；electron 端另有五種「helper 根本沒跑」的結果。
+ *
+ * ⚠️ 這份清單是跨語言契約，與 C# 的 `PrinterFormPolicy.ToResult` 一一對應
+ * （少一個 → parseHelperOutput 把整包退成 helper-error）。
+ */
 const HELPER_RESULTS = [
   'exact',
   'mismatch',
   'not-found',
+  'skipped-virtual',
   'unchanged',
   'restored',
   'no-default-printer',
@@ -22,7 +28,8 @@ export type FormResult =
   | 'helper-missing'
   | 'helper-error'
   | 'helper-timeout'
-  | 'skipped-not-windows';
+  | 'skipped-not-windows'
+  | 'skipped-viewer-open';
 
 /** DEVMODE 裡被我們動過的那幾格 + 印表機名稱，用於還原。 */
 export interface RestoreSnapshot {
@@ -124,10 +131,15 @@ const DEFAULT_TITLE = '列印預覽 — 請按工具列的列印鈕';
  */
 export function viewerTitle(r: FormApplyResult): string {
   if (r.result === 'mismatch') {
-    return `列印預覽 — ⚠ 紙張「${r.form}」尺寸不符（請依 IT 手冊重建），請按工具列的列印鈕`;
+    // 2026-08-06 起尺寸不符不再自動選（見 C# 的 PrinterFormPolicy），所以文案要同時講
+    // 「沒幫你選」與「怎麼自救」——只說「請重建」會讓使用者以為這次還是選好了。
+    return `列印預覽 — ⚠ 紙張「${r.form}」尺寸不符、未自動選用（請依 IT 手冊重建），請在列印對話框手動選紙`;
   }
   if (r.result === 'not-found') {
     return `列印預覽 — ⚠ 印表機沒有「${r.form}」紙張設定，請在列印對話框手動選紙`;
+  }
+  if (r.result === 'skipped-viewer-open') {
+    return '列印預覽 — ⚠ 另一個列印視窗開著，本次未自動選紙，請在列印對話框手動選紙';
   }
   return DEFAULT_TITLE;
 }
@@ -152,9 +164,15 @@ export function logFields(r: FormApplyResult): Record<string, unknown> {
   return out;
 }
 
-/** 只有真的動到驅動設定才需要記還原快照（unchanged / not-found / 失敗都不必）。 */
+/**
+ * 只有真的動到驅動設定才需要記還原快照。
+ *
+ * `exact` 是唯一會寫入的結果——2026-08-06 起 `mismatch` 與 `skipped-virtual` 都只回報不寫入
+ * （見 C# 的 `PrinterFormPolicy`）。`unchanged`／`not-found`／各種失敗本來就沒動過。
+ * helper 在不寫入時不回 `prev`，所以這裡的 `prev` 檢查是第二道保險，不是主要判準。
+ */
 export function needsRestore(r: FormApplyResult): boolean {
-  return (r.result === 'exact' || r.result === 'mismatch') && r.prev !== undefined;
+  return r.result === 'exact' && r.prev !== undefined;
 }
 
 /** helper 的 restore 子命令參數。 */

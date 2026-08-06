@@ -66,10 +66,21 @@ export async function applyReportForm(reportType: string): Promise<FormApplyResu
     const exe = helperPath();
     if (!exe || !existsSync(exe)) return { result: 'helper-missing' };
 
+    // 已經有 journal ＝ 我們動過那份共用 DEVMODE 而且還沒還原（多半是另一個檢視器視窗開著）。
+    // 這時候**完全不呼叫 helper**：
+    //   - 再預選一次會把前一個視窗正在等使用者按列印的紙換掉；
+    //   - 而且第二次拍到的「原始值」其實是我們自己設的，寫回 journal 等於永久弄丟使用者的原始設定。
+    //
+    // 判準刻意用 journal 而不是 viewerCount：journal 才是「共用狀態被動過」的憑證。
+    // 舊版用 `viewerCount === 0` 當寫 journal 的條件，於是「第一個視窗 not-found（沒寫入）、
+    // 第二個視窗寫入成功」的組合會寫進 DEVMODE 卻不留還原紀錄——那張紙就永遠留在使用者的
+    // Word/Excel 上了。本函式與 releaseReportForm 都跑在主行程的 event loop，兩次列印之間
+    // 不會有第三方插進來改 journal。
+    if (await readJournal()) return { result: 'skipped-viewer-open' };
+
     const r = await run(exe, ['apply', reportType]);
 
-    // 只有第一個視窗拍的快照才是「真正的原始值」——第二個視窗看到的已經是我們自己設的紙。
-    if (viewerCount === 0 && needsRestore(r) && r.prev) await writeJournal(r.prev);
+    if (needsRestore(r) && r.prev) await writeJournal(r.prev);
 
     return r;
   } catch (e) {

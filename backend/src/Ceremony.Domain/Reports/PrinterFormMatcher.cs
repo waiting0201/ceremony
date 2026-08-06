@@ -67,8 +67,10 @@ public static class PrinterFormMatcher
     /// - 同名多張只取第一張（逐行對齊舊系統的 <c>break</c>）。
     /// - 找不到就是 NotFound，**絕不**退回尺寸相近的別張表單：datacard 與 worshipcard 尺寸完全相同、
     ///   名稱卻不同，靜默代換會變成「印在別種報表的紙上而沒有任何訊號」。
-    /// - 尺寸不符**仍然回傳該表單**（呼叫端會選它）：選錯尺寸的同名表單頂多等比縮幾 %，
-    ///   停在 A4 則是整份位移數公分完全不能用。代價是可見度（標題警告 + 診斷紀錄），不是拒絕動作。
+    /// - 尺寸不符**仍然回傳該表單**與差值：本類別只回答「驅動裡有沒有這張紙、對不對」，
+    ///   要不要拿它去寫每使用者預設 DEVMODE 是另一個問題，答案在 <see cref="PrinterFormPolicy"/>
+    ///   （2026-08-06 起是「不寫」）。兩件事分開的理由是它們的取捨基準不同：這裡只看比對，
+    ///   那裡要權衡「動全域共用狀態」的代價。
     /// </remarks>
     /// <exception cref="ArgumentException">reportType 不在 ReportPageSizes 表內。</exception>
     public static MatchResult Match(string? reportType, IReadOnlyList<DriverForm> forms)
