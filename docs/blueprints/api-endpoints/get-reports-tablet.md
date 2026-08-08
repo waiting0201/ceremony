@@ -17,7 +17,7 @@ related_docs:
   - ../printing-reports-positions.md
   - ../legacy-coverage/signup-form.md
 keywords: [薦牌, tablet, 牌位, 列印, 套印, PDF, debugGrid, debugOverlay, 對位校正, 變體, ParaFontSize]
-last_updated: 2026-08-06 (建檔。補上這支長期缺的 forward 藍圖〔規則 10〕，並記載同日新增的 `debugGrid` 現場對位校正版——起因是客訴「四位往生者的字壓到預印的靈位」，但依現行座標算 3+ 位矩陣下緣最遠只到 13.1946cm、離樣板量到的「靈」上緣 13.462cm 還有 0.27cm 餘裕，`MatrixLayout` 又保證不超框、回掃 13.144 印證 → 算出來的餘裕與實印矛盾，代表**量測基準或送印路徑**有問題，需要現場刻度反推。`debugGrid` **刻意不做 Development 阻擋**，與 `debugOverlay` 相反。**同日結案**：客訴根因確認為 2 位分支 `avail=6.31`〔客戶用全形空格把兩個人名塞在同一格＝8 個字素，走 2 位分支不是矩陣〕，三種排法下界收斂成單一 `DeadTextBottom=13.1946`、字級改自動縮到剛好、`RealCharCount` 移除)
+last_updated: 2026-08-08 (**`debugGrid` 的右鍵選單入口移除，改為僅 API**〔使用者要求不給客人用；後端與本 endpoint 完全不動、回歸鎖照舊〕；「為什麼不 dev-gate」那條不受影響——那講的是能不能在客戶機器上跑，與要不要放進客戶 UI 是兩件事。先前 2026-08-06 (建檔。補上這支長期缺的 forward 藍圖〔規則 10〕，並記載同日新增的 `debugGrid` 現場對位校正版——起因是客訴「四位往生者的字壓到預印的靈位」，但依現行座標算 3+ 位矩陣下緣最遠只到 13.1946cm、離樣板量到的「靈」上緣 13.462cm 還有 0.27cm 餘裕，`MatrixLayout` 又保證不超框、回掃 13.144 印證 → 算出來的餘裕與實印矛盾，代表**量測基準或送印路徑**有問題，需要現場刻度反推。`debugGrid` **刻意不做 Development 阻擋**，與 `debugOverlay` 相反。**同日結案**：客訴根因確認為 2 位分支 `avail=6.31`〔客戶用全形空格把兩個人名塞在同一格＝8 個字素，走 2 位分支不是矩陣〕，三種排法下界收斂成單一 `DeadTextBottom=13.1946`、字級改自動縮到剛好、`RealCharCount` 移除))
 ---
 
 ## 規格
@@ -104,7 +104,9 @@ last_updated: 2026-08-06 (建檔。補上這支長期缺的 forward 藍圖〔規
 
 **為什麼做它**：客訴「往生者的字壓到預印的靈位」當下無法從座標推出重疊（誤判成走 3+ 位矩陣，而矩陣數學上有界），因此先做量測工具反推基準。**後來拿到客戶實印照片，根因確認是 2 位分支的 `avail=6.31`，與送印路徑無關**（見「開放問題」）。校正版仍保留：常見情況的往者下緣普遍只離邊界 0.18~0.23cm，送印端若有整份位移就會整批壓字，值得一次量清楚。
 
-**接線**：`ReportsController.Tablet` → `GenerateTabletHandler.HandleAsync(..., debugGrid)` → `IReportRenderer.RenderTablet(model, debugOverlay, debugGrid)` → `TabletRenderer.Render(data, debugGrid)`（renderer 這層 2026-07-03 就有，一直沒有現場入口）。前端入口是報名維護清單右鍵「列印薦牌（對位校正）」，`reportType` 仍是 `'tablet'`——**校正版若用錯紙張，量出來的刻度沒有意義**。
+**接線**：`ReportsController.Tablet` → `GenerateTabletHandler.HandleAsync(..., debugGrid)` → `IReportRenderer.RenderTablet(model, debugOverlay, debugGrid)` → `TabletRenderer.Render(data, debugGrid)`（renderer 這層 2026-07-03 就有，一直沒有現場入口）。前端 `PrintService.printSingle(type, id, { debugGrid })` 組 query，`reportType` 仍是 `'tablet'`——**校正版若用錯紙張，量出來的刻度沒有意義**。
+
+**⚠️ 2026-08-08：右鍵選單入口已移除，本參數改為僅 API**。使用者要求「不給客人用」——量測工具不該出現在報名維護的日常右鍵選單裡。**後端與這支 endpoint 完全不動**（含 `GET_tablet_debugGrid_returns_calibration_PDF` 回歸鎖），要用就遠端協助直接打 `GET /api/v1/reports/tablet?signupId=...&debugGrid=true`，或把選單項加回 `signup-list-page.ts`（該處留有指回 blueprint 的註解）。「為什麼不 dev-gate」那條**不受影響**：它講的是能不能在客戶機器上跑，與要不要放進客戶 UI 是兩件事。
 
 量測步驟與判讀見 [printing-reports.md](../printing-reports.md)「現場對位校正版」。
 

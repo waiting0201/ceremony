@@ -33,6 +33,8 @@ export class PrintService {
    * @param opts.debugGrid 薦牌**現場對位校正版**：同一筆資料再疊 1cm 刻度格線，用來量出實體
    *   牌位座真正的可用區（樣板照片量到的邊界不等於實印能用的邊界）。`type` 仍傳 `'tablet'`，
    *   紙張 SSoT 與 `X-Report-Page-Size` 才會照薦牌走。見 docs/blueprints/printing-reports.md。
+   *   ⚠️ **2026-08-08 起沒有 UI 呼叫端**：右鍵選單那項已移除（量測工具不給客戶看），這條參數
+   *   刻意留著並由 spec 鎖住，好讓現場需要時遠端協助直接打 API 或臨時把選單項加回來。
    * @returns 是否已開啟預覽視窗。
    */
   async printSingle(
