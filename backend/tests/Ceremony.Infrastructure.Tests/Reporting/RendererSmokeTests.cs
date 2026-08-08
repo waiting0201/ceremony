@@ -577,6 +577,9 @@ public sealed class RendererSmokeTests
     // 客戶那筆是 **2 位往生者、每格用全形空格把兩個人名塞成上下兩段**（8 個字素）＝走 2 位分支；
     // 舊的 `>7 真字 → 0.5cm` 門檻用 RealCharCount 只算到 6 個真字，**根本沒觸發**——證明字數門檻
     // 擋不住溢出，可用高才是唯一該管這件事的地方（該門檻已於同日撤除，字級改為自動縮到剛好）。
+    // 2026-08-08 補述：字數門檻已依使用者指定回復（字素數 ≥8 → 起點 0.6cm，見 PrintTemplateSelector），
+    // 但**這條下界鎖仍是唯一的溢出防線**，語意不變——本測試走生產路徑取起點，門檻只會讓字更小、
+    // 不會讓下緣更低，所以斷言不用放寬。
     //
     // 本鎖用生產路徑（PrintTemplateSelector + renderer 同一組公式）算出三種排法在**極端字數**下的
     // 文字下緣，一律不得越過共用下界 TabletRenderer.DeadTextBottom。既有 17 支 Tablet smoke 只鎖
@@ -637,9 +640,12 @@ public sealed class RendererSmokeTests
         avail.Should().BeApproximately(5.6, 1e-9, "1、2 位可用高＝共用下界 − 故下緣");
     }
 
-    // 2026-08-06：撤掉「≥8 真字 → 固定 0.5cm」後的字級行為鎖 + 樣張。
-    // 字級起點一律 0.8cm，實際大小由 renderer 依可用高等比縮——長名字因此比舊規則**更大**
-    // （8 字素 0.7cm vs 舊 0.5cm）且仍保證不溢出，這正是使用者要的「自動縮到剛好」。
+    // 2026-08-08：往者長名字級的兩層規則鎖 + 樣張。
+    //  第一層（美觀上限）＝ PrintTemplateSelector 的字素數 ≥8 → 起點 0.6cm（回復舊系統 `.Length > 7`；
+    //    2026-07-21 誤調成 0.5cm、08-06 整條撤除，08-08 使用者指定回復成「與三位的一樣」）。
+    //  第二層（溢出防線）＝ renderer 的可用高 DeadTextBottom，本輪未動；起點之上仍會再等比縮。
+    // 兩層並存的意義：08-06「字數門檻擋不住溢出」的判斷仍成立（所以防線留著），但門檻本身回來
+    // 管「長名字不要比 3+ 位往者還大」這件美觀的事——兩者管的不是同一件事。
     [Fact]
     public void Tablet_1and2Dead_LongNames_AutoShrinkToFit_DumpOverlays()
     {
@@ -655,20 +661,30 @@ public sealed class RendererSmokeTests
 
         var oneDead = Build(N(name8), N("子甲", "子乙"));
         oneDead.Template.Should().Be(TabletTemplate.OneTwo);
-        oneDead.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9, "字級起點不再受字數影響");
+        oneDead.ParaFontSizeCm.Should().BeApproximately(0.6, 1e-9, "8 字素 → 起點降到 0.6cm");
 
         var twoDead = Build(N("陳", name8), N("子甲", "子乙"));
         twoDead.Template.Should().Be(TabletTemplate.TwoTwo);
-        twoDead.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9, "字級起點不再受字數影響");
+        twoDead.ParaFontSizeCm.Should().BeApproximately(0.6, 1e-9, "任一格 8 字素 → 整組起點降到 0.6cm");
 
         var control = Build(N(name7), N("子甲", "子乙"));
-        control.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9);
+        control.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9, "7 字素未達門檻");
 
-        // renderer 端：8 字素在 5.6cm 可用高下縮到 0.7cm（＝剛好塞滿），比舊規則的 0.5cm 大
+        // renderer 端：起點 0.6cm 在 5.6cm 可用高下塞得下（0.6×8=4.8 ≤ 5.6）→ 維持 0.6cm，不再縮
         const double avail = TabletRenderer.DeadTextBottom - TabletRenderer.DeadGapTop;
-        var f8 = VerticalText.GroupFontPt(0.8 * 28.3464567, (name8, avail)) / 28.3464567;
-        f8.Should().BeApproximately(avail / 8, 1e-9, "8 字素縮到剛好塞滿可用高");
-        f8.Should().BeGreaterThan(0.5, "自動縮字必須比舊的固定 0.5cm 大");
+        var f8 = VerticalText.GroupFontPt(oneDead.ParaFontSizeCm * 28.3464567, (name8, avail)) / 28.3464567;
+        f8.Should().BeApproximately(0.6, 1e-9, "8 字素塞得下 0.6cm 起點 → 就用 0.6cm");
+        (8 * f8).Should().BeLessThanOrEqualTo(avail + 1e-9, "仍不得越過可用高");
+
+        // 第二層仍在：字數再多時 0.6cm 起點之上還會自動縮（12 字 → 0.47cm）
+        var name12 = string.Concat(Enumerable.Repeat("蔡", 12));
+        var f12 = VerticalText.GroupFontPt(0.6 * 28.3464567, (name12, avail)) / 28.3464567;
+        f12.Should().BeApproximately(avail / 12, 1e-9, "門檻是起點不是固定值，可用高仍會再縮");
+        f12.Should().BeLessThan(0.6);
+
+        // 7 字素控制組：門檻未觸發、可用高也吃得下 → 保住 0.8cm
+        var f7 = VerticalText.GroupFontPt(control.ParaFontSizeCm * 28.3464567, (name7, avail)) / 28.3464567;
+        f7.Should().BeApproximately(0.8, 1e-9, "7 字素兩層都不觸發，維持 0.8cm");
 
         foreach (var (data, tag) in new[] { (oneDead, "1dead8"), (twoDead, "2dead8"), (control, "1dead7_control") })
         {
@@ -712,6 +728,76 @@ public sealed class RendererSmokeTests
         ShouldBePdf(pdf);
         DumpIfRequested(pdf, "tablet_5dead_5living_plain.pdf");
         DumpIfRequested(new TabletRenderer().Render(data, debugOverlay: true), "tablet_5dead_5living_overlay.pdf");
+    }
+
+    // 2026-08-08 使用者指定「陽上 1 位／2 位左移 0.1cm、下移 0.2cm」（3-6 位矩陣不動）的座標鎖。
+    // 鎖的是常數本身 + 三條實體邊界，因為這些值只出現在 DrawText 呼叫參數裡、渲染後無法直接反推。
+    [Fact]
+    public void Tablet_OneAndTwoLiving_Coordinates_StayWithinPhysicalBounds()
+    {
+        // 位移量：相對 2026-08-06 的值（Top 14.00389、Left 1.53528 / 1.9825 / 1.00611）
+        TabletRenderer.LivingPairTop.Should().BeApproximately(14.00389 + 0.2, 1e-9, "下移 0.2cm");
+        TabletRenderer.LivingOneLeft.Should().BeApproximately(1.53528 - 0.1, 1e-9, "1 位左移 0.1cm");
+        TabletRenderer.LivingTwoLeftFirst.Should().BeApproximately(1.9825 - 0.1, 1e-9, "2 位 l[0] 左移 0.1cm");
+        TabletRenderer.LivingTwoLeftSecond.Should().BeApproximately(1.00611 - 0.1, 1e-9, "2 位 l[1] 左移 0.1cm");
+
+        // 使用者選的是「整塊下移」而非「守住下界、縮可用高」→ 可用高不得跟著變
+        TabletRenderer.LivingPairHeight.Should().BeApproximately(5.5, 1e-9, "可用高維持 5.5＝整塊下移");
+
+        const double shift = TabletRenderer.GlobalShiftX;   // -0.25
+        const double fontCm = 0.8;
+
+        // (1) 最左緣不得落進印表機不可列印邊界（0.5cm；2026-07-17 客訴「整欄消失」的根因）
+        var leftmost = TabletRenderer.LivingTwoLeftSecond + shift;
+        leftmost.Should().BeGreaterThan(0.5, "陽上最左欄含全域位移後仍須在可列印區內");
+
+        // (2) 最右緣不得越過標籤帶左側雕花內緣（量測最窄 2.70cm @y14~14.5）
+        var rightmost = TabletRenderer.LivingTwoLeftFirst + shift + fontCm;
+        rightmost.Should().BeLessThan(2.70, "陽上右緣不得壓到雕花窗框");
+
+        // (3) 文字下緣不得碰到預印「拜薦」上緣 20.49
+        var bottom = TabletRenderer.LivingPairTop + TabletRenderer.LivingPairHeight;
+        bottom.Should().BeApproximately(19.70389, 1e-9);
+        bottom.Should().BeLessThan(20.49, "陽上 1/2 位下緣不得壓到預印「拜薦」");
+
+        // ⚠️ 刻意不與 3-6 位矩陣框底相等：使用者選了整塊下移。這條斷言存在是為了讓未來有人想
+        //    「收斂成同一條線」時先看到它是刻意的（對照 DeadTextBottom 那次是真的散落 bug）。
+        //    註：08-08 之前兩者也只是「幾乎」重合——1/2 位是 14.00389+5.5=19.50389，矩陣框底是
+        //    14.579+4.925=19.504，本來就差 0.00011cm（doc 記的 19.504 是四捨五入後的值）。
+        bottom.Should().BeApproximately(19.50389 + 0.2, 1e-9, "＝舊下界整塊下移 0.2cm");
+        (bottom - 19.504).Should().BeApproximately(0.2, 1e-3, "1/2 位下界刻意比矩陣框底低約 0.2cm");
+    }
+
+    // 2026-08-08 使用者指定「堂號一邊有兩個字時上移 0.2cm」。
+    // 堂號是橫排欄位、0.6cm 字塞 0.7cm 欄寬，第 2 字被 QuestPDF 換行往下長，但 vMiddle 只用單字高
+    // 算置中 → 視覺重心下沉；以 Top 補回 0.2cm。逐格獨立判斷（SplitHallName：2字→1+1、4字→2+2、
+    // 3 字或 5 字以上→整串進 First）。
+    [Fact]
+    public void Tablet_HallName_MultiCharCell_ShiftsUp()
+    {
+        TabletRenderer.HallTopOf("堂").Should().BeApproximately(6.3, 1e-9, "單字格維持原位");
+        TabletRenderer.HallTopOf("慈光").Should().BeApproximately(6.1, 1e-9, "2 字格上移 0.2cm");
+        TabletRenderer.HallTopOf("慈光堂").Should().BeApproximately(6.1, 1e-9, "3 字（整串進右格）同樣上移");
+        TabletRenderer.HallTopOf(null).Should().BeApproximately(6.3, 1e-9, "空格子走單字分支（反正不畫）");
+        TabletRenderer.HallTopOf("").Should().BeApproximately(6.3, 1e-9);
+        // 增補平面造字：.Length=2 但只是一個字 → 不得誤判成 2 字（gotchas「一個字不等於一個 char」）
+        TabletRenderer.HallTopOf("\U00020000").Should().BeApproximately(6.3, 1e-9, "門檻以字素計");
+
+        // 渲染鎖：4 字堂號（每格 2 個 0.6cm 全形字塞 0.7cm 欄寬）必須真的印出來。
+        // 這是 gotchas 第 1 條「QuestPDF 窄欄靜默丟字」的高風險組合，既有堂號測試只用單字「甲」「堂」，
+        // 完全沒覆蓋到；若被丟字，PDF 會跟無堂號版一樣大。
+        static TabletData Build(string? first, string? second) => new(
+            Number: "郵1", HallNameFirst: first, HallNameSecond: second,
+            DeadNames: N("蔡姓歷代祖先"), LivingNames: N("蔡渭水", "蔡慧明"),
+            ParaFontSizeCm: 0.8, Template: TabletTemplate.OneTwo);
+
+        var fourChar = new TabletRenderer().Render(Build("慈光", "普照"));
+        var empty = new TabletRenderer().Render(Build(null, null));
+        ShouldBePdf(fourChar);
+        fourChar.Length.Should().BeGreaterThan(empty.Length, "4 字堂號必須真的渲染（非被 QuestPDF 靜默丟字）");
+        DumpIfRequested(fourChar, "tablet_hallname_4chars.pdf");
+        DumpIfRequested(new TabletRenderer().Render(Build("慈光", "普照"), debugOverlay: true), "tablet_hallname_4chars_overlay.pdf");
+        DumpIfRequested(new TabletRenderer().Render(Build("慈", "堂")), "tablet_hallname_2chars.pdf");
     }
 
     // MatrixLayout 單元行為鎖：塞不下時整組等比縮、單欄超長也不超框、空欄不影響。

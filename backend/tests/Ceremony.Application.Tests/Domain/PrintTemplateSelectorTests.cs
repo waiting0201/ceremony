@@ -23,14 +23,13 @@ public sealed class PrintTemplateSelectorTests
     }
 
     [Fact]
-    public void Tablet_1deadLong_2living_OneTwo_keepsBaseFontStart()
+    public void Tablet_1deadLong_2living_OneTwo_para06()
     {
         var (t, p) = PrintTemplateSelector.ChooseTablet(N("一二三四五六七八"), N("子甲", "子乙"));
         t.Should().Be(TabletTemplate.OneTwo);
-        // 2026-08-06 使用者定案「自動縮到剛好」：撤掉 07-21 的「≥8 真字 → 固定 0.5cm」。
-        // 起點一律 0.8cm，實際字級由 renderer 依可用高等比縮（8 字素 → 0.7cm），
-        // 不再由這裡用字數猜——真正會溢出的是可用高，不是字數（見 ChooseTablet 註解）。
-        p.Should().Be("0.8cm", "字級起點固定 0.8cm，縮字交給 renderer 的可用高");
+        // 2026-08-08 使用者指定「往者 8 字以上字級與三位的一樣」＝回復舊系統 `.Length > 7 → 0.6cm`。
+        // 是**起點**不是固定值：renderer 仍會在 0.6cm 之上依可用高再縮（12 字 → 0.47cm）。
+        p.Should().Be("0.6cm", "8 字素 → 字級起點降到 0.6cm（同 3+ 位往者）");
     }
 
     [Fact]
@@ -49,11 +48,12 @@ public sealed class PrintTemplateSelectorTests
     }
 
     [Fact]
-    public void Tablet_2dead_2living_dead2Long_keepsBaseFontStart()
+    public void Tablet_2dead_2living_dead2Long_para06()
     {
         var (t, p) = PrintTemplateSelector.ChooseTablet(N("陳", "一二三四五六七八"), N("子甲", "子乙"));
         t.Should().Be(TabletTemplate.TwoTwo);
-        p.Should().Be("0.8cm", "同上：字級起點固定 0.8cm，縮字交給 renderer 的可用高");
+        // 2 位往者：任一格達門檻就整組降起點（renderer 的 GroupFontPt 本來就整組同字級）。
+        p.Should().Be("0.6cm", "dead2 達 8 字素 → 整組字級起點降到 0.6cm");
     }
 
     [Fact]
@@ -85,44 +85,66 @@ public sealed class PrintTemplateSelectorTests
         t.Should().Be(TabletTemplate.Base);
     }
 
-    // === Tablet 字長門檻：中間空格不計入（刻意排版間隙，渲染時保留但不污染字級） ===
+    // === Tablet 字長門檻（2026-08-08 回復舊系統規則）：字素數 ≥8 → 0.6cm 起點，**空格計入** ===
+    //
+    // 與 2026-07-21 那版（RealCharCount，空格不計）刻意不同：門檻要跟「直書實際排幾列」對齊，
+    // 而列數就是 VerticalText.Stack 的字素數（含空格）。客戶常用全形空格把兩個人名塞進同一格，
+    // 那種格子看起來就是長長一條，該縮。
 
     [Fact]
-    public void Tablet_deadHalfWidthSpace_7realChars_para08()
+    public void Tablet_dead_7elements_para08()
     {
-        // "一二三 四五六七" = 7 真字 + 1 半形空格；真實字數 7 ≤ 7 → 不縮
+        // 7 字素（無空格）＝門檻邊界下緣，不觸發
+        var (_, p) = PrintTemplateSelector.ChooseTablet(N("一二三四五六七"), N("子甲"));
+        p.Should().Be("0.8cm", "7 字素 < 8 → 維持 0.8cm 起點");
+    }
+
+    [Fact]
+    public void Tablet_deadHalfWidthSpace_8elements_para06()
+    {
+        // "一二三 四五六七" = 7 真字 + 1 半形空格 = 8 字素 → 觸發（舊 RealCharCount 版不會觸發）
         var (_, p) = PrintTemplateSelector.ChooseTablet(N("一二三 四五六七"), N("子甲"));
-        p.Should().Be("0.8cm", "中間空格不計入字長門檻，7 真字 → 0.8cm");
+        p.Should().Be("0.6cm", "空格計入字長門檻：8 字素 → 0.6cm");
     }
 
     [Fact]
-    public void Tablet_deadFullWidthSpace_7realChars_para08()
+    public void Tablet_deadFullWidthSpace_8elements_para06()
     {
-        // 全形空格 U+3000；真實字數 7 → 不縮
+        // 全形空格 U+3000 同樣計入（Stack 會為它渲染一列）
         var (_, p) = PrintTemplateSelector.ChooseTablet(N("一二三　四五六七"), N("子甲"));
-        p.Should().Be("0.8cm", "全形空格 (U+3000) 亦不計入字長門檻");
+        p.Should().Be("0.6cm", "全形空格 (U+3000) 亦計入字長門檻");
     }
 
     [Fact]
-    public void Tablet_deadName_lengthNoLongerAffectsFontStart()
+    public void Tablet_deadName_customerCaseWithFullWidthSpaces_para06()
     {
-        // 2026-08-06：字數（不論算不算空格）都不再影響字級起點。
-        // 這正是 07-21 那條門檻的致命處——客戶實印壓到「靈位」的那筆是 2 位往者、每格用全形空格
-        // 塞兩個人名共 8 個「字素」，但 RealCharCount 只算 6 個真字、門檻根本沒觸發；
-        // 真正的溢出防線是 renderer 的可用高（TabletRenderer.DeadTextBottom）。
-        foreach (var name in new[] { "一二三四 五六七八", "一二三　四五六七", "施　棟　施郭秀鑾" })
+        // 2026-08-06 客訴那筆的往者格：用全形空格把兩個人名塞成上下兩段。
+        // 舊 RealCharCount 只算 6 真字、門檻沒觸發；改以字素計後會觸發 → 起點 0.6cm。
+        // ⚠️ 這不是溢出防線——不壓到「靈位」靠的仍是 TabletRenderer.DeadTextBottom（本輪未動）。
+        foreach (var name in new[] { "一二三四 五六七八", "施　棟　施郭秀鑾" })
         {
             var (_, p) = PrintTemplateSelector.ChooseTablet(N(name), N("子甲"));
-            p.Should().Be("0.8cm", "字數不再影響字級起點：{0}", name);
+            p.Should().Be("0.6cm", "字素數（含空格）≥8：{0}", name);
         }
     }
 
     [Fact]
-    public void Tablet_dead2_withSpace_7realChars_para08()
+    public void Tablet_deadSupplementaryPlaneChars_countedAsOneElementEach()
     {
-        // dead2 含空格，驗證 dead2Long 也走 RealCharCount
+        // 增補平面造字（U+20000 以上，UTF-16 各佔 2 個 code unit）：7 個字 → .Length=14 會誤觸發，
+        // 以字素計是 7 → 不觸發。gotchas「一個字不等於一個 char」的回歸鎖。
+        var name = string.Concat(Enumerable.Repeat("\U00020000", 7));
+        name.Length.Should().Be(14, "前提：這些字在 .Length 各算兩格");
+        var (_, p) = PrintTemplateSelector.ChooseTablet(N(name), N("子甲"));
+        p.Should().Be("0.8cm", "門檻以字素計，7 個增補平面字不得誤判成 14 字");
+    }
+
+    [Fact]
+    public void Tablet_dead2_withSpace_8elements_para06()
+    {
+        // dead2 含空格，驗證 2 位分支同樣以字素計
         var (_, p) = PrintTemplateSelector.ChooseTablet(N("陳", "一二三 四五六七"), N("子甲", "子乙"));
-        p.Should().Be("0.8cm", "dead2 中間空格不計入字長門檻");
+        p.Should().Be("0.6cm", "dead2 空格計入字長門檻：8 字素 → 0.6cm");
     }
 
     // === Text 2 variants ===

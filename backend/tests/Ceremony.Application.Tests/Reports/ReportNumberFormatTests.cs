@@ -115,4 +115,23 @@ public sealed class ReportNumberFormatTests
     [Fact]
     public void Worship_uses_title_plus_number_no_separator()  // SignupForm.cs:637
         => ReportModelBuilders.Worship(Make(5, 4, "普")).Number.Should().Be("普5");
+
+    // 2026-08-08：往者長名字級門檻（字素 ≥8 → 0.6cm 起點）回復後，**薦牌與資料卡必須同步** ——
+    // 兩者取的是同一個 PrintTemplateSelector.ChooseTablet 的 ParaFontSize（2026-07-21「資料卡往者
+    // 字級改與薦牌一致」客訴的實作方式），使用者已確認這次要一起回復舊規則。
+    // 這條鎖住的是「同源」這件事，不是字級數值本身（數值鎖在 PrintTemplateSelectorTests）。
+    [Fact]
+    public void TabletAndDataCard_ParaFontSize_StayInSync_ForLongDeadNames()
+    {
+        var longName = Make(1, 1, "No") with { DeadNames = ["一二三四五六七八", null, null, null, null, null] };
+        var shortName = Make(1, 1, "No") with { DeadNames = ["一二三四五六七", null, null, null, null, null] };
+
+        ReportModelBuilders.Tablet(longName).ParaFontSizeCm.Should().BeApproximately(0.6, 1e-9);
+        ReportModelBuilders.DataCard(longName).ParaFontSizeCm.Should().BeApproximately(0.6, 1e-9,
+            "資料卡與薦牌取同一個 ParaFontSize，長名字必須一起縮");
+
+        ReportModelBuilders.Tablet(shortName).ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9);
+        ReportModelBuilders.DataCard(shortName).ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9,
+            "7 字素未達門檻，兩者都維持 0.8cm");
+    }
 }

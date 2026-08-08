@@ -29,9 +29,9 @@ public sealed class TabletRenderer
     // 那個量會讓編號與全部陽上欄位的 X 變負值 → 落在 PDF 頁面外整組不印，實測已證實）。
     // 9 變體、全部欄位（編號／堂號／往者／陽上）共用這一個全域水平位移，套在 DrawText 的最後
     // 一步，欄與欄的相對關係完全不變，日後要回調或改量只動這個常數。
-    // 位移後落點（2026-08-06 後續的欄位級右移已反映在下列來源值）：編號 0.8→0.55；
-    // 堂號 4.4/6.4→4.15/6.15；往者中心線 5.735→5.485；陽上 1 位 1.53528→1.28528；
-    // 陽上 2 位 1.9825/1.00611→1.7325/0.75611；陽上矩陣 0.7/1.427/2.154→0.45/1.177/1.904。
+    // 位移後落點（2026-08-06 的欄位級右移、2026-08-08 的陽上 1/2 位左移已反映在下列來源值）：
+    // 編號 0.8→0.55；堂號 4.4/6.4→4.15/6.15；往者中心線 5.735→5.485；陽上 1 位 1.43528→1.18528；
+    // 陽上 2 位 1.8825/0.90611→1.6325/0.65611；陽上矩陣 0.7/1.427/2.154→0.45/1.177/1.904。
     // 全部為正＝都在 MediaBox 內。
     // ⚠️ 實體套印仍要特別看：往者 3+ 矩陣左欄左緣 = 5.485−0.9333−0.3 ≈ 4.252cm，距樣板雕花
     //    窗框內緣 4.191cm 只剩 0.061cm（右側 6.718 < 7.163 仍寬鬆）。再往左就會壓到窗框。
@@ -103,8 +103,9 @@ public sealed class TabletRenderer
                     // 2026-08-06 使用者指定：堂號右移 0.5cm（Left 3.9/5.9 → 4.4/6.4）、下移 0.2cm
                     // （Top 6.1 → 6.3）。兩字相對距離 2.0cm 不變；右字含 GlobalShiftX 後右緣
                     // 6.4-0.25+0.7=6.85cm，仍在頁寬 11.5cm 內。
-                    DrawText(layers, 6.3 - marginCompensation, 4.4, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameSecond, vMiddle: true);
-                    DrawText(layers, 6.3 - marginCompensation, 6.4, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameFirst, vMiddle: true);
+                    // 2026-08-08 使用者指定：該格 ≥2 字時上移 0.2cm（見 HallTopOf）。兩格各自判斷。
+                    DrawText(layers, HallTopOf(data.HallNameSecond) - marginCompensation, 4.4, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameSecond, vMiddle: true);
+                    DrawText(layers, HallTopOf(data.HallNameFirst) - marginCompensation, 6.4, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameFirst, vMiddle: true);
 
                     DrawDeadNames(layers, data, paraPt);
                     DrawLivingNames(layers, data);
@@ -118,6 +119,31 @@ public sealed class TabletRenderer
             });
         }).GeneratePdf();
     }
+
+    /// <summary>堂號單字格的 Top（1.3825cm 高格內 vMiddle 置中）。</summary>
+    private const double HallNameTop = 6.3;
+
+    /// <summary>
+    /// 堂號 ≥2 字格的 Top：比單字格高 0.2cm。
+    /// </summary>
+    /// <remarks>
+    /// 2026-08-08 使用者指定「堂號一邊有兩個字時上移 0.2cm」。根因：堂號是**橫排**欄位（非直書），
+    /// 0.6cm 字塞 0.7cm 欄寬，第 2 個字被 QuestPDF 換行往下長；但 <see cref="DrawText"/> 的 vMiddle
+    /// 只用**單字高**算置中位移（`top + (height − fontCm)/2`），不知道實際渲染成兩列 → 整塊視覺重心
+    /// 下沉。這裡以 Top 補回，不動 vMiddle 公式（改公式會連帶影響編號欄）。
+    /// </remarks>
+    private const double HallNameTopMultiChar = 6.1;
+
+    /// <summary>
+    /// 依該格字數決定堂號 Top。逐格獨立判斷：`SplitHallName` 2 字→1+1、4 字→2+2、3 字或 5 字以上
+    /// →整串進 First（左格空），所以 3 字堂號也會走 ≥2 字這條。
+    /// </summary>
+    /// <remarks>
+    /// 必須用 <see cref="VerticalText.ElementCount"/> 而非 <c>.Length</c>——增補平面造字（`𡍼` 等）
+    /// 在 <c>.Length</c> 算兩格會誤判成多字（見 gotchas「一個字不等於一個 char」）。
+    /// </remarks>
+    internal static double HallTopOf(string? segment)
+        => VerticalText.ElementCount(segment) >= 2 ? HallNameTopMultiChar : HallNameTop;
 
     private static void DrawCalibrationGrid(LayersDescriptor layers)
     {
@@ -290,6 +316,25 @@ public sealed class TabletRenderer
     private const double LivingMatrixColLeft = 0.7;    // 最左欄（Three/Five）
     private const double LivingMatrixColPitch = 0.727; // 欄距（沿用 RDLC 1.56167/0.83528/0.1 的間距）
 
+    // 2026-08-08 使用者指定：陽上 **1 位／2 位** 左移 0.1cm、下移 0.2cm（3-6 位矩陣不動）。
+    // 同時把原本散在 DrawText 呼叫參數裡的裸字面值（14.00389 / 5.5 / 1.53528 / 1.9825 / 1.00611）
+    // 收成具名常數——這正是 2026-08-06 往者客訴「同語意散成多個常數、錯一個沒人發現」的同型風險。
+    //
+    // ⚠️ **1/2 位的下界（19.70389）刻意比 3-6 位矩陣框底（LivingMatrixTop + LivingMatrixHeight
+    //    ＝19.504）低 0.2cm**：使用者這次選的是「整塊下移、可用高維持 5.5」而非「守住下界、縮可用高」。
+    //    這是刻意的，不是漏改一半——別比照 DeadTextBottom 把它「修正」成同一條線。
+    //
+    // 邊界複核（含 GlobalShiftX = -0.25）：
+    //   最左緣 l[1]  0.90611-0.25 = 0.65611 > 0.5（印表機不可列印邊界），餘裕 0.156cm
+    //   最右緣 l[0]  1.8825-0.25+0.8 = 2.4325 < 2.70（雕花內緣量測最窄 @y14~14.5），餘裕 0.268cm
+    //   文字下緣     14.20389+5.5 = 19.70389 < 20.49（預印「拜薦」上緣），餘裕 0.786cm
+    //   距預印「陽上」標籤下緣 13.579：0.625cm（原 0.425cm，往下拉開）
+    internal const double LivingPairTop = 14.20389;       // 原 14.00389
+    internal const double LivingPairHeight = 5.5;         // 可用高不變（＝整塊下移）
+    internal const double LivingOneLeft = 1.43528;        // 原 1.53528
+    internal const double LivingTwoLeftFirst = 1.8825;    // 原 1.9825   （l[0]）
+    internal const double LivingTwoLeftSecond = 0.90611;  // 原 1.00611  （l[1]）
+
     private static void DrawLivingNames(LayersDescriptor layers, TabletData data)
     {
         var l = data.LivingNames;
@@ -306,10 +351,11 @@ public sealed class TabletRenderer
                 // 比 TwoOne/UnderscoreOne（同一個 Top 值）低了 2cm，跟樣板紙預印的「陽上」標籤距離
                 // 明顯拉大。扣掉 margin 補償讓三個變體印在同一個實體頁面高度。
                 var marginCompensation = data.Template == TabletTemplate.OneOne ? 2.0 : 0.0;
-                var f = VerticalText.GroupFontPt(pt08, (l[0], 5.5));
+                var f = VerticalText.GroupFontPt(pt08, (l[0], LivingPairHeight));
                 // 2026-07-21 客訴：陽上 1 位時列印位置右移 0.5cm（Left 0.83528 → 1.33528）。
                 // 2026-08-06 使用者指定：陽上再右移 0.2cm（1.33528 → 1.53528）。
-                DrawText(layers, 14.00389 - marginCompensation, 1.53528, 0.8, 5.5, f, l[0], vertical: true);
+                // 2026-08-08 使用者指定：左移 0.1cm（1.53528 → 1.43528）、下移 0.2cm（Top 見 LivingPairTop）。
+                DrawText(layers, LivingPairTop - marginCompensation, LivingOneLeft, 0.8, LivingPairHeight, f, l[0], vertical: true);
                 break;
             }
 
@@ -318,12 +364,13 @@ public sealed class TabletRenderer
             case TabletTemplate.UnderscoreTwo:
             {
                 // 2 位陽上（0.8cm，高欄）
-                var f = VerticalText.GroupFontPt(pt08, (l[0], 5.5), (l[1], 5.5));
+                var f = VerticalText.GroupFontPt(pt08, (l[0], LivingPairHeight), (l[1], LivingPairHeight));
                 // 2026-07-21 客訴：陽上 2 位時列印位置右移 0.5cm（l[0] 1.2825→1.7825、l[1] 0.30611→0.80611）。
                 // 附帶好處：l[1] 原 Left 0.30611 逼近印表機不可列印邊界（doc §3 標記的風險），右移後緩解。
                 // 2026-08-06 使用者指定：陽上再右移 0.2cm（l[0] 1.7825→1.9825、l[1] 0.80611→1.00611）。
-                DrawText(layers, 14.00389, 1.9825, 0.8, 5.5, f, l[0], vertical: true);
-                DrawText(layers, 14.00389, 1.00611, 0.8, 5.5, f, l[1], vertical: true);
+                // 2026-08-08 使用者指定：左移 0.1cm（1.9825→1.8825、1.00611→0.90611）、下移 0.2cm。
+                DrawText(layers, LivingPairTop, LivingTwoLeftFirst, 0.8, LivingPairHeight, f, l[0], vertical: true);
+                DrawText(layers, LivingPairTop, LivingTwoLeftSecond, 0.8, LivingPairHeight, f, l[1], vertical: true);
                 break;
             }
 

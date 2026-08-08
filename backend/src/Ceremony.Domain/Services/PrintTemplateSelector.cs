@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Ceremony.Domain.Services;
 
 /// <summary>
@@ -22,18 +24,26 @@ public static class PrintTemplateSelector
         var deadTier = SlotTier(deadNames);
         var livingTier = SlotTier(livingNames);
 
-        // 2026-08-06 使用者定案「縮字改成自動縮到剛好」：撤掉 2026-07-21 的「≥8 真字 → 固定 0.5cm」
-        // 分支，1、2 位往者一律回 0.8cm **起點**，實際字級交給 renderer 依可用高等比縮
-        // （薦牌 VerticalText.GroupFontPt、資料卡 MatrixLayout）。
+        // 2026-08-08 使用者指定「往者 8 字以上時，字體大小與三位的一樣」＝**回復舊系統原始規則**
+        // （`DeadNameOne.Length > 7 ? "0.6cm" : "0.8cm"`，見 printing-reports-positions.md §模板選擇邏輯），
+        // 但語意是 **起點** 不是固定值：renderer 仍會在 0.6cm 之上依可用高再自動縮。
         //
-        // 為什麼撤掉：固定值同時是「不夠」也是「太小」——它擋不住真正的溢出（客戶實印壓到「靈位」的
-        // 那筆是 2 位往者、每格用全形空格塞兩個人名共 8 個字素，`RealCharCount` 只算 6 真字，門檻根本
-        // 沒觸發；真正的根因是 TabletRenderer 2 位分支的可用高用了 RDLC 遺留值 6.31），卻又讓沒有溢出
-        // 風險的長名字被無條件縮到 0.5cm。可用高才是唯一該管溢出的地方，字級交給它算就好：
-        // 8 字素 → 0.7cm、10 字 → 0.56cm、12 字 → 0.47cm，都保證塞得下且盡量大。
-        // 連帶：`RealCharCount` 隨之移除（唯一呼叫端就是這裡；它用 `.Count(char)`，對增補平面造字會
-        // 多算一倍，是 gotchas「一個字不等於一個 char」那條的殘留破口）。
-        // ⚠️ 影響範圍不只薦牌：資料卡（ReportModelBuilders.DataCard）取的是同一個 ParaFontSize。
+        // 這條門檻曾於 2026-07-21 被誤調成 0.5cm，再於 2026-08-06「縮字改成自動縮到剛好」時整條撤除。
+        // 撤除當時的理由是「字數門檻擋不住溢出」——**那個判斷仍然成立且未被推翻**：客戶實印壓到
+        // 「靈位」的根因是 TabletRenderer 2 位分支可用高用了 RDLC 遺留值 6.31，已由 `DeadTextBottom`
+        // 這條共用下界修掉，本輪**完全不動它**。所以現在是兩層並存、各司其職：
+        //   - 可用高（DeadTextBottom / MatrixLayout）＝**溢出防線**，保證任何字數都不壓到預印字；
+        //   - 本門檻＝**美觀上限**，長名字不要比 3+ 位往者還大（使用者這次要的就是這個）。
+        // 字級對照（可用高 5.6cm）：7 字 0.80（不觸發）／8 字 0.70→**0.60**／9 字 0.62→**0.60**／
+        // 12 字 0.47（門檻與自動縮取小者，無變化）。
+        //
+        // 字數以**字素數、含空格**計（使用者定案）：客戶常用全形空格把兩個人名塞進同一格
+        // （「施　棟　施郭秀鑾」＝8 字素、6 真字），那筆會觸發——與直書實際列數一致，也與
+        // VerticalText.Stack/GroupFontPt 的計算基準同源。這是與舊 `RealCharCount`（不算空格、且用
+        // `.Count(char)` 對增補平面造字會多算一倍）刻意的差異，不是回退。
+        // ⚠️ 影響範圍不只薦牌：資料卡（ReportModelBuilders.DataCard）取的是同一個 ParaFontSize，
+        //    長名往者會一併從 0.69 縮到 0.60cm——使用者已確認要兩份報表一起回復（本就是 2026-07-21
+        //    「資料卡往者字級改與薦牌一致」客訴的原意）。
         return deadTier switch
         {
             1 => (livingTier switch
@@ -41,14 +51,14 @@ public static class PrintTemplateSelector
                 1 => TabletTemplate.OneOne,
                 2 => TabletTemplate.OneTwo,
                 _ => TabletTemplate.One,
-            }, "0.8cm"),
+            }, IsLongDeadName(deadNames[0]) ? "0.6cm" : "0.8cm"),
 
             2 => (livingTier switch
             {
                 1 => TabletTemplate.TwoOne,
                 2 => TabletTemplate.TwoTwo,
                 _ => TabletTemplate.Two,
-            }, "0.8cm"),
+            }, IsLongDeadName(deadNames[0]) || IsLongDeadName(deadNames[1]) ? "0.6cm" : "0.8cm"),
 
             _ => (livingTier switch
             {
@@ -58,6 +68,23 @@ public static class PrintTemplateSelector
             }, "0.6cm"),                     // 3+ 亡時固定 0.6cm
         };
     }
+
+    /// <summary>往者「長名字」門檻：字素數 ≥ 8（對齊舊系統 <c>.Length &gt; 7</c>）。</summary>
+    private const int LongDeadNameThreshold = 8;
+
+    /// <summary>
+    /// 往者姓名是否達長名字門檻 → <c>ParaFontSize</c> 起點降到 0.6cm（同 3+ 位往者）。
+    /// </summary>
+    /// <remarks>
+    /// 以 <see cref="StringInfo.LengthInTextElements"/>（字素）計、**不 trim 也不排除空格**：
+    /// 與 <c>VerticalText.Stack</c> 實際渲染的直書列數同一個基準（Infrastructure 的
+    /// <c>VerticalText.ElementCount</c> 內部就是同一個 API；Domain 不能反向引用 Infrastructure，
+    /// 故此處直接用 <see cref="StringInfo"/>）。用字素而非 <c>.Length</c> 是因為增補平面造字
+    /// （`𡍼`/`𤆬`…，UTF-16 佔兩個 code unit）在 <c>.Length</c> 會多算一倍——見 gotchas
+    /// 「一個字不等於一個 char」。
+    /// </remarks>
+    private static bool IsLongDeadName(string? name)
+        => !string.IsNullOrEmpty(name) && new StringInfo(name).LengthInTextElements >= LongDeadNameThreshold;
 
     /// <summary>文牒 2 變體：slot 2 有名字且 3-6 全空（舊 SignupForm.cs:1350）選 Two，否則 Base。</summary>
     public static TextTemplate ChooseText(string?[] deadNames)
