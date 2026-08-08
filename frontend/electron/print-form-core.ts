@@ -16,6 +16,10 @@ const HELPER_RESULTS = [
   'mismatch',
   'not-found',
   'skipped-virtual',
+  // 2026-08-08 起：寫入前先做一次 DEVMODE → PrintTicket 轉換，轉不過（或檢查跑不起來）就不寫。
+  // 見 C# 的 PrintTicketPreflight 與 docs/blueprints/print-channel-electron.md 決策 9c。
+  'skipped-printticket-reject',
+  'skipped-printticket-unavailable',
   'unchanged',
   'restored',
   'no-default-printer',
@@ -137,6 +141,11 @@ export function viewerTitle(r: FormApplyResult): string {
   }
   if (r.result === 'not-found') {
     return `列印預覽 — ⚠ 印表機沒有「${r.form}」紙張設定，請在列印對話框手動選紙`;
+  }
+  if (r.result === 'skipped-printticket-reject' || r.result === 'skipped-printticket-unavailable') {
+    // 使用者能做的事跟 not-found 一樣（手動選紙），所以不必區分兩種；差別只寫進診斷紀錄。
+    // 刻意不出現「PrintTicket」「驅動」這種字眼——現場看到的應該是「我現在該怎麼辦」。
+    return `列印預覽 — ⚠ 這台印表機不支援自動選紙，請在列印對話框手動選「${r.form}」`;
   }
   if (r.result === 'skipped-viewer-open') {
     return '列印預覽 — ⚠ 另一個列印視窗開著，本次未自動選紙，請在列印對話框手動選紙';

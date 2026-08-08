@@ -93,6 +93,18 @@ describe('print-form-core', () => {
       expect(viewerTitle({ result: 'not-found', form: '文牒' })).toContain('⚠');
     });
 
+    it.each<FormApplyResult['result']>([
+      'skipped-printticket-reject',
+      'skipped-printticket-unavailable',
+    ])('%s 要告訴使用者手動選哪一張紙', (result) => {
+      // 2026-08-08：寫入前的 PrintTicket 預檢沒過 ⇒ 我們沒幫他選。使用者能做的事跟 not-found
+      // 一樣，所以標題講「手動選『資料卡』」，不講 PrintTicket / 驅動這些他處理不了的詞。
+      const t = viewerTitle({ result, form: '資料卡' });
+
+      expect(t).toContain('⚠');
+      expect(t).toContain('資料卡');
+    });
+
     it('另一個列印視窗開著時要說明為什麼沒自動選紙', () => {
       const t = viewerTitle({ result: 'skipped-viewer-open' });
 
@@ -163,6 +175,15 @@ describe('print-form-core', () => {
       expect(needsRestore({ result: 'unchanged', prev })).toBe(false);
       expect(needsRestore({ result: 'not-found' })).toBe(false);
       expect(needsRestore({ result: 'exact' })).toBe(false);
+    });
+
+    it('預檢沒過的兩種結果都不寫入，因此不得留還原 journal', () => {
+      // 留了 journal 的後果是關窗時拿一份「沒發生過的原始值」去覆蓋使用者現在的設定——
+      // 預檢本來就是為了不要動他的驅動設定，還原反而動了它就本末倒置。
+      const prev = { kind: 9, fields: 2, w: 0, h: 0 };
+
+      expect(needsRestore({ result: 'skipped-printticket-reject', prev })).toBe(false);
+      expect(needsRestore({ result: 'skipped-printticket-unavailable', prev })).toBe(false);
     });
 
     it('mismatch 不再需要還原——2026-08-06 起它根本不寫入', () => {

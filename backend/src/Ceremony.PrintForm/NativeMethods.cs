@@ -57,6 +57,8 @@ internal static class NativeMethods
         public short dmPaperWidth;
     }
 
+    internal static readonly int OffsetSize = (int)Marshal.OffsetOf<DevModePrefix>(nameof(DevModePrefix.dmSize));
+    internal static readonly int OffsetDriverExtra = (int)Marshal.OffsetOf<DevModePrefix>(nameof(DevModePrefix.dmDriverExtra));
     internal static readonly int OffsetFields = (int)Marshal.OffsetOf<DevModePrefix>(nameof(DevModePrefix.dmFields));
     internal static readonly int OffsetPaperSize = (int)Marshal.OffsetOf<DevModePrefix>(nameof(DevModePrefix.dmPaperSize));
     internal static readonly int OffsetPaperLength = (int)Marshal.OffsetOf<DevModePrefix>(nameof(DevModePrefix.dmPaperLength));
@@ -78,4 +80,36 @@ internal static class NativeMethods
     [DllImport("winspool.drv", CharSet = CharSet.Unicode, SetLastError = true, EntryPoint = "SetPrinterW")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool SetPrinter(IntPtr hPrinter, int Level, IntPtr pPrinter, int Command);
+
+    // ───────────── prntvpt.dll：寫入前的 DEVMODE → PrintTicket 預檢 ─────────────
+    //
+    // 這幾支就是 Windows 列印 UI 在「開啟印表機設定」時走的同一條轉換。自己先跑一次、
+    // 轉不過就不寫，是 2026-08-08 KYOCERA PA2000 客訴的處置（見 Ceremony.Domain 的
+    // PrintTicketPreflight 與 docs/blueprints/print-channel-electron.md 決策 9c）。
+
+    /// <summary><c>PTOpenProvider</c> 的 dwVersion，目前只接受 1。</summary>
+    internal const uint PT_PROVIDER_VERSION = 1;
+
+    /// <summary>EPrintTicketScope.kPTJobScope —— 每使用者預設是整份工作層級的設定。</summary>
+    internal const int PT_JOB_SCOPE = 2;
+
+    [DllImport("prntvpt.dll", CharSet = CharSet.Unicode, ExactSpelling = true)]
+    internal static extern int PTOpenProvider(string pszPrinterName, uint dwVersion, out IntPtr phProvider);
+
+    [DllImport("prntvpt.dll", ExactSpelling = true)]
+    internal static extern int PTCloseProvider(IntPtr hProvider);
+
+    /// <param name="pPrintTicket">IStream 的**原始介面指標**。</param>
+    /// <remarks>
+    /// 刻意用 <see cref="IntPtr"/> 而不是 <c>System.Runtime.InteropServices.ComTypes.IStream</c>：
+    /// 這支 exe 只是要「呼一次、看 HRESULT」，不需要為此把內建 COM interop 拖進相依，
+    /// 也就不會在日後改打包方式（trimming／AOT）時被 COM marshalling 絆住。
+    /// </remarks>
+    [DllImport("prntvpt.dll", ExactSpelling = true)]
+    internal static extern int PTConvertDevModeToPrintTicket(
+        IntPtr hProvider, uint cbDevmode, IntPtr pDevmode, int scope, IntPtr pPrintTicket);
+
+    [DllImport("ole32.dll", ExactSpelling = true)]
+    internal static extern int CreateStreamOnHGlobal(
+        IntPtr hGlobal, [MarshalAs(UnmanagedType.Bool)] bool fDeleteOnRelease, out IntPtr ppstm);
 }

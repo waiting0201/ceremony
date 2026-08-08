@@ -17,7 +17,7 @@ related_docs:
   - ../design/performance.md
   - ../gotchas.md
 keywords: [列印, 印表機, 紙張, 自訂表單, PaperSizes, DEVMODE, SetPrinter, PrintDlgEx, 原生對話框, 預覽視窗, PDF viewer, plugins, DeviceInfo, ReportPageSizes, PrinterFormMatcher, PrinterFormPolicy, 虛擬印表機, 還原 journal, 頁面範圍, 診斷紀錄, 串流取檔, streamApiToFile]
-last_updated: 2026-08-06 (新增**決策 9b：只有「確定會變好」才動那份共用狀態**——起點是使用者的觀察「這問題在舊系統不會出現」，成立而且是結構性的〔舊系統寫的是 process-local 的 PrintDocument.DefaultPageSettings、值來自驅動給的現成物件；我們寫的是全域持久化的每使用者預設 DEVMODE、位元自己組 → 失敗代價差一個數量級，而這是 v2.3.9 改走 Chromium 檢視器後「沒有 PrintDocument 可綁」的連帶代價〕。既然代價不對稱門檻就要不對稱：判斷抽成平台中立的 `PrinterFormPolicy.Decide`，**只有 Exact + 實體印表機才寫入**——`SizeMismatch` 改成不寫〔**推翻 2026-08-04 的「仍選它」**：原本的比較漏了第三個選項，不寫 ≠ 停在 A4 而是停在使用者目前的紙且標題請他手動選，最壞是多按幾下不是印壞；且尺寸不符幾乎都代表現場表單建錯，靜默套一張已知不對的紙只會讓它更晚被發現〕、虛擬印表機從「靠 NotFound 間接擋住」改成明確 `skipped-virtual`。順帶修掉一個還原洩漏：寫 journal 的條件從 `viewerCount === 0` 改成「journal 是否已存在」〔舊條件下「第一個視窗 not-found ＋第二個視窗寫入成功」會寫進 DEVMODE 卻不留還原紀錄，那張紙就永遠留在使用者的 Word/Excel〕，連帶得到「已有 journal 就完全不呼叫 helper」〔`skipped-viewer-open`，不會換掉前一個視窗正在等按列印的紙〕。回歸鎖 `PrinterFormPolicyTests`〔核心斷言：掃過所有 FormMatch × 虛擬與否，會寫入的恰好只有一格〕。**Windows 實機待複驗**。先前 2026-08-05 (新增**決策 9a：DEVMODE 的旗標與值必須同進退**——客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』〔＝RPC_E_SERVERFAULT〕」的根因就在決策 9 自己：`WritePaperSize` 清了 `DM_PAPERWIDTH`/`DM_PAPERLENGTH` 旗標卻沒把欄位歸零、`WriteSnapshot` 還原時整包蓋回 `dmFields`，兩處都留下自相矛盾的 DEVMODE，v4 驅動做 DEVMODE⇄PrintTicket 轉換時丟例外。規則抽成平台中立的 `DevModePaperFields`（ForFormSelection / ForRestore / AlreadySelected）＋ merge 後的 `NormalizeUnusedPaperFields`，回歸鎖 `DevModePaperFieldsTests`；`AlreadySelected` 順帶補上「DM_PAPERSIZE 有設」的條件。元教訓：Windows-only 專案裡任何不需要 Win32 handle 的邏輯都該住在 Domain——本決策拆了「比對」卻沒拆「位元運算」，於是這段在 macOS 與 CI 上完全隱形。另把 `CEREMONY_PRINTFORM_EXE` 指向不存在路徑寫成受文件保證的現場止血開關。先前 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早))))
+last_updated: 2026-08-08 (新增**決策 9c：寫入前先自己轉一次 PrintTicket，轉不過就不寫**——客訴 **KYOCERA PA2000 在 v2.4.2（決策 9a）之後仍噴 `0x80010105`**；9a 修的旗標一致性是真 bug 也真的修好了，但**不是唯一的失敗方式**〔`DevModePaperFields` 只保證「沒違反已知的不變式」，驅動吃不吃始終是猜的；v4 驅動的使用者預設本體是 PrintTicket，DEVMODE 只是要即時轉換的相容介面〕。處置：merge 之後、`SetPrinter` 之前自己呼一次 `prntvpt.dll` 的 `PTConvertDevModeToPrintTicket`〔＝列印 UI 開設定頁走的同一條轉換〕，過了才寫；判定收進平台中立的 `PrintTicketPreflight`，新增兩個 `formResult`〔`skipped-printticket-reject` / `skipped-printticket-unavailable`〕，**刻意 fail-closed**〔檢查跑不起來也不寫，理由同 9b〕，還原路徑刻意不預檢。回歸鎖 `PrintTicketPreflightTests` + `electron-print-form.spec.ts` 兩條。另新增〈**待評估：回到 WinForms PrintDialog（＝舊系統的形狀）**〉：查證舊系統 `SignupForm.cs:1764-1798` 後確認 2026-08-02 放棄程式送印的理由〔沒有「印表機內容」按鈕〕**在這個方案上不成立**——當時是三選一漏了一個〔舊系統用的是系統的 `PrintDialog`，hDevMode 非 null ⇒ 機制上不會噴〕；入場費是整份座標表再次作廢＋向量變點陣＋必須取代不能並存，**只評估未動工**。**Windows 實機待複驗**。先前 2026-08-06 (新增**決策 9b：只有「確定會變好」才動那份共用狀態**——起點是使用者的觀察「這問題在舊系統不會出現」，成立而且是結構性的〔舊系統寫的是 process-local 的 PrintDocument.DefaultPageSettings、值來自驅動給的現成物件；我們寫的是全域持久化的每使用者預設 DEVMODE、位元自己組 → 失敗代價差一個數量級，而這是 v2.3.9 改走 Chromium 檢視器後「沒有 PrintDocument 可綁」的連帶代價〕。既然代價不對稱門檻就要不對稱：判斷抽成平台中立的 `PrinterFormPolicy.Decide`，**只有 Exact + 實體印表機才寫入**——`SizeMismatch` 改成不寫〔**推翻 2026-08-04 的「仍選它」**：原本的比較漏了第三個選項，不寫 ≠ 停在 A4 而是停在使用者目前的紙且標題請他手動選，最壞是多按幾下不是印壞；且尺寸不符幾乎都代表現場表單建錯，靜默套一張已知不對的紙只會讓它更晚被發現〕、虛擬印表機從「靠 NotFound 間接擋住」改成明確 `skipped-virtual`。順帶修掉一個還原洩漏：寫 journal 的條件從 `viewerCount === 0` 改成「journal 是否已存在」〔舊條件下「第一個視窗 not-found ＋第二個視窗寫入成功」會寫進 DEVMODE 卻不留還原紀錄，那張紙就永遠留在使用者的 Word/Excel〕，連帶得到「已有 journal 就完全不呼叫 helper」〔`skipped-viewer-open`，不會換掉前一個視窗正在等按列印的紙〕。回歸鎖 `PrinterFormPolicyTests`〔核心斷言：掃過所有 FormMatch × 虛擬與否，會寫入的恰好只有一格〕。**Windows 實機待複驗**。先前 2026-08-05 (新增**決策 9a：DEVMODE 的旗標與值必須同進退**——客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』〔＝RPC_E_SERVERFAULT〕」的根因就在決策 9 自己：`WritePaperSize` 清了 `DM_PAPERWIDTH`/`DM_PAPERLENGTH` 旗標卻沒把欄位歸零、`WriteSnapshot` 還原時整包蓋回 `dmFields`，兩處都留下自相矛盾的 DEVMODE，v4 驅動做 DEVMODE⇄PrintTicket 轉換時丟例外。規則抽成平台中立的 `DevModePaperFields`（ForFormSelection / ForRestore / AlreadySelected）＋ merge 後的 `NormalizeUnusedPaperFields`，回歸鎖 `DevModePaperFieldsTests`；`AlreadySelected` 順帶補上「DM_PAPERSIZE 有設」的條件。元教訓：Windows-only 專案裡任何不需要 Win32 handle 的邏輯都該住在 Domain——本決策拆了「比對」卻沒拆「位元運算」，於是這段在 macOS 與 CI 上完全隱形。另把 `CEREMONY_PRINTFORM_EXE` 指向不存在路徑寫成受文件保證的現場止血開關。先前 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早)))))
 ---
 
 ## 背景與動機
@@ -343,6 +343,51 @@ CI 也不印東西。本決策當初拆出 `PrinterFormMatcher` 的理由（「�
 `ToResult` 的字串是與 `electron/print-form-core.ts` 的 `HELPER_RESULTS` 的跨語言契約
 （少一個 → `parseHelperOutput` 把整包退成 `helper-error`），兩邊各有測試鎖住。
 
+#### 9c. 寫入前先自己轉一次 PrintTicket，轉不過就不寫（2026-08-08，KYOCERA PA2000）
+
+**起點**：客訴回報 **KYOCERA PA2000 在 v2.4.2（決策 9a）之後仍然噴 `0x80010105`**。
+9a 修的是「旗標與值不同進退」——那個 bug 是真的，也真的修好了，但它**不是唯一的失敗方式**。
+
+**新的認識**：`DevModePaperFields` 能保證的只有「我們沒違反**已知的**那條不變式」。
+驅動吃不吃我們手工組的 DEVMODE，始終是**猜的**。而 v4 驅動的使用者預設**本體是 PrintTicket**，
+DEVMODE 只是一層要即時轉換的相容介面，轉換由驅動廠商實作——品質不在我們手上。
+再重讀一次舊系統（`SignupForm.cs:1764-1798`）還發現兩件先前沒寫進來的事：
+
+- **會噴這句錯誤的那個轉換，舊系統根本不會走到**：`PrintDialog.ShowDialog()` 帶著**自己那份
+  hDevMode**（非 null）進 `PrintDlgEx`，初值不從每使用者預設拿。我們的 Chromium 檢視器路徑
+  `hDevMode` 是 null，初值只能來自每使用者預設——**正是因為要讀它，才被迫去寫它**。
+- **舊系統連失敗都是軟的**：`pss != null ? pss : paperSize`，找不到同名表單就退回自己 `new` 的
+  `PaperSize`，最壞是這次紙不對。
+
+**處置：把「猜驅動會不會吐」換成「問驅動會不會吐」。** 在 `DocumentProperties` merge 之後、
+`SetPrinter` 之前，自己呼一次 `prntvpt.dll` 的 `PTConvertDevModeToPrintTicket`——
+**那正是 Windows 列印 UI 開啟印表機設定時走的同一條轉換**，也就是會吐 `RPC_E_SERVERFAULT` 的那一支。
+過了才寫。判定收進平台中立的 `Ceremony.Domain.Reports.PrintTicketPreflight`：
+
+| 預檢結果 | `formResult` | 寫入？ |
+|---|---|---|
+| 轉換成功 | （沿用 `exact` / `unchanged`） | ✅ 唯一會寫的情況 |
+| 驅動吐錯誤 | `skipped-printticket-reject` | ❌ |
+| 檢查跑不起來（缺 dll／provider 開不了／例外） | `skipped-printticket-unavailable` | ❌ |
+
+**刻意 fail-closed**：檢查跑不起來也不寫。理由與 9b 同一條——檢查失敗代表我們**不知道**這次寫入
+會不會變好，而不知道時的預設值必須是不動。代價是那台機器退回「每次手動選紙」（多按幾下），
+換掉的是「在使用者機器上留一份壞掉的共用設定」。
+兩種失敗分成兩個 `formResult` **不是**為了讓呼叫端分流（都不寫），而是為了診斷紀錄查得下去：
+「這台驅動不接受」與「這台機器連檢查都做不了」要修的東西完全不同。
+若現場出現大量 `skipped-printticket-unavailable`，那是**要查的訊號，不是放寬的理由**。
+
+**還原路徑刻意不做預檢**：還原寫回去的是使用者原本的值，而預檢失敗會讓我們選的表單**永遠留在
+他機器上**——那正是預檢要防的事。還原寧可寫，也不要卡住。
+
+回歸鎖 `PrintTicketPreflightTests`（核心：掃過 HRESULT 組合，`MayWrite` 為真的**只有兩段都成功**）
+＋ `electron-print-form.spec.ts` 兩條（標題要講「手動選哪張紙」、兩種結果都不得留還原 journal）。
+**⚠️ Windows 實機待複驗**——這支 API 在 macOS 上連呼都呼不到，而 `PTOpenProvider` 對 v3 驅動
+是否一律成功，只有現場的診斷紀錄答得出來。
+
+**這不是終局解**：它讓「壞掉的共用設定」不再發生，但那台機器也就沒有自動選紙了。
+真正的結構解是讓我們自己擁有列印工作（＝舊系統的形狀），見〈待評估：回到 WinForms PrintDialog〉。
+
 ### 8. 順帶修掉「列印完卡在列印中」
 
 **現場回報（2026-08-02）**：列印完成後畫面卡在「列印中」，無法再選下一個列印，
@@ -426,7 +471,42 @@ IPC `ceremony:listPrinters` / `getPrintSettings` / `savePrintSetting` / `printPd
   靜默代換＝印在別種報表的紙上而沒有任何訊號。找不到就是 `not-found` + 標題警告。
 - **後端 append-mode 合併 / 換 PDF library**：見決策 5 的限制說明，等真的撞到再說。
 
-## 待驗證（Windows 實機，macOS 開發環境驗不了）
+## 待評估：回到 WinForms PrintDialog（＝舊系統的形狀）
+
+> 狀態：**只評估，未動工**（2026-08-08 記錄；使用者指示先做決策 9c 的預檢）。
+
+決策 9 系列的每一個問題都源自同一件事：**我們不擁有那個列印工作**，所以只能去改機器的共用設定。
+舊系統擁有它，所以完全沒有這一整類失敗模式。要根治就得把送印拿回來，做成 WinForms helper：
+
+```
+API 產 PDF → helper 光柵化成頁面圖 → PrintPreviewDialog
+           → 使用者按列印鈕 → PrintDialog（帶我們自己的 hDevMode）→ printDocument.Print()
+```
+
+**關鍵發現：2026-08-02 放棄「程式送印」的理由，在這個方案上不成立。** 當時的比較是
+「**自建對話框** vs **Chromium 檢視器**」，自建對話框輸在沒有「印表機內容」按鈕。
+但舊系統用的不是自建對話框，是**系統的 `PrintDialog`（PrintDlgEx）**，內容按鈕一應俱全——
+當時其實是三選一漏了一個：
+
+| 選項 | 原生「內容」 | hDevMode | 會不會噴 `0x80010105` |
+|---|---|---|---|
+| 自建對話框（v2.3.7，已棄） | ❌ | 自己組 | — |
+| Chromium 檢視器（現行） | ✅ | **null → 讀每使用者預設** | 會 |
+| **WinForms PrintDialog（＝舊系統）** | ✅ | 自己那份（非 null） | 機制上不會 |
+
+這條路一次拿掉：`SetPrinter` 整段、還原 journal、`0x80010105` 這一類，
+而「自動選對紙」變成免費附贈（就是 `SignupForm.cs:1770-1787` 那個比對迴圈）。
+
+**入場費（三項，都不便宜）**：
+
+1. **整份座標表會再次作廢** —— 現行 ±0.05cm 的座標是在 **Chromium fit-to-printable-area 等比縮放
+   置中**下驗收的；GDI `DrawImage` 拉滿 `PageBounds` 是**非等比、原點在可列印區左上角**。
+   六種報表全部要重新實體套印驗收。這正是本檔 2026-08-01 那條元教訓的內容，**不能再犯一次**。
+2. **向量變點陣** —— PDF 要先光柵化。舊系統就是這樣（也是它「不用調設定」的原因），
+   但 2026-08-04 才修好的造字（增補平面）與細筆畫要重新看樣張。
+3. **要取代不能並存** —— 兩套送印路徑並存比現況更糟。
+
+
 
 > 現場已回報「原生對話框有跳、列印也 OK」（2026-08-04 客訴），所以下面第 1 項的
 > (a)(b)(c)(d) 實務上已經過了；第 0 項是決策 9 的阻斷性前提，仍未驗。

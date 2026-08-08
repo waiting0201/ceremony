@@ -178,7 +178,7 @@ internal static class PrinterFormApplier
             // 刻意不碰 dmOrientation（舊系統 5 處 Landscape 都被註解掉）
             // 也不碰 dmDefaultSource（舊系統從頭到尾沒動過 PaperSource）。
             return true;
-        }, expectKind: kind);
+        }, expectKind: kind, preflight: true);
 
     private static WriteResult WriteSnapshot(string printerName, Snapshot snap) =>
         Write(printerName, (pOut, cur) =>
@@ -196,7 +196,10 @@ internal static class PrinterFormApplier
         },
         // 快照當時 DM_PAPERSIZE 沒設的話，dmPaperSize 只是個被忽略的殘值，
         // 驗證「驅動有沒有吃下這個 kind」就沒有意義（驅動正規化成別的值是合法的）。
-        expectKind: (snap.Fields & DevModePaperFields.PaperSize) != 0 ? snap.Kind : null);
+        expectKind: (snap.Fields & DevModePaperFields.PaperSize) != 0 ? snap.Kind : null,
+        // 還原刻意**不**做 PrintTicket 預檢：還原寫回去的是使用者自己原本的值，而預檢失敗會讓
+        // 我們選的表單永遠留在他機器上——那正是預檢要防的事。還原路徑寧可寫，也不要卡住。
+        preflight: false);
 
     /// <summary>
     /// OpenPrinter → DocumentProperties(讀) → mutate → DocumentProperties(驗證) → SetPrinter(Level 9)。
@@ -205,7 +208,11 @@ internal static class PrinterFormApplier
     /// <param name="expectKind">
     /// 驗證步驟讀回來的 dmPaperSize 必須等於此值，否則視為驅動拒絕。null ＝ 不驗（見 WriteSnapshot）。
     /// </param>
-    private static WriteResult Write(string printerName, Func<IntPtr, Snapshot, bool> mutate, short? expectKind)
+    /// <param name="preflight">
+    /// 寫入前是否先跑 DEVMODE → PrintTicket 轉換預檢（見 <see cref="PrintTicketPreflight"/>）。
+    /// </param>
+    private static WriteResult Write(
+        string printerName, Func<IntPtr, Snapshot, bool> mutate, short? expectKind, bool preflight)
     {
         var defaults = new NativeMethods.PRINTER_DEFAULTS { DesiredAccess = NativeMethods.PRINTER_ACCESS_USE };
         if (!NativeMethods.OpenPrinter(printerName, out var hPrinter, ref defaults) || hPrinter == IntPtr.Zero)
@@ -256,6 +263,19 @@ internal static class PrinterFormApplier
             // 那樣整個放棄預選（那會直接把 2026-08-04 的客訴原封不動退回去）。
             NormalizeUnusedPaperFields(pOut);
 
+            // ⑥' 最後一道閘門：自己先做一次列印 UI 會做的 DEVMODE → PrintTicket 轉換，轉不過就不寫。
+            // DevModePaperFields 只保證「沒違反已知的不變式」，驅動吃不吃終究是猜的；這裡把猜改成問。
+            // 2026-08-08 KYOCERA PA2000 客訴的處置，理由見 PrintTicketPreflight。
+            if (preflight)
+            {
+                var check = Preflight(printerName, pOut);
+                if (!PrintTicketPreflight.MayWrite(check.Outcome))
+                {
+                    // Prev 一律回 null：什麼都沒寫 ⇒ 呼叫端不該留還原 journal。
+                    return new WriteResult(PrintTicketPreflight.ToResult(check.Outcome), null, null, check.Error);
+                }
+            }
+
             // ⑦ 存成每使用者預設（PRINTER_INFO_9 只有一個欄位：pDevMode）
             var pInfo9 = Marshal.AllocHGlobal(IntPtr.Size);
             try
@@ -277,6 +297,73 @@ internal static class PrinterFormApplier
             if (pIn != IntPtr.Zero) Marshal.FreeHGlobal(pIn);
             NativeMethods.ClosePrinter(hPrinter);
         }
+    }
+
+    /// <summary>
+    /// 把改好的 DEVMODE 丟進 <c>PTConvertDevModeToPrintTicket</c> 走一次——**這正是 Windows 列印 UI
+    /// 在開啟印表機設定時會做的轉換**，失敗時使用者看到的就是「您的印表機已發生未預期的設定問題
+    /// 0x80010105」（<c>RPC_E_SERVERFAULT</c>）。
+    /// </summary>
+    /// <remarks>
+    /// 判定與 fail-closed 的理由住在 <see cref="PrintTicketPreflight"/>（平台中立、測得到）；
+    /// 這裡只負責把兩段 HRESULT 撈出來。任何例外（缺 dll、缺 entry point）一律吞掉並歸為
+    /// <c>Unavailable</c>——預檢是為了保護使用者的驅動設定，它自己絕不能變成新的失敗來源。
+    /// </remarks>
+    private static (PrintTicketPreflight.PreflightOutcome Outcome, string? Error) Preflight(
+        string printerName, IntPtr pDevMode)
+    {
+        int? openHr = null;
+        int? convertHr = null;
+        string? error = null;
+        var provider = IntPtr.Zero;
+        var stream = IntPtr.Zero;
+
+        try
+        {
+            openHr = NativeMethods.PTOpenProvider(printerName, NativeMethods.PT_PROVIDER_VERSION, out provider);
+            if (openHr >= 0)
+            {
+                var streamHr = NativeMethods.CreateStreamOnHGlobal(IntPtr.Zero, true, out stream);
+                if (streamHr >= 0)
+                {
+                    // cbDevmode ＝ 公開部分 + 驅動私有部分。用 DocumentProperties 回報的 buffer 大小
+                    // 會偏大（它可能含對齊填充），而這支 API 要的是 DEVMODE 自己宣告的長度。
+                    var cb = (uint)((ushort)Marshal.ReadInt16(pDevMode, NativeMethods.OffsetSize)
+                                    + (ushort)Marshal.ReadInt16(pDevMode, NativeMethods.OffsetDriverExtra));
+
+                    convertHr = NativeMethods.PTConvertDevModeToPrintTicket(
+                        provider, cb, pDevMode, NativeMethods.PT_JOB_SCOPE, stream);
+                }
+                else
+                {
+                    error = $"CreateStreamOnHGlobal 0x{streamHr:x8}";
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            error = e.Message;
+        }
+        finally
+        {
+            if (stream != IntPtr.Zero) Marshal.Release(stream);
+            if (provider != IntPtr.Zero)
+            {
+                try { NativeMethods.PTCloseProvider(provider); }
+                catch (DllNotFoundException) { /* 開得起來就關得掉，這裡只是防禦 */ }
+                catch (EntryPointNotFoundException) { }
+            }
+        }
+
+        var outcome = PrintTicketPreflight.Classify(openHr, convertHr);
+        error ??= outcome switch
+        {
+            PrintTicketPreflight.PreflightOutcome.Rejected => $"PTConvertDevModeToPrintTicket 0x{convertHr:x8}",
+            PrintTicketPreflight.PreflightOutcome.Unavailable => $"PTOpenProvider 0x{openHr:x8}",
+            _ => null,
+        };
+
+        return (outcome, error);
     }
 
     /// <summary>
