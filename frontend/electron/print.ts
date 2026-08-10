@@ -25,6 +25,7 @@ import { streamApiToFile } from './api-stream';
 import { logPrintEvent, sweepOldLogs } from './print-log';
 import { applyReportForm, noteViewerOpened, releaseReportForm } from './print-form';
 import { logFields, viewerTitle } from './print-form-core';
+import { returnFocusOnClose } from './window-focus';
 
 export interface PrintResult {
   ok: boolean;
@@ -95,6 +96,7 @@ export async function openPdfInViewer(
  * - 刻意 **不** 加 `#toolbar=0`：那顆工具列列印鈕正是整條通道的入口。
  * - temp 檔在 `closed` 才刪：提早刪會讓使用者按列印時檔案已不在。
  * - 視窗 parent 綁主視窗：原生列印對話框才不會躲到主視窗後面（看起來像「按了沒反應」）。
+ *   但 parent 只管「壓在上面」，**關掉之後焦點不會自動回來**，那條要自己接（`returnFocusOnClose`）。
  * - 紙張預選（`applyReportForm`）必須在**開窗之前**完成：使用者有可能一開窗就按 🖨。
  *   它是 best-effort，任何結果都不影響回傳的 ok——helper 失敗只會讓紙張回到驅動預設。
  */
@@ -121,6 +123,8 @@ async function showViewerWindow(
       void safeUnlink(pdfPath);
       void releaseReportForm();
     });
+    // 關掉預覽後主視窗要回到前面，否則會沉到其他應用程式後面（見 window-focus.ts）。
+    returnFocusOnClose(win, parent);
     await win.loadFile(pdfPath);
     noteViewerOpened();
     win.focus();

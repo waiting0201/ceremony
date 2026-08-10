@@ -27,6 +27,11 @@ contextBridge.exposeInMainWorld('ceremony', {
     ipcRenderer.invoke('ceremony:openPdfInViewer', reportType, bytes),
   /** 診斷：在檔案總管中選取今天的列印紀錄 */
   openPrintLogFolder: () => ipcRenderer.invoke('ceremony:openPrintLogFolder'),
+  /** 自動選紙：目前狀態（含我們自己停用掉的印表機數量） */
+  getPrintFormState: () => ipcRenderer.invoke('ceremony:getPrintFormState'),
+  /** 自動選紙：開／關；打開時同時清掉失敗印表機黑名單（＝現場的「再試一次」） */
+  setPrintFormEnabled: (enabled: boolean) =>
+    ipcRenderer.invoke('ceremony:setPrintFormEnabled', enabled),
   /** 開外部連結（官方下載頁等） */
   openExternal: (url: string) => ipcRenderer.invoke('ceremony:openExternal', url),
   /** 執行 bundle 的 prereq installer（缺檔則開官方下載頁） */

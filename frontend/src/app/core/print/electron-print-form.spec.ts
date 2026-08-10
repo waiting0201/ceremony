@@ -1,5 +1,7 @@
 import {
   FormApplyResult,
+  applyArgs,
+  blockScope,
   logFields,
   needsRestore,
   parseHelperOutput,
@@ -68,7 +70,9 @@ describe('print-form-core', () => {
     });
 
     it('欄位型別不對就整格丟掉，不會污染結果', () => {
-      const r = parseHelperOutput('{"result":"exact","kind":"257","prev":{"kind":9},"virtual":"no"}');
+      const r = parseHelperOutput(
+        '{"result":"exact","kind":"257","prev":{"kind":9},"virtual":"no"}',
+      );
 
       expect(r.result).toBe('exact');
       expect(r.kind).toBeUndefined();
@@ -112,6 +116,33 @@ describe('print-form-core', () => {
       expect(t).toContain('手動選紙');
     });
 
+    it('這台印表機已被停用時要講「已停用自動選紙」而不是沉默', () => {
+      // 2026-08-10（決策 9d）：碰過會出事的驅動我們永久不再接觸，所以連表單名都沒有——
+      // 使用者要知道的是「這次沒幫你選，請自己選」，不是我們內部怎麼記帳的。
+      const t = viewerTitle({ result: 'skipped-printer-blocked' });
+
+      expect(t).toContain('⚠');
+      expect(t).toContain('手動選紙');
+    });
+
+    it('使用者自己關掉自動選紙時不掛 ⚠（那不是異常）', () => {
+      const t = viewerTitle({ result: 'skipped-disabled' });
+
+      expect(t).not.toContain('⚠');
+      expect(t).toContain('自動選紙已關閉');
+    });
+
+    it('helper 還在跑時沿用「另一個列印視窗開著」的說法', () => {
+      expect(viewerTitle({ result: 'skipped-helper-busy' })).toContain('⚠');
+    });
+
+    it('逾時沒寫入也要告訴使用者手動選哪一張紙', () => {
+      const t = viewerTitle({ result: 'skipped-over-budget', form: '文牒' });
+
+      expect(t).toContain('⚠');
+      expect(t).toContain('文牒');
+    });
+
     it.each<FormApplyResult['result']>([
       'exact',
       'unchanged',
@@ -125,6 +156,65 @@ describe('print-form-core', () => {
       'skipped-virtual',
     ])('%s 不警告——不是使用者能處理的事，而且列印照常可用', (result) => {
       expect(viewerTitle({ result })).toBe('列印預覽 — 請按工具列的列印鈕');
+    });
+  });
+
+  describe('blockScope', () => {
+    it.each<FormApplyResult['result']>([
+      'skipped-printticket-reject',
+      'skipped-printticket-unavailable',
+      'driver-rejected',
+      'error',
+    ])('%s ⇒ 這台印表機不再碰', (result) => {
+      expect(blockScope({ result, printerHash: 'a1b2c3d4' })).toBe('printer');
+    });
+
+    it.each<FormApplyResult['result']>(['helper-timeout', 'helper-error'])(
+      '%s ⇒ 整台機器停用（我們根本不知道是哪台印表機，而卡住正是最該停手的訊號）',
+      (result) => {
+        expect(blockScope({ result })).toBe('all');
+      },
+    );
+
+    it('驅動好好回答的失敗不記帳——那是健康的結果', () => {
+      // 這幾格記帳的話，「現場還沒建表單」會被誤鎖成永久黑名單，之後建好了也不會生效。
+      expect(blockScope({ result: 'not-found', form: '文牒' })).toBe('none');
+      expect(blockScope({ result: 'mismatch', printerHash: 'a1b2c3d4' })).toBe('none');
+      expect(blockScope({ result: 'skipped-virtual', printerHash: 'a1b2c3d4' })).toBe('none');
+      expect(blockScope({ result: 'exact', printerHash: 'a1b2c3d4' })).toBe('none');
+      expect(blockScope({ result: 'unchanged' })).toBe('none');
+    });
+
+    it('我們自己決定跳過的暫時狀態不得變成永久黑名單', () => {
+      expect(blockScope({ result: 'skipped-viewer-open' })).toBe('none');
+      expect(blockScope({ result: 'skipped-helper-busy' })).toBe('none');
+      expect(blockScope({ result: 'skipped-disabled' })).toBe('none');
+      expect(blockScope({ result: 'skipped-printer-blocked' })).toBe('none');
+      expect(blockScope({ result: 'skipped-over-budget', printerHash: 'a1b2c3d4' })).toBe('none');
+      expect(blockScope({ result: 'skipped-not-windows' })).toBe('none');
+      expect(blockScope({ result: 'helper-missing' })).toBe('none');
+    });
+
+    it('驅動出事但沒有 printerHash ⇒ 退成整台停用，不是不記', () => {
+      // 記不到那台頭上又不停用，等於這道閘門對這條路徑完全失效。
+      expect(blockScope({ result: 'error' })).toBe('all');
+    });
+  });
+
+  describe('applyArgs', () => {
+    it('黑名單為空時不送 --blocked（helper 端就不必分辨空字串）', () => {
+      expect(applyArgs('datacard', 3000, [])).toEqual(['apply', 'datacard', '--budget-ms', '3000']);
+    });
+
+    it('黑名單以逗號串接（C# 的 PrinterContactPolicy.ParseBlocked 是對應的解析端）', () => {
+      expect(applyArgs('tablet', 3000, ['a1b2c3d4', 'ff00ee11'])).toEqual([
+        'apply',
+        'tablet',
+        '--budget-ms',
+        '3000',
+        '--blocked',
+        'a1b2c3d4,ff00ee11',
+      ]);
     });
   });
 
@@ -189,27 +279,30 @@ describe('print-form-core', () => {
     it('mismatch 不再需要還原——2026-08-06 起它根本不寫入', () => {
       // 就算 helper 因為某種理由還是帶了 prev 回來（舊版 exe 混搭新版前端），也不能當成
       // 「動過」——記了 journal 就會在關窗時拿一份沒發生過的快照去覆蓋使用者的設定。
-      expect(needsRestore({ result: 'mismatch', prev: { kind: 9, fields: 2, w: 0, h: 0 } })).toBe(false);
-      expect(needsRestore({ result: 'skipped-virtual', prev: { kind: 9, fields: 2, w: 0, h: 0 } })).toBe(
+      expect(needsRestore({ result: 'mismatch', prev: { kind: 9, fields: 2, w: 0, h: 0 } })).toBe(
         false,
       );
+      expect(
+        needsRestore({ result: 'skipped-virtual', prev: { kind: 9, fields: 2, w: 0, h: 0 } }),
+      ).toBe(false);
     });
   });
 
   describe('restoreArgs', () => {
     it('印表機名稱以獨立參數傳遞（名稱含空白也不會被拆開）', () => {
-      expect(restoreArgs({ kind: 9, fields: 2, w: 0, h: 0, printer: 'EPSON LQ-310 ESC/P' })).toEqual([
+      expect(
+        restoreArgs({ kind: 9, fields: 2, w: 0, h: 0, printer: 'EPSON LQ-310 ESC/P' }),
+      ).toEqual(['restore', '9', '2', '0', '0', 'EPSON LQ-310 ESC/P']);
+    });
+
+    it('沒有印表機名稱時交給 helper 用預設印表機', () => {
+      expect(restoreArgs({ kind: 9, fields: 2, w: 0, h: 0 })).toEqual([
         'restore',
         '9',
         '2',
         '0',
         '0',
-        'EPSON LQ-310 ESC/P',
       ]);
-    });
-
-    it('沒有印表機名稱時交給 helper 用預設印表機', () => {
-      expect(restoreArgs({ kind: 9, fields: 2, w: 0, h: 0 })).toEqual(['restore', '9', '2', '0', '0']);
     });
   });
 });

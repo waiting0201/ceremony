@@ -11,7 +11,13 @@ import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
 import { openPdfInViewer, openReportInViewer, sweepTempDir } from './print';
 import { printLogPath } from './print-log';
-import { recoverPendingFormRestore, releaseReportForm } from './print-form';
+import {
+  printFormState,
+  recoverPendingFormRestore,
+  releaseReportForm,
+  setPrintFormEnabled,
+} from './print-form';
+import { returnFocusOnClose } from './window-focus';
 
 let mainWindow: BrowserWindow | null = null;
 let prereqs: PrereqReport;
@@ -57,6 +63,8 @@ function createWindow(): void {
     void shell.openExternal(url);
     return { action: 'deny' };
   });
+  // renderer 自己 window.open 出來的預覽視窗走的不是 print.ts，焦點交還要在這裡補一次。
+  mainWindow.webContents.on('did-create-window', (child) => returnFocusOnClose(child, mainWindow));
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
@@ -201,6 +209,19 @@ ipcMain.handle('ceremony:openPrintLogFolder', () => {
   shell.showItemInFolder(printLogPath());
   return { ok: true };
 });
+
+/**
+ * 自動選紙的現場開關（決策 9d）。
+ *
+ * 存在的理由是 2026-08-10 客訴：某些驅動（KYOCERA PA2000）被自動選紙碰過之後，原生列印對話框
+ * 會整個卡死，只能重啟程式。在那之前唯一的止血手段是 `CEREMONY_PRINTFORM_EXE` 環境變數——
+ * 寺方按不到，等於每次都要遠端協助。
+ */
+ipcMain.handle('ceremony:getPrintFormState', () => printFormState());
+
+ipcMain.handle('ceremony:setPrintFormEnabled', (_e, enabled: boolean) =>
+  setPrintFormEnabled(enabled === true),
+);
 
 ipcMain.handle('ceremony:openExternal', async (_e, url: string) => {
   await shell.openExternal(url);

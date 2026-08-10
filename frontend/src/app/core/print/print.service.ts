@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { AuthStore } from '../auth/auth.store';
 import { ceremony, isElectron } from '../platform/electron';
+import type { PrintFormState } from '../platform/electron';
 import { BatchPrintService } from '../reports/batch-print.service';
 import type { BatchPrintOptions } from '../reports/batch-print.service';
 import { ReportApi } from '../api/reports/report.api';
@@ -48,7 +49,10 @@ export class PrintService {
       return true;
     }
     const grid = opts.debugGrid ? '&debugGrid=true' : '';
-    return this.openInViewer(type, `/reports/${type}?signupId=${encodeURIComponent(signupId)}${grid}`);
+    return this.openInViewer(
+      type,
+      `/reports/${type}?signupId=${encodeURIComponent(signupId)}${grid}`,
+    );
   }
 
   /**
@@ -89,7 +93,31 @@ export class PrintService {
 
   /** 開啟診斷紀錄所在資料夾。輔助功能，失敗不打斷使用者。 */
   async openPrintLog(): Promise<void> {
-    await ceremony()?.openPrintLogFolder().catch(() => undefined);
+    await ceremony()
+      ?.openPrintLogFolder()
+      .catch(() => undefined);
+  }
+
+  /**
+   * 自動選紙的現場開關（決策 9d）。非 Electron 或讀取失敗一律回 null，UI 就不顯示這一格。
+   *
+   * 這是「某些驅動被自動選紙碰過就會讓原生列印對話框卡死」的止血鍵——把原本只有環境變數
+   * 的關閉手段變成寺方自己按得到的東西。見 docs/blueprints/print-channel-electron.md。
+   */
+  async printFormState(): Promise<PrintFormState | null> {
+    return (
+      (await ceremony()
+        ?.getPrintFormState()
+        .catch(() => null)) ?? null
+    );
+  }
+
+  async setPrintFormEnabled(enabled: boolean): Promise<PrintFormState | null> {
+    return (
+      (await ceremony()
+        ?.setPrintFormEnabled(enabled)
+        .catch(() => null)) ?? null
+    );
   }
 
   private async openInViewer(type: SingleReportType, apiPath: string): Promise<boolean> {

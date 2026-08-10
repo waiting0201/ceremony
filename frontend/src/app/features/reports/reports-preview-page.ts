@@ -22,6 +22,7 @@ import { SIGNUP_TYPES } from '../../shared/util/signup-type';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
 import { isElectron } from '../../core/platform/electron';
+import type { PrintFormState } from '../../core/platform/electron';
 
 type Mode = 'single' | 'batch';
 
@@ -74,6 +75,9 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   protected readonly printing = signal(false);
   /** 診斷紀錄按鈕只在桌面版有意義（紀錄寫在 %APPDATA%/Ceremony/logs）。 */
   protected readonly isDesktop = isElectron();
+  /** 自動選紙狀態；null = 非桌面版或讀不到，該格就不顯示。 */
+  protected readonly printForm = signal<PrintFormState | null>(null);
+  protected readonly printFormBusy = signal(false);
 
   protected readonly initialType = computed<SingleReportType>(() => {
     const t = this.route.snapshot.paramMap.get('type');
@@ -100,6 +104,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.singleForm.patchValue({ type: this.initialType() });
     this.batchForm.patchValue({ reportType: this.initialType() });
     void this.loadCategories();
+    void this.print.printFormState().then((s) => this.printForm.set(s));
   }
 
   ngOnDestroy(): void {
@@ -210,6 +215,24 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   /** 印歪 / 印不出來時的第一手證據：在檔案總管中選取今天的列印紀錄。 */
   protected async openPrintLog(): Promise<void> {
     await this.print.openPrintLog();
+  }
+
+  /**
+   * 自動選紙開關（決策 9d）。
+   *
+   * 只有桌面版有；狀態讀不到就整格不顯示（`printForm()` 維持 null）。
+   * 關掉之後程式完全不去碰驅動設定，代價只是每次列印要自己在對話框選紙——
+   * 這是現場遇到「按了列印鈕整個卡死」時**不必等我們出新版**的止血鍵。
+   */
+  protected async togglePrintForm(): Promise<void> {
+    const cur = this.printForm();
+    if (!cur || this.printFormBusy()) return;
+    this.printFormBusy.set(true);
+    try {
+      this.printForm.set(await this.print.setPrintFormEnabled(!cur.enabled));
+    } finally {
+      this.printFormBusy.set(false);
+    }
   }
 
   /** 把目前預覽中的 PDF 開在列印預覽視窗，使用者按工具列列印鈕走 Windows 原生對話框。 */

@@ -16,8 +16,8 @@ related_docs:
   - ../design/api-design.md
   - ../design/performance.md
   - ../gotchas.md
-keywords: [列印, 印表機, 紙張, 自訂表單, PaperSizes, DEVMODE, SetPrinter, PrintDlgEx, 原生對話框, 預覽視窗, PDF viewer, plugins, DeviceInfo, ReportPageSizes, PrinterFormMatcher, PrinterFormPolicy, 虛擬印表機, 還原 journal, 頁面範圍, 診斷紀錄, 串流取檔, streamApiToFile]
-last_updated: 2026-08-08 (新增**決策 9c：寫入前先自己轉一次 PrintTicket，轉不過就不寫**——客訴 **KYOCERA PA2000 在 v2.4.2（決策 9a）之後仍噴 `0x80010105`**；9a 修的旗標一致性是真 bug 也真的修好了，但**不是唯一的失敗方式**〔`DevModePaperFields` 只保證「沒違反已知的不變式」，驅動吃不吃始終是猜的；v4 驅動的使用者預設本體是 PrintTicket，DEVMODE 只是要即時轉換的相容介面〕。處置：merge 之後、`SetPrinter` 之前自己呼一次 `prntvpt.dll` 的 `PTConvertDevModeToPrintTicket`〔＝列印 UI 開設定頁走的同一條轉換〕，過了才寫；判定收進平台中立的 `PrintTicketPreflight`，新增兩個 `formResult`〔`skipped-printticket-reject` / `skipped-printticket-unavailable`〕，**刻意 fail-closed**〔檢查跑不起來也不寫，理由同 9b〕，還原路徑刻意不預檢。回歸鎖 `PrintTicketPreflightTests` + `electron-print-form.spec.ts` 兩條。另新增〈**待評估：回到 WinForms PrintDialog（＝舊系統的形狀）**〉：查證舊系統 `SignupForm.cs:1764-1798` 後確認 2026-08-02 放棄程式送印的理由〔沒有「印表機內容」按鈕〕**在這個方案上不成立**——當時是三選一漏了一個〔舊系統用的是系統的 `PrintDialog`，hDevMode 非 null ⇒ 機制上不會噴〕；入場費是整份座標表再次作廢＋向量變點陣＋必須取代不能並存，**只評估未動工**。**Windows 實機待複驗**。先前 2026-08-06 (新增**決策 9b：只有「確定會變好」才動那份共用狀態**——起點是使用者的觀察「這問題在舊系統不會出現」，成立而且是結構性的〔舊系統寫的是 process-local 的 PrintDocument.DefaultPageSettings、值來自驅動給的現成物件；我們寫的是全域持久化的每使用者預設 DEVMODE、位元自己組 → 失敗代價差一個數量級，而這是 v2.3.9 改走 Chromium 檢視器後「沒有 PrintDocument 可綁」的連帶代價〕。既然代價不對稱門檻就要不對稱：判斷抽成平台中立的 `PrinterFormPolicy.Decide`，**只有 Exact + 實體印表機才寫入**——`SizeMismatch` 改成不寫〔**推翻 2026-08-04 的「仍選它」**：原本的比較漏了第三個選項，不寫 ≠ 停在 A4 而是停在使用者目前的紙且標題請他手動選，最壞是多按幾下不是印壞；且尺寸不符幾乎都代表現場表單建錯，靜默套一張已知不對的紙只會讓它更晚被發現〕、虛擬印表機從「靠 NotFound 間接擋住」改成明確 `skipped-virtual`。順帶修掉一個還原洩漏：寫 journal 的條件從 `viewerCount === 0` 改成「journal 是否已存在」〔舊條件下「第一個視窗 not-found ＋第二個視窗寫入成功」會寫進 DEVMODE 卻不留還原紀錄，那張紙就永遠留在使用者的 Word/Excel〕，連帶得到「已有 journal 就完全不呼叫 helper」〔`skipped-viewer-open`，不會換掉前一個視窗正在等按列印的紙〕。回歸鎖 `PrinterFormPolicyTests`〔核心斷言：掃過所有 FormMatch × 虛擬與否，會寫入的恰好只有一格〕。**Windows 實機待複驗**。先前 2026-08-05 (新增**決策 9a：DEVMODE 的旗標與值必須同進退**——客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』〔＝RPC_E_SERVERFAULT〕」的根因就在決策 9 自己：`WritePaperSize` 清了 `DM_PAPERWIDTH`/`DM_PAPERLENGTH` 旗標卻沒把欄位歸零、`WriteSnapshot` 還原時整包蓋回 `dmFields`，兩處都留下自相矛盾的 DEVMODE，v4 驅動做 DEVMODE⇄PrintTicket 轉換時丟例外。規則抽成平台中立的 `DevModePaperFields`（ForFormSelection / ForRestore / AlreadySelected）＋ merge 後的 `NormalizeUnusedPaperFields`，回歸鎖 `DevModePaperFieldsTests`；`AlreadySelected` 順帶補上「DM_PAPERSIZE 有設」的條件。元教訓：Windows-only 專案裡任何不需要 Win32 handle 的邏輯都該住在 Domain——本決策拆了「比對」卻沒拆「位元運算」，於是這段在 macOS 與 CI 上完全隱形。另把 `CEREMONY_PRINTFORM_EXE` 指向不存在路徑寫成受文件保證的現場止血開關。先前 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早)))))
+keywords: [列印, 印表機, 紙張, 自訂表單, PaperSizes, DEVMODE, SetPrinter, PrintDlgEx, 原生對話框, 預覽視窗, PDF viewer, plugins, DeviceInfo, ReportPageSizes, PrinterFormMatcher, PrinterFormPolicy, PrinterContactPolicy, 印表機黑名單, 卡死, 虛擬印表機, 還原 journal, 頁面範圍, 診斷紀錄, 串流取檔, streamApiToFile, 焦點, focus, z-order, 視窗跳到後面, window-focus]
+last_updated: 2026-08-10 (新增**決策 10：關掉預覽後把焦點交還主視窗**——客訴「同時開著其他應用程式時，列印完把預覽關掉，系統畫面會自動跳到後面」。根因是**沒有人負責把焦點接回來**：Windows 關窗時焦點交給 z-order 的下一個視窗，`parent`（owner）只保證壓在上面、**不保證關掉後焦點回到 owner**，中間又隔了一個 modal 的 PrintDlgEx 再轉一次焦點。處置：`electron/window-focus.ts` 的 `returnFocusOnClose`，掛在 `print.ts` 檢視器視窗與 `main.ts` 的 `did-create-window` 兩個開窗點；**刻意只在「預覽關閉當下自己持有焦點 ＋ 主視窗未 destroy ＋ 未最小化」三者同時成立時才搶**（搶過頭會在使用者刻意切走時把畫面拉回來，比原本的 bug 更煩人）；實作是「`close` 記焦點狀態、`closed` 才動作」（前者晚了問不到、後者早了會被系統的焦點轉移蓋掉）。回歸鎖 `electron-window-focus.spec.ts` 5 條。**Windows 實機待複驗**。同日先前 (新增**決策 9d：出過一次事就永遠不碰那台驅動**——客訴 **KYOCERA PA2000 在 v2.4.5（決策 9c）之後症狀變成「按下檢視器列印鈕後整個程式卡死、選不了別台印表機也關不掉預覽，只能重啟」**。9c 是 fail-closed 的 ⇒ 那台機器上我們**早就不寫入**了，所以剩下能怪的是**接觸本身**：9c 新增的 `PTOpenProvider` / `PTConvertDevModeToPrintTicket` 是 v4 驅動的 COM 呼叫〔設定模組多半跑在 PrintIsolationHost.exe〕，而 Electron 端的 3 秒逾時是 `SIGKILL`——**把 COM client 殺在半路**，之後 PrintDlgEx 問同一個 provider 就可能永遠等不到，而它是 modal 的、owner 視窗會被 disable〔＝現場看到的卡死〕；再乘上「每次列印都問一次」。處置三件：(1) **失敗印表機黑名單** `print-form-printers.json`〔`skipped-printticket-reject`/`unavailable`/`driver-rejected`/`error` → 記 printerHash，之後在**任何驅動呼叫之前**結束；`helper-timeout`/`helper-error` 判斷不出是哪台 → 整台停用。判定＝ TS 的 `blockScope` ＋ C# 的 `PrinterContactPolicy`，兩邊都有測試；`not-found`/`mismatch`/`skipped-virtual` **刻意不記帳**〕；(2) **逾時不再 kill**〔execFile 拿掉 timeout/killSignal；配套是 helper 自己守 `--budget-ms` → `skipped-over-budget`，加 `onLate` 補還原 journal，加 `skipped-helper-busy` 不疊第二個呼叫〕；(3) **使用者按得到的開關**〔報表預覽頁「自動選紙：開/關」→ `config.json` 的 `printFormPreselect`；按回「開」同時清黑名單。原本只有 `CEREMONY_PRINTFORM_EXE` 環境變數，寺方按不到〕。可轉移教訓：**fail-closed 的預檢只保證「沒把它寫壞」，不保證「沒把它弄卡」——一個會叫醒第三方行程的檢查本身就是一次接觸**。回歸鎖 `PrinterContactPolicyTests` + `electron-print-form.spec.ts` 的 `blockScope`/`applyArgs`/四條標題。**Windows 實機待複驗**。先前 2026-08-08 (新增**決策 9c：寫入前先自己轉一次 PrintTicket，轉不過就不寫**——客訴 **KYOCERA PA2000 在 v2.4.2（決策 9a）之後仍噴 `0x80010105`**；9a 修的旗標一致性是真 bug 也真的修好了，但**不是唯一的失敗方式**〔`DevModePaperFields` 只保證「沒違反已知的不變式」，驅動吃不吃始終是猜的；v4 驅動的使用者預設本體是 PrintTicket，DEVMODE 只是要即時轉換的相容介面〕。處置：merge 之後、`SetPrinter` 之前自己呼一次 `prntvpt.dll` 的 `PTConvertDevModeToPrintTicket`〔＝列印 UI 開設定頁走的同一條轉換〕，過了才寫；判定收進平台中立的 `PrintTicketPreflight`，新增兩個 `formResult`〔`skipped-printticket-reject` / `skipped-printticket-unavailable`〕，**刻意 fail-closed**〔檢查跑不起來也不寫，理由同 9b〕，還原路徑刻意不預檢。回歸鎖 `PrintTicketPreflightTests` + `electron-print-form.spec.ts` 兩條。另新增〈**待評估：回到 WinForms PrintDialog（＝舊系統的形狀）**〉：查證舊系統 `SignupForm.cs:1764-1798` 後確認 2026-08-02 放棄程式送印的理由〔沒有「印表機內容」按鈕〕**在這個方案上不成立**——當時是三選一漏了一個〔舊系統用的是系統的 `PrintDialog`，hDevMode 非 null ⇒ 機制上不會噴〕；入場費是整份座標表再次作廢＋向量變點陣＋必須取代不能並存，**只評估未動工**。**Windows 實機待複驗**。先前 2026-08-06 (新增**決策 9b：只有「確定會變好」才動那份共用狀態**——起點是使用者的觀察「這問題在舊系統不會出現」，成立而且是結構性的〔舊系統寫的是 process-local 的 PrintDocument.DefaultPageSettings、值來自驅動給的現成物件；我們寫的是全域持久化的每使用者預設 DEVMODE、位元自己組 → 失敗代價差一個數量級，而這是 v2.3.9 改走 Chromium 檢視器後「沒有 PrintDocument 可綁」的連帶代價〕。既然代價不對稱門檻就要不對稱：判斷抽成平台中立的 `PrinterFormPolicy.Decide`，**只有 Exact + 實體印表機才寫入**——`SizeMismatch` 改成不寫〔**推翻 2026-08-04 的「仍選它」**：原本的比較漏了第三個選項，不寫 ≠ 停在 A4 而是停在使用者目前的紙且標題請他手動選，最壞是多按幾下不是印壞；且尺寸不符幾乎都代表現場表單建錯，靜默套一張已知不對的紙只會讓它更晚被發現〕、虛擬印表機從「靠 NotFound 間接擋住」改成明確 `skipped-virtual`。順帶修掉一個還原洩漏：寫 journal 的條件從 `viewerCount === 0` 改成「journal 是否已存在」〔舊條件下「第一個視窗 not-found ＋第二個視窗寫入成功」會寫進 DEVMODE 卻不留還原紀錄，那張紙就永遠留在使用者的 Word/Excel〕，連帶得到「已有 journal 就完全不呼叫 helper」〔`skipped-viewer-open`，不會換掉前一個視窗正在等按列印的紙〕。回歸鎖 `PrinterFormPolicyTests`〔核心斷言：掃過所有 FormMatch × 虛擬與否，會寫入的恰好只有一格〕。**Windows 實機待複驗**。先前 2026-08-05 (新增**決策 9a：DEVMODE 的旗標與值必須同進退**——客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』〔＝RPC_E_SERVERFAULT〕」的根因就在決策 9 自己：`WritePaperSize` 清了 `DM_PAPERWIDTH`/`DM_PAPERLENGTH` 旗標卻沒把欄位歸零、`WriteSnapshot` 還原時整包蓋回 `dmFields`，兩處都留下自相矛盾的 DEVMODE，v4 驅動做 DEVMODE⇄PrintTicket 轉換時丟例外。規則抽成平台中立的 `DevModePaperFields`（ForFormSelection / ForRestore / AlreadySelected）＋ merge 後的 `NormalizeUnusedPaperFields`，回歸鎖 `DevModePaperFieldsTests`；`AlreadySelected` 順帶補上「DM_PAPERSIZE 有設」的條件。元教訓：Windows-only 專案裡任何不需要 Win32 handle 的邏輯都該住在 Domain——本決策拆了「比對」卻沒拆「位元運算」，於是這段在 macOS 與 CI 上完全隱形。另把 `CEREMONY_PRINTFORM_EXE` 指向不存在路徑寫成受文件保證的現場止血開關。先前 2026-08-04 (新增**決策 9：開視窗前把驅動的紙張預選成該報表的自訂表單**——客訴「舊系統送出列印會自動找到印表機的設定，新系統不行」，根因是決策 2 把舊系統唯一會主動設定的那格〔SignupForm.cs:1770-1787 用中文表單名比對 PrinterSettings.PaperSizes〕也一起劃到界線外；注入點在 Win32 的 SetPrinter Level 9〔每使用者預設 DEVMODE ＝ PrintDlgEx 初值來源，且不需 admin〕，落點是獨立的 Ceremony.PrintForm.exe；表單名 SSoT 收進 ReportPageSizes.FormName、比對與 ±0.5mm 容差在 PrinterFormMatcher；尺寸不符仍選它但標題與診斷紀錄帶 ⚠；refcount + journal 還原副作用；helper 失敗一律不影響列印成敗。決策 2 標題與「不做什麼」的「依名稱指定驅動自訂 form」條已改寫／刪除。先前 2026-08-02 (**全面改寫**：自建列印對話框 + silent:true 整條移除，改為「開 PDF 檢視器視窗 → 使用者按工具列列印鈕 → Windows 原生 PrintDlgEx」，逐位元對齊舊系統；列印設定（印表機/份數/三軸/記住）整組刪除；大量列印取消分段改回單一合併 PDF，後端合併改串流落檔；PDF 改由主行程 streamApiToFile 取檔，不再經 renderer；順帶修掉「列印完卡在列印中」的 UI 卡死。先前版本見 git 歷史 cc3ac5d 及更早)))))))
 ---
 
 ## 背景與動機
@@ -388,6 +388,56 @@ DEVMODE 只是一層要即時轉換的相容介面，轉換由驅動廠商實作
 **這不是終局解**：它讓「壞掉的共用設定」不再發生，但那台機器也就沒有自動選紙了。
 真正的結構解是讓我們自己擁有列印工作（＝舊系統的形狀），見〈待評估：回到 WinForms PrintDialog〉。
 
+#### 9d. 出過一次事就永遠不碰那台驅動（2026-08-10，KYOCERA PA2000 卡死）
+
+**起點**：客訴回報 **PA2000 在 v2.4.5（決策 9c 的預檢）之後症狀變了**——不再跳
+`0x80010105`，改成「**按下檢視器的列印鈕之後整個程式卡死**，選不了其他印表機、也關不掉預覽，
+只能重新啟動法會系統」。現場確認卡住的時間點是**按 🖨 之後**（預覽視窗本身開得起來）。
+
+**推論**：9c 是 fail-closed 的，所以在那台機器上我們**早就不寫入**了。既然不是寫入，
+剩下能怪的只有**接觸本身**——而 9c 正好新增了一條接觸面：
+
+| 面向 | 9c 之前 | 9c 之後 |
+|---|---|---|
+| 對驅動的呼叫 | `DeviceCapabilities`（紙張清單）+ `DocumentProperties` | 再加 `PTOpenProvider` / `PTConvertDevModeToPrintTicket` |
+| 逾時處理 | `execFile({ timeout: 3000, killSignal: 'SIGKILL' })` | 同左 |
+
+v4 驅動的設定模組多半跑在 `PrintIsolationHost.exe`，上面那兩支是 COM 呼叫。
+**在 COM 呼叫進行到一半 TerminateProcess，對方留在什麼狀態不由我們決定**；
+之後 `PrintDlgEx` 去問同一個 provider 就可能永遠等不到回應——而 PrintDlgEx 是 modal 的，
+它的 owner 視窗會被 disable，看起來就是「預覽關不掉、也不能選別台印表機」。
+再加上我們**每次列印都問一次**，等於把這個機率乘以列印次數。
+
+**處置（三件事，都在「不再接觸」這條線上）**：
+
+1. **失敗印表機黑名單**（`%APPDATA%/Ceremony/print-form-printers.json`）：
+   `skipped-printticket-reject` / `skipped-printticket-unavailable` / `driver-rejected` / `error`
+   → 記下該台的 `printerHash`，**之後 helper 在任何驅動呼叫之前就結束**（`skipped-printer-blocked`）；
+   `helper-timeout` / `helper-error` 判斷不出是哪一台 → 整台機器停用預選。
+   判定是純函式 `blockScope`（TS 端）與 `PrinterContactPolicy`（C# 端），兩邊都有測試。
+   ⚠️ **`not-found` / `mismatch` / `skipped-virtual` 不記帳**：那是驅動好好回答了，
+   記下去會讓「現場還沒建表單」被誤鎖成永久黑名單，建好之後也不會生效。
+2. **逾時不再 kill**：`execFile` 拿掉 `timeout` / `killSignal`。逾時只代表「我們不等了」，
+   不代表「它必須立刻死」。配套是 helper 自己守住「呼叫端不等了就不寫入」
+   （`--budget-ms`，在 `SetPrinter` 前檢查 → `skipped-over-budget`），
+   外加 `onLate`：萬一它真的卡在檢查與寫入之間寫成功了，補一份還原 journal（不變式二）。
+   同時新增 `skipped-helper-busy`——上一次的 helper 還在跑就不疊第二個驅動呼叫上去。
+3. **使用者自己按得到的開關**：`/reports/preview` 工具列的「自動選紙：開／關」
+   （`config.json` 的 `printFormPreselect`）。原本唯一的關閉手段是 `CEREMONY_PRINTFORM_EXE`
+   環境變數——**寺方按不到**，等於每次現場出事都要遠端協助。按回「開」時**同時清空黑名單**，
+   那是現場「驅動換過了，再試一次」的入口。
+
+**判準的轉變**：9b 是「只有確定會變好才**寫入**」，9c 是「寫入前先問驅動接不接受」，
+9d 把同一條線再往前推一格——**連問都要有額度**。理由是這次的證據顯示，
+在某些驅動上「問」本身就有代價，而那個代價（整個程式卡死、只能重啟）遠大於自動選紙的收益。
+
+**可轉移教訓**：*fail-closed 的預檢只保證「我們沒把它寫壞」，不保證「我們沒把它弄卡」。
+一個會叫醒第三方行程的檢查，本身就是一次接觸；接觸失敗過的對象要記帳，不能每次重來。*
+
+**⚠️ Windows 實機待複驗**——黑名單的效果（第二次列印起完全不啟動 helper）與
+「不 kill 之後 PrintDlgEx 不再卡死」都只有現場答得出來。若仍卡死，
+那就指向殘留的每使用者預設 DEVMODE（排障 ④）或純驅動問題，處置見〈待評估：回到 WinForms PrintDialog〉。
+
 ### 8. 順帶修掉「列印完卡在列印中」
 
 **現場回報（2026-08-02）**：列印完成後畫面卡在「列印中」，無法再選下一個列印，
@@ -400,6 +450,34 @@ DEVMODE 只是一層要即時轉換的相容介面，轉換由驅動廠商實作
 
 本次改版讓它由架構消失：`openReportInViewer` 在視窗 `loadFile` 完成就 resolve，
 UI 不再與 spooler 的 callback 綁在一起。
+
+### 10. 關掉預覽後把焦點交還主視窗（2026-08-10）
+
+**現場回報**：同時開著其他應用程式時，列印完把預覽關掉，**系統畫面會沉到別的程式後面**，
+使用者要自己從工作列點回來。
+
+根因不在我們的程式做錯了什麼，而在**沒有人負責把焦點接回來**：Windows 關閉一個視窗時，
+焦點交給 **z-order 的下一個視窗**，而 owner（`parent`）關係只保證子視窗壓在主視窗上面，
+**不保證關掉之後焦點回到 owner**；中間還隔了一個 modal 的 PrintDlgEx（它會 disable owner、
+關閉時自己再轉一次焦點），焦點鏈更容易斷在別的程式上。決策 1 把預覽做成獨立的子視窗，
+這條就是它的連帶代價。
+
+處置：`electron/window-focus.ts` 的 `returnFocusOnClose(child, parent)`，兩個開窗點都掛上——
+`print.ts` 的檢視器視窗、`main.ts` 的 `did-create-window`（報表預覽頁自己 `window.open` 的那個）。
+
+**刻意只在三個條件同時成立時才搶焦點**（搶過頭比原本的 bug 更煩人）：
+
+| 條件 | 為什麼 |
+|---|---|
+| 預覽視窗**關閉當下自己持有焦點** | 使用者若已切到 Word、再從工作列關掉預覽，那是他刻意離開，不該把畫面拉回來 |
+| 主視窗未被 destroy | 先關主視窗再關預覽時不要碰它 |
+| 主視窗未最小化 | 最小化＝使用者本來就沒在看它，`focus()` 會把它整個叫起來 |
+
+實作上焦點狀態只有 `close` 問得到（`closed` 時原生視窗已銷毀），交還焦點卻必須等 `closed`
+（太早呼叫會被視窗銷毀時系統自己的焦點轉移蓋掉）——所以是「`close` 記狀態、`closed` 才動作」。
+回歸鎖 `electron-window-focus.spec.ts`（5 條，三個「不搶」的分支各一條）。
+
+**⚠️ Windows 實機待複驗**——macOS 的焦點模型不同（app 層而非視窗層），這條只有現場算數。
 
 ## 資料流
 
@@ -436,13 +514,15 @@ UI（右鍵選單 / 批次區 / 新增後列印 / 報表預覽頁）
 | Infrastructure | `Reporting/PdfSharpMerger.cs` | `PdfReader.Open(path)` → `Save(FileStream)` |
 | Api | `Controllers/ReportsController.cs` | `AppendPageSize()`；`/file` 用 `DeleteOnClose` 串流 |
 | Domain | `Ceremony.Domain/Reports/PrinterFormMatcher.cs` | 報表 → 驅動表單的比對與 ±0.5mm 容差（平台中立、可測） |
+| Domain | `Ceremony.Domain/Reports/PrinterContactPolicy.cs` | 決策 9d：黑名單比對 + 寫入預算（平台中立、可測） |
 | PrintForm | `Ceremony.PrintForm/`（Windows-only exe） | `PrinterSettings.PaperSizes` 名稱比對 + `SetPrinter` Level 9 + 還原 |
 | Electron | `electron/api-stream.ts` | `streamApiToFile`（備份下載共用） |
 | Electron | `electron/print.ts` | `openReportInViewer` / `openPdfInViewer` / `sweepTempDir` |
-| Electron | `electron/print-form.ts` | 子行程呼叫、refcount、還原 journal（best-effort） |
-| Electron | `electron/print-form-core.ts` | 純函式：輸出解析 / 視窗標題 / log 欄位白名單 |
+| Electron | `electron/print-form.ts` | 子行程呼叫、refcount、還原 journal、失敗印表機黑名單、現場開關（best-effort） |
+| Electron | `electron/print-form-core.ts` | 純函式：輸出解析 / 視窗標題 / log 欄位白名單 / `blockScope` / `applyArgs` |
 | Electron | `electron/print-log.ts` | 診斷紀錄（寫入 / 輪替 / 過期清理） |
-| Electron | `electron/main.ts` | `plugins: true`、2 個列印 IPC、temp/log 清理、開機還原紙張 |
+| Electron | `electron/window-focus.ts` | 決策 10：子視窗關閉後把焦點交還主視窗（純條件邏輯、可測） |
+| Electron | `electron/main.ts` | `plugins: true`、4 個列印 IPC（含自動選紙開關）、temp/log 清理、開機還原紙張 |
 | Renderer | `core/print/print.service.ts` | 唯一列印入口（約 110 行，無對話框、無設定） |
 | Renderer | `core/reports/batch-print.service.ts` | `render()`（只等渲染）/ `run()`（連成品取回） |
 | Renderer | `shared/progress-overlay/` | 批次渲染進度 |

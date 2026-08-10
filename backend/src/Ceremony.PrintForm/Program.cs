@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
+using Ceremony.Domain.Reports;
 using Ceremony.PrintForm;
 
 // Ceremony.PrintForm —— 列印前把驅動的紙張預選成該報表對應的自訂表單。
@@ -12,8 +13,13 @@ using Ceremony.PrintForm;
 // 於是六種報表都只能吃驅動的單一預設紙張——這就是「舊系統會自動找到印表機設定、新系統不行」的客訴。
 //
 // 契約：
-//   apply <reportType>
+//   apply <reportType> [--budget-ms <n>] [--blocked <hash,hash,…>]
 //   restore <kind> <fields> <width> <length> [printerName]
+//
+// apply 的兩個選項都是 2026-08-10（決策 9d，KYOCERA PA2000 卡死客訴）加的，語意見
+// Ceremony.Domain.Reports.PrinterContactPolicy：
+//   --blocked   呼叫端記下的「碰過會出事」的印表機雜湊；命中就在**任何驅動呼叫之前**結束
+//   --budget-ms 呼叫端還會等多久；超過就不寫入（呼叫端逾時後改成放著讓我們跑完，不再中途 kill）
 //
 // **exit code 永遠 0**，成敗一律看 stdout 那行 JSON 的 result 欄位。
 // 理由：呼叫端絕不能因為這支程式失敗就讓列印失敗（PrintService 會把 ok:false 丟成使用者看得到的紅字），
@@ -25,7 +31,7 @@ var sw = Stopwatch.StartNew();
 JsonObject json;
 try
 {
-    json = Run(args);
+    json = Run(args, sw);
 }
 catch (Exception e)
 {
@@ -36,7 +42,7 @@ json["ms"] = sw.ElapsedMilliseconds;
 Console.Out.WriteLine(json.ToJsonString());
 return 0;
 
-static JsonObject Run(string[] args)
+static JsonObject Run(string[] args, Stopwatch sw)
 {
     if (args.Length == 0) return Fail("missing command");
 
@@ -44,7 +50,11 @@ static JsonObject Run(string[] args)
     {
         case "apply":
             if (args.Length < 2) return Fail("apply requires <reportType>");
-            return ToJson(PrinterFormApplier.Apply(args[1]));
+            return ToJson(PrinterFormApplier.Apply(
+                args[1],
+                PrinterContactPolicy.ParseBlocked(OptionValue(args, "--blocked")),
+                ParseBudget(OptionValue(args, "--budget-ms")),
+                () => sw.ElapsedMilliseconds));
 
         case "restore":
             if (args.Length < 5) return Fail("restore requires <kind> <fields> <width> <length>");
@@ -64,6 +74,20 @@ static JsonObject Run(string[] args)
 }
 
 static JsonObject Fail(string message) => new() { ["result"] = "error", ["error"] = message };
+
+/// <summary>取 <c>--name value</c> 形式的選項值；沒給就回 null。</summary>
+static string? OptionValue(string[] args, string name)
+{
+    var i = Array.IndexOf(args, name);
+    return i >= 0 && i + 1 < args.Length ? args[i + 1] : null;
+}
+
+/// <summary>
+/// 壞掉的預算值一律當成「沒給預算」而不是 0——0 會讓每一次 apply 都變成 skipped-over-budget，
+/// 也就是一個打錯的參數把整個功能靜默關掉。
+/// </summary>
+static int? ParseBudget(string? raw) =>
+    int.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var ms) && ms > 0 ? ms : null;
 
 static JsonObject ToJson(PrinterFormApplier.Outcome o)
 {

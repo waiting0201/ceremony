@@ -66,6 +66,18 @@ export interface PrintResult {
   error?: string;
 }
 
+/**
+ * 自動選紙（開檢視器視窗前把驅動的紙張預選成該報表的表單）的現場狀態。
+ *
+ * `blockedAll` / `blockedPrinters` 是**我們自己**停用的：某台驅動在自動選紙時出過事就不再碰它
+ * （2026-08-10 KYOCERA PA2000 卡死客訴，決策 9d）。使用者按「開啟」等於說「我知道，再試一次」。
+ */
+export interface PrintFormState {
+  enabled: boolean;
+  blockedAll: boolean;
+  blockedPrinters: number;
+}
+
 export interface CeremonyBridge {
   getStatus(): Promise<CeremonyStatus>;
   recheckPrereqs(): Promise<PrereqReport>;
@@ -84,6 +96,9 @@ export interface CeremonyBridge {
   openPdfInViewer(reportType: string, bytes: Uint8Array): Promise<PrintResult>;
   /** 診斷：在檔案總管中選取今天的列印紀錄，讓使用者把檔案傳回來。 */
   openPrintLogFolder(): Promise<{ ok: boolean }>;
+  /** 自動選紙的現場開關（決策 9d）：讀狀態 / 開關；打開時一併清掉失敗印表機黑名單。 */
+  getPrintFormState(): Promise<PrintFormState>;
+  setPrintFormEnabled(enabled: boolean): Promise<PrintFormState>;
   openExternal(url: string): Promise<{ ok: boolean }>;
   launchInstaller(key: string): Promise<{ ok: boolean; launched?: boolean; error?: string }>;
 }

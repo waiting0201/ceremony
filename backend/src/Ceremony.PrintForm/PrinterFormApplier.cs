@@ -61,14 +61,29 @@ internal static class PrinterFormApplier
 
     // ───────────────────────── apply ─────────────────────────
 
-    internal static Outcome Apply(string reportType)
+    /// <param name="blocked">
+    /// 呼叫端記下的「碰過會出事」的印表機雜湊。命中就**在任何驅動呼叫之前**結束——
+    /// 理由見 <see cref="PrinterContactPolicy"/>（2026-08-10 KYOCERA PA2000 卡死客訴）。
+    /// </param>
+    /// <param name="budgetMs">呼叫端還會等多久；超過就不寫入。null ＝ 沒有預算限制。</param>
+    /// <param name="elapsedMs">從行程啟動到現在的毫秒數（由 Program 的 Stopwatch 提供）。</param>
+    internal static Outcome Apply(
+        string reportType, IReadOnlyCollection<string> blocked, int? budgetMs, Func<long> elapsedMs)
     {
         var settings = new PrinterSettings();   // 不指定 PrinterName ＝ Windows 預設印表機（同舊系統）
-        var printerName = settings.PrinterName;
-        if (string.IsNullOrWhiteSpace(printerName) || !settings.IsValid)
+        var printerName = settings.PrinterName; // 只問多工緩衝處理器要名字，還沒碰到驅動
+        if (string.IsNullOrWhiteSpace(printerName))
             return new Outcome { Result = "no-default-printer" };
 
         var hash = HashPrinterName(printerName);
+
+        // ⚠️ 這一格必須在 IsValid / PaperSizes / DocumentProperties **之前**：那些全都會叫起驅動，
+        // 而黑名單的意義正是「這台驅動一次都不要再碰」。順序改掉等於這道閘門白做。
+        if (PrinterContactPolicy.IsBlocked(hash, blocked))
+            return new Outcome { Result = PrinterContactPolicy.BlockedResult, PrinterHash = hash };
+
+        if (!settings.IsValid) return new Outcome { Result = "no-default-printer", PrinterHash = hash };
+
         var isVirtual = VirtualMarkers.Any(m => printerName.Contains(m, StringComparison.OrdinalIgnoreCase));
 
         List<PrinterFormMatcher.DriverForm> forms;
@@ -96,6 +111,20 @@ internal static class PrinterFormApplier
                 // 刻意不回 Kind：它的語意是「我們設進去的表單 ID」，沒寫入就不該有值。
                 MismatchWidthMm = isMismatch ? Math.Round(match.WidthDiffMm, 2) : null,
                 MismatchHeightMm = isMismatch ? Math.Round(match.HeightDiffMm, 2) : null,
+                PrinterHash = hash,
+                Virtual = isVirtual,
+            };
+        }
+
+        // 呼叫端已經不等了（多半是這台驅動本來就慢）⇒ 不寫入。
+        // 寫下去的話那份「沒有還原 journal 的寫入」會永久留在使用者的列印喜好設定裡，
+        // 而且我們正要進的 DocumentProperties / PrintTicket 轉換就是最容易卡住的那一段。
+        if (!PrinterContactPolicy.WithinBudget(elapsedMs(), budgetMs))
+        {
+            return new Outcome
+            {
+                Result = PrinterContactPolicy.OverBudgetResult,
+                Form = match.FormName,
                 PrinterHash = hash,
                 Virtual = isVirtual,
             };

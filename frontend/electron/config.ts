@@ -15,6 +15,14 @@ export interface CeremonyConfig {
   apiPort?: number;
   /** 每機隨機 JWT 簽章 key（首次寫入產生）；不入 repo、僅存本機 user profile */
   jwtKey?: string;
+  /**
+   * 列印前要不要幫使用者預選驅動自訂表單（決策 9）。undefined = 開啟。
+   *
+   * 2026-08-10 加入：現場遇到「自動選紙把驅動弄卡」時，這是**使用者自己按得到**的止血開關
+   * （報表預覽頁的「自動選紙」）。原本只有 `CEREMONY_PRINTFORM_EXE` 那個環境變數開關，
+   * 寺方按不到，等於每次都要遠端協助。見 blueprint 決策 9d。
+   */
+  printFormPreselect?: boolean;
 }
 
 export function configDir(): string {

@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-08-08 (**列印排障步驟 ① 的分流判準修正**：「記事本也噴 ⇒ 與本程式無關」是錯的——每使用者預設 DEVMODE 共用且持久化，我們寫壞了記事本一樣噴；改為「先跑 ③ 止血 ＋ ④ 復位再測，仍噴才判給驅動」。起因是 KYOCERA PA2000 在 v2.4.2 之後仍回報 `0x80010105`，根因見 ../gotchas.md 同名條。先前 2026-08-06 (列印排障段新增 **`formResult` 對照表**〔七種結果各自代表什麼、現場該做什麼；重點是**只有 `exact` 會去動使用者的驅動設定**，其餘全是「什麼都沒做」〕；自訂紙張 runbook 補一條 ⚠ **尺寸錯的表單不再被自動選用**〔名稱對但超過 ±0.5mm → `mismatch` → 不寫每使用者預設 DEVMODE，改由標題提示手動選紙；推翻 2026-08-04 的「仍選它」，理由見 blueprints/print-channel-electron.md 決策 9b。**實務影響：舊系統留下的資料卡／薦牌／文牒三張表單沒重建之前，那三種報表就是每次手動選紙**〕。先前 2026-08-05 (新增「**列印排障：紙張預選出問題時**」段——2026-08-05 客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』」的產物：四步 runbook〔用**記事本**開印表機內容做三十秒分流〔記事本也噴＝純 Windows／驅動問題〕→ 取診斷紀錄的 `formResult`/`formError` → `CEREMONY_PRINTFORM_EXE` 指到不存在路徑當**現場止血開關**〔列印本身不受影響，只回到手動選紙〕→ 到「列印喜好設定」覆寫壞掉的 DEVMODE〕。止血開關的行為自此**受文件保證**，`electron/print-form.ts` 的 `helperPath()` 有對應註解。根因見 gotchas.md 與 blueprints/print-channel-electron.md 決策 9a。先前 2026-08-04 (列印通道資料流插入 `Ceremony.PrintForm.exe apply <type>`〔開視窗前依報表名把驅動的每使用者預設紙張選成對應自訂表單，best-effort 3s 逾時，失敗不影響列印〕；打包樹與 CI 步驟補 `resources/printform/`；**自訂紙張 runbook 語意升級**——表單名稱從「建議」變成契約〔程式依名稱比對，名稱不符＝完全不會被選到〕，表格加 reportType 欄，補 ±0.5mm 容差與「尺寸不符仍選它但標題與診斷紀錄帶 ⚠」。見 blueprints/print-channel-electron.md 決策 9。先前 2026-08-02 (**「列印通道」段改寫**：送印交回 Windows 原生列印對話框，程式只開 PDF 檢視器視窗；print-settings.json 與所有送印參數移除；自訂紙張 runbook 改標為「不做等於白改」〔Chromium 檢視器是 fit-to-printable-area 等比縮放，不像舊系統非等比拉滿，選錯紙就位置全跑掉〕。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結)))))))
+last_updated: 2026-08-10 (**列印排障新增「現場自己按得到的止血鍵」與失敗印表機黑名單**〔決策 9d，客訴 KYOCERA PA2000 **按下檢視器列印鈕後整個程式卡死**、選不了別台印表機也關不掉預覽，只能重啟〕：排障表新增 ③〔`/reports/preview` 工具列的「自動選紙：開/關」，寺方自己按，原本只有環境變數那條 IT 才做得到〕與 ⑤〔按回「開」＝清 `print-form-printers.json` 黑名單〕；`formResult` 對照表新增 `skipped-printer-blocked` / `skipped-over-budget` / `skipped-disabled` / `skipped-helper-busy` 四格；資料流那行的 helper 參數改為 `--budget-ms 3000 [--blocked …]` 並註明**逾時不再 kill**。判準轉變：預檢〔9c〕擋的是「寫壞」，但這次的失敗模式是**接觸本身**，所以規則升級為「出過一次事就永遠不碰那台驅動」。先前 2026-08-08 (**列印排障步驟 ① 的分流判準修正**：「記事本也噴 ⇒ 與本程式無關」是錯的——每使用者預設 DEVMODE 共用且持久化，我們寫壞了記事本一樣噴；改為「先跑 ③ 止血 ＋ ④ 復位再測，仍噴才判給驅動」。起因是 KYOCERA PA2000 在 v2.4.2 之後仍回報 `0x80010105`，根因見 ../gotchas.md 同名條。先前 2026-08-06 (列印排障段新增 **`formResult` 對照表**〔七種結果各自代表什麼、現場該做什麼；重點是**只有 `exact` 會去動使用者的驅動設定**，其餘全是「什麼都沒做」〕；自訂紙張 runbook 補一條 ⚠ **尺寸錯的表單不再被自動選用**〔名稱對但超過 ±0.5mm → `mismatch` → 不寫每使用者預設 DEVMODE，改由標題提示手動選紙；推翻 2026-08-04 的「仍選它」，理由見 blueprints/print-channel-electron.md 決策 9b。**實務影響：舊系統留下的資料卡／薦牌／文牒三張表單沒重建之前，那三種報表就是每次手動選紙**〕。先前 2026-08-05 (新增「**列印排障：紙張預選出問題時**」段——2026-08-05 客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』」的產物：四步 runbook〔用**記事本**開印表機內容做三十秒分流〔記事本也噴＝純 Windows／驅動問題〕→ 取診斷紀錄的 `formResult`/`formError` → `CEREMONY_PRINTFORM_EXE` 指到不存在路徑當**現場止血開關**〔列印本身不受影響，只回到手動選紙〕→ 到「列印喜好設定」覆寫壞掉的 DEVMODE〕。止血開關的行為自此**受文件保證**，`electron/print-form.ts` 的 `helperPath()` 有對應註解。根因見 gotchas.md 與 blueprints/print-channel-electron.md 決策 9a。先前 2026-08-04 (列印通道資料流插入 `Ceremony.PrintForm.exe apply <type>`〔開視窗前依報表名把驅動的每使用者預設紙張選成對應自訂表單，best-effort 3s 逾時，失敗不影響列印〕；打包樹與 CI 步驟補 `resources/printform/`；**自訂紙張 runbook 語意升級**——表單名稱從「建議」變成契約〔程式依名稱比對，名稱不符＝完全不會被選到〕，表格加 reportType 欄，補 ±0.5mm 容差與「尺寸不符仍選它但標題與診斷紀錄帶 ⚠」。見 blueprints/print-channel-electron.md 決策 9。先前 2026-08-02 (**「列印通道」段改寫**：送印交回 Windows 原生列印對話框，程式只開 PDF 檢視器視窗；print-settings.json 與所有送印參數移除；自訂紙張 runbook 改標為「不做等於白改」〔Chromium 檢視器是 fit-to-printable-area 等比縮放，不像舊系統非等比拉滿，選錯紙就位置全跑掉〕。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結))))))))
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -96,7 +96,8 @@ last_updated: 2026-08-08 (**列印排障步驟 ① 的分流判準修正**：「
   "dbUser": "ceremony_app",
   "dbPassword": "<plain-text>",
   "apiPort": 0,        // 0 = 動態指派（每次啟動找空閒 port）
-  "jwtKey": "<base64>" // 每機隨機 JWT 簽章 key（首次寫入自動產生）；經 Jwt__SigningKey 注入 sidecar
+  "jwtKey": "<base64>",// 每機隨機 JWT 簽章 key（首次寫入自動產生）；經 Jwt__SigningKey 注入 sidecar
+  "printFormPreselect": true // 列印前是否幫使用者預選驅動紙張；缺欄位 = true（2026-08-10 起）
 }
 ```
 
@@ -267,7 +268,8 @@ Electron main 開機先偵測 client 是否裝齊必要元件，缺了走 `/prer
 按列印
   → window.ceremony.openReportInViewer(type, apiPath, token)
   → main：Electron net GET {apiBase}{apiPath}（帶 Bearer，串流落 %TEMP%/ceremony-print/）
-  → main：resources/printform/Ceremony.PrintForm.exe apply <type>（best-effort，3s 逾時）
+  → main：resources/printform/Ceremony.PrintForm.exe apply <type> --budget-ms 3000 [--blocked <hash…>]
+          （best-effort，3s 不等了但**不 kill**；曾經出事的印表機直接跳過，連 exe 都不啟動）
           ↳ 依中文表單名比對驅動紙張清單 → SetPrinter Level 9 寫每使用者預設 DEVMODE
   → BrowserWindow({ plugins:true, parent: mainWindow }).loadFile(file://x.pdf)
   → 使用者按 Chromium PDF 檢視器工具列的 🖨 → Windows 原生 PrintDlgEx（有「內容」「頁面範圍」）
@@ -306,11 +308,21 @@ Electron main 開機先偵測 client 是否裝齊必要元件，缺了走 `/prer
 |---|---|
 | ① 分流 | 用**記事本**開同一台印表機的「內容」。**只有本程式噴** → 是我們寫的 DEVMODE。⚠️ **記事本也噴 ≠ 與本程式無關**（2026-08-08 修正）：那份每使用者預設 DEVMODE 是共用且持久化的，我們寫壞了記事本一樣噴。這時**不要**直接判給驅動，改跑下面的 ③ → ④ → 再測，仍噴才是純 Windows／驅動問題（重啟 Print Spooler 服務、重裝驅動） |
 | ② 取證 | `%APPDATA%\Ceremony\logs\print-YYYYMMDD.log`（左側選單「開啟診斷紀錄」），看 `formResult` / `formKind` / `formError` / `printerVirtual` |
-| ③ 止血 | 設環境變數 `CEREMONY_PRINTFORM_EXE` 指到一個**不存在**的路徑 → helper 回 `helper-missing` → 整段紙張預選跳過。**列印本身完全不受影響**，只是回到每次手動選紙（＝ v2.3.9 的行為） |
+| ③ 止血（現場自己來，2026-08-10 起） | `/reports/preview` 工具列的「**自動選紙：開／關**」按鈕按成「關」。之後程式完全不碰驅動設定，只是回到每次手動選紙。**這是給寺方按的**，不需要 IT、不需要重出版本 |
+| ③' 止血（遠端協助） | 設環境變數 `CEREMONY_PRINTFORM_EXE` 指到一個**不存在**的路徑 → helper 回 `helper-missing` → 整段紙張預選跳過。與 ③ 等效，適用於連 UI 都進不去的情況 |
 | ④ 修機器 | 印表機 → 列印喜好設定 → 紙張改一次後按確定（覆寫一份乾淨的每使用者預設 DEVMODE）。app 曾經崩潰的機器另刪 `%APPDATA%\Ceremony\print-form-restore.json` |
+| ⑤ 想再試一次 | 把 ③ 那顆按鈕按回「開」——它**同時清掉失敗印表機黑名單** `%APPDATA%\Ceremony\print-form-printers.json`（直接刪檔等效）。驅動換過／表單重建過之後才需要做這一步 |
 
-⚠️ ③ 的行為**是受文件保證的**（`electron/print-form.ts` 的 `helperPath()` 有對應註解）：
-它是「不重新出版本就能關掉這個功能」的唯一手段，改動那段程式前必須先讀這裡。
+⚠️ ③' 的行為**是受文件保證的**（`electron/print-form.ts` 的 `helperPath()` 有對應註解）：
+它是「不重新出版本就能關掉這個功能」的最後手段，改動那段程式前必須先讀這裡。
+
+**失敗印表機黑名單**（2026-08-10 起，決策 9d）：只要某台印表機在自動選紙時出過事
+（`skipped-printticket-reject` / `skipped-printticket-unavailable` / `driver-rejected` / `error`），
+就記進 `print-form-printers.json`，**之後永遠不再接觸那台驅動**；`helper-timeout` / `helper-error`
+因為判斷不出是哪一台，直接整台機器停用預選。
+起因是 2026-08-10 客訴「KYOCERA PA2000 按下檢視器的列印鈕之後整個程式卡死，
+選不了別台印表機也關不掉預覽，只能重啟」——那不是寫入造成的（預檢早就擋下寫入了），
+而是**接觸本身**：每次列印都去叫醒 v4 驅動的設定模組，再在 3 秒逾時把 helper 殺在 COM 呼叫中間。
 
 **`formResult` 對照表**（2026-08-06 起，見 [print-channel-electron.md](../blueprints/print-channel-electron.md) 決策 9b）。
 只有 `exact` 會去動使用者的驅動設定，其餘全部是「什麼都沒做」：
@@ -323,7 +335,10 @@ Electron main 開機先偵測 client 是否裝齊必要元件，缺了走 `/prer
 | `skipped-virtual` | 預設印表機是 Print to PDF／XPS／OneNote 之類 | 多半是使用者的預設印表機選錯了 |
 | `skipped-printticket-reject` | 表單找到了，但**驅動不接受**我們組的紙張設定 → 刻意不寫（2026-08-08 起） | 這台就是不支援自動選紙，請使用者手動選。**不是故障**，`0x80010105` 正是硬寫下去的後果 |
 | `skipped-printticket-unavailable` | 寫入前的檢查本身跑不起來（缺 `prntvpt.dll`／provider 開不了） | 同上先手動選紙。但**大量出現就要查**——那代表我們在很多機器上都放棄了自動選紙，看 `formError` 的 HRESULT |
-| `skipped-viewer-open` | 已經有另一個列印視窗開著 | 正常行為（避免換掉那個視窗的紙），關掉再印即可 |
+| `skipped-printer-blocked` | 這台印表機曾經出過事，**我們已經永遠不碰它**（2026-08-10 起） | 正常防護。真的要重試，按工具列「自動選紙」關再開（會清黑名單）|
+| `skipped-over-budget` | 驅動太慢，我們已經不等了 ⇒ 不寫入 | 手動選紙。連續出現代表那台驅動反應很慢，通常也會一併被黑名單擋掉 |
+| `skipped-disabled` | 使用者自己把「自動選紙」關掉了 | 正常，要恢復就按回「開」 |
+| `skipped-viewer-open` / `skipped-helper-busy` | 已經有另一個列印視窗開著／上一次的 helper 還沒結束 | 正常行為（避免換掉那個視窗的紙、避免疊第二個驅動呼叫），稍候再印即可 |
 | `unchanged` | 本來就已經是對的紙 | 正常 |
 | `driver-rejected` / `error` / `helper-*` | helper 沒跑成功 | 看 `formError`／`win32`；列印本身不受影響 |
 

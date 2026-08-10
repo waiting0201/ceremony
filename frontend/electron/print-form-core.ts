@@ -6,9 +6,10 @@
 // 真正的 Win32 呼叫在 Ceremony.PrintForm.exe，這裡只負責解析它的輸出與轉成 UI／log 用的形狀。
 
 /**
- * helper 自己會回的結果；electron 端另有五種「helper 根本沒跑」的結果。
+ * helper 自己會回的結果；electron 端另有七種「helper 根本沒跑（或跑不完）」的結果，列在 FormResult。
  *
- * ⚠️ 這份清單是跨語言契約，與 C# 的 `PrinterFormPolicy.ToResult` 一一對應
+ * ⚠️ 這份清單是跨語言契約，與 C# 的 `PrinterFormPolicy.ToResult`、`PrintTicketPreflight.ToResult`
+ * 以及 `PrinterContactPolicy` 的兩個常數一一對應
  * （少一個 → parseHelperOutput 把整包退成 helper-error）。
  */
 const HELPER_RESULTS = [
@@ -20,6 +21,10 @@ const HELPER_RESULTS = [
   // 見 C# 的 PrintTicketPreflight 與 docs/blueprints/print-channel-electron.md 決策 9c。
   'skipped-printticket-reject',
   'skipped-printticket-unavailable',
+  // 2026-08-10 起：碰過會出事的印表機不再接觸；呼叫端不等了就不寫入。
+  // 見 C# 的 PrinterContactPolicy 與 blueprint 決策 9d。
+  'skipped-printer-blocked',
+  'skipped-over-budget',
   'unchanged',
   'restored',
   'no-default-printer',
@@ -33,7 +38,12 @@ export type FormResult =
   | 'helper-error'
   | 'helper-timeout'
   | 'skipped-not-windows'
-  | 'skipped-viewer-open';
+  | 'skipped-viewer-open'
+  // 使用者自己在報表頁關掉了自動選紙（＝現場不必改環境變數就能止血的那個開關）
+  | 'skipped-disabled'
+  // 上一次的 helper 還沒結束。逾時後我們不再 kill 它（見 print-form.ts 的 run），
+  // 所以要有一格表示「不疊第二個驅動呼叫上去」。
+  | 'skipped-helper-busy';
 
 /** DEVMODE 裡被我們動過的那幾格 + 印表機名稱，用於還原。 */
 export interface RestoreSnapshot {
@@ -124,6 +134,51 @@ export function parseHelperOutput(stdout: string): FormApplyResult {
   }
 }
 
+/**
+ * 這次的結果要不要讓我們「以後不再碰」，以及範圍多大。
+ *
+ * - `printer`：這台印表機（用 printerHash 記帳）——驅動已經明確給過答案，再問一百次也一樣，
+ *   而每問一次就多一次把 v4 驅動的設定模組叫起來的機會（2026-08-10 卡死客訴的來源）。
+ * - `all`：整台機器停用預選——**逾時／helper 壞掉時我們不知道是哪台印表機**，
+ *   而逾時正是最該停手的訊號（代表有個驅動呼叫卡在那裡）。寧可整台停掉自動選紙。
+ * - `none`：驅動好好回答了（找不到同名表單、尺寸不符、虛擬印表機…），那是健康的失敗。
+ *
+ * ⚠️ `unchanged` / `exact` 不在此列：那是成功。`skipped-*`（我們自己決定跳過的）也不記帳，
+ * 否則「另一個視窗開著」這種暫時狀態會被誤記成永久黑名單。
+ */
+export type BlockScope = 'none' | 'printer' | 'all';
+
+const DRIVER_FAULT_RESULTS: readonly FormResult[] = [
+  'skipped-printticket-reject',
+  'skipped-printticket-unavailable',
+  'driver-rejected',
+  'error',
+];
+
+export function blockScope(r: FormApplyResult): BlockScope {
+  if (r.result === 'helper-timeout' || r.result === 'helper-error') return 'all';
+  if (!DRIVER_FAULT_RESULTS.includes(r.result)) return 'none';
+  // 沒有 hash 就記不到那台頭上（helper 在拿到印表機名稱之前就失敗）——退成整台停用，
+  // 不是不記：記不到又不停用，等於這道閘門對這條路徑完全失效。
+  return r.printerHash ? 'printer' : 'all';
+}
+
+/**
+ * helper 的 apply 子命令參數。
+ *
+ * `--budget-ms` 與 `--blocked` 的語意見 C# 的 `PrinterContactPolicy`：前者讓 helper 自己守住
+ * 「呼叫端不等了就不寫入」（因為我們不再中途 kill 它），後者讓它在**任何驅動呼叫之前**就結束。
+ */
+export function applyArgs(
+  reportType: string,
+  budgetMs: number,
+  blocked: readonly string[],
+): string[] {
+  const args = ['apply', reportType, '--budget-ms', String(budgetMs)];
+  if (blocked.length > 0) args.push('--blocked', blocked.join(','));
+  return args;
+}
+
 const DEFAULT_TITLE = '列印預覽 — 請按工具列的列印鈕';
 
 /**
@@ -142,12 +197,25 @@ export function viewerTitle(r: FormApplyResult): string {
   if (r.result === 'not-found') {
     return `列印預覽 — ⚠ 印表機沒有「${r.form}」紙張設定，請在列印對話框手動選紙`;
   }
-  if (r.result === 'skipped-printticket-reject' || r.result === 'skipped-printticket-unavailable') {
-    // 使用者能做的事跟 not-found 一樣（手動選紙），所以不必區分兩種；差別只寫進診斷紀錄。
-    // 刻意不出現「PrintTicket」「驅動」這種字眼——現場看到的應該是「我現在該怎麼辦」。
+  if (
+    r.result === 'skipped-printticket-reject' ||
+    r.result === 'skipped-printticket-unavailable' ||
+    r.result === 'skipped-over-budget'
+  ) {
+    // 使用者能做的事跟 not-found 一樣（手動選紙），所以不必區分；差別只寫進診斷紀錄。
+    // 刻意不出現「PrintTicket」「驅動」「逾時」這種字眼——現場要看到的是「我現在該怎麼辦」。
     return `列印預覽 — ⚠ 這台印表機不支援自動選紙，請在列印對話框手動選「${r.form}」`;
   }
-  if (r.result === 'skipped-viewer-open') {
+  if (r.result === 'skipped-printer-blocked') {
+    // 這台印表機曾經在自動選紙時出事，我們已經永久不碰它（決策 9d）。這裡沒有表單名可講——
+    // helper 在比對之前就結束了，那正是重點。
+    return '列印預覽 — ⚠ 這台印表機已停用自動選紙，請在列印對話框手動選紙';
+  }
+  if (r.result === 'skipped-disabled') {
+    // 使用者自己關的，不是異常 ⇒ 不掛 ⚠，但仍要說明為什麼紙沒被選好。
+    return '列印預覽 — 自動選紙已關閉，請在列印對話框手動選紙';
+  }
+  if (r.result === 'skipped-viewer-open' || r.result === 'skipped-helper-busy') {
     return '列印預覽 — ⚠ 另一個列印視窗開著，本次未自動選紙，請在列印對話框手動選紙';
   }
   return DEFAULT_TITLE;

@@ -138,6 +138,28 @@
           <!-- 印歪 / 印不出來時，請使用者把這個資料夾裡的 print-*.log 傳回來 -->
           <button type="button" class="btn btn-sm" (click)="openPrintLog()">診斷紀錄</button>
         }
+        @if (printForm(); as pf) {
+          <!--
+            自動選紙的止血開關（決策 9d）：某些驅動被我們預選紙張碰過之後，Windows 原生列印
+            對話框會整個卡死。關掉之後程式完全不碰驅動設定，代價只是每次要自己在對話框選紙。
+          -->
+          <button
+            type="button"
+            class="btn btn-sm"
+            [disabled]="printFormBusy()"
+            [title]="
+              pf.enabled
+                ? '列印前自動幫你把印表機的紙張選成該報表的表單。若按下列印鈕後程式沒反應，請關掉這一項。'
+                : '目前不會去更動印表機設定，請在列印對話框自己選紙。'
+            "
+            (click)="togglePrintForm()"
+          >
+            自動選紙：{{ pf.enabled ? '開' : '關' }}
+            @if (pf.enabled && (pf.blockedAll || pf.blockedPrinters > 0)) {
+              <span class="badge">部分印表機已停用</span>
+            }
+          </button>
+        }
       </div>
       <iframe class="pdf-frame" [src]="url" title="PDF Preview"></iframe>
     } @else {
