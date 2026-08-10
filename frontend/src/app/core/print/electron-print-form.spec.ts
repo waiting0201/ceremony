@@ -5,6 +5,7 @@ import {
   logFields,
   needsRestore,
   parseHelperOutput,
+  printerPrefsArgs,
   restoreArgs,
   viewerTitle,
 } from '../../../../electron/print-form-core';
@@ -215,6 +216,24 @@ describe('print-form-core', () => {
         '--blocked',
         'a1b2c3d4,ff00ee11',
       ]);
+    });
+  });
+
+  describe('printerPrefsArgs', () => {
+    it('名稱含空白與反斜線時仍是「一個」參數（絕不可交給 shell 解析）', () => {
+      // 現場的印表機名稱常見形式就是這種；用 shell: true 等於把它餵進命令列語法。
+      expect(printerPrefsArgs('\\\\PC-王小明\\HP LaserJet 1020')).toEqual([
+        'printui.dll,PrintUIEntry',
+        '/e',
+        '/n',
+        '\\\\PC-王小明\\HP LaserJet 1020',
+      ]);
+    });
+
+    it('沒有預設印表機就回 null（沒有東西可設定，不該亂開一個視窗）', () => {
+      expect(printerPrefsArgs(undefined)).toBeNull();
+      expect(printerPrefsArgs(null)).toBeNull();
+      expect(printerPrefsArgs('   ')).toBeNull();
     });
   });
 

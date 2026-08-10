@@ -99,6 +99,12 @@ export interface CeremonyBridge {
   /** 自動選紙的現場開關（決策 9d）：讀狀態 / 開關；打開時一併清掉失敗印表機黑名單。 */
   getPrintFormState(): Promise<PrintFormState>;
   setPrintFormEnabled(enabled: boolean): Promise<PrintFormState>;
+  /**
+   * 排障：叫出 Windows 的「列印喜好設定」（預設印表機）。
+   *
+   * 現場的復位步驟必須是按鈕——請客戶自己去 `%APPDATA%` 找檔案在實務上等於做不到。
+   */
+  openPrinterPreferences(): Promise<{ ok: boolean; error?: string }>;
   openExternal(url: string): Promise<{ ok: boolean }>;
   launchInstaller(key: string): Promise<{ ok: boolean; launched?: boolean; error?: string }>;
 }

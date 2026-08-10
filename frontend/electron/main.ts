@@ -17,6 +17,7 @@ import {
   releaseReportForm,
   setPrintFormEnabled,
 } from './print-form';
+import { printerPrefsArgs } from './print-form-core';
 import { returnFocusOnClose } from './window-focus';
 
 let mainWindow: BrowserWindow | null = null;
@@ -222,6 +223,33 @@ ipcMain.handle('ceremony:getPrintFormState', () => printFormState());
 ipcMain.handle('ceremony:setPrintFormEnabled', (_e, enabled: boolean) =>
   setPrintFormEnabled(enabled === true),
 );
+
+/**
+ * 叫出 Windows 自己的「列印喜好設定」（預設印表機）。
+ *
+ * 這是排障 ④「到列印喜好設定改一次紙按確定」的自動化——那個動作會**覆寫掉可能已經壞掉的
+ * 每使用者預設 DEVMODE**，而覆寫的人是 Windows 不是我們（見 `printerPrefsArgs` 的註解）。
+ * 現場找不到 `%APPDATA%` 底下的檔案是常態，所以任何要現場執行的復位步驟都必須是一顆按鈕。
+ *
+ * 印表機名稱**只從系統清單取**（`getPrintersAsync` 的 `isDefault`），不接受 renderer 傳進來的字串；
+ * 加上參數陣列（無 `shell: true`），名稱含空白／反斜線也不會被當成命令列語法。
+ */
+ipcMain.handle('ceremony:openPrinterPreferences', async () => {
+  if (process.platform !== 'win32') return { ok: false, error: '此功能僅在 Windows 可用' };
+  const wc = mainWindow?.webContents;
+  if (!wc) return { ok: false, error: '視窗尚未就緒' };
+
+  try {
+    const printers = await wc.getPrintersAsync();
+    const args = printerPrefsArgs(printers.find((p) => p.isDefault)?.name);
+    if (!args) return { ok: false, error: '找不到預設印表機，請先在 Windows 設定一台' };
+
+    spawn('rundll32.exe', args, { detached: true, stdio: 'ignore', windowsHide: false }).unref();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+});
 
 ipcMain.handle('ceremony:openExternal', async (_e, url: string) => {
   await shell.openExternal(url);

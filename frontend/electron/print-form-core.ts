@@ -179,6 +179,26 @@ export function applyArgs(
   return args;
 }
 
+/**
+ * 叫出 Windows 自己的「列印喜好設定」的 `rundll32` 參數（決策 9d 的排障 ④ 自動化）。
+ *
+ * **為什麼是這一支、而不是我們自己去修那份 DEVMODE**：壞掉的每使用者預設 DEVMODE 正是要被覆寫的
+ * 東西，但「修它」得先讀它，讀本身就是一次對驅動的接觸——那正是 9d 決定不要再做的事。
+ * `printui.dll` 這條路寫入的是 **Windows 自己的 UI**，使用者改一次紙按確定就覆寫掉了；
+ * 而且萬一連這個視窗都開不起來或卡住，那本身就是「與本程式無關」的強證據（排障 ① 的分流）。
+ *
+ * ⚠️ **絕不能用 `shell: true`**：印表機名稱常見形式是 `\\PC-王小明\HP LaserJet 1020`，
+ * 裡面有反斜線與空白，交給 shell 解析等於把使用者的印表機名餵進命令列語法。
+ * 一律用參數陣列，並且只接受**從系統印表機清單拿到的名稱**（呼叫端負責比對）。
+ *
+ * @returns 參數陣列；名稱空白時回 null（沒有預設印表機就沒有東西可設定）。
+ */
+export function printerPrefsArgs(printerName: string | undefined | null): string[] | null {
+  const name = printerName?.trim();
+  if (!name) return null;
+  return ['printui.dll,PrintUIEntry', '/e', '/n', name];
+}
+
 const DEFAULT_TITLE = '列印預覽 — 請按工具列的列印鈕';
 
 /**

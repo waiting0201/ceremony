@@ -218,6 +218,18 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   }
 
   /**
+   * 排障：叫出 Windows 的「列印喜好設定」，讓使用者改一次紙覆寫掉壞掉的驅動設定。
+   * 失敗訊息走既有的 `errorMessage` 區塊——這顆按鈕沒反應會被當成程式壞掉。
+   */
+  protected async openPrinterPreferences(): Promise<void> {
+    try {
+      await this.print.openPrinterPreferences();
+    } catch (err) {
+      this.errorMessage.set(toMessage(err));
+    }
+  }
+
+  /**
    * 自動選紙開關（決策 9d）。
    *
    * 只有桌面版有；狀態讀不到就整格不顯示（`printForm()` 維持 null）。

@@ -137,6 +137,18 @@
         @if (isDesktop) {
           <!-- 印歪 / 印不出來時，請使用者把這個資料夾裡的 print-*.log 傳回來 -->
           <button type="button" class="btn btn-sm" (click)="openPrintLog()">診斷紀錄</button>
+          <!--
+            排障 ④ 的按鈕版：叫出 Windows 的「列印喜好設定」，改一次紙按確定就覆寫掉
+            可能已經壞掉的驅動設定。現場找不到 %APPDATA% 底下的檔案，復位步驟必須是按鈕。
+          -->
+          <button
+            type="button"
+            class="btn btn-sm"
+            title="開啟 Windows 的列印喜好設定。列印不正常時，在裡面改一次紙張並按確定，可修復印表機被改壞的設定。"
+            (click)="openPrinterPreferences()"
+          >
+            印表機設定
+          </button>
         }
         @if (printForm(); as pf) {
           <!--

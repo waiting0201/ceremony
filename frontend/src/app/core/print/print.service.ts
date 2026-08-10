@@ -112,6 +112,15 @@ export class PrintService {
     );
   }
 
+  /**
+   * 叫出 Windows 的「列印喜好設定」。失敗時把訊息丟給呼叫端顯示——這顆按鈕是排障用的，
+   * 靜靜地沒反應比報錯更糟（現場會以為程式壞了）。
+   */
+  async openPrinterPreferences(): Promise<void> {
+    const r = await this.bridge().openPrinterPreferences();
+    if (!r.ok) throw new UserFacingError(r.error ?? '無法開啟列印喜好設定');
+  }
+
   async setPrintFormEnabled(enabled: boolean): Promise<PrintFormState | null> {
     return (
       (await ceremony()

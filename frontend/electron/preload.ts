@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld('ceremony', {
   /** 自動選紙：開／關；打開時同時清掉失敗印表機黑名單（＝現場的「再試一次」） */
   setPrintFormEnabled: (enabled: boolean) =>
     ipcRenderer.invoke('ceremony:setPrintFormEnabled', enabled),
+  /** 排障：叫出 Windows 的「列印喜好設定」，讓使用者改一次紙覆寫掉壞掉的驅動設定 */
+  openPrinterPreferences: () => ipcRenderer.invoke('ceremony:openPrinterPreferences'),
   /** 開外部連結（官方下載頁等） */
   openExternal: (url: string) => ipcRenderer.invoke('ceremony:openExternal', url),
   /** 執行 bundle 的 prereq installer（缺檔則開官方下載頁） */
