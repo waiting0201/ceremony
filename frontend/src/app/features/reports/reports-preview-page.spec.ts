@@ -84,3 +84,68 @@ describe('ReportsPreviewPage（列印排障列）', () => {
     expect(fixture.nativeElement.querySelector('.trouble-bar')).toBeNull();
   });
 });
+
+/**
+ * 回歸鎖（2026-08-11 使用者回報「編號起訖會重疊、含後續年份的 checkbox 也被壓到」）：
+ * 語意相依的欄位要綁成一組，換行時整組一起走。
+ *
+ * 版面重疊的真因是 CSS（`.field` 是 grid，子項 min-width 預設 auto ＝ input 的固有寬約 190px，
+ * 不會被壓縮 ⇒ 溢出 100px 的欄位盒、蓋到右邊欄位），那一半在 jsdom 量不到，
+ * 已用 Playwright 實測各寬度確認無重疊、無水平溢出。這裡鎖的是結構的那一半：
+ * 只要有人把 `.field-group` 拆掉，窄視窗下「起」與「迄」就會被分到不同列。
+ */
+describe('ReportsPreviewPage（批次列印表單版面）', () => {
+  const create = (): ComponentFixture<ReportsPreviewPage> => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    const fixture = TestBed.createComponent(ReportsPreviewPage);
+    fixture.detectChanges();
+    return fixture;
+  };
+
+  /** 切到批次分頁；`.form-row.wrap` 只有這個模式才存在。 */
+  const openBatch = (fixture: ComponentFixture<ReportsPreviewPage>): HTMLElement => {
+    const tabs = [...fixture.nativeElement.querySelectorAll('.mode-tab')] as HTMLElement[];
+    tabs.find((t) => t.textContent!.includes('批次列印'))!.click();
+    fixture.detectChanges();
+    return fixture.nativeElement.querySelector('.form-row.wrap') as HTMLElement;
+  };
+
+  /** 以欄位標題找出那個 `.field` / `.field-check`。 */
+  const fieldByLabel = (row: HTMLElement, text: string): HTMLElement =>
+    [...row.querySelectorAll('label')].find((l) =>
+      l.querySelector('span')?.textContent?.includes(text),
+    ) as HTMLElement;
+
+  afterEach(() => {
+    TestBed.resetTestingModule();
+  });
+
+  it('編號起與編號迄在同一個 .field-group（不會被拆到不同列）', () => {
+    const row = openBatch(create());
+    const start = fieldByLabel(row, '編號起');
+    const end = fieldByLabel(row, '編號迄');
+
+    expect(start.parentElement!.classList.contains('field-group')).toBe(true);
+    expect(start.parentElement).toBe(end.parentElement);
+  });
+
+  it('民國年與「含後續年份」在同一個 .field-group', () => {
+    const row = openBatch(create());
+    const year = fieldByLabel(row, '民國年');
+    const gte = fieldByLabel(row, '含後續年份');
+
+    expect(year.parentElement!.classList.contains('field-group')).toBe(true);
+    expect(year.parentElement).toBe(gte.parentElement);
+  });
+
+  it('.field-group 只是換行用的包裝，不吃掉任何欄位', () => {
+    const row = openBatch(create());
+    const labels = [...row.querySelectorAll('label')];
+
+    // 七個欄位（報表類型／民國年／含後續年份／法會分類／報名類型／編號起／編號迄）都還在
+    expect(labels.length).toBe(7);
+    expect(row.querySelectorAll('input, select').length).toBe(7);
+  });
+});

@@ -99,6 +99,13 @@
 
   &.wrap { flex-wrap: wrap; }
 
+  // ⚠ input / select 的固有寬度（Chrome 預設 size=20，約 190px）比這裡的窄欄位還寬，
+  // 而 .field 是 grid、grid 子項的 min-width 預設是 auto ⇒ 不會被壓縮，直接溢出欄位盒，
+  // 蓋到右邊的欄位上（2026-08-11 客訴：批次列印「編號起／迄」重疊、「含後續年份」的
+  // checkbox 被「民國年」輸入框壓住）。必須顯式解除最小寬度，欄位寬才真的是欄位寬。
+  .field > input,
+  .field > select { min-width: 0; }
+
   .field { min-width: 100px; }
   .field.flex-1 { flex: 1 1 auto; }
   .field.flex-3 { flex: 3 1 auto; }
@@ -111,17 +118,28 @@
   .submit { white-space: nowrap; min-width: 120px; align-self: flex-end; }
 }
 
+// 語意相依的欄位（民國年＋含後續年份、編號起＋編號迄）綁成一組，
+// 換行時整組一起換，不會出現「起」在上一列、「迄」在下一列。
+.field-group {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-md);
+  flex: 0 0 auto;
+}
+
 .field-check.inline {
   display: flex;
   align-items: center;
   gap: var(--space-xs);
   height: var(--control-height);
   align-self: flex-end;
+  flex: 0 0 auto;
+  white-space: nowrap; // 中文可在任意字間斷行，不鎖住會被壓成直排
   font-size: var(--font-size-sm);
   user-select: none;
   cursor: pointer;
 
-  input { width: 16px; height: 16px; }
+  input { flex: 0 0 auto; width: 16px; height: 16px; }
 }
 
 /* ─── Preview ─────────────────────────────────────── */
