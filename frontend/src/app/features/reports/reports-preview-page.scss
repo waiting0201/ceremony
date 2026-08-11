@@ -25,6 +25,35 @@
   a.btn { display: inline-flex; align-items: center; text-decoration: none; }
 }
 
+/* ─── Trouble bar（列印排障；與有沒有預覽無關，永遠在） ── */
+
+.trouble-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--c-bg-darker);
+  border: 1px solid var(--c-border-soft);
+  border-radius: 4px;
+
+  .trouble-label {
+    font-size: var(--font-size-sm);
+    color: var(--c-text-secondary);
+  }
+
+  .badge {
+    background: var(--c-primary-soft);
+    color: var(--c-primary-hover);
+    padding: 2px var(--space-sm);
+    border-radius: 2px;
+    font-size: var(--font-size-xs);
+  }
+
+  .spacer { flex: 1; }
+}
+
 /* ─── Form bar ─────────────────────────────────────── */
 
 .form-bar {

@@ -5,7 +5,11 @@
     <div class="gate-circle gate-circle--outer"></div>
     <div class="gate-circle gate-circle--mid"></div>
     <div class="gate-circle gate-circle--inner">
-      <img class="gate-logo" src="/logo.png" alt="" width="96" height="96" />
+      <!--
+        路徑必須是相對的：桌面版用 file:// 載入打包後的 index.html（base href="./"），
+        絕對路徑 `/logo.png` 會被解成 file:///logo.png（磁碟根目錄）→ 圖破掉。
+      -->
+      <img class="gate-logo" src="logo.png" alt="" width="96" height="96" />
     </div>
   </div>
 

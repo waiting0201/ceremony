@@ -11,6 +11,51 @@
     <div class="alert alert-error">{{ msg }}</div>
   }
 
+  <!--
+    列印排障列：這幾顆是「列印壞掉時的復位鍵」，所以**不能**掛在預覽工具列裡——
+    真正的故障情境（按下列印鈕整個卡死、印表機叫不出來）根本產不出預覽，
+    等於現場永遠按不到那幾顆按鈕。改成一進這一頁就在，與有沒有 PDF 無關。
+    對應「現場的復位動作一律要有 UI 入口」，見 docs/blueprints/print-channel-electron.md。
+  -->
+  @if (isDesktop) {
+    <section class="trouble-bar">
+      <span class="trouble-label">列印不正常時：</span>
+      <button
+        type="button"
+        class="btn btn-sm"
+        title="開啟 Windows 的列印喜好設定。列印不正常時，在裡面改一次紙張並按確定，可修復印表機被改壞的設定。"
+        (click)="openPrinterPreferences()"
+      >
+        印表機設定
+      </button>
+      @if (printForm(); as pf) {
+        <!--
+          自動選紙的止血開關（決策 9d）：某些驅動被我們預選紙張碰過之後，Windows 原生列印
+          對話框會整個卡死。關掉之後程式完全不碰驅動設定，代價只是每次要自己在對話框選紙。
+        -->
+        <button
+          type="button"
+          class="btn btn-sm"
+          [disabled]="printFormBusy()"
+          [title]="
+            pf.enabled
+              ? '列印前自動幫你把印表機的紙張選成該報表的表單。若按下列印鈕後程式沒反應，請關掉這一項。'
+              : '目前不會去更動印表機設定，請在列印對話框自己選紙。'
+          "
+          (click)="togglePrintForm()"
+        >
+          自動選紙：{{ pf.enabled ? '開' : '關' }}
+          @if (pf.enabled && (pf.blockedAll || pf.blockedPrinters > 0)) {
+            <span class="badge">部分印表機已停用</span>
+          }
+        </button>
+      }
+      <span class="spacer"></span>
+      <!-- 印歪 / 印不出來時，請使用者把這個資料夾裡的 print-*.log 傳回來 -->
+      <button type="button" class="btn btn-sm" (click)="openPrintLog()">診斷紀錄</button>
+    </section>
+  }
+
   <section class="form-bar">
     <div class="mode-tabs" role="tablist">
       <button
@@ -134,44 +179,7 @@
         <button type="button" class="btn btn-sm" (click)="openExternal()">新分頁開啟</button>
         <button type="button" class="btn btn-sm" (click)="download()">下載</button>
         <button type="button" class="btn btn-sm" (click)="closePreview()">關閉</button>
-        @if (isDesktop) {
-          <!-- 印歪 / 印不出來時，請使用者把這個資料夾裡的 print-*.log 傳回來 -->
-          <button type="button" class="btn btn-sm" (click)="openPrintLog()">診斷紀錄</button>
-          <!--
-            排障 ④ 的按鈕版：叫出 Windows 的「列印喜好設定」，改一次紙按確定就覆寫掉
-            可能已經壞掉的驅動設定。現場找不到 %APPDATA% 底下的檔案，復位步驟必須是按鈕。
-          -->
-          <button
-            type="button"
-            class="btn btn-sm"
-            title="開啟 Windows 的列印喜好設定。列印不正常時，在裡面改一次紙張並按確定，可修復印表機被改壞的設定。"
-            (click)="openPrinterPreferences()"
-          >
-            印表機設定
-          </button>
-        }
-        @if (printForm(); as pf) {
-          <!--
-            自動選紙的止血開關（決策 9d）：某些驅動被我們預選紙張碰過之後，Windows 原生列印
-            對話框會整個卡死。關掉之後程式完全不碰驅動設定，代價只是每次要自己在對話框選紙。
-          -->
-          <button
-            type="button"
-            class="btn btn-sm"
-            [disabled]="printFormBusy()"
-            [title]="
-              pf.enabled
-                ? '列印前自動幫你把印表機的紙張選成該報表的表單。若按下列印鈕後程式沒反應，請關掉這一項。'
-                : '目前不會去更動印表機設定，請在列印對話框自己選紙。'
-            "
-            (click)="togglePrintForm()"
-          >
-            自動選紙：{{ pf.enabled ? '開' : '關' }}
-            @if (pf.enabled && (pf.blockedAll || pf.blockedPrinters > 0)) {
-              <span class="badge">部分印表機已停用</span>
-            }
-          </button>
-        }
+        <!-- 排障三顆（診斷紀錄／印表機設定／自動選紙）在頁面上方的 .trouble-bar，不重複放這裡 -->
       </div>
       <iframe class="pdf-frame" [src]="url" title="PDF Preview"></iframe>
     } @else {
