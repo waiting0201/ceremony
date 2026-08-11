@@ -94,7 +94,7 @@ describe('ReportsPreviewPage（列印排障列）', () => {
  * 已用 Playwright 實測各寬度確認無重疊、無水平溢出。這裡鎖的是結構的那一半：
  * 只要有人把 `.field-group` 拆掉，窄視窗下「起」與「迄」就會被分到不同列。
  */
-describe('ReportsPreviewPage（批次列印表單版面）', () => {
+describe('ReportsPreviewPage（列印表單版面）', () => {
   const create = (): ComponentFixture<ReportsPreviewPage> => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
@@ -104,13 +104,8 @@ describe('ReportsPreviewPage（批次列印表單版面）', () => {
     return fixture;
   };
 
-  /** 切到批次分頁；`.form-row.wrap` 只有這個模式才存在。 */
-  const openBatch = (fixture: ComponentFixture<ReportsPreviewPage>): HTMLElement => {
-    const tabs = [...fixture.nativeElement.querySelectorAll('.mode-tab')] as HTMLElement[];
-    tabs.find((t) => t.textContent!.includes('批次列印'))!.click();
-    fixture.detectChanges();
-    return fixture.nativeElement.querySelector('.form-row.wrap') as HTMLElement;
-  };
+  const formRow = (fixture: ComponentFixture<ReportsPreviewPage>): HTMLElement =>
+    fixture.nativeElement.querySelector('.form-row') as HTMLElement;
 
   /** 以欄位標題找出那個 `.field` / `.field-check`。 */
   const fieldByLabel = (row: HTMLElement, text: string): HTMLElement =>
@@ -122,8 +117,24 @@ describe('ReportsPreviewPage（批次列印表單版面）', () => {
     TestBed.resetTestingModule();
   });
 
+  /**
+   * 回歸鎖（2026-08-11 使用者指定）：本頁**不得**再要求使用者輸入 Signup ID。
+   *
+   * 原本的「單筆列印」分頁要貼上 GUID，而現場沒有任何畫面看得到那串值——等於一個
+   * 只有開發者用得動的入口佔著主要位置。單筆／多筆的正式入口是報名維護的右鍵選單。
+   * 判準：**要使用者輸入的識別碼，必須是他在畫面上看得到的那一個。**
+   */
+  it('頁面上沒有任何要求輸入 Signup ID 的欄位，並指出單筆列印該去哪裡', () => {
+    const fixture = create();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).not.toContain('Signup ID');
+    expect(fixture.nativeElement.querySelector('.mode-tab')).toBeNull();
+    expect(text).toContain('報名維護');
+  });
+
   it('編號起與編號迄在同一個 .field-group（不會被拆到不同列）', () => {
-    const row = openBatch(create());
+    const row = formRow(create());
     const start = fieldByLabel(row, '編號起');
     const end = fieldByLabel(row, '編號迄');
 
@@ -132,7 +143,7 @@ describe('ReportsPreviewPage（批次列印表單版面）', () => {
   });
 
   it('民國年與「含後續年份」在同一個 .field-group', () => {
-    const row = openBatch(create());
+    const row = formRow(create());
     const year = fieldByLabel(row, '民國年');
     const gte = fieldByLabel(row, '含後續年份');
 
@@ -141,7 +152,7 @@ describe('ReportsPreviewPage（批次列印表單版面）', () => {
   });
 
   it('.field-group 只是換行用的包裝，不吃掉任何欄位', () => {
-    const row = openBatch(create());
+    const row = formRow(create());
     const labels = [...row.querySelectorAll('label')];
 
     // 七個欄位（報表類型／民國年／含後續年份／法會分類／報名類型／編號起／編號迄）都還在

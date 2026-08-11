@@ -10,7 +10,6 @@ import {
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { ReportApi } from '../../core/api/reports/report.api';
 import type { SingleReportType } from '../../core/api/reports/report.models';
 import { BatchPrintService } from '../../core/reports/batch-print.service';
 import { PrintService } from '../../core/print/print.service';
@@ -23,8 +22,6 @@ import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
 import { isElectron } from '../../core/platform/electron';
 import type { PrintFormState } from '../../core/platform/electron';
-
-type Mode = 'single' | 'batch';
 
 interface ReportTypeOption {
   value: SingleReportType;
@@ -48,7 +45,6 @@ const REPORT_TYPES: readonly ReportTypeOption[] = [
   styleUrl: './reports-preview-page.scss',
 })
 export class ReportsPreviewPage implements OnInit, OnDestroy {
-  private readonly api = inject(ReportApi);
   private readonly batchPrint = inject(BatchPrintService);
   private readonly print = inject(PrintService);
   private readonly categoryApi = inject(CategoryApi);
@@ -63,7 +59,6 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     flattenCategories(this.categories()),
   );
 
-  protected readonly mode = signal<Mode>('single');
   protected readonly previewUrl = signal<SafeResourceUrl | null>(null);
   protected readonly fileName = signal<string | null>(null);
   protected readonly signupCount = signal<number | null>(null);
@@ -85,11 +80,6 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     return known?.value ?? 'datacard';
   });
 
-  protected readonly singleForm = this.fb.nonNullable.group({
-    type: ['datacard' as SingleReportType, [Validators.required]],
-    signupId: ['', [Validators.required]],
-  });
-
   protected readonly batchForm = this.fb.nonNullable.group({
     reportType: ['datacard' as SingleReportType, [Validators.required]],
     year: [currentTaiwanYear() as number | null],
@@ -101,7 +91,6 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.singleForm.patchValue({ type: this.initialType() });
     this.batchForm.patchValue({ reportType: this.initialType() });
     void this.loadCategories();
     void this.print.printFormState().then((s) => this.printForm.set(s));
@@ -111,32 +100,12 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.releaseUrl();
   }
 
-  protected setMode(m: Mode): void {
-    this.mode.set(m);
-  }
-
   private async loadCategories(): Promise<void> {
     try {
       const resp = await this.categoryApi.list();
       this.categories.set(resp.items);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
-    }
-  }
-
-  protected async generateSingle(): Promise<void> {
-    if (this.singleForm.invalid || this.loading()) return;
-    const { type, signupId } = this.singleForm.getRawValue();
-    this.loading.set(true);
-    this.errorMessage.set(null);
-    this.signupCount.set(null);
-    try {
-      const { blob, fileName } = await this.api.single(type, signupId.trim());
-      this.displayBlob(blob, fileName, type);
-    } catch (err) {
-      this.errorMessage.set(toMessage(err));
-    } finally {
-      this.loading.set(false);
     }
   }
 

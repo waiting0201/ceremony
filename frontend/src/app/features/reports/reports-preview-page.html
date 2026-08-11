@@ -2,7 +2,10 @@
   <header class="page-header">
     <div>
       <h1>列印預覽</h1>
-      <p class="subtitle">產生 PDF 後可預覽、下載或於新視窗開啟列印</p>
+      <!-- 單筆入口在報名維護的右鍵選單，這裡要講出去，否則原本用「單筆列印」那格的人會找不到 -->
+      <p class="subtitle">
+        依編號區間產生 PDF，可預覽、下載或列印。單筆列印請到「報名維護」，選取該筆後按右鍵
+      </p>
     </div>
     <a class="btn" routerLink="/signups">← 返回報名維護</a>
   </header>
@@ -57,113 +60,69 @@
   }
 
   <section class="form-bar">
-    <div class="mode-tabs" role="tablist">
+    <!--
+      這裡曾有「單筆列印 / 批次列印」兩個 mode tab。單筆那格要求貼上 Signup ID（GUID），
+      現場沒有任何地方看得到那串值——2026-08-11 使用者指定移除。
+      單筆／多筆列印的正式入口是報名維護清單的右鍵選單（選取列 → 列印<報表>），
+      那裡按的是使用者看得懂的資料列；本頁只負責「依編號區間」這一種批次。
+    -->
+    <form [formGroup]="batchForm" (ngSubmit)="generateBatch()" class="form-row">
+      <label class="field min-160">
+        <span>報表類型</span>
+        <select formControlName="reportType">
+          @for (t of reportTypes; track t.value) {
+            <option [value]="t.value">{{ t.label }}</option>
+          }
+        </select>
+      </label>
+      <!-- 「民國年」與它的修飾條件綁成一組，換行時一起走，不會被拆到不同列 -->
+      <div class="field-group">
+        <label class="field w-100">
+          <span>民國年</span>
+          <input type="text" inputmode="numeric" appNumericInput formControlName="year" />
+        </label>
+        <label class="field-check inline">
+          <input type="checkbox" formControlName="yearGte" />
+          <span>含後續年份</span>
+        </label>
+      </div>
+      <label class="field min-180">
+        <span>法會分類</span>
+        <select formControlName="ceremonyCategoryId">
+          <option value="">全部</option>
+          @for (cat of flatCategories(); track cat.id) {
+            <option [value]="cat.id">{{ cat.title }}</option>
+          }
+        </select>
+      </label>
+      <label class="field min-140">
+        <span>報名類型</span>
+        <select formControlName="signupType">
+          <option [ngValue]="null">全部</option>
+          @for (t of signupTypes; track t.value) {
+            <option [ngValue]="t.value">{{ t.label }}</option>
+          }
+        </select>
+      </label>
+      <!-- 起訖是一組範圍，拆到不同列會看不出配對關係 -->
+      <div class="field-group">
+        <label class="field w-100">
+          <span>編號起 *</span>
+          <input type="text" inputmode="numeric" appNumericInput formControlName="numberStart" />
+        </label>
+        <label class="field w-100">
+          <span>編號迄 *</span>
+          <input type="text" inputmode="numeric" appNumericInput formControlName="numberEnd" />
+        </label>
+      </div>
       <button
-        type="button"
-        role="tab"
-        class="mode-tab"
-        [class.is-active]="mode() === 'single'"
-        (click)="setMode('single')"
+        type="submit"
+        class="btn btn-primary submit"
+        [disabled]="batchForm.invalid || loading()"
       >
-        單筆列印
+        {{ loading() ? '產生中…' : '產生批次 PDF' }}
       </button>
-      <button
-        type="button"
-        role="tab"
-        class="mode-tab"
-        [class.is-active]="mode() === 'batch'"
-        (click)="setMode('batch')"
-      >
-        批次列印
-      </button>
-    </div>
-
-    @if (mode() === 'single') {
-      <form [formGroup]="singleForm" (ngSubmit)="generateSingle()" class="form-row">
-        <label class="field flex-1 min-160">
-          <span>報表類型</span>
-          <select formControlName="type">
-            @for (t of reportTypes; track t.value) {
-              <option [value]="t.value">{{ t.label }}</option>
-            }
-          </select>
-        </label>
-        <label class="field flex-3 min-260">
-          <span>Signup ID</span>
-          <input
-            type="text"
-            formControlName="signupId"
-            spellcheck="false"
-            placeholder="e.g. 4219f98d-…"
-          />
-        </label>
-        <button
-          type="submit"
-          class="btn btn-primary submit"
-          [disabled]="singleForm.invalid || loading()"
-        >
-          {{ loading() ? '產生中…' : '產生 PDF' }}
-        </button>
-      </form>
-    } @else {
-      <form [formGroup]="batchForm" (ngSubmit)="generateBatch()" class="form-row wrap">
-        <label class="field min-160">
-          <span>報表類型</span>
-          <select formControlName="reportType">
-            @for (t of reportTypes; track t.value) {
-              <option [value]="t.value">{{ t.label }}</option>
-            }
-          </select>
-        </label>
-        <!-- 「民國年」與它的修飾條件綁成一組，換行時一起走，不會被拆到不同列 -->
-        <div class="field-group">
-          <label class="field w-100">
-            <span>民國年</span>
-            <input type="text" inputmode="numeric" appNumericInput formControlName="year" />
-          </label>
-          <label class="field-check inline">
-            <input type="checkbox" formControlName="yearGte" />
-            <span>含後續年份</span>
-          </label>
-        </div>
-        <label class="field min-180">
-          <span>法會分類</span>
-          <select formControlName="ceremonyCategoryId">
-            <option value="">全部</option>
-            @for (cat of flatCategories(); track cat.id) {
-              <option [value]="cat.id">{{ cat.title }}</option>
-            }
-          </select>
-        </label>
-        <label class="field min-140">
-          <span>報名類型</span>
-          <select formControlName="signupType">
-            <option [ngValue]="null">全部</option>
-            @for (t of signupTypes; track t.value) {
-              <option [ngValue]="t.value">{{ t.label }}</option>
-            }
-          </select>
-        </label>
-        <!-- 起訖是一組範圍，拆到不同列會看不出配對關係 -->
-        <div class="field-group">
-          <label class="field w-100">
-            <span>編號起 *</span>
-            <input type="text" inputmode="numeric" appNumericInput formControlName="numberStart" />
-          </label>
-          <label class="field w-100">
-            <span>編號迄 *</span>
-            <input type="text" inputmode="numeric" appNumericInput formControlName="numberEnd" />
-          </label>
-        </div>
-        <button
-          type="submit"
-          class="btn btn-primary submit"
-          [disabled]="batchForm.invalid || loading()"
-        >
-          {{ loading() ? '產生中…' : '產生批次 PDF' }}
-        </button>
-      </form>
-    }
+    </form>
   </section>
 
   <section class="preview" [class.is-empty]="!previewUrl()">

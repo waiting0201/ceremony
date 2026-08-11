@@ -50,7 +50,7 @@ last_updated: 2026-08-11 (**列印預覽頁版型圖補上最上方的「列印�
 --font-size-xs-plus: 14px;   /* = xs + 1：.btn-sm、清單內 meta 小字 */
 --font-size-sm-plus: 15px;   /* = sm + 1：.data-table / .vgrid-header / .vgrid-row */
 --font-size-base-plus: 16px; /* = base + 1：.field input/select/textarea、.dense-controls 控件、.btn */
---font-size-md-plus: 17px;   /* = md + 1：報名維護 vgrid、登入頁輸入框與主按鈕、報表 mode-tab */
+--font-size-md-plus: 17px;   /* = md + 1：報名維護 vgrid、登入頁輸入框與主按鈕（報表 mode-tab 已於 2026-08-11 移除） */
 ```
 
 **規則**：
@@ -691,13 +691,20 @@ class FormOverlayComponent {
 而排障鈕要救的正是「產不出來」的情況。復位鍵不能藏在故障時看不到的地方——
 判準與始末見 [../blueprints/print-channel-electron.md](../blueprints/print-channel-electron.md) 決策 9e。
 
+**為何拿掉「單筆列印」分頁**（2026-08-11 使用者指定）：那格要求貼上 Signup ID（GUID），
+而現場沒有任何畫面看得到那串值——等於一個只有開發者用得動的入口佔著頁面主要位置。
+單筆／多筆的正式入口是報名維護清單的右鍵選單（按的是使用者看得懂的資料列）。
+mode tabs 隨之整組移除，本頁只剩「依編號區間」一種表單；副標補一句指路。
+**判準：要使用者輸入的識別碼，必須是他在畫面上看得到的那一個。**
+
 **對應規格**：
-- mode tabs：active 底線 = `--c-primary`，文字色同步
 - 表單列：水平 flex，欄位帶 `min-width` 但允許 wrap；submit 按鈕固定在最右
+- 窄欄位（`width < 190px`）的 input/select 必須 `min-width: 0`，成對欄位包 `.field-group` 一起換行
+  （見 [frontend-design.md](frontend-design.md)）
 - 預覽工具列：檔名 ellipsis、`max-width: 360px`；右側三個按鈕（**新分頁開啟** / **下載** / **關閉**）
 - **預覽區填滿視窗、距底 12px**（2026-05-29）：`:host{height:100%}` → `.page` flex column → `.preview` `flex:1; min-height:0` → `.pdf-frame` `height:100%`（取代原 iframe 固定 720px / `.preview` `min-height:600px`）；對齊報名維護/信眾維護的填滿模式（shell `.content` padding-bottom 12px）
 - 空狀態：📄 + 「尚未產生 PDF」+ 提示文字
-- 路由：`/reports/preview` 與 `/reports/preview/:type` 都進同一元件，`:type` 預填 mode tab
+- 路由：`/reports/preview` 與 `/reports/preview/:type` 都進同一元件，`:type` 預填報表類型下拉
 
 ## 列印版面（保留）
 

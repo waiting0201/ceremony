@@ -61,43 +61,14 @@
   background: var(--c-surface);
   border: 1px solid var(--c-border);
   border-radius: 4px;
-  display: grid;
-  gap: 0;
-}
-
-.mode-tabs {
-  display: flex;
-  border-bottom: 1px solid var(--c-border);
-  background: var(--c-bg-darker);
-}
-
-.mode-tab {
-  padding: var(--space-sm) var(--space-lg);
-  background: transparent;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  font-size: var(--font-size-md-plus);
-  font-family: inherit;
-  color: var(--c-text-secondary);
-
-  &:hover:not(.is-active) { color: var(--c-text-primary); }
-
-  &.is-active {
-    color: var(--c-primary);
-    border-bottom-color: var(--c-primary);
-    background: var(--c-surface);
-  }
 }
 
 .form-row {
   display: flex;
   align-items: flex-end;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: var(--space-md);
   padding: var(--space-md) var(--space-lg);
-
-  &.wrap { flex-wrap: wrap; }
 
   // ⚠ input / select 的固有寬度（Chrome 預設 size=20，約 190px）比這裡的窄欄位還寬，
   // 而 .field 是 grid、grid 子項的 min-width 預設是 auto ⇒ 不會被壓縮，直接溢出欄位盒，
@@ -107,12 +78,9 @@
   .field > select { min-width: 0; }
 
   .field { min-width: 100px; }
-  .field.flex-1 { flex: 1 1 auto; }
-  .field.flex-3 { flex: 3 1 auto; }
   .field.min-140 { min-width: 140px; }
   .field.min-160 { min-width: 160px; }
   .field.min-180 { min-width: 180px; }
-  .field.min-260 { min-width: 260px; }
   .field.w-100 { width: 100px; flex: 0 0 100px; }
 
   .submit { white-space: nowrap; min-width: 120px; align-self: flex-end; }
