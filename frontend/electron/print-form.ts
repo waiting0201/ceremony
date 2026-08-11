@@ -182,7 +182,13 @@ export async function setPrintFormEnabled(enabled: boolean): Promise<PrintFormSt
   if (cfg) await writeConfig({ ...cfg, printFormPreselect: enabled });
   if (enabled) await fs.unlink(memoPath()).catch(() => undefined);
 
-  void logPrintEvent({ event: 'form-preselect-toggled', enabled });
+  // 沒有 config 就寫不進去，而回傳的狀態會是「預設值」＝按了等於沒按。
+  // 這種按鈕靜靜地沒作用最難查，所以留一行證據（現場只會說「按了沒用」）。
+  void logPrintEvent({
+    event: 'form-preselect-toggled',
+    enabled,
+    ...(cfg ? {} : { error: 'no config; not persisted' }),
+  });
   return printFormState();
 }
 

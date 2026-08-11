@@ -13,7 +13,7 @@ related_docs:
   - ../design/api-design.md
   - api-endpoints/get-backup-download.md
 keywords: [electron, sidecar, nsis, prereq, vc-redist, dotnet-10, config.json, 備份下載, framework-dependent, default-config, installer.nsh, autoHideMenuBar, 解除安裝, uninstall, 開始功能表捷徑]
-last_updated: 2026-07-29 (啟動即最大化;先前:開始功能表加解除安裝捷徑;寺方四項調整)
+last_updated: 2026-08-11 (第 2 點：種子覆寫 config.json 改為 per-key merge，種子沒寫的本機欄位不得被清掉;先前 2026-07-29:啟動即最大化;開始功能表加解除安裝捷徑;寺方四項調整)
 ---
 
 ## 寺方部署調整（2026-06-02，已重新打包）
@@ -21,7 +21,8 @@ last_updated: 2026-07-29 (啟動即最大化;先前:開始功能表加解除安�
 實機部署前依寺方要求做四項調整，皆 frontend/electron/打包層級（後端不動）：
 
 1. **安裝資料夾固定英文 `Ceremony`**：保留中文 `productName`（app/捷徑名仍中文），用自訂 NSIS include [build/installer.nsh](../../frontend/build/installer.nsh) 的 `preInit` macro 把 InstallLocation 覆寫為 `$PROGRAMFILES64\Ceremony`；electron-builder.yml `nsis.include: build/installer.nsh`。使用者仍可在精靈手動改路徑。
-2. **出廠預寫 DB 連線、跳過 `/setup`（default-config.json = 連線權威）**：寺方為**同機部署**（程式裝在 DB 主機 192.168.1.151 上），連線固定。bootstrap **每次啟動**讀打包種子 `default-config.json`（[config.ts](../../frontend/electron/config.ts) `readDefaultConfig`）以其連線覆寫 `%APPDATA%/Ceremony/config.json`（保留每機隨機 jwtKey）→ 直接 spawn sidecar；改種子後立即生效、也清掉殘留舊測試連線。種子 `dbHost = 192.168.1.151`（同機部署 → 連自身 IP）。種子缺檔則退回 `/setup`（保險）。種子含 sa 密碼 → **gitignore 不入 repo**，只 commit `default-config.example.json`；打包機本地填真實值並烘進 installer（`extraResources` → `resources/default-config.json`）。取捨見 [security.md](../design/security.md)。
+2. **出廠預寫 DB 連線、跳過 `/setup`（default-config.json = 連線權威）**：寺方為**同機部署**（程式裝在 DB 主機 192.168.1.151 上），連線固定。bootstrap **每次啟動**讀打包種子 `default-config.json`（[config.ts](../../frontend/electron/config.ts) `readDefaultConfig`）以其連線覆寫 `%APPDATA%/Ceremony/config.json` → 直接 spawn sidecar；改種子後立即生效、也清掉殘留舊測試連線。
+   - ⚠️ **覆寫是 per-key merge（2026-08-11 修）**：`mergeConfig(prev, seed)`（[config-merge.ts](../../frontend/electron/config-merge.ts)）——種子有寫的欄位由種子作主，**種子沒寫的一律留著**（`jwtKey`、`apiPort`、`printFormPreselect` 都是本機才有的）。舊寫法是整包 assign、只手動撿回 `jwtKey`，於是使用者關掉的「自動選紙」每次重開又變回開（見 [gotchas.md](../gotchas.md) 同名條與 [print-channel-electron.md](print-channel-electron.md) 決策 9d 補記）。`/setup` 的 `saveConfigAndConnect` 走同一條。種子 `dbHost = 192.168.1.151`（同機部署 → 連自身 IP）。種子缺檔則退回 `/setup`（保險）。種子含 sa 密碼 → **gitignore 不入 repo**，只 commit `default-config.example.json`；打包機本地填真實值並烘進 installer（`extraResources` → `resources/default-config.json`）。取捨見 [security.md](../design/security.md)。
 3. **視窗移除選單列**：[main.ts](../../frontend/electron/main.ts) `Menu.setApplicationMenu(null)` + BrowserWindow `autoHideMenuBar: true`；保留標題列與最小化/關閉鈕。
    - **啟動即最大化（2026-07-29）**：`ready-to-show` 內先 `maximize()` 再 `show()`（順序不可顛倒，否則會先閃一下 1280×860 再撐開）。BrowserWindow 的 `width/height: 1280×860` 保留為使用者按「還原」後的尺寸；不用 `fullscreen`（會吃掉標題列、無法最小化）。
 4. **立即備份直接寫 `Backup:Directory`（D:\Backup，不選資料夾）**：同機部署，.bak 由 SQL Server 寫本機 D:\Backup 即可（[backup-page.ts](../../frontend/src/app/features/backup/backup-page.ts) `onBackup` = 確認→POST 備份→顯示結果）。**先前「先選位置再備份」已撤回**；[download.ts](../../frontend/electron/download.ts) 下載另存保留為備用能力（UI 未掛）。

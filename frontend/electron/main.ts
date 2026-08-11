@@ -6,11 +6,12 @@ import path from 'path';
 import fs from 'fs';
 import { spawn } from 'child_process';
 import { readConfig, writeConfig, readDefaultConfig, CeremonyConfig } from './config';
+import { mergeConfig } from './config-merge';
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
 import { openPdfInViewer, openReportInViewer, sweepTempDir } from './print';
-import { printLogPath } from './print-log';
+import { logPrintEvent, printLogPath } from './print-log';
 import {
   printFormState,
   recoverPendingFormRestore,
@@ -103,8 +104,11 @@ async function bootstrap(): Promise<void> {
   // 無種子才沿用既有 config（缺種子 + 無 config → 退回 /setup）。writeConfig 會自動補每機隨機 jwtKey。
   const seed = await readDefaultConfig();
   if (seed?.dbHost) {
-    config = await writeConfig({ ...(seed as CeremonyConfig), jwtKey: config?.jwtKey });
+    config = await writeConfig(mergeConfig(config, seed));
   }
+  // 一行「開機了」。診斷紀錄本來看不出重開，而好幾個症狀（例如自動選紙被種子沖回「開」）
+  // 只有把事件排在重開的前後才讀得懂。順帶記下這次開機生效的自動選紙狀態。
+  void logPrintEvent({ event: 'app-start', formPreselect: config?.printFormPreselect !== false });
   createWindow();
 
   if (prereqs.ok && config) {
@@ -167,7 +171,9 @@ ipcMain.handle('ceremony:testConnection', async (_e, cfg: CeremonyConfig) => {
 
 ipcMain.handle('ceremony:saveConfigAndConnect', async (_e, cfg: CeremonyConfig) => {
   // 先寫檔（產生並持久化 jwtKey），再用含 key 的 config 啟動，確保 token 簽章一致。
-  config = await writeConfig({ ...cfg, jwtKey: config?.jwtKey });
+  // 走 mergeConfig：表單只送連線欄位，本機偏好（jwtKey / printFormPreselect）不該因為
+  // 使用者去 /setup 改了一次連線就被清掉（理由同 bootstrap 的種子覆寫）。
+  config = await writeConfig(mergeConfig(config, cfg));
   const r = await startSidecar(config);
   if (!r.ok || !r.apiBase) return r;
   await loadAppWithApi(r.apiBase);
