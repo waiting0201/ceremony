@@ -27,7 +27,8 @@ import { ZipcodeApi } from '../../core/api/zipcodes/zipcode.api';
 import type { ZipcodeAreaItem } from '../../core/api/zipcodes/zipcode.models';
 import { PrintService } from '../../core/print/print.service';
 import { toMessage } from '../../core/errors/to-message';
-import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
+import { SIGNUP_TYPES, SIGNUP_TYPE_WORSHIP, signupTypeLabel } from '../../shared/util/signup-type';
+import type { SingleReportType } from '../../core/api/reports/report.models';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { currentTaiwanYear } from '../../shared/util/taiwan-year';
 import { currentSeason, resolveSeasonRootId } from '../../shared/util/ceremony-season';
@@ -112,7 +113,30 @@ export class SignupEditFormComponent implements OnInit {
    * （進表單時 `Enabled = false`:95 → btnConfirm 成功後 `Enabled = true`:361）。
    */
   readonly lastCreatedSignupId = signal<string | null>(null);
+  /**
+   * 剛新增那一筆的**報名類型快照**——決定按鈕要印哪一種資料卡。
+   *
+   * 用存檔當下的值而非下拉即時值：存完表單不關閉、資料仍留在畫面上（見 submit 的 keepOpen），
+   * 使用者可能改了「報名類型」卻沒再按確認；按鈕印的是**已存的那一筆**，用即時值會印出
+   * 與該筆記錄不符的版面。
+   */
+  readonly lastCreatedSignupType = signal<number | null>(null);
   readonly printingDataCard = signal(false);
+
+  /**
+   * 「列印資料卡」實際送印的報表：普桌（SignupType=4）→ 普桌資料卡，其餘 → 一般資料卡。
+   *
+   * 與 docs/business-rules-implicit.md §16「普桌／普桌資料卡不檢查 SignupType」不衝突：
+   * §16 管的是**使用者明示選擇**的入口（列表右鍵、列印預覽頁下拉）＝選什麼印什麼；
+   * 這顆按鈕沒有讓使用者選，屬**系統代選**，故依類型自動決定（2026-08-12 使用者定案）。
+   */
+  readonly dataCardReportType = computed<SingleReportType>(() =>
+    this.lastCreatedSignupType() === SIGNUP_TYPE_WORSHIP ? 'worshipcard' : 'datacard',
+  );
+  /** 按鈕文字跟著卡別走，讓使用者按之前就知道會印哪一張（2026-08-12 使用者定案）。 */
+  readonly dataCardLabel = computed(() =>
+    this.dataCardReportType() === 'worshipcard' ? '列印普桌資料卡' : '列印資料卡',
+  );
   protected readonly errorMessage = signal<string | null>(null);
   protected readonly selectedBeliever = signal<BelieverListItem | null>(null);
 
@@ -279,6 +303,7 @@ export class SignupEditFormComponent implements OnInit {
     this.believerSearchResults.set(draft.believerSearchResults);
     this.believerHasSearched.set(draft.believerHasSearched);
     this.lastCreatedSignupId.set(draft.lastCreatedSignupId);
+    this.lastCreatedSignupType.set(draft.lastCreatedSignupType);
     this.form.patchValue(v);
     this.livingArray.setValue(pad6(v.livingNames));
     this.deadArray.setValue(pad6(v.deadNames));
@@ -314,6 +339,7 @@ export class SignupEditFormComponent implements OnInit {
       believerSearchResults: this.believerSearchResults(),
       believerHasSearched: this.believerHasSearched(),
       lastCreatedSignupId: this.lastCreatedSignupId(),
+      lastCreatedSignupType: this.lastCreatedSignupType(),
       dirty: this.form.dirty,
     });
   }
@@ -895,7 +921,11 @@ export class SignupEditFormComponent implements OnInit {
       // 草稿不在此作廢（2026-07-28 反轉 07-27 的作法）：存完資料仍原樣留在畫面上（見下方
       // keepOpen），切走再回來也要看到同一份，故交給離開時的 saveDraft 一律快照。
       // 存完可接著印這一筆的資料卡（舊 btnPrintDataCard 於此刻 Enabled = true）
-      if (created) this.lastCreatedSignupId.set(created.id);
+      // 類型一併快照：決定按鈕印一般資料卡還是普桌資料卡（見 dataCardReportType）
+      if (created) {
+        this.lastCreatedSignupId.set(created.id);
+        this.lastCreatedSignupType.set(created.signupType);
+      }
       // 新增類（非編輯、非插入）＝存完不關閉、資料留著；插入/編輯維持關閉。
       const keepOpen = !editing && !this.isInsert();
       this.saved.emit({ keepOpen });
@@ -938,6 +968,10 @@ export class SignupEditFormComponent implements OnInit {
    * 列印剛新增那一筆的資料卡（對齊舊 `btnPrintDataCard_Click:371-404`，該處以 `CurrentSignupID`
    * 取 SignupView 後送印）。走 PrintService：Electron 跳列印對話框後直接送印（紙張 21×14.8cm、
    * 邊界 0、100% 由主行程指定），瀏覽器退回開新分頁預覽。
+   *
+   * 卡別依報名類型自動分流（見 `dataCardReportType`）：普桌→ worshipcard、其餘→ datacard。
+   * 兩者紙張同為 21×14.8cm 但**驅動 form 名不同**（「資料卡」/「普桌資料卡」），
+   * 自動選紙不可互相替代（見 backend `PrinterFormMatcher.cs`）。
    */
   async printDataCard(): Promise<void> {
     const id = this.lastCreatedSignupId();
@@ -945,7 +979,7 @@ export class SignupEditFormComponent implements OnInit {
     this.printingDataCard.set(true);
     this.errorMessage.set(null);
     try {
-      await this.print.printSingle('datacard', id);
+      await this.print.printSingle(this.dataCardReportType(), id);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     } finally {
@@ -967,6 +1001,7 @@ export class SignupEditFormComponent implements OnInit {
     this.pickToken++;
     // 「清成新的一筆」＝回到還沒存檔的狀態 → 列印資料卡重新 disabled（舊系統重進 Step2 亦 Enabled=false:95）
     this.lastCreatedSignupId.set(null);
+    this.lastCreatedSignupType.set(null); // 按鈕文字一併回「列印資料卡」
     // 信眾選取 / 搜尋狀態
     this.selectedBeliever.set(null);
     this.pickedRowId.set(null);

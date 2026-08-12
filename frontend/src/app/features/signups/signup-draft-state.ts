@@ -42,6 +42,12 @@ export interface SignupDraft {
   believerHasSearched: boolean;
   /** 剛新增那筆的 id（＝「列印資料卡」鈕的啟用狀態）；沒存過檔時為 null。 */
   lastCreatedSignupId: string | null;
+  /**
+   * 剛新增那筆的報名類型（＝「列印資料卡」鈕印一般資料卡還是普桌資料卡，見
+   * SignupEditFormComponent.dataCardReportType）；沒存過檔時為 null。
+   * 不入草稿的話，切走再回來會從普桌資料卡退回一般資料卡。
+   */
+  lastCreatedSignupType: number | null;
   /** 離開當下表單是否為髒（回來後原樣還原，讓 host 的「未儲存的變更」旗標一致）。 */
   dirty: boolean;
 }

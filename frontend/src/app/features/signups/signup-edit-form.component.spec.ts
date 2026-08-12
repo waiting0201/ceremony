@@ -22,6 +22,7 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
     pickBeliever(row: SignupListItem): Promise<boolean>;
     lastCreatedSignupId: () => string | null;
     printDataCard(): Promise<void>;
+    dataCardLabel: () => string;
     onSameMailAddressChange(): Promise<void>;
     errorMessage: () => string | null;
   };
@@ -361,6 +362,49 @@ describe('SignupEditFormComponent（草稿保留 / 改選信眾 / 編號欄啟�
 
       probe(f).resetBelow();
       expect(probe(f).lastCreatedSignupId()).toBeNull(); // 「取消」＝清成新的一筆 → 又不可按
+    } finally {
+      URL.createObjectURL = origCreate;
+      URL.revokeObjectURL = origRevoke;
+      window.open = origOpen;
+    }
+  });
+
+  // 2026-08-12 使用者定案：普桌（SignupType=4）印的是「普桌資料卡」（worshipcard），按鈕文字一併變。
+  it('列印資料卡：普桌報名改印普桌資料卡，按鈕文字同步變', async () => {
+    const origCreate = URL.createObjectURL;
+    const origRevoke = URL.revokeObjectURL;
+    const origOpen = window.open;
+    URL.createObjectURL = () => 'blob:test';
+    URL.revokeObjectURL = () => undefined;
+    window.open = () => null;
+    try {
+      const f = await open();
+      probe(f).form.patchValue({ ceremonyCategoryId: 'c1', name: '王小明', signupType: 4 });
+      probe(f).form.markAsDirty();
+      expect(probe(f).dataCardLabel()).toBe('列印資料卡'); // 還沒存檔 → 維持預設字樣
+
+      const submitting = probe(f).submit();
+      httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/believers'))
+        .flush(believerStub('b9', '王小明'));
+      await flushMicrotasks();
+      httpMock.expectOne((r) => r.method === 'POST' && r.url.endsWith('/signups'))
+        .flush({ ...signupRow('s9', 'b9', '王小明', { signupType: 4 }), number: 123 });
+      await submitting;
+
+      expect(probe(f).dataCardLabel()).toBe('列印普桌資料卡');
+
+      const printing = probe(f).printDataCard();
+      const req = httpMock.expectOne((r) => r.url.endsWith('/reports/worshipcard'));
+      expect(req.request.params.get('signupId')).toBe('s9');
+      req.flush(new Blob(['%PDF-']));
+      await printing;
+
+      // 卡別看的是「已存那筆」的類型，不是下拉即時值：存完改回一般報名而沒再存檔，仍印普桌資料卡
+      probe(f).form.patchValue({ signupType: 1 });
+      expect(probe(f).dataCardLabel()).toBe('列印普桌資料卡');
+
+      probe(f).resetBelow();
+      expect(probe(f).dataCardLabel()).toBe('列印資料卡'); // 「取消」＝清成新的一筆
     } finally {
       URL.createObjectURL = origCreate;
       URL.revokeObjectURL = origRevoke;

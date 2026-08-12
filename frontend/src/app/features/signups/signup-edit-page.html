@@ -17,14 +17,15 @@
     (cancelled)="onCancel()"
   >
     <ng-container form-actions>
-      <!-- 列印資料卡：新增模式才有，存檔前 disabled、新增成功後可按（對齊舊 btnPrintDataCard） -->
+      <!-- 列印資料卡：新增模式才有，存檔前 disabled、新增成功後可按（對齊舊 btnPrintDataCard）。
+           文字/卡別依剛新增那筆的報名類型自動分流（普桌→「列印普桌資料卡」，2026-08-12）。 -->
       @if (!signupId()) {
         <button
           type="button"
           class="btn"
           [disabled]="!formRef()?.lastCreatedSignupId() || !!formRef()?.printingDataCard()"
           (click)="onPrintDataCard()"
-        >{{ formRef()?.printingDataCard() ? '產生中…' : '列印資料卡' }}</button>
+        >{{ formRef()?.printingDataCard() ? '產生中…' : (formRef()?.dataCardLabel() ?? '列印資料卡') }}</button>
       }
       <button type="button" class="btn" (click)="onCancel()">取消</button>
       <!-- 確認鈕加寬一倍（.btn-wide，2026-07-29 使用者指定） -->

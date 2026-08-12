@@ -11,7 +11,7 @@ related_docs:
   - blueprints/believer-management.md
   - blueprints/printing-reports.md
 keywords: [glossary, 業務術語, 法會, 信眾, 陽上, 往生, 文牒, 薦牌, 普桌, 觀音會, 寺方, 郵撥, 民國年, 避4]
-last_updated: 2026-07-21 (堂號/員工類型/固定編號改 per-signup 報名自有覆寫欄（方案 A），報名可編輯只改這筆、view COALESCE 回退信眾值、預繳保號仍讀信眾)
+last_updated: 2026-08-12 (補上缺漏的「普桌資料卡 / WorshipCard」詞條〔新版 2026-07-04 新增、舊系統無對應 RDLC〕，並在「普桌」與「資料卡」兩條加交叉指引；同時標注「普桌」條目的「menu 僅在搜尋類型=4 才啟用」是**舊系統**行為〔新版 2026-07-18 已解鎖〕。先前 2026-07-21 (堂號/員工類型/固定編號改 per-signup 報名自有覆寫欄（方案 A），報名可編輯只改這筆、view COALESCE 回退信眾值、預繳保號仍讀信眾))
 ---
 
 > 本文依舊系統 v1.3.0 分析文件 + 原始碼整理；目的是讓新團隊成員（特別是非台灣 / 非佛道文化背景）能正確理解業務語意。
@@ -68,7 +68,9 @@ last_updated: 2026-07-21 (堂號/員工類型/固定編號改 per-signup 報名�
 
 **宗教背景**：法會中大眾共享祭祀餐桌的方式。
 
-列印有專用模板（tmpWorship + 5 變體）；「列印普桌」menu 僅在 `dlSearchSignupType.SelectedValue == 4` 啟用。
+列印有專用模板（tmpWorship + 5 變體）；⚠️「列印普桌」menu 僅在 `dlSearchSignupType.SelectedValue == 4` 啟用**是舊系統行為**——新版已於 2026-07-18 解鎖為恆啟用、選什麼印什麼（見 [business-rules-implicit §16](business-rules-implicit.md)）。
+
+新版另有專屬的**普桌資料卡**（見下方文件類），新增報名存檔後按「列印資料卡」時，普桌自動改印該張（2026-08-12）。
 
 ### 郵撥 / Mail / Postal Payment
 
@@ -210,6 +212,17 @@ UI label 同樣用「3-1」替代「4」。
 ### 資料卡 / DataCard
 
 PrintType=1，模板 `tmpDataCard.rdlc`。A5 橫式（21×14.8cm）。含簽名欄「確認無誤請簽名」。
+
+新版 reportType `datacard`。**普桌報名有另一張**（見下方「普桌資料卡」）。
+
+### 普桌資料卡 / WorshipCard
+
+新版 reportType `worshipcard`，**舊系統無對應 RDLC**（2026-07-04 新增的複合報表）。A5 橫式（21×14.8cm，與資料卡同尺寸）。
+
+左半是**普桌牌位的縮小版**（葫蘆輪廓內印編號＋6 位陽上，套與普桌完全相同的 6 變體），右半是電話／備註／簽名欄——等於給信眾核對簽名用的牌位預覽。
+
+- 用途上是「普桌報名的資料卡」：新增報名存檔後按「列印資料卡」，`SignupType = 4` 自動改印這張（2026-08-12，見 [business-rules-implicit §16.1](business-rules-implicit.md)）；列表右鍵／列印預覽頁則不分型別、選什麼印什麼
+- ⚠ 與資料卡**紙張同尺寸但驅動 form 名不同**（「資料卡」／「普桌資料卡」），自動選紙不可互相替代
 
 ### 收據 / Receipt
 

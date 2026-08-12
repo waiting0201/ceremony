@@ -15,7 +15,7 @@ related_docs:
   - ../printing-reports.md
   - ../printing-reports-positions.md
 keywords: [普桌資料卡, worshipcard, 列印, 報表, 葫蘆, template 全印, debugOverlay]
-last_updated: 2026-07-18 (客訴：template 一樣要全印——DrawTemplate 畫葫蘆/右側標題/簽名底線，白紙可印，座標見 positions §20；同日解鎖：移除 SignupType=4 限制與 WORSHIP_ONLY_TYPE_4 錯誤，對齊舊系統選什麼印什麼)
+last_updated: 2026-08-12 (修正兩處 2026-07-18 解鎖後的殘句〔request 表「signupId 須為 SignupType == 4」、批次段「ids 模式過濾非 type-4、區間模式強制 signupType=4」〕——實作 `BatchReportHandler` 與本檔上方敘述皆為不限型別，殘句與之矛盾。同時補記新入口：新增報名表單的「列印資料卡」鈕在 SignupType=4 時改打本 endpoint〔系統代選，見 business-rules-implicit §16.1〕。先前 2026-07-18 (客訴：template 一樣要全印——DrawTemplate 畫葫蘆/右側標題/簽名底線，白紙可印，座標見 positions §20；同日解鎖：移除 SignupType=4 限制與 WORSHIP_ONLY_TYPE_4 錯誤，對齊舊系統選什麼印什麼))
 ---
 
 ## 規格
@@ -28,7 +28,7 @@ last_updated: 2026-07-18 (客訴：template 一樣要全印——DrawTemplate �
 
 | Query | 型別 | 必填 | 說明 |
 |---|---|---|---|
-| `signupId` | Guid | ✅ | 報名 ID，須為 `SignupType == 4`（普桌） |
+| `signupId` | Guid | ✅ | 報名 ID，**不限 `SignupType`**（2026-07-18 解鎖，見下方；此處原記「須為 SignupType == 4」為解鎖前殘句，2026-08-12 修正） |
 | `debugOverlay` | bool | — | dev-only 樣板疊圖（非 Development 環境回 404），見 [printing-reports.md](../printing-reports.md)「開發用列印位置檢視工具」 |
 
 ### Response
@@ -54,9 +54,14 @@ A5 橫 21×14.8cm，**template 由程式全印、白紙可印**（2026-07-18 客
 
 實作：[WorshipCardRenderer.cs](../../../backend/src/Ceremony.Infrastructure/Reporting/WorshipCardRenderer.cs)、`GenerateWorshipCardHandler`（GenerateReportHandlers.cs）、`ReportModelBuilders.WorshipCard`。
 
+## 呼叫端
+
+1. **報名維護右鍵選單「列印普桌資料卡」**（單選）／列印預覽頁下拉——使用者明示選擇，不分型別
+2. **新增報名表單存檔後的「列印資料卡」鈕**（2026-08-12）——**系統代選**：剛新增那筆 `SignupType = 4` 時打本 endpoint，其餘打 `GET /api/v1/reports/datacard`（見 [printing-reports.md §1 資料卡](../printing-reports.md)）；按鈕文字同步變「列印普桌資料卡」。判斷用存檔當下的類型快照而非下拉即時值。見 [business-rules-implicit §16.1](../../business-rules-implicit.md)、[signup-management.md](../signup-management.md)
+
 ## 批次
 
-`POST /reports/batch` 的 `reportType` 白名單含 `worshipcard`；SignupType=4 防呆與 `worship` 完全一致（ids 模式過濾非 type-4、區間模式強制 `signupType=4`），見 [post-reports-batch.md](post-reports-batch.md)。
+`POST /reports/batch` 的 `reportType` 白名單含 `worshipcard`；與 `worship` 完全一致**不做 SignupType 防呆**（ids 模式勾什麼印什麼、區間模式只跟隨呼叫端傳入的 `signupType` 篩選，見 `BatchReportHandler`「普桌不另限 SignupType」註解），見 [post-reports-batch.md](post-reports-batch.md)。（2026-08-12 修正：此處原記「ids 模式過濾非 type-4、區間模式強制 signupType=4」為 2026-07-18 解鎖前的殘句，與實作及本檔上方敘述矛盾。）
 
 ## 驗證
 

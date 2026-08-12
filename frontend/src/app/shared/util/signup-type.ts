@@ -12,6 +12,12 @@ export const SIGNUP_TYPES: readonly SignupTypeOption[] = [
   { value: 5, label: '郵寄', numberTitle: '郵' },
 ];
 
+/**
+ * 普桌（NumberTitle「普」）。列印資料卡時走**普桌資料卡**（worshipcard）版面而非一般資料卡。
+ * 具名常數避免魔術數字 4 散落；語意見 docs/glossary.md「普桌 / Worship Table」。
+ */
+export const SIGNUP_TYPE_WORSHIP = 4;
+
 export function signupTypeLabel(value: number | null | undefined): string {
   if (value == null) return '';
   return SIGNUP_TYPES.find((t) => t.value === value)?.label ?? `類型${value}`;

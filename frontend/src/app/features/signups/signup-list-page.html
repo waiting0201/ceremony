@@ -277,7 +277,8 @@
         <!-- 按鈕列改由表單內部排版（備註下方，2026-07-28 使用者指定），故 overlay footer 關閉
              （[showActions]="false"）、按鈕改投影到表單的 form-actions slot。
              列印資料卡（對齊舊 btnPrintDataCard）：新增類才有，存檔前 disabled、新增成功後可按，
-             印的是剛新增那一筆；位置在「取消」左邊（2026-07-27 使用者指定）。 -->
+             印的是剛新增那一筆；位置在「取消」左邊（2026-07-27 使用者指定）。
+             文字/卡別依剛新增那筆的報名類型自動分流（普桌→「列印普桌資料卡」，2026-08-12）。 -->
         <ng-container form-actions>
           @if (!o.signupId) {
             <button
@@ -285,7 +286,7 @@
               class="btn"
               [disabled]="!editForm()?.lastCreatedSignupId() || !!editForm()?.printingDataCard()"
               (click)="onPrintDataCard()"
-            >{{ editForm()?.printingDataCard() ? '產生中…' : '列印資料卡' }}</button>
+            >{{ editForm()?.printingDataCard() ? '產生中…' : (editForm()?.dataCardLabel() ?? '列印資料卡') }}</button>
           }
           <button type="button" class="btn" (click)="onOverlayCancel()">取消</button>
           <!-- 確認鈕加寬一倍（.btn-wide，2026-07-29 使用者指定） -->
