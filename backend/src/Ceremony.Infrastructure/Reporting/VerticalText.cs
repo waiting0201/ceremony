@@ -96,8 +96,52 @@ internal static class VerticalText
     public static (double FontCm, double BottomRowOffsetCm) MatrixLayout(
         double baseFontCm, double boxHeightCm, params (string? top, string? bottom)[] columns)
     {
-        var maxTopAny = 0;        // 所有上排名字的最長列數（單欄也不能超框）
-        var maxTopWithBottom = 0; // 有下排配對的上排最長列數（決定統一的下排起點）
+        var (maxTopAny, maxTopWithBottom, maxBottom) = CountUnits(columns);
+        // 最擠的「垂直單位數」：單欄 = 字數；上下排欄 = 上排最長 + 1（間距）+ 下排最長
+        var units = Math.Max(maxTopAny, maxBottom > 0 ? maxTopWithBottom + 1 + maxBottom : 0);
+        var fontCm = units == 0 ? baseFontCm : Math.Min(baseFontCm, boxHeightCm / units);
+        var bottomOffsetCm = maxBottom > 0 ? (maxTopWithBottom + 1) * fontCm : 0;
+        return (fontCm, bottomOffsetCm);
+    }
+
+    /// <summary>
+    /// 同 <see cref="MatrixLayout"/> 的 2×3 矩陣排版，但**字級固定不縮**：只回傳動態的下排起點。
+    /// </summary>
+    /// <remarks>
+    /// 2026-08-14 使用者指定：「往生 3、4、5、6 位時，字體大小都跟目前 4 位的一樣大，不用因為字數再縮小」。
+    /// 現況下 <see cref="MatrixLayout"/> 會在「上排最長 + 1 格間距 + 下排最長 &gt; 9 單位」時整組等比縮
+    /// （5 字名上下配對 → 11 單位 → 0.49cm），使用者反映 5、6 位的字明顯比 4 位小。
+    ///
+    /// ⚠️ **本方法刻意沒有溢出防線**——這是使用者在「保留最後防線（只有真的會壓到預印字才縮）」與
+    /// 「完全不縮、一律 0.6cm」兩個選項中**明確選的後者**，不是漏寫。代價：超長名字會超出方框、
+    /// 壓到樣板預印的「靈位」（6 位 × 5 字 → 鏈高 11 × 0.6 = 6.6cm，方框只有 5.4cm）。
+    /// 典型 3~4 字姓名（含 6 位滿版）鏈高 ≤ 9 × 0.6 = 5.4cm，與改動前逐位元相同。
+    ///
+    /// **只給薦牌往者矩陣（TabletRenderer 3+ 位分支）用**。薦牌陽上、資料卡、文牒仍走
+    /// <see cref="MatrixLayout"/>，不要順手改過來——它們沒有這條指示。
+    /// 下排起點語意不變：＝「上排（有下排配對者）最長字數 + 1 個字高間距」，名字之間永遠恰好一個字高。
+    /// </remarks>
+    /// <param name="fontCm">字級（cm）。原封不動回傳。</param>
+    public static (double FontCm, double BottomRowOffsetCm) MatrixLayoutNoShrink(
+        double fontCm, params (string? top, string? bottom)[] columns)
+    {
+        var (_, maxTopWithBottom, maxBottom) = CountUnits(columns);
+        var bottomOffsetCm = maxBottom > 0 ? (maxTopWithBottom + 1) * fontCm : 0;
+        return (fontCm, bottomOffsetCm);
+    }
+
+    /// <summary>
+    /// 矩陣各欄的列數統計（<see cref="MatrixLayout"/> 與 <see cref="MatrixLayoutNoShrink"/> 共用）。
+    /// </summary>
+    /// <returns>
+    /// MaxTopAny＝所有上排名字的最長列數（單欄也不能超框）；
+    /// MaxTopWithBottom＝有下排配對的上排最長列數（決定統一的下排起點）；MaxBottom＝下排最長列數。
+    /// </returns>
+    private static (int MaxTopAny, int MaxTopWithBottom, int MaxBottom) CountUnits(
+        (string? top, string? bottom)[] columns)
+    {
+        var maxTopAny = 0;
+        var maxTopWithBottom = 0;
         var maxBottom = 0;
         foreach (var (top, bottom) in columns)
         {
@@ -111,11 +155,7 @@ internal static class VerticalText
                 if (b > maxBottom) maxBottom = b;
             }
         }
-        // 最擠的「垂直單位數」：單欄 = 字數；上下排欄 = 上排最長 + 1（間距）+ 下排最長
-        var units = Math.Max(maxTopAny, maxBottom > 0 ? maxTopWithBottom + 1 + maxBottom : 0);
-        var fontCm = units == 0 ? baseFontCm : Math.Min(baseFontCm, boxHeightCm / units);
-        var bottomOffsetCm = maxBottom > 0 ? (maxTopWithBottom + 1) * fontCm : 0;
-        return (fontCm, bottomOffsetCm);
+        return (maxTopAny, maxTopWithBottom, maxBottom);
     }
 
     /// <summary>

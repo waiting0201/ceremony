@@ -85,7 +85,8 @@ public sealed class PrintTemplateSelectorTests
         t.Should().Be(TabletTemplate.Base);
     }
 
-    // === Tablet 字長門檻（2026-08-08 回復舊系統規則）：字素數 ≥8 → 0.6cm 起點，**空格計入** ===
+    // === Tablet 字長門檻（2026-08-08 回復舊系統規則）：1 位 ≥8 字素 → 0.6cm 起點，**空格計入**；
+    //     2 位自 2026-08-14 起改為 ≥7（使用者指定，見本檔下方「2 位門檻」段）===
     //
     // 與 2026-07-21 那版（RealCharCount，空格不計）刻意不同：門檻要跟「直書實際排幾列」對齊，
     // 而列數就是 VerticalText.Stack 的字素數（含空格）。客戶常用全形空格把兩個人名塞進同一格，
@@ -94,9 +95,42 @@ public sealed class PrintTemplateSelectorTests
     [Fact]
     public void Tablet_dead_7elements_para08()
     {
-        // 7 字素（無空格）＝門檻邊界下緣，不觸發
+        // 1 位往者 7 字素（無空格）＝門檻邊界下緣，不觸發
         var (_, p) = PrintTemplateSelector.ChooseTablet(N("一二三四五六七"), N("子甲"));
-        p.Should().Be("0.8cm", "7 字素 < 8 → 維持 0.8cm 起點");
+        p.Should().Be("0.8cm", "1 位往者 7 字素 < 8 → 維持 0.8cm 起點");
+    }
+
+    // === 2026-08-14 使用者指定：**2 位往者**門檻降到 7 字素，1 位維持 8。兩者刻意不同 ===
+
+    [Fact]
+    public void Tablet_dead2_7elements_para06()
+    {
+        // 2 位往者、任一格 7 字素就觸發（同樣的名字在 1 位分支不觸發，見下一支對照鎖）
+        var (_, p) = PrintTemplateSelector.ChooseTablet(N("陳", "一二三四五六七"), N("子甲", "子乙"));
+        p.Should().Be("0.6cm", "2 位往者 7 字素 → 起點降到 0.6cm（＝4 位時的字級）");
+
+        var (_, pFirstSlot) = PrintTemplateSelector.ChooseTablet(N("一二三四五六七", "陳"), N("子甲", "子乙"));
+        pFirstSlot.Should().Be("0.6cm", "兩格都要檢查，不只 dead2");
+    }
+
+    [Fact]
+    public void Tablet_dead2_6elements_para08()
+    {
+        // 2 位往者的門檻邊界下緣：6 字素不觸發
+        var (_, p) = PrintTemplateSelector.ChooseTablet(N("陳", "一二三四五六"), N("子甲", "子乙"));
+        p.Should().Be("0.8cm", "2 位往者 6 字素 < 7 → 維持 0.8cm 起點");
+    }
+
+    [Fact]
+    public void Tablet_1vs2Dead_Thresholds_AreDeliberatelyDifferent()
+    {
+        // 回歸鎖：同一個 7 字素名字，1 位不觸發、2 位觸發。曾經是同一個常數，2026-08-14 使用者
+        // 只指定改 2 位（已明確確認 1 位不動）——不要為了「一致」把兩條門檻合回去。
+        const string name7 = "一二三四五六七";
+        PrintTemplateSelector.ChooseTablet(N(name7), N("子甲")).ParaFontSize
+            .Should().Be("0.8cm", "1 位門檻是 8 字素");
+        PrintTemplateSelector.ChooseTablet(N(name7, "陳"), N("子甲")).ParaFontSize
+            .Should().Be("0.6cm", "2 位門檻是 7 字素");
     }
 
     [Fact]

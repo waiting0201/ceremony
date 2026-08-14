@@ -29,7 +29,11 @@ public sealed record DataCardModel(
     string? Phone,
     string? Remark,
     string? NumberTitle = null,      // 編號抬頭（與號碼分開繪製，中間留 0.3cm 空隙；2026-07-21 客訴）
-    double ParaFontSizeCm = 0.6);    // 往者字級起點，由 PrintTemplateSelector.ChooseTablet 決定（與薦牌同）
+    double ParaFontSizeCm = 0.6,     // 往者字級起點，由 PrintTemplateSelector.ChooseTablet 決定（與薦牌同）
+    // 堂號兩半（2026-08-14 客訴回加；印在右側窗框內「故」字左右，比照薦牌／文牒）。
+    // 加在尾端且給預設值＝不打斷既有以位置引數建構的呼叫點。
+    string? HallNameFirst = null,
+    string? HallNameSecond = null);
 
 public sealed record ReceiptModel(
     string Name,

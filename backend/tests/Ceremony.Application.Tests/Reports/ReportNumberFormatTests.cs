@@ -132,6 +132,20 @@ public sealed class ReportNumberFormatTests
 
         ReportModelBuilders.Tablet(shortName).ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9);
         ReportModelBuilders.DataCard(shortName).ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9,
-            "7 字素未達門檻，兩者都維持 0.8cm");
+            "1 位往者 7 字素未達門檻，兩者都維持 0.8cm");
+    }
+
+    // 2026-08-14：2 位往者門檻降到 7 字素（1 位維持 8）後，資料卡同源連動必須跟著成立。
+    // 使用者指定的是薦牌，但兩份報表共用 ChooseTablet 的 ParaFontSize ⇒ 資料卡一併變小是**預期行為**
+    // （2026-07-21「資料卡往者字級改與薦牌一致」的既有決策）。這條鎖住的就是這個連動不被悄悄拆開。
+    [Fact]
+    public void TabletAndDataCard_ParaFontSize_StayInSync_For2Dead7Elements()
+    {
+        var twoDead7 = Make(1, 1, "No") with { DeadNames = ["陳", "一二三四五六七", null, null, null, null] };
+
+        ReportModelBuilders.Tablet(twoDead7).ParaFontSizeCm.Should().BeApproximately(0.6, 1e-9,
+            "2 位往者任一格 7 字素 → 起點降到 0.6cm");
+        ReportModelBuilders.DataCard(twoDead7).ParaFontSizeCm.Should().BeApproximately(0.6, 1e-9,
+            "資料卡取同一個 ParaFontSize，2 位 7 字素必須一起縮");
     }
 }

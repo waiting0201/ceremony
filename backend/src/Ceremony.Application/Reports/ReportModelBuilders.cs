@@ -16,10 +16,16 @@ internal static class ReportModelBuilders
         var prepay = s.PrepayYear.HasValue
             ? $"預繳至{s.PrepayYear}年{s.PrepayCeremonyTitle}"
             : string.Empty;
-        // 2026-07-21 客訴：往者字級改與薦牌一致——起點取 ChooseTablet 的 ParaFontSize（1-2 位 0.8/0.5cm、
-        // 3+ 位 0.6cm），交給 DataCardRenderer 以 MatrixLayout 於窗框內動態縮放。
+        // 2026-07-21 客訴：往者字級改與薦牌一致——起點取 ChooseTablet 的 ParaFontSize（1-2 位 0.8cm、
+        // 長名往者與 3+ 位 0.6cm），交給 DataCardRenderer 以 MatrixLayout 於窗框內動態縮放。
+        // ⚠️ 2026-08-14 起「長名」門檻 1 位是 8 字素、2 位是 7 字素（見 ChooseTablet）；資料卡沿用同一個
+        //    起點，故 2 位 7 字素的案例會一併降到 0.6cm。資料卡端**仍保留** MatrixLayout 的動態縮放
+        //    （薦牌往者矩陣才改成不縮），這是刻意的範圍差異。
         var (_, paraFontSize) = PrintTemplateSelector.ChooseTablet(deadNames, livingNames);
         var paraSizeCm = double.Parse(paraFontSize.Replace("cm", ""));
+        // 2026-08-14 客訴：資料卡右側窗框沒印堂號。堂號拆分與薦牌／文牒共用同一支 SplitHallName，
+        // 位置比照薦牌（窗框內「故」字左右），見 DataCardRenderer.DrawHallName。
+        var (hallFirst, hallSecond) = SignupReportContext.SplitHallName(s.HallName);
         return new DataCardModel(
             // 2026-07-21 客訴：抬頭與號碼分開繪製（中間 0.3cm 空隙、不再用「.」相接），故 Number 只帶號碼。
             Number: SignupReportContext.NumberText(s),
@@ -30,7 +36,9 @@ internal static class ReportModelBuilders
             Phone: s.Phone,
             Remark: s.Remark,
             NumberTitle: s.NumberTitle,
-            ParaFontSizeCm: paraSizeCm);
+            ParaFontSizeCm: paraSizeCm,
+            HallNameFirst: hallFirst,
+            HallNameSecond: hallSecond);
     }
 
     public static ReceiptModel Receipt(SignupListItem s, DateTime now)

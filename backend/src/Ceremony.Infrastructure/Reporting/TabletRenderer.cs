@@ -183,8 +183,16 @@ public sealed class TabletRenderer
     // 位移沿革：量測基準 5.685 →（2026-07-21 客訴右移 0.1）5.785 →（2026-07-31 客訴左移 0.05）
     // 5.735，即相對量測基準淨右移 0.05cm。邊界複核（3+ 矩陣、0.6cm 字級）：右欄右緣
     // ≈6.968cm < 窗框內緣 7.163cm、左欄左緣 ≈4.502cm > 窗框內緣 4.191cm，兩側皆安全。
-    private const double DeadCenterX = 5.735;
-    private const double DeadColumnGap = 0.1; // 相鄰欄位之間的留白，避免緊貼（1-2 位亡者變體用）
+    internal const double DeadCenterX = 5.735;
+    /// <summary>2 位往者左右兩欄之間的水平留白，避免緊貼（只有 2 位分支用；1 位置中、3+ 位走欄距）。</summary>
+    /// <remarks>
+    /// 2026-08-14 使用者指定「往生 2 位時，名字間距多 0.2cm」：0.1 → 0.3。
+    /// 邊界複核（含 <see cref="GlobalShiftX"/>、最大字級 0.8cm）：
+    ///   右欄右緣 5.735+0.15−0.25+0.8 = 6.435 &lt; 窗框內緣 7.163 ✅
+    ///   左欄左緣 5.735−0.15−0.8−0.25 = 4.535 &gt; 窗框內緣 4.191 ✅
+    /// ⚠️ 資料卡的 <c>DataCardRenderer.FewDeadColumnGap</c> 維持 0.1，**刻意不同步**（見該處註解）。
+    /// </remarks>
+    internal const double DeadColumnGap = 0.3;
     // 「故」字下緣 Y=7.5946cm、「靈」字上緣 Y=13.462cm（同一次像素量測），中間空隙 5.8674cm。
     internal const double DeadGapTop = 7.5946;
 
@@ -202,8 +210,14 @@ public sealed class TabletRenderer
     /// 客訴**，是目前唯一有實務背書的下界；1 位／2 位一律收齊到同一條線，矩陣本身數值不變。
     /// 距實體紙上「靈」字上緣（13.373 ＝樣板量測 13.462 − 照片紙外留白 0.089）尚有 0.18cm。
     ///
-    /// 日後要再往上收（等現場格線校正版回報），**只動這一個常數**，三種排法同步——不要再回到
+    /// 日後要再往上收（等現場格線校正版回報），**只動這一個常數**，1 位／2 位同步——不要再回到
     /// 「同語意散成三個常數、錯一個沒人發現」的狀態。
+    ///
+    /// ⚠️ **2026-08-14 起這條下界只約束 1 位／2 位**：3+ 位矩陣依使用者指定改用
+    /// <see cref="VerticalText.MatrixLayoutNoShrink"/>，字級一律等於 <c>ParaFontSizeCm</c>（0.6cm）、
+    /// 不再依方框高縮字，超長名字**會**越過這條線。這是使用者在「保留最後防線」與「完全不縮」之間
+    /// 明確選的，不是漏改——不要把矩陣「修正」回受本常數節制（同型前例：陽上 1/2 位下界刻意不收斂）。
+    /// 上面 08-06 客訴的實際路徑在 **2 位分支**，該防線完整保留。
     /// </remarks>
     internal const double DeadTextBottom = DeadMatrixTop + DeadMatrixHeight; // 13.1946
 
@@ -214,8 +228,12 @@ public sealed class TabletRenderer
     // 「故」下緣 +0.2cm 起、寬 2.8cm × 高 5.4cm 的方框內排（框底 13.1946＝現在的 DeadTextBottom，
     // 離實體紙上「靈」字上緣 13.373 還有 0.18cm——2026-08-06 修正：原註記的 0.27cm 是拿樣板照片座標
     // 13.462 算的，而照片含 0.089cm 紙外留白）；欄距取 2.8/3=0.9333cm（與舊 RDLC Rectangle 內 Left 0.1/1.0/1.9 的 0.9cm
-    // 欄距幾乎一致），中間欄置中在故/靈位中心線上。下排起點與字級由 VerticalText.MatrixLayout
+    // 欄距幾乎一致），中間欄置中在故/靈位中心線上。下排起點由 VerticalText.MatrixLayoutNoShrink
     // 動態決定（取代固定列距 1.8639 + WithBottomGap——那組合會把 3 字名縮到 0.47cm，客訴「字太小」）。
+    //
+    // 2026-08-14 使用者指定「3、4、5、6 位字級都跟 4 位一樣大，不用因為字數再縮小」：字級改為**固定**
+    // ParaFontSizeCm（3+ 位恆 0.6cm），DeadMatrixHeight 只剩「方框位置／下排起點基準」的語意，
+    // **不再節制字級**（原本 MatrixLayout 會在鏈高 > 9 單位時整組等比縮）。
     private const double DeadMatrixTop = DeadGapTop + 0.2;   // 7.7946
     private const double DeadMatrixHeight = 5.4;
     private const double DeadMatrixColPitch = 2.8 / 3.0;     // 0.9333
@@ -276,10 +294,15 @@ public sealed class TabletRenderer
                 // 2026-07-17 使用者指定改版（reference/薦牌.jpg 手寫量測，取代固定列距 1.8639 +
                 // WithBottomGap 的做法——上下排都有名字時那會把 3 字名縮到 0.47cm、4 字名 0.37cm，
                 // 客訴「五位時字太小」）：整個矩陣排在「故」下 0.2cm 起的 2.8×5.4cm 方框內，
-                // 字級以 ParaFontSize（3+ 亡固定 0.6cm）起算，塞不下整欄鏈才整組等比縮；
                 // 下排起點動態＝上排（有配對者）最長字數 +1 個字高間距，不再是固定 9.4464。
-                var (fontCm, bottomOffset) = VerticalText.MatrixLayout(
-                    data.ParaFontSizeCm, DeadMatrixHeight,
+                //
+                // 2026-08-14 使用者指定「3、4、5、6 位字體大小都跟目前 4 位一樣大，不用因為字數再縮小」：
+                // 07-17 那版仍會在鏈高 > 9 單位時整組等比縮（5 字名上下配對 → 11 單位 → 0.49cm），
+                // 使用者反映 5、6 位的字明顯比 4 位小 → 改用 MatrixLayoutNoShrink，字級恆＝ParaFontSizeCm。
+                // ⚠️ 溢出防線（DeadTextBottom）因此**不再適用於 3+ 位**，超長名字會壓到預印「靈位」；
+                //    這是使用者明確選的取捨，別「修正」回去（見 DeadTextBottom / MatrixLayoutNoShrink 註解）。
+                var (fontCm, bottomOffset) = VerticalText.MatrixLayoutNoShrink(
+                    data.ParaFontSizeCm,
                     (d[0], d[5]), (d[1], d[3]), (d[2], d[4]));
                 var f = fontCm * PointsPerCm;
                 var centerX = DeadCenterX - fontCm / 2;                       // 中間欄置中在故/靈位中心線

@@ -275,6 +275,86 @@ public sealed class RendererSmokeTests
         }
     }
 
+    // 2026-08-14 客訴：「資料卡列印 右邊的列印沒有印到堂號」。根因是 2026-07-03 改版把 HallName 從
+    // DataCardModel/DataCardData/ReportModelBuilders 整條移除（當時判定樣板紙沒有堂號欄）。回加後
+    // 版面比照薦牌：堂號兩半分列窗框內「故」字左右（右＝First、左＝Second，直書右起）。
+    // 回歸鎖：兩欄都要落在「窗框內緣 ↔『故』字邊」的空白帶內，且文字下緣不得越過往者矩陣上緣 5.7388。
+    [Fact]
+    public void DataCard_HallName_SitsBesideGuGlyphAndStaysAboveDeadNames()
+    {
+        const double frameCenterX = (14.973 + 17.983) / 2 + 0.8; // 17.278
+        const double innerLeft = 14.986 + 0.8;                   // 15.786（樣板量測內緣）
+        const double innerRight = 17.9705 + 0.8;                 // 18.7705
+        const double glyphLeft = frameCenterX - 1.10 / 2;        // 16.728：「故」左緣
+        const double glyphRight = frameCenterX + 1.10 / 2;       // 17.828：「故」右緣
+        const double frameTop = 4.394;
+        const double deadTopRowY = 5.6388 + 0.1;                 // 5.7388：往者矩陣上緣＝堂號硬下界
+        const double bandTop = frameTop + 0.1;
+        const double bandHeight = deadTopRowY - bandTop;         // 1.2448
+
+        // SplitHallName：2 字 → 1+1、4 字 → 2+2、3 字（及 5 字以上）→ 整串進 First、Second 空
+        foreach (var (first, second) in new[] { ("潁", "川"), ("太原", "王氏"), ("隴西李", "") })
+        {
+            var (leftX, rightX, fontCm) = DataCardRenderer.HallColumns(first, second);
+
+            fontCm.Should().BeLessThanOrEqualTo(0.6 + 1e-9, "堂號字級起點 0.6cm，只縮不放大");
+
+            // 左半：框內緣 ~「故」左緣之間，且在該空白帶置中
+            leftX.Should().BeGreaterThan(innerLeft, $"「{second}」不可壓到窗框左內緣");
+            (leftX + fontCm).Should().BeLessThan(glyphLeft, $"「{second}」不可壓到「故」字");
+            (leftX + fontCm / 2).Should().BeApproximately((14.973 + 0.8 + glyphLeft) / 2, 1e-6);
+
+            // 右半：「故」右緣 ~ 框內緣之間，且在該空白帶置中
+            rightX.Should().BeGreaterThan(glyphRight, $"「{first}」不可壓到「故」字");
+            (rightX + fontCm).Should().BeLessThan(innerRight, $"「{first}」不可壓到窗框右內緣");
+            (rightX + fontCm / 2).Should().BeApproximately((glyphRight + 17.983 + 0.8) / 2, 1e-6);
+
+            // 垂直：各側依自身字數在可用帶內置中，上不出框、下不碰往者
+            foreach (var segment in new[] { first, second })
+            {
+                var n = VerticalText.ElementCount(segment);
+                if (n == 0) continue;
+                var top = bandTop + (bandHeight - n * fontCm) / 2;
+                top.Should().BeGreaterThan(frameTop, $"「{segment}」不可越過窗框上緣");
+                (top + n * fontCm).Should().BeLessThanOrEqualTo(deadTopRowY + 1e-9,
+                    $"「{segment}」不可壓到往者矩陣（上緣 {deadTopRowY}）");
+            }
+        }
+
+        // 3 字堂號整串進 First：0.6cm 塞不下 1.2448cm 可用帶 → 整組等比縮（同往者/陽上的縮字語意）
+        DataCardRenderer.HallColumns("隴西李", "").FontCm
+            .Should().BeApproximately(bandHeight / 3, 1e-6);
+    }
+
+    [Fact]
+    public void DataCard_HallName_IsActuallyDrawn()
+    {
+        var deadNames = N("陳大明", "陳二", "陳三");
+        DataCardData Make(string? first, string? second) => new(
+            Number: "信1", Prepay: "", DeadNames: deadNames, LivingNames: N("陳孝"),
+            Address: "", Phone: "", Remark: "", HallNameFirst: first, HallNameSecond: second);
+
+        var without = new DataCardRenderer().Render(Make(null, null));
+        var with = new DataCardRenderer().Render(Make("太原", "王氏"));
+        ShouldBePdf(without);
+        ShouldBePdf(with);
+        with.Length.Should().BeGreaterThan(without.Length, "堂號必須真的畫出來，不是被忽略的欄位");
+
+        // 純列印版 + 疊圖版供實體複驗（CEREMONY_PDF_DUMP 才落地）。
+        // ⚠️ 判讀堂號落點要看**純列印版**：疊圖用的樣板照片是 FrameShiftX（右移 0.8cm）之前的原位置，
+        // 會出現兩層「故」與兩層框線，堂號左半看起來像壓在（樣板那層的）「故」上，實際沒有。
+        foreach (var (first, second, name) in new[]
+                 {
+                     ("潁", "川", "datacard_hallname_2char"),
+                     ("太原", "王氏", "datacard_hallname_4char"),
+                     ("隴西李", "", "datacard_hallname_3char"),
+                 })
+        {
+            DumpIfRequested(new DataCardRenderer().Render(Make(first, second)), $"{name}_plain.pdf");
+            DumpIfRequested(new DataCardRenderer().Render(Make(first, second), debugOverlay: true), $"{name}_overlay.pdf");
+        }
+    }
+
     // 2026-07-18 客訴改版：資料卡改成連 template 一起印（欄位標題／簽名底線／「故◯◯靈位」窗框），
     // 白紙即可列印。回歸鎖：內容全空也必須畫出 template（PDF 遠大於一張空白頁），防止未來誤退回
     // 「假設預印樣板紙、只印內容」的套印模式。
@@ -538,12 +618,16 @@ public sealed class RendererSmokeTests
 
     // 2026-07-03：Base 變體長名字曾被印到窗框外（對應「薦牌實體對位」客訴）。
     // 2026-07-17 改版後，3+ 位亡者矩陣排在「故」下 0.2cm 起的 2.8×5.4cm 方框內
-    // （MatrixLayout 動態排版，見 TabletRenderer.DeadMatrix* 常數），框底 13.1946cm 在
-    // 「靈」字上緣（13.462cm）之上。回歸鎖：14 字長名字縮字後不得超出方框、更不得壓到「靈」。
+    // （見 TabletRenderer.DeadMatrix* 常數），框底 13.1946cm 在「靈」字上緣（13.462cm）之上。
+    //
+    // ★ 2026-08-14 使用者指定「3、4、5、6 位字體大小都跟目前 4 位的一樣大，不用因為字數再縮小」後，
+    //   本測試的語意**反轉**：原本鎖「14 字長名字縮字後不得超出方框」，現在鎖「字級固定 0.6cm 不縮，
+    //   超長名字**會**超出方框」——這是使用者在「保留最後防線」與「完全不縮」之間明確選的取捨。
+    //   走生產路徑（MatrixLayoutNoShrink）而非直接呼叫 MatrixLayout，否則測試會鎖到一條沒人跑的公式。
     [Fact]
-    public void Tablet_Base_LongDeadName_StaysWithinMeasuredWindow()
+    public void Tablet_Base_LongDeadName_KeepsBaseFontSize_EvenWhenOverflowing()
     {
-        var longName = string.Concat(Enumerable.Repeat("蔡", 14)); // 14 字，會觸發縮字
+        var longName = string.Concat(Enumerable.Repeat("蔡", 14)); // 14 字，舊規則會縮到 0.386cm
         var data = new TabletData(
             Number: "郵1", HallNameFirst: null, HallNameSecond: null,
             DeadNames: N(longName), LivingNames: N("蔡渭水"),
@@ -555,17 +639,20 @@ public sealed class RendererSmokeTests
         DumpIfRequested(new TabletRenderer().Render(data, debugOverlay: true), "tablet_base_long_dead_name_overlay.pdf");
 
         const double windowInnerTopCm = 6.2294;
-        const double lingTopCm = 13.462;      // 「靈」字上緣（樣板量測），硬邊界
         const double textTopCm = 7.7946;      // 故下緣 7.5946 + 0.2（使用者指定）
         const double boxHeightCm = 5.4;       // 使用者指定方框高
 
-        var (fontCm, _) = VerticalText.MatrixLayout(0.6, boxHeightCm, (longName, null));
-        var textBottomCm = textTopCm + longName.Length * fontCm;
+        // 生產路徑：3+ 位矩陣自 2026-08-14 起走 MatrixLayoutNoShrink
+        var (fontCm, _) = VerticalText.MatrixLayoutNoShrink(0.6, (longName, null));
+        var textBottomCm = textTopCm + VerticalText.ElementCount(longName) * fontCm;
 
         textTopCm.Should().BeGreaterThanOrEqualTo(windowInnerTopCm, "主欄起點不應在窗框內緣之上");
-        textBottomCm.Should().BeLessThanOrEqualTo(textTopCm + boxHeightCm + 1e-6,
-            "14 字長名字縮字後不應超出使用者指定的 5.4cm 方框");
-        textBottomCm.Should().BeLessThanOrEqualTo(lingTopCm + 1e-6, "不應壓到樣板預印的「靈」字");
+        fontCm.Should().BeApproximately(0.6, 1e-9,
+            "14 字長名字不再縮字——字級固定＝ParaFontSize（使用者 2026-08-14 指定）");
+        (VerticalText.MatrixLayout(0.6, boxHeightCm, (longName, null)).FontCm)
+            .Should().BeLessThan(0.6, "前提：舊規則（MatrixLayout）在同一組輸入下是會縮的，本輪刻意不用它");
+        textBottomCm.Should().BeGreaterThan(textTopCm + boxHeightCm,
+            "已知且刻意的取捨：14 字在固定 0.6cm 下會超出 5.4cm 方框、壓到預印「靈位」");
     }
 
     // ★ 2026-08-06 客訴回歸鎖（客戶實印照片：往者的字壓在預印的「靈位」上）。
@@ -582,10 +669,12 @@ public sealed class RendererSmokeTests
     // 不會讓下緣更低，所以斷言不用放寬。
     //
     // 本鎖用生產路徑（PrintTemplateSelector + renderer 同一組公式）算出三種排法在**極端字數**下的
-    // 文字下緣，一律不得越過共用下界 TabletRenderer.DeadTextBottom。既有 17 支 Tablet smoke 只鎖
-    // 上界與字級、不鎖下緣，2 位那個洞才會長期沒被抓到。
+    // 文字下緣。既有 17 支 Tablet smoke 只鎖上界與字級、不鎖下緣，2 位那個洞才會長期沒被抓到。
+    //
+    // ⚠️ 2026-08-14 起涵蓋範圍縮成 **1 位／2 位**：使用者指定 3~6 位「不用因為字數再縮小」，矩陣
+    //    因此刻意退出這條防線（下方改為反向鎖）。客訴的實際路徑（2 位分支）完整保留。
     [Fact]
-    public void Tablet_AllLayouts_DeadNames_NeverCrossDeadTextBottom()
+    public void Tablet_1and2Dead_NeverCrossDeadTextBottom_MatrixDeliberatelyExempt()
     {
         const double bottom = TabletRenderer.DeadTextBottom;   // 13.1946
         const double gapTop = TabletRenderer.DeadGapTop;       // 7.5946（1、2 位起點）
@@ -628,16 +717,32 @@ public sealed class RendererSmokeTests
         }
 
         // ── 3+ 位矩陣（Base / UnderscoreOne / UnderscoreTwo）──
-        var (mFont, mOffset) = VerticalText.MatrixLayout(
-            double.Parse(PrintTemplateSelector.ChooseTablet(manyLong, living).ParaFontSize.Replace("cm", "")),
-            matrixBox, (manyLong[0], manyLong[5]), (manyLong[1], manyLong[3]), (manyLong[2], manyLong[4]));
+        // ★ 2026-08-14 起**刻意不受這條下界節制**（使用者指定「3~6 位不用因為字數再縮小」，並在
+        //   「保留最後防線」與「完全不縮」之間選了後者）。這裡改成**反向鎖**：確認字級真的沒縮，
+        //   而不是把斷言刪掉了事——否則哪天有人「順手」把矩陣接回 MatrixLayout，沒有測試會叫。
+        var matrixBase = double.Parse(
+            PrintTemplateSelector.ChooseTablet(manyLong, living).ParaFontSize.Replace("cm", ""));
+        var (mFont, mOffset) = VerticalText.MatrixLayoutNoShrink(
+            matrixBase, (manyLong[0], manyLong[5]), (manyLong[1], manyLong[3]), (manyLong[2], manyLong[4]));
+        mFont.Should().BeApproximately(matrixBase, 1e-9,
+            "3+ 位矩陣字級固定＝ParaFontSize，任何字數都不縮");
         var matrixBottom = matrixTop + mOffset + VerticalText.ElementCount(manyLong[5]) * mFont;
-        matrixBottom.Should().BeLessThanOrEqualTo(bottom + 1e-6, "3+ 位矩陣不得越過共用下界");
+        matrixBottom.Should().BeGreaterThan(bottom,
+            "已知取捨：6 位 × 6 字在固定 0.6cm 下會越過下界壓到「靈位」——使用者明確選的，不是 bug");
 
-        // 三種排法必須收斂到**同一條**下界（別再散成三個常數）
-        (bottom - matrixTop).Should().BeApproximately(matrixBox, 1e-9,
-            "3+ 位方框高必須等於共用下界推出來的值");
+        // 樣張：讓使用者能實際看到這個取捨的極端長相（疊樣板照片版最直觀）
+        var overflowData = new TabletData(
+            Number: "郵1", HallNameFirst: null, HallNameSecond: null,
+            DeadNames: manyLong, LivingNames: living,
+            ParaFontSizeCm: matrixBase, Template: TabletTemplate.UnderscoreTwo);
+        DumpIfRequested(new TabletRenderer().Render(overflowData), "tablet_6dead_longnames_overflow.pdf");
+        DumpIfRequested(new TabletRenderer().Render(overflowData, debugOverlay: true),
+            "tablet_6dead_longnames_overflow_overlay.pdf");
+
+        // 1 位／2 位仍必須收斂到**同一條**下界（別再散成常數）；矩陣現在是刻意的例外
         avail.Should().BeApproximately(5.6, 1e-9, "1、2 位可用高＝共用下界 − 故下緣");
+        (bottom - matrixTop).Should().BeApproximately(matrixBox, 1e-9,
+            "矩陣方框幾何未變（只是不再拿它縮字）");
     }
 
     // 2026-08-08：往者長名字級的兩層規則鎖 + 樣張。
@@ -667,8 +772,14 @@ public sealed class RendererSmokeTests
         twoDead.Template.Should().Be(TabletTemplate.TwoTwo);
         twoDead.ParaFontSizeCm.Should().BeApproximately(0.6, 1e-9, "任一格 8 字素 → 整組起點降到 0.6cm");
 
+        // 2026-08-14 使用者指定：2 位往者門檻降到 7 字素；1 位維持 8（下面的 control 就是對照組）
+        var twoDead7 = Build(N("陳", name7), N("子甲", "子乙"));
+        twoDead7.Template.Should().Be(TabletTemplate.TwoTwo);
+        twoDead7.ParaFontSizeCm.Should().BeApproximately(0.6, 1e-9, "2 位任一格 7 字素 → 起點 0.6cm");
+
         var control = Build(N(name7), N("子甲", "子乙"));
-        control.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9, "7 字素未達門檻");
+        control.ParaFontSizeCm.Should().BeApproximately(0.8, 1e-9,
+            "同一個 7 字素名字在 1 位分支不觸發（門檻仍是 8）——兩層門檻刻意不同");
 
         // renderer 端：起點 0.6cm 在 5.6cm 可用高下塞得下（0.6×8=4.8 ≤ 5.6）→ 維持 0.6cm，不再縮
         const double avail = TabletRenderer.DeadTextBottom - TabletRenderer.DeadGapTop;
@@ -686,7 +797,7 @@ public sealed class RendererSmokeTests
         var f7 = VerticalText.GroupFontPt(control.ParaFontSizeCm * 28.3464567, (name7, avail)) / 28.3464567;
         f7.Should().BeApproximately(0.8, 1e-9, "7 字素兩層都不觸發，維持 0.8cm");
 
-        foreach (var (data, tag) in new[] { (oneDead, "1dead8"), (twoDead, "2dead8"), (control, "1dead7_control") })
+        foreach (var (data, tag) in new[] { (oneDead, "1dead8"), (twoDead, "2dead8"), (twoDead7, "2dead7"), (control, "1dead7_control") })
         {
             var plain = new TabletRenderer().Render(data);
             ShouldBePdf(plain);
@@ -708,10 +819,14 @@ public sealed class RendererSmokeTests
         var dead = N("黃毓沛", "歐陽亞麗", "黃放夷", "黃國強", "黃國華");
         var living = N("黃平山", "黃名鳳", "黃志恆", "黃志明", "黃志成");
 
-        // 亡者：最長鏈 = 上排「歐陽亞麗」4 字 + 1 間距 + 下排 3 字 = 8 單位 × 0.6 = 4.8 ≤ 5.4 → 不縮
-        var (deadFont, deadBottomOffset) = VerticalText.MatrixLayout(0.6, 5.4,
+        // 亡者：最長鏈 = 上排「歐陽亞麗」4 字 + 1 間距 + 下排 3 字 = 8 單位 × 0.6 = 4.8 ≤ 5.4。
+        // 2026-08-14 起走 MatrixLayoutNoShrink（字級固定），這組典型姓名在改動前後**數值完全相同**
+        // ——本測試同時是「3~6 位不縮」不得誤傷典型案例的迴歸鎖。
+        var (deadFont, deadBottomOffset) = VerticalText.MatrixLayoutNoShrink(0.6,
             (dead[0], dead[5]), (dead[1], dead[3]), (dead[2], dead[4]));
         deadFont.Should().BeApproximately(0.6, 1e-9, "典型 3-4 字亡者姓名必須保住 0.6cm 字級");
+        VerticalText.MatrixLayout(0.6, 5.4, (dead[0], dead[5]), (dead[1], dead[3]), (dead[2], dead[4]))
+            .Should().Be((deadFont, deadBottomOffset), "典型姓名下新舊公式必須逐位元相同（無迴歸）");
         deadBottomOffset.Should().BeApproximately((4 + 1) * 0.6, 1e-9, "下排起點＝最長上排(4字)+1 字高間距");
 
         // 陽上：最長鏈 = 3 + 1 + 3 = 7 單位 × 0.6 = 4.2 ≤ 4.925 → 不縮
@@ -800,7 +915,74 @@ public sealed class RendererSmokeTests
         DumpIfRequested(new TabletRenderer().Render(Build("慈", "堂")), "tablet_hallname_2chars.pdf");
     }
 
+    // 2026-08-14 使用者指定「往生 2 位時，名字間距多 0.2cm」的座標鎖。
+    // 這個值只出現在 DrawDeadNames 的 rightX/leftX 計算裡、渲染後無法反推，故直接鎖常數 + 實體邊界
+    // （比照 Tablet_OneAndTwoLiving_Coordinates_StayWithinPhysicalBounds 的寫法）。
+    [Fact]
+    public void Tablet_TwoDead_ColumnGap_WidenedAndStaysWithinWindow()
+    {
+        TabletRenderer.DeadColumnGap.Should().BeApproximately(0.1 + 0.2, 1e-9, "使用者指定 +0.2cm");
+
+        // 最大字級 0.8cm（未觸發長名門檻）時的左右極值，含 GlobalShiftX
+        const double fontCm = 0.8;
+        const double windowInnerLeft = 4.191;   // 牌位雕花窗框內緣（樣板量測）
+        const double windowInnerRight = 7.163;
+
+        var rightEdge = TabletRenderer.DeadCenterX + TabletRenderer.DeadColumnGap / 2
+                        + TabletRenderer.GlobalShiftX + fontCm;
+        var leftEdge = TabletRenderer.DeadCenterX - TabletRenderer.DeadColumnGap / 2 - fontCm
+                       + TabletRenderer.GlobalShiftX;
+
+        rightEdge.Should().BeApproximately(6.435, 1e-9);
+        leftEdge.Should().BeApproximately(4.535, 1e-9);
+        rightEdge.Should().BeLessThan(windowInnerRight, "右欄不得壓到窗框雕花");
+        leftEdge.Should().BeGreaterThan(windowInnerLeft, "左欄不得壓到窗框雕花");
+
+        // 渲染鎖：加寬後兩欄都還要真的印出來（不被 QuestPDF 靜默丟字）
+        var data = new TabletData(
+            Number: "郵1", HallNameFirst: null, HallNameSecond: null,
+            DeadNames: N("蔡渭水", "蔡慧明"), LivingNames: N("子甲", "子乙"),
+            ParaFontSizeCm: 0.8, Template: TabletTemplate.TwoTwo);
+        var pdf = new TabletRenderer().Render(data);
+        ShouldBePdf(pdf);
+        DumpIfRequested(pdf, "tablet_2dead_widened_gap.pdf");
+        DumpIfRequested(new TabletRenderer().Render(data, debugOverlay: true), "tablet_2dead_widened_gap_overlay.pdf");
+    }
+
+    // 2026-08-14 使用者指定「3、4、5、6 位字體大小都跟目前 4 位一樣大」的單元鎖：
+    // MatrixLayoutNoShrink 任何字數都不縮，但下排起點仍動態跟著上排最長名字走。
+    [Fact]
+    public void MatrixLayoutNoShrink_NeverShrinks_ButKeepsDynamicBottomOffset()
+    {
+        // 與 MatrixLayout_ShrinksUniformly_OnlyWhenChainOverflows 同一組輸入，對照兩者差異
+        var (f1, off1) = VerticalText.MatrixLayoutNoShrink(0.6, ("蔡姓歷代祖先", "蔡黃氏"));
+        f1.Should().BeApproximately(0.6, 1e-9, "鏈高 10 單位 > 9 也不縮（MatrixLayout 會縮到 0.54）");
+        off1.Should().BeApproximately((6 + 1) * 0.6, 1e-9, "下排起點＝上排最長 6 字 +1 間距，字級用未縮的 0.6");
+        VerticalText.MatrixLayout(0.6, 5.4, ("蔡姓歷代祖先", "蔡黃氏")).FontCm
+            .Should().BeLessThan(f1, "前提：同一組輸入下舊公式確實會縮");
+
+        // 沒有下排 → 無下排位移；超長單欄同樣不縮
+        var (f2, off2) = VerticalText.MatrixLayoutNoShrink(0.6, ("蔡渭水", null), ("蔡慧明", ""));
+        f2.Should().BeApproximately(0.6, 1e-9);
+        off2.Should().Be(0);
+
+        var (f3, off3) = VerticalText.MatrixLayoutNoShrink(0.6, (string.Concat(Enumerable.Repeat("蔡", 20)), null));
+        f3.Should().BeApproximately(0.6, 1e-9, "單欄 20 字也不縮");
+        off3.Should().Be(0);
+
+        // 空矩陣 → 字級原樣回傳、無位移
+        var (f4, off4) = VerticalText.MatrixLayoutNoShrink(0.6, (null, null), ("", ""));
+        f4.Should().BeApproximately(0.6, 1e-9);
+        off4.Should().Be(0);
+
+        // 增補平面造字仍算一列（gotchas「一個字不等於一個 char」）
+        VerticalText.MatrixLayoutNoShrink(0.6, (Rare + "姓歷代祖先", "蔡黃氏"))
+            .Should().Be(VerticalText.MatrixLayoutNoShrink(0.6, ("蔡姓歷代祖先", "蔡黃氏")));
+    }
+
     // MatrixLayout 單元行為鎖：塞不下時整組等比縮、單欄超長也不超框、空欄不影響。
+    // ⚠️ 薦牌**往者**矩陣自 2026-08-14 起改走 MatrixLayoutNoShrink；本鎖涵蓋的是仍在用 MatrixLayout 的
+    //    薦牌陽上／資料卡／文牒。
     [Fact]
     public void MatrixLayout_ShrinksUniformly_OnlyWhenChainOverflows()
     {

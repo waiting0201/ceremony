@@ -44,6 +44,11 @@ public static class PrintTemplateSelector
         // ⚠️ 影響範圍不只薦牌：資料卡（ReportModelBuilders.DataCard）取的是同一個 ParaFontSize，
         //    長名往者會一併從 0.69 縮到 0.60cm——使用者已確認要兩份報表一起回復（本就是 2026-07-21
         //    「資料卡往者字級改與薦牌一致」客訴的原意）。
+        //
+        // 2026-08-14 使用者指定：**2 位往者的門檻降到 7 字**（「往生 2 位時…如果 7 個字以上就縮小跟
+        // 4 位時的字體大小一樣」），1 位維持 8 字。兩層門檻**刻意不同**——使用者這次只講 2 位，
+        // 已明確確認 1 位不動，不要為了「一致」把它們合回同一個常數。
+        // 同樣的資料卡連動仍在：2 位往者 7 字素的案例會一併把資料卡從 0.8 降到 0.6cm（預期行為）。
         return deadTier switch
         {
             1 => (livingTier switch
@@ -51,14 +56,15 @@ public static class PrintTemplateSelector
                 1 => TabletTemplate.OneOne,
                 2 => TabletTemplate.OneTwo,
                 _ => TabletTemplate.One,
-            }, IsLongDeadName(deadNames[0]) ? "0.6cm" : "0.8cm"),
+            }, IsLongDeadName(deadNames[0], LongDeadNameThresholdOne) ? "0.6cm" : "0.8cm"),
 
             2 => (livingTier switch
             {
                 1 => TabletTemplate.TwoOne,
                 2 => TabletTemplate.TwoTwo,
                 _ => TabletTemplate.Two,
-            }, IsLongDeadName(deadNames[0]) || IsLongDeadName(deadNames[1]) ? "0.6cm" : "0.8cm"),
+            }, IsLongDeadName(deadNames[0], LongDeadNameThresholdTwo)
+               || IsLongDeadName(deadNames[1], LongDeadNameThresholdTwo) ? "0.6cm" : "0.8cm"),
 
             _ => (livingTier switch
             {
@@ -69,8 +75,17 @@ public static class PrintTemplateSelector
         };
     }
 
-    /// <summary>往者「長名字」門檻：字素數 ≥ 8（對齊舊系統 <c>.Length &gt; 7</c>）。</summary>
-    private const int LongDeadNameThreshold = 8;
+    /// <summary>**1 位**往者「長名字」門檻：字素數 ≥ 8（對齊舊系統 <c>.Length &gt; 7</c>）。</summary>
+    private const int LongDeadNameThresholdOne = 8;
+
+    /// <summary>
+    /// **2 位**往者「長名字」門檻：字素數 ≥ 7（2026-08-14 使用者指定，比 1 位早一個字觸發）。
+    /// </summary>
+    /// <remarks>
+    /// 2 位是左右分居、每欄各自直書，同樣長度的名字看起來比 1 位置中時擁擠，使用者因此只把這一支
+    /// 的門檻往前挪一格。與 <see cref="LongDeadNameThresholdOne"/> 不同是**刻意的**，不是漏改。
+    /// </remarks>
+    private const int LongDeadNameThresholdTwo = 7;
 
     /// <summary>
     /// 往者姓名是否達長名字門檻 → <c>ParaFontSize</c> 起點降到 0.6cm（同 3+ 位往者）。
@@ -83,8 +98,8 @@ public static class PrintTemplateSelector
     /// （`𡍼`/`𤆬`…，UTF-16 佔兩個 code unit）在 <c>.Length</c> 會多算一倍——見 gotchas
     /// 「一個字不等於一個 char」。
     /// </remarks>
-    private static bool IsLongDeadName(string? name)
-        => !string.IsNullOrEmpty(name) && new StringInfo(name).LengthInTextElements >= LongDeadNameThreshold;
+    private static bool IsLongDeadName(string? name, int threshold)
+        => !string.IsNullOrEmpty(name) && new StringInfo(name).LengthInTextElements >= threshold;
 
     /// <summary>文牒 2 變體：slot 2 有名字且 3-6 全空（舊 SignupForm.cs:1350）選 Two，否則 Base。</summary>
     public static TextTemplate ChooseText(string?[] deadNames)

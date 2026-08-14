@@ -33,8 +33,32 @@ public sealed class DataCardRenderer
     // 那條線。1、2 位往者的姓名以此置中（見 DrawDeadNamesInWindow），DrawTemplate 的故／靈位共用。
     private const double FrameCenterX = (14.973 + 17.983) / 2 + FrameShiftX; // 17.278
 
-    // 1、2 位往者並排時兩欄之間的留白（比照薦牌 TabletRenderer.DeadColumnGap），避免字貼在一起。
+    // 1、2 位往者並排時兩欄之間的留白，避免字貼在一起。原值取自薦牌 TabletRenderer.DeadColumnGap。
+    // ⚠️ 2026-08-14 起兩者**刻意分歧**：使用者指定「薦牌往生 2 位時名字間距多 0.2cm」，薦牌那邊
+    //    加寬到 0.3cm，指示範圍只有薦牌，資料卡窗框較窄（14.973~17.983 ≈ 3cm）故維持 0.1cm。
+    //    不是漏改——要同步請先問使用者。
     private const double FewDeadColumnGap = 0.1;
+
+    // 窗框內亡者矩陣的上排起點：「故」字下緣（樣板量測 5.6388）再往下 0.1cm。
+    // 同時是堂號的**下界**（堂號在「故」左右、亡者在「故」下方，兩者不得垂直重疊）——
+    // 兩處共用這一個常數，避免「同語意散成多個常數、錯一個沒人發現」（2026-08-06 薦牌客訴的教訓）。
+    private const double DeadTopRowY = 5.6388 + 0.1;         // 5.7388
+
+    // ── 堂號（2026-08-14 客訴「資料卡右邊的列印沒有印到堂號」，使用者指定「參考薦牌的列印方式」）──
+    // 薦牌是把堂號兩半印在窗框內「故」字的左右兩側（TabletRenderer.cs 的 HallNameSecond/First 兩個
+    // DrawText，x 4.4/6.4 分居其窗框中軸 5.685 左右）。資料卡窗框頂（4.394）到「故」字頂（4.585）
+    // 只有 0.19cm，塞不下堂號 → 只能同樣走「故」左右兩側，這也正是使用者選定的版面。
+    // 「故」字佔用範圍（由 DrawTemplate 以 GlyphFontCm 畫）：X FrameCenterX ± GlyphFontCm/2、
+    // Y 4.585~5.6388（下緣為樣板量測硬邊界）。
+    private const double GlyphFontCm = 1.10;                 // 「故」「靈位」字級（樣板墨跡量測）
+    private const double HallBaseFontCm = 0.6;               // 起點字級，與薦牌／文牒堂號同
+    private const double HallBandTop = 4.394 + 0.1;          // 4.494：框頂 + 內留白，不壓框線
+    private const double HallBandBottom = DeadTopRowY;       // 5.7388：往者矩陣上緣，硬邊界不得越過
+    private const double HallBandHeight = HallBandBottom - HallBandTop; // 1.2448
+    private const double FrameInnerLeft = 14.973 + FrameShiftX;  // 15.773（框線本身 0.8pt ≈ 0.028cm）
+    private const double FrameInnerRight = 17.983 + FrameShiftX; // 18.783
+    private const double GlyphLeft = FrameCenterX - GlyphFontCm / 2;  // 16.728：「故」左緣
+    private const double GlyphRight = FrameCenterX + GlyphFontCm / 2; // 17.828：「故」右緣
 
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
@@ -87,6 +111,10 @@ public sealed class DataCardRenderer
                     // 預繳欄沿用原寬度：樣板窗框（Top=4.40cm 起）在這一列（Top 0.776~1.667cm）之下，不會重疊
                     // 2026-07-21 客訴：預繳整體右移 1.5cm（Left 12.133 → 13.633）
                     DrawText(layers, top: 0.776, left: 13.633, width: 7.629, height: 0.891, fontCm: 0.7, text: data.Prepay);
+
+                    // 2026-08-14 客訴：右側窗框沒印堂號。堂號在「故」左右兩側、亡者在「故」下方，
+                    // 兩者共用 DeadTopRowY 當分界，不會互相壓字（見 DrawHallName）。
+                    DrawHallName(layers, data.HallNameFirst, data.HallNameSecond);
 
                     DrawDeadNamesInWindow(layers, data.DeadNames, data.ParaFontSizeCm);
 
@@ -155,12 +183,12 @@ public sealed class DataCardRenderer
 
         // 「故」與「靈位」：置中於窗框中軸（右移後 16.478 + 0.8 = 17.278）；墨跡對齊樣板量測（「故」下緣
         // 5.6388、「靈」上緣 11.4427——兩者是 DrawDeadNamesInWindow 亡者矩陣的硬邊界，不可越過）
-        const double glyphFontCm = 1.10;                   // 樣板墨跡量測字級（位 字寬 ≈1.12cm）
-        var glyphFontPt = glyphFontCm * PointsPerCm;
-        DrawVerticalName(layers, top: 4.585, left: FrameCenterX - glyphFontCm / 2, fontPt: glyphFontPt, text: "故");
+        // 字級／左右緣收在 GlyphFontCm / GlyphLeft / GlyphRight（堂號要靠這兩條邊定位，見 DrawHallName）
+        var glyphFontPt = GlyphFontCm * PointsPerCm;
+        DrawVerticalName(layers, top: 4.585, left: GlyphLeft, fontPt: glyphFontPt, text: "故");
         // LineHeight 1.13：讓「靈」上緣落在 11.4427、「位」下緣落在 13.7414（皆為樣板量測值）
         layers.Layer()
-            .TranslateX((float)(FrameCenterX - glyphFontCm / 2), Unit.Centimetre)
+            .TranslateX((float)GlyphLeft, Unit.Centimetre)
             .TranslateY(11.33f, Unit.Centimetre)
             .Text(VerticalText.Stack("靈位")).FontSize((float)glyphFontPt).FontFamily(FontFamily).LineHeight(1.13f);
     }
@@ -185,7 +213,7 @@ public sealed class DataCardRenderer
     // 不可改用 Count 數總數——名字填在後面欄位有空洞時會誤判，見 PrintTemplateSelector remarks）。
     private static void DrawDeadNamesInWindow(LayersDescriptor layers, string?[] deadNames, double paraFontSizeCm)
     {
-        const double topRowY = 5.6388 + 0.1;        // 5.7388
+        const double topRowY = DeadTopRowY;         // 5.7388
         const double windowGapBottom = 11.4427;     // 「靈」字上緣，硬邊界
         const double safetyMargin = 0.2;
         // 方框可用高：topRowY 到「靈」字上緣扣安全邊界（比照薦牌 DeadMatrixHeight 的固定方框概念）
@@ -210,6 +238,59 @@ public sealed class DataCardRenderer
         DrawVerticalName(layers, bottomRowY, rightX, fontPt, d[3]);  // 4th 右邊下
         DrawVerticalName(layers, bottomRowY, leftX, fontPt, d[4]);   // 5th 左邊下
         DrawVerticalName(layers, bottomRowY, centerX, fontPt, d[5]); // 6th 中間下
+    }
+
+    /// <summary>
+    /// 堂號：兩半分列窗框內「故」字左右（右＝<paramref name="first"/>、左＝<paramref name="second"/>，
+    /// 直書右起故右邊先讀），比照薦牌 <c>TabletRenderer</c> 的堂號版面。
+    /// </summary>
+    /// <remarks>
+    /// **刻意與薦牌的繪製手法不同**：薦牌用橫排 <c>DrawText</c> + 窄欄自動換行擠出「一格兩字」，
+    /// 因此需要 <c>TabletRenderer.HallTopOf</c> 那個「≥2 字上移 0.2cm」的補償（vMiddle 只用單字高
+    /// 算置中，不知道實際渲染成兩列 → 重心下沉）。這裡改用既有的 <see cref="DrawVerticalName"/>
+    /// （<c>VerticalText.Stack</c> 每字一行、LineHeight 1），列數是明確的 → 直接以實際字數置中，
+    /// 1／2／3 字都自然正確，不需要也不該再抄那個補償。**不要為了「跟薦牌統一」把這裡改回橫排。**
+    /// </remarks>
+    private static void DrawHallName(LayersDescriptor layers, string? first, string? second)
+    {
+        if (string.IsNullOrWhiteSpace(first) && string.IsNullOrWhiteSpace(second)) return;
+
+        var (leftX, rightX, fontCm) = HallColumns(first, second);
+        var fontPt = fontCm * PointsPerCm;
+
+        // 每側**各自**在可用帶內垂直置中（左右字數可能不同：SplitHallName 對 3 字／5 字以上會整串
+        // 進 First、Second 為空）。字數用 ElementCount 而非 .Length——增補平面字（𡍼 等）會多算一列。
+        DrawVerticalName(layers, HallTopOf(first), rightX, fontPt, first);
+        DrawVerticalName(layers, HallTopOf(second), leftX, fontPt, second);
+
+        double HallTopOf(string? segment)
+            => HallBandTop + (HallBandHeight - VerticalText.ElementCount(segment) * fontCm) / 2;
+    }
+
+    /// <summary>
+    /// 堂號左右兩欄的 X 起點（cm，＝該欄文字左緣）與整組統一字級（cm）。
+    /// </summary>
+    /// <remarks>
+    /// X：各側在「窗框內緣 ↔『故』字邊」的空白帶置中——左帶 <see cref="FrameInnerLeft"/>~
+    /// <see cref="GlyphLeft"/>、右帶 <see cref="GlyphRight"/>~<see cref="FrameInnerRight"/>，各寬 0.955cm。
+    /// 直書 CJK 字寬 ≈ 字級，所以左緣要用「帶中心 − 字級/2」回推，必須在字級算完之後才決定
+    /// （同 <see cref="DeadColumnsX"/> 的理由）。
+    /// 字級：起點 <see cref="HallBaseFontCm"/>（與薦牌／文牒堂號同 0.6cm），只有當某側字數在該字級下
+    /// 會越過 <see cref="HallBandBottom"/>（＝亡者矩陣上緣）才整組等比縮——沿用 <c>GroupFontPt</c>，
+    /// 與往者／陽上的縮字語意一致。實務上 1、2 字都維持 0.6cm，只有 3 字（3 字堂號整串進 First）會縮。
+    /// internal 供 <c>Ceremony.Infrastructure.Tests</c> 斷言落點（PDF 內無法直接量測座標）。
+    /// </remarks>
+    internal static (double LeftX, double RightX, double FontCm) HallColumns(string? first, string? second)
+    {
+        var fontPt = VerticalText.GroupFontPt(
+            HallBaseFontCm * PointsPerCm,
+            (first, HallBandHeight),
+            (second, HallBandHeight));
+        var fontCm = fontPt / PointsPerCm;
+
+        var leftX = (FrameInnerLeft + GlyphLeft) / 2 - fontCm / 2;    // 0.6cm 時 15.9505
+        var rightX = (GlyphRight + FrameInnerRight) / 2 - fontCm / 2; // 0.6cm 時 18.0055
+        return (leftX, rightX, fontCm);
     }
 
     /// <summary>

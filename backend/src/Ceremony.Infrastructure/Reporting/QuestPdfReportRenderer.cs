@@ -18,7 +18,8 @@ public sealed class QuestPdfReportRenderer(
             model.Number, model.Prepay,
             model.DeadNames, model.LivingNames,
             model.Address, model.Phone, model.Remark,
-            model.NumberTitle, model.ParaFontSizeCm), debugOverlay);
+            model.NumberTitle, model.ParaFontSizeCm,
+            model.HallNameFirst, model.HallNameSecond), debugOverlay);
 
     public byte[] RenderReceipt(ReceiptModel model)
         => receipt.Render(new ReceiptData(
