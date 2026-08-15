@@ -593,9 +593,23 @@ IPC `ceremony:listPrinters` / `getPrintSettings` / `savePrintSetting` / `printPd
   靜默代換＝印在別種報表的紙上而沒有任何訊號。找不到就是 `not-found` + 標題警告。
 - **後端 append-mode 合併 / 換 PDF library**：見決策 5 的限制說明，等真的撞到再說。
 
-## 待評估：回到 WinForms PrintDialog（＝舊系統的形狀）
+## 決策 11：把列印工作拿回來（＝舊系統的形狀）—— Phase 0 進行中
 
-> 狀態：**只評估，未動工**（2026-08-08 記錄；使用者指示先做決策 9c 的預檢）。
+> 狀態：**2026-08-15 由「只評估」轉為執行**，目前在 **Phase 0（阻斷性驗證）**。
+> 完整計畫見規劃檔；探針程式碼在 `backend/src/Ceremony.PrintProbe/`（一次性，不隨產品出貨）。
+>
+> **觸發事件**：KYOCERA PA2000 GX 在排障 ①③④ 全部走完之後**仍然完全印不出來**
+> （`reference/print.png` 顯示列印按鈕呈灰色——先前以為「會噴錯但還能印」是錯的）。
+> 現場證據已排除我們的寫入：`reference/print-20260815.log` 兩次列印皆 `formResult:skipped-disabled`
+> （helper 連啟動都沒有）、三次 `app-start` 皆 `formPreselect:false`、全檔無 `form-restore-recovered`；
+> `reference/print.mov` 顯示客戶在 Kyocera 自己的列印喜好設定選了「資料卡」按確定
+> ⇒ **最後一個寫那份 DEVMODE 的是 Windows 自己**。
+>
+> **⚠️ 修正下表的一個用詞**：本節原寫 WinForms `PrintDialog`（PrintDlgEx）。實作改為
+> **直接 P/Invoke `comdlg32!PrintDlgW`**——WinForms 的對話框選擇是框架內部分支
+> （`UseEXDialog` × OS × 位元數），舊系統是靠「AnyCPU 實際跑 32-bit」這個**偶然**走到 legacy 的；
+> 把偶然搬進新程式＝換個地方踩同一顆雷。且 `PrintDlgExW` 是**新版**對話框，正是現場出錯的那一條。
+> 另見 [../gotchas.md](../gotchas.md)〈越新的 .NET 印表機 API 綁得越死在壞掉的那一層上〉。
 
 決策 9 系列的每一個問題都源自同一件事：**我們不擁有那個列印工作**，所以只能去改機器的共用設定。
 舊系統擁有它，所以完全沒有這一整類失敗模式。要根治就得把送印拿回來，做成 WinForms helper：
@@ -619,14 +633,26 @@ API 產 PDF → helper 光柵化成頁面圖 → PrintPreviewDialog
 這條路一次拿掉：`SetPrinter` 整段、還原 journal、`0x80010105` 這一類，
 而「自動選對紙」變成免費附贈（就是 `SignupForm.cs:1770-1787` 那個比對迴圈）。
 
-**入場費（三項，都不便宜）**：
+**入場費（三項，2026-08-15 全部重新定價）**：
 
-1. **整份座標表會再次作廢** —— 現行 ±0.05cm 的座標是在 **Chromium fit-to-printable-area 等比縮放
-   置中**下驗收的；GDI `DrawImage` 拉滿 `PageBounds` 是**非等比、原點在可列印區左上角**。
-   六種報表全部要重新實體套印驗收。這正是本檔 2026-08-01 那條元教訓的內容，**不能再犯一次**。
-2. **向量變點陣** —— PDF 要先光柵化。舊系統就是這樣（也是它「不用調設定」的原因），
-   但 2026-08-04 才修好的造字（增補平面）與細筆畫要重新看樣張。
-3. **要取代不能並存** —— 兩套送印路徑並存比現況更糟。
+1. ~~整份座標表會再次作廢~~ —— **這一項可以不付。** 原本的定價假設新路徑照舊系統
+   `DrawImage` 拉滿 `PageBounds`（非等比）。但我們**不必那樣做**：光柵化之後自己用
+   `scale = min(HORZRES/pageW, VERTRES/pageH)` 等比縮放並置中於可列印區，
+   就是複製現行 Chromium 的行為 ⇒ 現有 ±0.05cm 座標表**在構造上不作廢**。
+   ⚠️ 但「構造上不作廢」≠「已驗證不作廢」——**六報表對照組（同機、同紙、同資料，
+   兩條路徑各印一張疊放量測）仍是不得跳過的驗收項**，這正是 2026-08-01 那條元教訓的要求：
+   「上線前必須做 X」的 X 必須是可勾選的驗收項。
+2. **向量變點陣** —— **這一項比原本貴。** 原句寫「舊系統就是這樣」是**錯的**：
+   舊系統 render 出來的是 **EMF 向量中繼檔**，`DrawImage(metafile, …)` 在印表機 Graphics 上是
+   **中繼檔重播**（見 [../gotchas.md](../gotchas.md) 該條 2026-08-15 更正）。
+   ⇒ 光柵化是**新方案獨有的新風險**，不能用「回到舊行為」安慰自己。
+   減價手段：用 PDFium 的 `FPDF_RenderPage(HDC…)` 而非 `FPDF_RenderPageBitmap`——
+   HDC 為 `DT_RASPRINTER` 時 PDFium 走 GDI 印表機裝置驅動，以圖元送進 DC 而非攤成大點陣圖。
+   驗收必須包含造字（增補平面）與細筆畫的樣張比對。
+3. **終局要取代不能並存** —— 成立，但**不是上線第一步**：驗收 A 的對照組本身就要求
+   同一台機器能跑兩條路徑，所以 Phase 1 需要一個 per-machine 開關（`printViaDialog`，
+   走 `mergeConfig` 以免重蹈 v2.4.8「開關被出廠種子清掉」）。那是**驗收工具**不是並存策略，
+   Phase 3 一併刪除。
 
 
 

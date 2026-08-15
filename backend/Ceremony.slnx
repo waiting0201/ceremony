@@ -6,6 +6,7 @@
     <Project Path="src/Ceremony.Infrastructure/Ceremony.Infrastructure.csproj" />
     <Project Path="src/Ceremony.Migrations/Ceremony.Migrations.csproj" />
     <Project Path="src/Ceremony.PrintForm/Ceremony.PrintForm.csproj" />
+    <Project Path="src/Ceremony.PrintProbe/Ceremony.PrintProbe.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Ceremony.Api.IntegrationTests/Ceremony.Api.IntegrationTests.csproj" />

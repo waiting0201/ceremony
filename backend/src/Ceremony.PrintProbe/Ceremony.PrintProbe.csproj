@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- net10.0-windows：與 Ceremony.PrintForm 同理（System.Drawing.Common 的 API 全標
+         [SupportedOSPlatform("windows")]）。這支是 **Phase 0 的一次性探針**，不隨產品出貨、
+         不進 electron-builder 的 extraResources；用途是在現場那台 KYOCERA PA2000 GX 上回答
+         「comdlg32 的舊版列印對話框會不會也噴 0x80010105」這唯一一個 go/no-go 問題。
+         見 docs/blueprints/print-channel-electron.md 的「復刻舊系統列印對話框」Phase 0。 -->
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Ceremony.PrintProbe</RootNamespace>
+    <AssemblyName>Ceremony.PrintProbe</AssemblyName>
+    <!-- 與 Ceremony.PrintForm / Ceremony.Migrations 同理：Exe＋RID 預設 SelfContained=true
+         會觸發 NETSDK1151。見 docs/gotchas.md。 -->
+    <SelfContained>false</SelfContained>
+    <!-- macOS 開發機要 build 得動（本專案的主要開發環境是 macOS）。 -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 只為了列舉驅動的紙張表單（PrinterSettings.PaperSizes），與 PrintForm 相同。 -->
+    <PackageReference Include="System.Drawing.Common" Version="10.0.10" />
+  </ItemGroup>
+
+</Project>
