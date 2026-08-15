@@ -1,0 +1,49 @@
+name: Print Probe (Windows self-test)
+
+# 開發機是 macOS，而 Ceremony.PrintProbe 整支都是 Win32 P/Invoke（PrintDlgW / GDI / winspool）——
+# 這類程式最典型的失敗是「編譯完全沒問題、一執行就崩」，在 macOS 上驗不到。
+# 這個 workflow 的用途是：**在寄給客戶之前，讓這支 exe 至少在真的 Windows 上跑起來一次**，
+# 並把驗過的 exe 當成 artifact 傳上來，直接下載寄給寺方。
+#
+# 為什麼不用 release.yml：那支是打 v* tag 觸發、會建整包 NSIS 安裝檔並建立公開 Release。
+# 探針不隨產品出貨、也不該為了測它而燒一個版號。見 docs/blueprints/print-channel-electron.md 決策 11。
+
+on:
+  workflow_dispatch: {}
+  push:
+    paths:
+      - 'backend/src/Ceremony.PrintProbe/**'
+      - '.github/workflows/printprobe.yml'
+
+jobs:
+  selftest:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
+      # framework-dependent（與 Ceremony.PrintForm 同理，避免 NETSDK1151）。
+      # 探針沒有 native 相依，single-file 可以用 —— 對現場來說「一個檔、雙擊就跑」最重要。
+      - name: Publish probe
+        run: >
+          dotnet publish backend/src/Ceremony.PrintProbe/Ceremony.PrintProbe.csproj
+          -c Release -r win-x64
+          -p:SelfContained=false -p:PublishSingleFile=true -p:DebugType=none
+          -o backend/publish/win-x64-printprobe
+
+      # 真正的重點：在 Windows 上執行它。--selftest 不開視窗、不等輸入，
+      # 驗 PRINTDLG 的 x64 struct 版面、PrintDlgW 進入點（PD_RETURNDEFAULT，不畫 UI）、
+      # 印表機列舉、GetPrinterDriver 的 cVersion、以及 GDI StartDoc→EndDoc 全鏈路。
+      # 退出碼非 0 就讓這一步紅燈。「這台 runner 沒有印表機」不算失敗。
+      - name: Run self-test
+        run: ./backend/publish/win-x64-printprobe/Ceremony.PrintProbe.exe --selftest
+
+      - name: Upload probe exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ceremony.PrintProbe-win-x64
+          path: backend/publish/win-x64-printprobe/Ceremony.PrintProbe.exe
+          if-no-files-found: error

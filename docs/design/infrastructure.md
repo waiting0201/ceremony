@@ -544,6 +544,28 @@ jobs:
     - Playwright 跑 smoke + critical paths
 ```
 
+### Print Probe self-test（**已實作**：[.github/workflows/printprobe.yml](../../.github/workflows/printprobe.yml)）
+
+`workflow_dispatch` ＋ `backend/src/Ceremony.PrintProbe/**` 有異動時觸發，跑在 `windows-latest`。
+
+**為什麼需要它**：開發機是 macOS，而 `Ceremony.PrintProbe` 整支都是 Win32 P/Invoke
+（`PrintDlgW` / GDI / winspool）。這類程式最典型的失敗是**編譯完全沒問題、一執行就崩**，
+在 macOS 上驗不到。而它的用途是寄給客戶做現場診斷——**一支從未在 Windows 上執行過的 exe
+寄出去，萬一閃退我們什麼都學不到，還會分不清是探針壞了還是那台印表機壞了。**
+
+步驟：publish（framework-dependent + single-file，現場要「一個檔、雙擊就跑」）
+→ **實際執行 `--selftest`**（非互動：驗 `PRINTDLG` 的 x64 struct 版面、`PrintDlgW` 進入點
+〔`PD_RETURNDEFAULT`，走同一個結構但不畫 UI〕、印表機列舉、`GetPrinterDriver` 的 cVersion、
+GDI `StartDoc`→`EndDoc` 全鏈路〔輸出導向檔案，不需要實體印表機〕）
+→ 把 exe 上傳成 artifact，直接下載寄給寺方。
+
+> ⚠️ 自我檢查**涵蓋不到**「對話框長什麼樣、列印鈕是不是灰的」——那只有現場那台答得出來。
+> 「runner 沒有印表機」不算失敗。
+>
+> **刻意不併進 release.yml**：那支是打 `v*` tag 觸發、會建整包 NSIS 安裝檔並建立公開 Release。
+> 探針不隨產品出貨，也不該為了測它而燒一個版號。見
+> [blueprints/print-channel-electron.md](../blueprints/print-channel-electron.md) 決策 11。
+
 ### Release workflow（**已實作**：[.github/workflows/release.yml](../../.github/workflows/release.yml)）
 
 打 `v*` tag（或手動 `workflow_dispatch`）→ 在 **`windows-latest`** 產出 NSIS 安裝檔：

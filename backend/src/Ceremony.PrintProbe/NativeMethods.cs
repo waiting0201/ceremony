@@ -26,6 +26,17 @@ internal static class NativeMethods
     internal const uint PD_PAGENUMS = 0x00000002;
     internal const uint PD_NOSELECTION = 0x00000004;
     internal const uint PD_RETURNDC = 0x00000100;
+
+    /// <summary>
+    /// **不顯示對話框**，直接把系統預設印表機的 DEVMODE／DEVNAMES（配 PD_RETURNDC 則含 hDC）填回來。
+    /// </summary>
+    /// <remarks>
+    /// 這是 <c>--selftest</c> 能在 CI（windows-latest，無人看著螢幕）上驗證整條 P/Invoke 的關鍵：
+    /// 它走的是與互動模式**完全相同**的 <c>PrintDlgW</c> 進入點與 <c>PRINTDLG</c> 結構，
+    /// 只是不畫 UI ⇒ struct 版面錯了一樣會現形。
+    /// ⚠️ 呼叫時 hDevMode 與 hDevNames **必須都是 NULL**，否則 PrintDlg 直接回錯。
+    /// </remarks>
+    internal const uint PD_RETURNDEFAULT = 0x00000400;
     internal const uint PD_USEDEVMODECOPIESANDCOLLATE = 0x00040000;
     internal const uint PD_HIDEPRINTTOFILE = 0x00100000;
 

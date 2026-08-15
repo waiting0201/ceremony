@@ -45,9 +45,12 @@ internal static class Program
         None,
     }
 
-    private static int Main()
+    private static int Main(string[] args)
     {
         Console.OutputEncoding = Encoding.UTF8;
+
+        // 開發機是 macOS，這支 exe 在寄給客戶之前唯一能真正「跑跑看」的 Windows 環境就是 CI。
+        if (args.Contains("--selftest")) return SelfTest();
 
         Say("========================================");
         Say(" 寶覺寺法會報名系統 — 列印診斷工具");
@@ -77,6 +80,114 @@ internal static class Program
         Console.Write("按 Enter 鍵結束…");
         Console.ReadLine();
         return 0;
+    }
+
+    // ───────────────────────── 自我檢查（CI 用，非互動） ─────────────────────────
+
+    /// <summary>
+    /// 不開任何視窗、不等任何輸入，驗證這支 exe 在 Windows 上真的跑得起來。
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// **存在的理由**：本專案的開發機是 macOS，`PrintDlgW` 這類 P/Invoke 最典型的失敗是
+    /// 「編譯完全沒問題、一執行就崩」。把一支從未在 Windows 上執行過的 exe 寄給已經配合三輪的
+    /// 客戶，萬一閃退，我們**什麼都學不到**，而且會分不清是探針壞了還是 PA2000 壞了——
+    /// 那正是這次診斷最該避免的混淆。
+    /// </para>
+    /// <para>
+    /// 它涵蓋得到的：exe 啟動、中文輸出、<c>PRINTDLG</c> 的 x64 struct 版面、
+    /// <c>PrintDlgW</c> 進入點、印表機列舉、<c>GetPrinterDriver</c> 的 cVersion 讀取、
+    /// GDI 送印全鏈路（輸出導向檔案，不需要實體印表機）。
+    /// 涵蓋不到的：對話框長什麼樣、列印鈕是不是灰的——那**只有現場那台 PA2000 答得出來**。
+    /// </para>
+    /// <para>退出碼：0 ＝ 通過；1 ＝ 有確定的錯誤。「這台機器沒有印表機」不算失敗（CI runner 常態）。</para>
+    /// </remarks>
+    private static int SelfTest()
+    {
+        Say("=== Ceremony.PrintProbe 自我檢查（非互動） ===");
+        Say($"Windows　 ：{Environment.OSVersion.VersionString}");
+        Say($"64 位元　 ：行程 {Environment.Is64BitProcess} / 系統 {Environment.Is64BitOperatingSystem}");
+        Say("");
+
+        bool failed = false;
+
+        // ① struct 版面。x64 下 PRINTDLGW 是 120 bytes；算錯的話 PrintDlg 會回 CDERR_STRUCTSIZE
+        //    或直接踩壞記憶體，而這是 macOS 上完全驗不到的東西。
+        int size = Marshal.SizeOf<PRINTDLG>();
+        int expected = Environment.Is64BitProcess ? 120 : 66;
+        Say($"① PRINTDLG 大小：{size}（預期 {expected}）{(size == expected ? " ✓" : " ✗")}");
+        if (size != expected) failed = true;
+
+        // ② 印表機列舉
+        string? defaultPrinter = null;
+        try
+        {
+            var settings = new PrinterSettings();
+            defaultPrinter = settings.IsValid ? settings.PrinterName : null;
+            Say($"② 印表機列舉 ✓　已安裝 {PrinterSettings.InstalledPrinters.Count} 台，預設＝{defaultPrinter ?? "(無)"}");
+        }
+        catch (Exception ex)
+        {
+            Say($"② 印表機列舉 ✗　{ex.GetType().Name}: {ex.Message}");
+            failed = true;
+        }
+
+        if (defaultPrinter is null)
+        {
+            Say("");
+            Say("這台機器沒有可用的預設印表機，③④⑤ 略過（CI runner 常態，不算失敗）。");
+            Say(failed ? "結果：**失敗**" : "結果：通過（部分項目略過）");
+            return failed ? 1 : 0;
+        }
+
+        // ③ 驅動資訊（含 cVersion —— 現場那台要看的就是這一欄）
+        try { DescribePrinter(defaultPrinter); Say("③ 驅動資訊 ✓"); }
+        catch (Exception ex) { Say($"③ 驅動資訊 ✗　{ex.Message}"); failed = true; }
+
+        // ④ PrintDlgW 本身：PD_RETURNDEFAULT 走同一個進入點、同一個結構，但不畫 UI。
+        //    hDevMode / hDevNames 必須為 NULL。
+        var pd = new PRINTDLG
+        {
+            lStructSize = (uint)size,
+            Flags = PD_RETURNDEFAULT | PD_RETURNDC,
+        };
+        bool ok = PrintDlg(ref pd);
+        uint err = ok ? 0 : CommDlgExtendedError();
+        Say($"④ PrintDlgW(PD_RETURNDEFAULT) {(ok ? "✓" : $"✗　CommDlgExtendedError=0x{err:X4}")}");
+        if (!ok) failed = true;
+
+        // ⑤ GDI 送印全鏈路。DOCINFO.lpszOutput 指到檔案 ⇒ 不需要實體印表機也能驗完 StartDoc→EndDoc。
+        if (ok && pd.hDC != IntPtr.Zero)
+        {
+            var outFile = Path.Combine(Path.GetTempPath(), "printprobe-selftest.out");
+            try
+            {
+                var di = new DOCINFO
+                {
+                    cbSize = Marshal.SizeOf<DOCINFO>(),
+                    lpszDocName = "PrintProbe 自我檢查",
+                    lpszOutput = outFile,
+                };
+                bool gdi = StartDoc(pd.hDC, ref di) > 0
+                           && StartPage(pd.hDC) > 0
+                           && TextOut(pd.hDC, 100, 100, "selftest", 8)
+                           && EndPage(pd.hDC) > 0
+                           && EndDoc(pd.hDC) > 0;
+                Say($"⑤ GDI 送印鏈路 {(gdi ? "✓" : $"✗　win32={Marshal.GetLastWin32Error()}")}");
+                if (!gdi) failed = true;
+                if (File.Exists(outFile)) { Say($"　 產出 {new FileInfo(outFile).Length} bytes"); File.Delete(outFile); }
+            }
+            catch (Exception ex) { Say($"⑤ GDI 送印鏈路 ✗　{ex.Message}"); failed = true; }
+        }
+
+        if (pd.hDC != IntPtr.Zero) DeleteDC(pd.hDC);
+        FreeIf(pd.hDevMode);
+        FreeIf(pd.hDevNames);
+
+        Say("");
+        Say(failed ? "結果：**失敗**" : "結果：全部通過");
+        Say("⚠️ 通過不代表對話框在 PA2000 上叫得出來——那只有現場答得出來。");
+        return failed ? 1 : 0;
     }
 
     private static void Run()
