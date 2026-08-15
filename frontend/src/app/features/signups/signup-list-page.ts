@@ -36,7 +36,7 @@ import { IconComponent } from '../../shared/icon/icon.component';
 import { ContextMenuService } from '../../shared/context-menu/context-menu.service';
 import type { ContextMenuItem } from '../../shared/context-menu/context-menu.types';
 import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
-import { SIGNUP_TYPES, signupTypeLabel } from '../../shared/util/signup-type';
+import { SIGNUP_TYPES, SIGNUP_TYPE_WORSHIP, signupTypeLabel } from '../../shared/util/signup-type';
 import { flattenCategories, type FlatCategory } from '../../shared/util/categories';
 import { FormOverlayComponent } from '../../shared/form-overlay/form-overlay.component';
 import { NumericInputDirective } from '../../shared/directives/numeric-input.directive';
@@ -1097,12 +1097,41 @@ function buildPrintItem(
       if (ctx.selectedRows.length === 0) {
         return { enabled: false, reason: '請先選擇報名資料' };
       }
-      // 普桌／普桌資料卡與其他列印選項一致，不檢查 SignupType——
-      // 對齊舊系統 tsmiPrintWorship：選什麼印什麼（2026-07-18 客訴解鎖）。
-      return true;
+      // 「列印普桌」（普桌牌位）與收據／薦牌／文牒一律不檢查 SignupType——對齊舊系統
+      // tsmiPrintWorship：選什麼印什麼（2026-07-18 客訴解鎖）。唯獨兩張資料卡互斥，見下。
+      return dataCardGate(spec.value, ctx.selectedRows);
     },
     onClick,
   };
+}
+
+/**
+ * 兩張資料卡（一般 / 普桌）依報名類型**互斥停用**（2026-08-15 使用者定案，見
+ * docs/business-rules-implicit.md §16.2）。
+ *
+ * 為什麼只有這兩項要擋：兩者紙張同為 21×14.8cm、外觀相近，**印錯不易當場察覺**，
+ * 但驅動 form 名不同（「資料卡」／「普桌資料卡」），自動選紙不可互相替代
+ * （見 backend `PrinterFormMatcher.cs`）。與 §16.1 新增報名那顆鈕同一套判斷。
+ *
+ * 為什麼不重蹈 2026-07-18 覆轍（當時因「右鍵常被鎖」客訴撤回全部 type-4 限制）：
+ * 那版是**單向鎖**——非普桌選取時普桌類選項全灰，使用者會走到「什麼都印不了」的死路；
+ * 這版是互斥，任何選取狀態下**永遠至少有一張資料卡可印**。
+ *
+ * 混選（普桌＋非普桌）刻意**兩項都不擋**：使用者明知在跨型別批次列印，回到 §16
+ * 「別擋使用者的明示選擇」的立場。故條件用 `every` / `!some` 而非 `some` / `!every`。
+ */
+function dataCardGate(
+  type: SingleReportType,
+  rows: SignupListItem[],
+): boolean | { enabled: false; reason: string } {
+  const isWorship = (r: SignupListItem): boolean => r.signupType === SIGNUP_TYPE_WORSHIP;
+  if (type === 'datacard' && rows.every(isWorship)) {
+    return { enabled: false, reason: '普桌報名請改印「普桌資料卡」' };
+  }
+  if (type === 'worshipcard' && !rows.some(isWorship)) {
+    return { enabled: false, reason: '非普桌報名請改印「資料卡」' };
+  }
+  return true;
 }
 
 function downloadBlob(blob: Blob, fileName: string): void {

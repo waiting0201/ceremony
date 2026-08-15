@@ -4,6 +4,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import type { WritableSignal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import type { SignupListItem } from '../../core/api/signups/signup.models';
+import { resolveItems, type ContextMenuItem } from '../../shared/context-menu/context-menu.types';
 import { SignupListPage } from './signup-list-page';
 
 /**
@@ -321,5 +322,87 @@ describe('SignupListPage（工具列「新增報名」的代入規則）', () =>
     p.results.set([row('x0'), row('x1')]); // 重新搜尋換掉結果
     p.openCreateOverlay();
     expect(p.editOverlay()?.fromSignupId).toBeNull();
+  });
+});
+
+/**
+ * 右鍵選單「兩張資料卡互斥停用」的行為鎖（2026-08-15 使用者定案，
+ * 見 docs/business-rules-implicit.md §16.2）：普桌選取時只能印普桌資料卡、
+ * 非普桌只能印一般資料卡；**混選兩者皆可**，其餘報表（含「列印普桌」牌位）永不受限。
+ */
+describe('SignupListPage（右鍵：資料卡依報名類型互斥停用）', () => {
+  type MenuCtx = { selectedRows: SignupListItem[]; triggerRow: SignupListItem };
+  type Probe = {
+    results: WritableSignal<SignupListItem[]>;
+    toggleRow(item: SignupListItem, event: MouseEvent | null, index: number): void;
+    buildMenuItems(): ContextMenuItem<MenuCtx>[];
+  };
+
+  const row = (id: string, signupType: number): SignupListItem => ({
+    id, year: 113, ceremonyCategoryId: 'c1', ceremonyTitle: null, signupType,
+    numberTitle: null, number: null, fee: null, employee: null, employeeType: 1,
+    believerId: `b-${id}`, name: id, hallName: null, phone: null, isFixedNumber: false,
+    livingNames: [], deadNames: [],
+    mailCity: null, mailZone: null, mailZipcode: null, mailAddress: null,
+    textCity: null, textZone: null, textZipcode: null, textAddress: null,
+    prepayYear: null, prepayCeremonyCategoryId: null, prepayCeremonyTitle: null,
+    remark: null, adminName: null, createDate: null,
+  });
+
+  const general = row('g1', 1); // 一般報名
+  const temple = row('t1', 2); // 寺方
+  const worship = row('w1', 4); // 普桌
+  const worship2 = row('w2', 4);
+
+  /** 直接餵 context 給 resolveItems（純函式、免 TestBed），取指定 id 的解析結果。 */
+  const entry = (selectedRows: SignupListItem[], id: string) => {
+    const ctx: MenuCtx = { selectedRows, triggerRow: selectedRows[0] ?? general };
+    const found = resolveItems(p.buildMenuItems(), ctx).find((e) => e.item.id === id);
+    if (!found) throw new Error(`menu item ${id} 不存在`);
+    return found;
+  };
+
+  let p: Probe;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
+    });
+    p = TestBed.createComponent(SignupListPage).componentInstance as unknown as Probe;
+  });
+
+  it('全部都是普桌 → 停用「列印資料卡」、啟用「列印普桌資料卡」', () => {
+    const rows = [worship, worship2];
+    expect(entry(rows, 'print-datacard').enabled).toBe(false);
+    expect(entry(rows, 'print-datacard').disabledReason).toBe('普桌報名請改印「普桌資料卡」');
+    expect(entry(rows, 'print-worshipcard').enabled).toBe(true);
+  });
+
+  it('全部都不是普桌 → 停用「列印普桌資料卡」、啟用「列印資料卡」', () => {
+    const rows = [general, temple];
+    expect(entry(rows, 'print-worshipcard').enabled).toBe(false);
+    expect(entry(rows, 'print-worshipcard').disabledReason).toBe('非普桌報名請改印「資料卡」');
+    expect(entry(rows, 'print-datacard').enabled).toBe(true);
+  });
+
+  it('混選普桌＋非普桌 → 兩張資料卡都可印（不擋使用者的明示選擇）', () => {
+    const rows = [worship, general];
+    expect(entry(rows, 'print-datacard').enabled).toBe(true);
+    expect(entry(rows, 'print-worshipcard').enabled).toBe(true);
+  });
+
+  it('未選取任何列 → 兩張都停用，理由仍是「請先選擇報名資料」', () => {
+    for (const id of ['print-datacard', 'print-worshipcard']) {
+      expect(entry([], id).enabled).toBe(false);
+      expect(entry([], id).disabledReason).toBe('請先選擇報名資料');
+    }
+  });
+
+  it('回歸鎖：普桌牌位／收據／薦牌／文牒不受型別影響（§16 選什麼印什麼）', () => {
+    for (const rows of [[worship], [general], [worship, general]]) {
+      for (const id of ['print-worship', 'print-receipt', 'print-tablet', 'print-text']) {
+        expect(entry(rows, id).enabled).toBe(true);
+      }
+    }
   });
 });

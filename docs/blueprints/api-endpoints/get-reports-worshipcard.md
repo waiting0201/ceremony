@@ -15,7 +15,7 @@ related_docs:
   - ../printing-reports.md
   - ../printing-reports-positions.md
 keywords: [普桌資料卡, worshipcard, 列印, 報表, 葫蘆, template 全印, debugOverlay]
-last_updated: 2026-08-12 (修正兩處 2026-07-18 解鎖後的殘句〔request 表「signupId 須為 SignupType == 4」、批次段「ids 模式過濾非 type-4、區間模式強制 signupType=4」〕——實作 `BatchReportHandler` 與本檔上方敘述皆為不限型別，殘句與之矛盾。同時補記新入口：新增報名表單的「列印資料卡」鈕在 SignupType=4 時改打本 endpoint〔系統代選，見 business-rules-implicit §16.1〕。先前 2026-07-18 (客訴：template 一樣要全印——DrawTemplate 畫葫蘆/右側標題/簽名底線，白紙可印，座標見 positions §20；同日解鎖：移除 SignupType=4 限制與 WORSHIP_ONLY_TYPE_4 錯誤，對齊舊系統選什麼印什麼))
+last_updated: 2026-08-15 (呼叫端 1 補記前端 enable 條件：報名維護右鍵在「選取列全非普桌」時停用本報表選項〔提示改印資料卡，混選仍可印〕——純前端引導，**本 endpoint 仍無任何 SignupType 檢查**，契約不變；預覽頁下拉不套此規則。見 business-rules-implicit §16.2。先前 2026-08-12 (修正兩處 2026-07-18 解鎖後的殘句〔request 表「signupId 須為 SignupType == 4」、批次段「ids 模式過濾非 type-4、區間模式強制 signupType=4」〕——實作 `BatchReportHandler` 與本檔上方敘述皆為不限型別，殘句與之矛盾。同時補記新入口：新增報名表單的「列印資料卡」鈕在 SignupType=4 時改打本 endpoint〔系統代選，見 business-rules-implicit §16.1〕。先前 2026-07-18 (客訴：template 一樣要全印——DrawTemplate 畫葫蘆/右側標題/簽名底線，白紙可印，座標見 positions §20；同日解鎖：移除 SignupType=4 限制與 WORSHIP_ONLY_TYPE_4 錯誤，對齊舊系統選什麼印什麼))
 ---
 
 ## 規格
@@ -56,7 +56,10 @@ A5 橫 21×14.8cm，**template 由程式全印、白紙可印**（2026-07-18 客
 
 ## 呼叫端
 
-1. **報名維護右鍵選單「列印普桌資料卡」**（單選）／列印預覽頁下拉——使用者明示選擇，不分型別
+1. **報名維護右鍵選單「列印普桌資料卡」**（單／多選）——**後端不分型別**（本 endpoint 無任何 SignupType 檢查）；
+   前端自 2026-08-15 起在「選取列全非普桌」時把該選項停用、提示改印資料卡（兩張卡同尺寸易印錯的前端引導，
+   非契約限制；混選仍可印），見 [business-rules-implicit §16.2](../../business-rules-implicit.md)
+1b. **列印預覽頁下拉**——使用者明示選擇，不套上述停用規則，任何型別都可挑本報表
 2. **新增報名表單存檔後的「列印資料卡」鈕**（2026-08-12）——**系統代選**：剛新增那筆 `SignupType = 4` 時打本 endpoint，其餘打 `GET /api/v1/reports/datacard`（見 [printing-reports.md §1 資料卡](../printing-reports.md)）；按鈕文字同步變「列印普桌資料卡」。判斷用存檔當下的類型快照而非下拉即時值。見 [business-rules-implicit §16.1](../../business-rules-implicit.md)、[signup-management.md](../signup-management.md)
 
 ## 批次
