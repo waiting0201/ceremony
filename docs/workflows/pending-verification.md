@@ -1,0 +1,86 @@
+---
+title: 待複驗清單（實體套印 / Windows 實機）
+purpose: 集中追蹤「code 已完成、測試已綠，但只有實體紙或 Windows 實機才驗得到」的項目——避免它們散在 status.md 各版紀錄裡被逐版順延
+applicable_when: 準備做實體套印複驗、拿到 Windows 實機、發版後安排驗收、想知道哪些改動還沒被真人看過
+related_agents:
+  - qa-test-engineer
+related_docs:
+  - qa-testing.md
+  - ../status.md
+  - ../blueprints/printing-reports.md
+  - ../blueprints/printing-reports-positions.md
+  - ../blueprints/print-channel-electron.md
+keywords: [複驗, 驗收, 實體套印, 實機, pending, verification, 樣張, overlay, 順延]
+last_updated: 2026-08-17 (建檔。起因：v2.5.0 發版時發現「待複驗」項目已從 v2.4.5 一路順延**六個版本**，因為它們只存在於 status.md 各版 Recently Done 條目的內文裡——沒有單一清單、沒人知道總共欠幾項。本檔把它們集中，並附上在 HEAD 重產的樣張路徑，讓一次實體套印就能全部掃完。)
+---
+
+## 為什麼有這份檔
+
+`docs/status.md` 每個版本條目結尾都會標「⚠️ 待實體套印複驗」，但那是**散落在內文裡的一句話**。結果是：v2.4.5 的薦牌三項調整標了「待複驗」，之後 v2.4.6～v2.5.0 每一版都在條目裡寫「順延未驗的項目已跨 N 版」，卻始終沒有一個地方能回答**「現在總共欠幾項、分別是什麼」**。
+
+本檔就是那個地方。規則：
+
+- 完成一項就在這裡打勾並註明日期與結果；**不要**只在 status.md 寫
+- 發版時掃這份檔，未清項目在 release notes 點名
+- 一項若複驗後要改，開新任務，本檔該列改成指向新任務
+
+## A. 實體套印（需預印格式紙 + 該台印表機）
+
+樣張已在 **HEAD（v2.5.0）** 重產於 `reference/output/verify-v2.5.0/`（`reference/` 全數 gitignore，不進 repo）。
+重產指令：
+
+```bash
+D=reference/output/verify-v2.5.0
+rm -rf $D && mkdir -p $D
+CEREMONY_PDF_DUMP=$(pwd)/$D dotnet test backend/tests/Ceremony.Infrastructure.Tests
+```
+
+> ⚠️ `reference/output/` 下**沒有** `verify-` 前綴的那 153 個舊檔是 **2026-08-06** 產的，早於 08-08 / 08-14 / 08-17 三輪座標改動 —— **不要拿來對位**。
+
+> ⚠️ 每張都有 `_plain`（純內容，就是實際會送印的）與 `_overlay`（疊樣板照片，只供螢幕上對位）兩版。**送進印表機的必須是 `_plain`**；`_overlay` 印在預印紙上會變成兩層墨。
+
+| # | 項目 | 版本 | 樣張（`verify-v2.5.0/`） | 要看什麼 |
+|---|---|---|---|---|
+| A1 | 文牒 2 位往者置中於堂號中軸 | v2.5.0 | `text_debug_overlay_two.pdf`<br>對照 `text_debug_overlay_six.pdf` | 2 位往者整組應**對稱落在兩個堂號字之間**；與 6 位那張的中心線應該在同一條直線上 |
+| A2 | 文牒堂號 ≥2 字格上移 0.2cm | v2.5.0 | `text_hallname_4chars.pdf`<br>`text_hallname_4chars_overlay.pdf` | 4 字堂號「江蘇／阜寧」：兩格**各要印出 2 個字**（丟字風險），且整塊不再偏低。⚠️ 刻意只補 0.2cm 不是幾何全補的 0.3，仍會略低於格中心——**這是預期的** |
+| A3 | 資料卡往者 3+ 位不縮字 | v2.5.0 | `datacard_six_dead_matrix_plain.pdf`<br>`datacard_six_distinct_dead_overlay.pdf` | 6 位往者字級應與 1 位時**一樣大**。⚠️ **越過「靈」上緣是刻意的取捨**（見下方「不要當成 bug」） |
+| A4 | 資料卡右側窗框補印堂號 | v2.4.9 | `datacard_hallname_2char_plain.pdf`<br>`datacard_hallname_3char_plain.pdf`<br>`datacard_hallname_4char_plain.pdf` | 堂號兩半分列「故」字左右、在往者上方、不出框；3 字那張會自動縮到 0.415cm |
+| A5 | 資料卡 1／2 位往者置中 | v2.4.x | `datacard_one_dead_centered_plain.pdf`<br>`datacard_two_dead_centered_plain.pdf` | 置中於窗框中軸（此項客訴反覆過兩輪，值得一併確認） |
+| A6 | 薦牌 2 位往者間距加寬 | v2.4.9 | `tablet_2dead_widened_gap.pdf` | 兩欄都要印得出來（丟字風險）、間距比以前寬 |
+| A7 | 薦牌 3~6 位不縮字 | v2.4.9 | `tablet_5dead_5living_plain.pdf`<br>`tablet_6dead_longnames_overflow.pdf` | 5 位典型姓名應與改動前**完全一樣**；6 位長名那張⚠️見下方 |
+| A8 | 薦牌陽上 1／2 位位置微調 | **v2.4.5** | `tablet_debug_overlay_OneOne.pdf` | 左移 0.1／下移 0.2 後是否落在窗框內 |
+| A9 | 薦牌堂號多字格上移 | **v2.4.5** | `tablet_hallname_4chars.pdf` | 與 A2 是**同一個問題的兩張報表**；補償量刻意相同，兩張應該一致 |
+| A10 | 薦牌往者長名字級（≥8 字素 → 0.6cm 起點） | **v2.4.5** | `tablet_autoshrink_1dead8.pdf`<br>`tablet_autoshrink_2dead7.pdf`<br>`tablet_autoshrink_2dead8.pdf`<br>對照組 `tablet_autoshrink_1dead7_control.pdf` | 長名不可壓到預印「靈」字；對照組（7 字）應維持大字級 |
+
+### ⚠️ 不要當成 bug 回報的兩處
+
+這兩處**是使用者自己選的取捨**，實印時一定會看到，先寫在這裡免得白跑一輪：
+
+1. **薦牌 6 位 × 5 字姓名會越過「靈」上緣約 1.0cm**（A7）、**資料卡同款約 0.90cm**（A3）。這是 2026-08-14／08-17「往者不管幾位都不縮字」的直接代價，在「保留溢出防線」與「完全不縮」之間**明確選了後者**。典型 3~4 字姓名不受影響。若現在改變主意要收回，那是新決策、不是修 bug。
+2. **文牒與薦牌的堂號 ≥2 字只上移 0.2cm，不是幾何上該補的 0.3cm**（A2／A9）。沿用 v2.4.5 客戶認可過的值。看起來仍略低於格中心是預期的。
+
+## B. Windows 實機（macOS 上驗不到，只有單元測試覆蓋）
+
+這些**沒有樣張可產**，只能在裝好的 Windows 上操作。已按「一次開機能連著做完」的順序排列。
+
+| # | 項目 | 版本 | 怎麼驗 |
+|---|---|---|---|
+| B1 | 登入頁 logo 不破圖、排障列一開頁就在 | v2.4.7 | 裝好後開程式看登入頁。⚠️ `ng serve` 上**本來就看不到**這個問題，只有安裝版驗得到 |
+| B2 | 「自動選紙」開關活過重開機 | v2.4.8 | 關掉自動選紙 → 完全關閉程式 → 重開 → 應仍是「關」 |
+| B3 | 報名維護右鍵兩張資料卡互斥停用態與 tooltip | v2.4.10 | 右鍵選單：依報名類型應有一張灰掉；混選時兩張都要能點 |
+| B4 | 普桌資料卡自動選紙套到正確 form 名 | v2.4.9 區間 | 印一張普桌資料卡，確認驅動選到 form「普桌資料卡」而非「資料卡」（兩者同為 21×14.8cm，**form 名不可互換**） |
+| B5 | 決策 10：關掉列印預覽後焦點回主視窗 | **v2.4.6** | 開預覽 → 關掉 → 系統不應沉到別的程式後面 |
+| B6 | 「印表機設定」按鈕（printui.dll） | **v2.4.6** | 排障列那顆按鈕能開出印表機內容 |
+| B7 | 決策 9d：黑名單 + 逾時不 kill | **v2.4.6** | 在出過事的印表機（KYOCERA PA2000）上列印：**不應再整個 app 卡死**。仍卡死 ⇒ 指向殘留的每使用者預設 DEVMODE 或純驅動問題 |
+| B8 | 決策 9c：PrintTicket 預檢 | **v2.4.5** | 同上那台；轉不過應 fail-closed 不寫入 |
+| B9 | **決策 11 Phase 1 六報表對照組** | v2.5.0 | 打開 `printViaDialog`（per-machine），**六種報表各印一張**與舊路徑逐張比對。⚠️ **這是把預設翻成「開」的前置條件**——沒驗完不要翻 |
+
+> B7／B8 卡在同一個外部條件：需要客戶端**先重開機**（見 status.md In Progress 的阻斷性下一步），且要那台 KYOCERA PA2000。
+
+## 建議的執行順序
+
+1. **一次列印場次**清掉 A1~A10 —— 全部是預印格式紙套印，換紙的次數決定總時間，所以按紙別分組印：文牒紙（A1、A2）→ 資料卡紙（A3、A4、A5）→ 薦牌紙（A6~A10）
+2. 同一場次順手做 B4（普桌資料卡選紙）
+3. Windows 實機另一場次做 B1、B2、B3、B5、B6
+4. B7、B8 等客戶端重開機後、在那台印表機上做
+5. B9 最後做（量最大，且結果決定 `printViaDialog` 要不要翻預設）
