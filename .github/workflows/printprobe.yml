@@ -1,22 +1,29 @@
-name: Print Probe (Windows self-test)
+name: Windows print self-tests
 
-# 開發機是 macOS，而 Ceremony.PrintProbe 整支都是 Win32 P/Invoke（PrintDlgW / GDI / winspool）——
-# 這類程式最典型的失敗是「編譯完全沒問題、一執行就崩」，在 macOS 上驗不到。
-# 這個 workflow 的用途是：**在寄給客戶之前，讓這支 exe 至少在真的 Windows 上跑起來一次**，
-# 並把驗過的 exe 當成 artifact 傳上來，直接下載寄給寺方。
+# 開發機是 macOS，而列印這條路整條都是 Win32 P/Invoke（PrintDlgW / GDI / winspool / PDFium）。
+# 這類程式最典型的失敗是「編譯完全沒問題、一執行就崩」，在 macOS 上一行都驗不到。
+# CI 的 windows-latest 是我們唯一的 Windows 環境，這個 workflow 就是拿它來**實際執行**。
 #
-# 為什麼不用 release.yml：那支是打 v* tag 觸發、會建整包 NSIS 安裝檔並建立公開 Release。
-# 探針不隨產品出貨、也不該為了測它而燒一個版號。見 docs/blueprints/print-channel-electron.md 決策 11。
+# 兩個 job：
+#   probe      —— Phase 0 的一次性診斷探針，另外把 exe 上傳成 artifact 給寺方
+#   printform  —— 決策 11 送印路徑的 helper（PrintDlgW + PDFium 全鏈路）
+#
+# 為什麼不併進 release.yml：那支是打 v* tag 觸發、會建整包 NSIS 安裝檔並建立公開 Release。
+# 這裡要的是「每次改到就跑一次」，不該為了驗證燒一個版號。
+# 見 docs/blueprints/print-channel-electron.md 決策 11。
 
 on:
   workflow_dispatch: {}
   push:
     paths:
       - 'backend/src/Ceremony.PrintProbe/**'
+      - 'backend/src/Ceremony.PrintForm/**'
+      - 'backend/src/Ceremony.Domain/Reports/**'
       - '.github/workflows/printprobe.yml'
 
 jobs:
-  selftest:
+  probe:
+    name: Print probe (Phase 0)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,10 +41,6 @@ jobs:
           -p:SelfContained=false -p:PublishSingleFile=true -p:DebugType=none
           -o backend/publish/win-x64-printprobe
 
-      # 真正的重點：在 Windows 上執行它。--selftest 不開視窗、不等輸入，
-      # 驗 PRINTDLG 的 x64 struct 版面、PrintDlgW 進入點（PD_RETURNDEFAULT，不畫 UI）、
-      # 印表機列舉、GetPrinterDriver 的 cVersion、以及 GDI StartDoc→EndDoc 全鏈路。
-      # 退出碼非 0 就讓這一步紅燈。「這台 runner 沒有印表機」不算失敗。
       - name: Run self-test
         run: ./backend/publish/win-x64-printprobe/Ceremony.PrintProbe.exe --selftest
 
@@ -47,3 +50,47 @@ jobs:
           name: Ceremony.PrintProbe-win-x64
           path: backend/publish/win-x64-printprobe/Ceremony.PrintProbe.exe
           if-no-files-found: error
+
+  printform:
+    name: Print helper (決策 11 送印路徑)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: backend/global.json
+
+      # 用與 publish.ps1 完全相同的參數，這樣「CI 驗過的」與「安裝檔裡的」是同一個東西。
+      # ⚠️ PublishSingleFile 只打包 managed 組件，native 的 pdfium.dll 會留在 exe 旁邊——
+      #    那正是 DllImport("pdfium") 要的。這一步同時驗證了打包形狀本身。
+      - name: Publish print helper
+        run: >
+          dotnet publish backend/src/Ceremony.PrintForm/Ceremony.PrintForm.csproj
+          -c Release -r win-x64
+          -p:SelfContained=false -p:PublishSingleFile=true -p:DebugType=none
+          -o backend/publish/win-x64-printform
+
+      - name: Verify pdfium.dll ships next to the exe
+        shell: pwsh
+        run: |
+          $dll = 'backend/publish/win-x64-printform/pdfium.dll'
+          if (-not (Test-Path $dll)) { throw "pdfium.dll 不在 exe 旁邊 —— DllImport 會找不到它" }
+          '{0}: {1:N0} bytes' -f $dll, (Get-Item $dll).Length
+
+      # 真正的重點：在 Windows 上執行它。selftest 不開視窗、不等輸入，驗
+      # PRINTDLG 的 x64 struct 版面、PrintDlgW 進入點（PD_RETURNDEFAULT，不畫 UI）、
+      # pdfium 載入與 FPDF_LoadCustomDocument、PrintScalePolicy 對真實 GetDeviceCaps 的輸出、
+      # 以及 StartDoc→FPDF_RenderPage→EndDoc 全鏈路（輸出導向檔案，免實體印表機）。
+      #
+      # ⚠️ helper 的 exit code **永遠是 0**（跨語言契約，見 Program.cs 檔頭），
+      #    所以這裡改看最後那行 JSON 的 result。刻意不為了 CI 破例——
+      #    per-subcommand 的 exit code 規則是未來一定會咬人的東西。
+      - name: Run print-path self-test
+        shell: pwsh
+        run: |
+          $out = & ./backend/publish/win-x64-printform/Ceremony.PrintForm.exe selftest
+          $out | ForEach-Object { Write-Host $_ }
+          if (-not ($out -match '"result":\s*"ok"')) {
+            throw "self-test 沒有回報 ok —— 見上方 FAIL 行"
+          }

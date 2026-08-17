@@ -72,6 +72,15 @@ static JsonObject Run(string[] args, Stopwatch sw)
             if (args.Length < 2) return Fail("print requires <pdfPath>");
             return RunPrint(args);
 
+        // 非互動自我檢查（CI 的 windows-latest 用）。見 SelfTest.cs。
+        // exit code 仍然是 0——CI 改看這行 JSON 的 result。
+        case "selftest":
+        {
+            var (result, lines) = SelfTest.Run();
+            foreach (var line in lines) Console.Out.WriteLine(line);
+            return new JsonObject { ["result"] = result };
+        }
+
         default:
             return Fail($"unknown command: {args[0]}");
     }

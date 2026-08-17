@@ -36,6 +36,17 @@ internal static class PrintDialogNative
     internal const uint PD_PAGENUMS = 0x00000002;
     internal const uint PD_NOSELECTION = 0x00000004;
     internal const uint PD_RETURNDC = 0x00000100;
+
+    /// <summary>
+    /// **不顯示對話框**，直接把系統預設印表機的 DEVMODE／DEVNAMES（配 <see cref="PD_RETURNDC"/>
+    /// 則含 hDC）填回來。只給 <see cref="SelfTest"/> 用。
+    /// </summary>
+    /// <remarks>
+    /// 它與互動模式走**完全相同**的進入點與 <see cref="PRINTDLG"/> 結構，只是不畫 UI
+    /// ⇒ struct 版面錯了一樣會現形。這是「開發機是 macOS」這件事的唯一補救。
+    /// ⚠️ 呼叫時 hDevMode 與 hDevNames **必須都是 NULL**，否則 PrintDlg 直接回錯。
+    /// </remarks>
+    internal const uint PD_RETURNDEFAULT = 0x00000400;
     internal const uint PD_USEDEVMODECOPIESANDCOLLATE = 0x00040000;
     internal const uint PD_HIDEPRINTTOFILE = 0x00100000;
 
