@@ -204,6 +204,11 @@ public sealed class DataCardRenderer
     //      （1-2 位 0.8/0.5cm、3+ 位 0.6cm，隨 paraFontSizeCm 傳入），再以 VerticalText.MatrixLayout
     //      於窗框內動態等比縮並算下排起點，取代原本寫死 0.6cm + 固定列距 2.6 的 GroupFontPt 做法。
     //      欄位配對同薦牌 2×3：中欄 d0/d5、右欄 d1/d3、左欄 d2/d4。
+    // 2026-08-17 使用者指定「資料卡也不縮字、跟薦牌規則一樣」：3+ 位改走 MatrixLayoutNoShrink
+    //      （字級恆＝ParaFontSizeCm＝0.6cm），1／2 位維持會縮——**這就是薦牌的規則**（薦牌 1/2 位
+    //      走 GroupFontPt 仍受 DeadTextBottom 節制，只有 3+ 位矩陣退出防線，見 TabletRenderer）。
+    //      代價與薦牌同型：鏈高 ≥10 單位會越過「靈」上緣（6 位×5 字 ≈ 0.90cm）；≤9 單位（典型
+    //      3~4 字姓名含 6 位滿版）逐位元不變。詳見 DrawDeadNamesInWindow。
     //  (b) 整個框（含亡者名）右移 0.8cm（FrameShiftX；框本身於 DrawTemplate 一併右移）。
     // 2026-07-27 客訴：往者 1 位／2 位時姓名沒有在框中置中（框本身不動）。1 位只用中欄、2 位用中欄＋
     // 右欄，都是為 3+ 位矩陣設計的固定欄位，落在框中軸右側；先做過「整組左移 0.3cm」的固定位移，實印
@@ -217,15 +222,30 @@ public sealed class DataCardRenderer
         const double windowGapBottom = 11.4427;     // 「靈」字上緣，硬邊界
         const double safetyMargin = 0.2;
         // 方框可用高：topRowY 到「靈」字上緣扣安全邊界（比照薦牌 DeadMatrixHeight 的固定方框概念）
+        // ⚠️ 2026-08-17 起這個值只約束 **1／2 位**（3+ 位不縮字，見下方）。
         const double boxHeight = windowGapBottom - topRowY - safetyMargin; // 5.5039
 
         var d = deadNames;
 
-        // 字級與下排起點：同薦牌 3+ 位分支——起點 paraFontSizeCm，塞不下整欄鏈才整組等比縮；
-        // 下排起點＝上排（有配對者）最長字數 +1 個字高間距後動態決定。
-        var (fontCm, bottomOffset) = VerticalText.MatrixLayout(
-            paraFontSizeCm, boxHeight,
-            (d[0], d[5]), (d[1], d[3]), (d[2], d[4]));
+        // 字級與下排起點：**與薦牌 TabletRenderer.DrawDeadNames 同一套分流**（2026-08-17 使用者指定
+        // 「資料卡也不縮字，跟薦牌規則一樣」）——
+        //   3+ 位 → MatrixLayoutNoShrink：字級恆＝paraFontSizeCm（0.6cm），**不因字數再縮**。
+        //           ⚠️ 刻意沒有溢出防線：鏈高 ≥10 單位會越過「靈」上緣（6 位×5 字 ≈ 0.90cm）。
+        //           這是使用者在「保留最後防線」與「完全不縮」之間明確選的後者，與薦牌 3+ 位矩陣
+        //           同型（見 TabletRenderer.DeadTextBottom / VerticalText.MatrixLayoutNoShrink 註解）。
+        //           **不要「順手」把它改回 MatrixLayout**——反向鎖見
+        //           RendererSmokeTests.DataCard_ThreePlusDead_KeepsBaseFontSize_EvenWhenOverflowing。
+        //   1／2 位 → MatrixLayout：仍受 boxHeight 節制而等比縮。這**不是漏改**：薦牌的規則本來就是
+        //           「1／2 位有防線（GroupFontPt + DeadTextBottom）、只有 3+ 位矩陣退出」，
+        //           2026-08-06 客訴（往者壓到預印「靈位」）的實際路徑正是 2 位分支。
+        // 下排起點兩者語意相同：＝上排（有配對者）最長字數 +1 個字高間距後動態決定。
+        var (fontCm, bottomOffset) = PrintTemplateSelector.SlotTier(d) > 2
+            ? VerticalText.MatrixLayoutNoShrink(
+                paraFontSizeCm,
+                (d[0], d[5]), (d[1], d[3]), (d[2], d[4]))
+            : VerticalText.MatrixLayout(
+                paraFontSizeCm, boxHeight,
+                (d[0], d[5]), (d[1], d[3]), (d[2], d[4]));
         var fontPt = fontCm * PointsPerCm;
         var bottomRowY = topRowY + bottomOffset;
 

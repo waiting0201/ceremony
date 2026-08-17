@@ -147,12 +147,17 @@ public sealed class RendererSmokeTests
     // （樣板沒有亡者/堂號欄，「陽上：」實際位置在 Top≈2.69cm 不是原本的 4.707cm）。改版後亡者姓名
     // 改印進樣板右側「故◯◯靈位」窗框圖案裡（比照 TabletRenderer 直書堆疊 + GroupFontPt 縮字）。
     // 回歸鎖：多位亡者以「、」串接後，縮字結果的實際高度不能超出窗框量測缺口（含 0.3cm 安全邊界）。
+    // 2026-07-05 改版：亡者改採跟 TabletRenderer.DrawDeadNames 一樣的 2×3 矩陣（1st 中間上、2nd 右邊上、
+    // 3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下），取代舊版單欄「、」串接。
+    //
+    // ★ 2026-08-17 使用者指定「資料卡也不縮字、跟薦牌規則一樣」後，本測試語意**反轉**：原本鎖
+    //   「6 位長名縮字後不得超出窗框缺口」，現在鎖「3+ 位字級固定＝ParaFontSize、超長名字**會**超出」
+    //   ——與薦牌 Tablet_Base_LongDeadName_KeepsBaseFontSize_EvenWhenOverflowing 同型的**反向鎖**
+    //   （斷言它真的沒縮，而不是把斷言刪掉；否則哪天有人把資料卡矩陣接回 MatrixLayout，沒有測試會叫）。
+    //   走生產路徑（MatrixLayoutNoShrink）而非直接呼叫 MatrixLayout，否則測試會鎖到一條沒人跑的公式。
     [Fact]
-    public void DataCard_SixDeadNames_MatrixStaysWithinMeasuredWindow()
+    public void DataCard_ThreePlusDead_KeepsBaseFontSize_EvenWhenOverflowing()
     {
-        // 2026-07-05 改版：亡者改採跟 TabletRenderer.DrawDeadNames 一樣的 2×3 矩陣（1st 中間上、2nd 右邊上、
-        // 3rd 左邊上、4th 右邊下、5th 左邊下、6th 中間下），取代舊版單欄「、」串接。用滿 6 位亡者（含長名字
-        // 觸發縮字）驗證矩陣不超出窗框缺口。
         var data = new DataCardData(
             Number: "信1", Prepay: "預繳 115 梁皇",
             DeadNames: N("陳大明一二", "陳二一二三", "陳三一二三", "陳四五六七", "陳五一二三", "陳六一二三"),
@@ -161,25 +166,72 @@ public sealed class RendererSmokeTests
 
         var pdf = new DataCardRenderer().Render(data);
         ShouldBePdf(pdf);
+        // 兩份都落地：plain 供 200DPI 回掃量墨跡（overlay 疊了樣板照片會干擾量測）、overlay 供目視
+        DumpIfRequested(pdf, "datacard_six_dead_matrix_plain.pdf");
         DumpIfRequested(new DataCardRenderer().Render(data, debugOverlay: true), "datacard_six_dead_matrix_overlay.pdf");
 
-        // 2026-07-21 客訴：字級改採與薦牌一致的 MatrixLayout（起點 ParaFontSize、窗框內動態縮 + 動態下排起點），
-        // 取代舊版固定列距 2.6 + GroupFontPt。此處重算須與 DataCardRenderer.DrawDeadNamesInWindow 同一套邏輯。
+        // 與 DataCardRenderer.DrawDeadNamesInWindow 同一套幾何
         const double topRowY = 5.6388 + 0.1;
         const double windowGapBottom = 11.4427; // 「靈」字上緣，硬邊界
         const double safetyMargin = 0.2;
-        const double boxHeight = windowGapBottom - topRowY - safetyMargin;
+        const double boxHeight = windowGapBottom - topRowY - safetyMargin; // 5.5039
 
         var d = data.DeadNames;
-        var (fontCm, bottomOffset) = VerticalText.MatrixLayout(
-            0.6, boxHeight, (d[0], d[5]), (d[1], d[3]), (d[2], d[4]));
-        var bottomRowY = topRowY + bottomOffset;
+        PrintTemplateSelector.SlotTier(d).Should().BeGreaterThan(2, "前提：這筆走 3+ 位矩陣分支");
 
-        foreach (var (rowTop, name) in new[] { (topRowY, d[0]), (topRowY, d[1]), (topRowY, d[2]), (bottomRowY, d[3]), (bottomRowY, d[4]), (bottomRowY, d[5]) })
+        // 生產路徑：3+ 位矩陣自 2026-08-17 起走 MatrixLayoutNoShrink
+        var (fontCm, bottomOffset) = VerticalText.MatrixLayoutNoShrink(
+            0.6, (d[0], d[5]), (d[1], d[3]), (d[2], d[4]));
+        fontCm.Should().BeApproximately(0.6, 1e-9,
+            "6 位 × 5 字不再縮字——字級固定＝ParaFontSize（使用者 2026-08-17 指定「跟薦牌規則一樣」）");
+        VerticalText.MatrixLayout(0.6, boxHeight, (d[0], d[5]), (d[1], d[3]), (d[2], d[4])).FontCm
+            .Should().BeLessThan(0.6, "前提：舊規則（MatrixLayout）在同一組輸入下是會縮的，本輪刻意不用它");
+
+        var textBottom = topRowY + bottomOffset + VerticalText.ElementCount(d[5]) * fontCm;
+        textBottom.Should().BeGreaterThan(windowGapBottom,
+            "已知且刻意的取捨：鏈高 11 單位在固定 0.6cm 下會越過「靈」上緣（與薦牌同型）");
+        (textBottom - windowGapBottom).Should().BeApproximately(0.8961, 1e-3,
+            "代價已量化：6 位 × 5 字約壓「靈位」0.90cm（薦牌同組輸入約 1.0cm）");
+
+        // 典型 3~4 字姓名（含 6 位滿版）鏈高 ≤ 9 單位 → 兩條公式**逐位元相同**，改動對日常資料無感
+        var typical = N("陳大明", "陳二一二", "陳三一二", "陳四五六", "陳五一二", "陳六一二");
+        VerticalText.MatrixLayoutNoShrink(0.6, (typical[0], typical[5]), (typical[1], typical[3]), (typical[2], typical[4]))
+            .Should().Be(VerticalText.MatrixLayout(0.6, boxHeight,
+                (typical[0], typical[5]), (typical[1], typical[3]), (typical[2], typical[4])),
+                "鏈高 9 × 0.6 = 5.4 ≤ 5.5039，典型姓名不觸發縮字，改動前後一致");
+    }
+
+    // ★ 與上一支配對的「不對稱鎖」：資料卡的 **1／2 位** 仍受窗框可用高節制而會縮字——這**不是漏改**，
+    //   薦牌的規則本來就是「1／2 位有防線（GroupFontPt + DeadTextBottom）、只有 3+ 位矩陣退出」，
+    //   2026-08-06 客訴（往者壓到預印「靈位」）的實際路徑正是 2 位分支。
+    //   同型前例：Tablet_1and2Dead_NeverCrossDeadTextBottom_MatrixDeliberatelyExempt。
+    [Fact]
+    public void DataCard_1and2Dead_StillShrinkToFitWindow_MatrixDeliberatelyExempt()
+    {
+        const double topRowY = 5.6388 + 0.1;
+        const double windowGapBottom = 11.4427;
+        const double safetyMargin = 0.2;
+        const double boxHeight = windowGapBottom - topRowY - safetyMargin;
+
+        // 客戶實際那筆的同型輸入：2 位往生者、每格用全形空格把兩個人名塞成上下兩段（8／7 個字素）
+        var customer = N("施　棟　施郭秀鑾", "施裕源　施林鳳");
+        var oneLong = N(string.Concat(Enumerable.Repeat("蔡", 20)));
+
+        foreach (var dead in new[] { customer, oneLong, N("蔡", "陳") })
         {
-            var bottomCm = rowTop + name!.Length * fontCm;
-            bottomCm.Should().BeLessThanOrEqualTo(windowGapBottom - safetyMargin + 1e-6,
-                $"「{name}」縮字後不應超出窗框缺口（含安全邊界）");
+            PrintTemplateSelector.SlotTier(dead).Should().BeLessThanOrEqualTo(2, "前提：走 1／2 位分支");
+            var basePara = double.Parse(
+                PrintTemplateSelector.ChooseTablet(dead, N("子甲")).ParaFontSize.Replace("cm", ""));
+            var (fontCm, _) = VerticalText.MatrixLayout(
+                basePara, boxHeight, (dead[0], dead[5]), (dead[1], dead[3]), (dead[2], dead[4]));
+
+            foreach (var name in new[] { dead[0], dead[1] })
+            {
+                if (string.IsNullOrEmpty(name)) continue;
+                (topRowY + VerticalText.ElementCount(name) * fontCm)
+                    .Should().BeLessThanOrEqualTo(windowGapBottom - safetyMargin + 1e-6,
+                        $"「{name}」（1／2 位）必須縮到不越過窗框缺口——這條防線刻意保留");
+            }
         }
     }
 
