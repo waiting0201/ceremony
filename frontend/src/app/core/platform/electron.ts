@@ -105,6 +105,14 @@ export interface CeremonyBridge {
    * 現場的復位步驟必須是按鈕——請客戶自己去 `%APPDATA%` 找檔案在實務上等於做不到。
    */
   openPrinterPreferences(): Promise<{ ok: boolean; error?: string }>;
+  /**
+   * 列印方式（決策 11）：`viaDialog` 為 true 時走「自己叫舊版列印對話框」的新路徑。
+   *
+   * **per-machine，不是 per-click**——絕不做成「這次要用哪條路」的選擇，
+   * 那會讓客服永遠答不出「這張紙是哪條路印的」。
+   */
+  getPrintPath(): Promise<{ viaDialog: boolean }>;
+  setPrintPath(viaDialog: boolean): Promise<{ viaDialog: boolean }>;
   openExternal(url: string): Promise<{ ok: boolean }>;
   launchInstaller(key: string): Promise<{ ok: boolean; launched?: boolean; error?: string }>;
 }

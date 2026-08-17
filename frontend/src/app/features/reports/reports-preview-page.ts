@@ -73,6 +73,9 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   /** 自動選紙狀態；null = 非桌面版或讀不到，該格就不顯示。 */
   protected readonly printForm = signal<PrintFormState | null>(null);
   protected readonly printFormBusy = signal(false);
+  /** 列印方式（決策 11）；null = 非桌面版或讀不到，該格就不顯示。 */
+  protected readonly printPath = signal<{ viaDialog: boolean } | null>(null);
+  protected readonly printPathBusy = signal(false);
 
   protected readonly initialType = computed<SingleReportType>(() => {
     const t = this.route.snapshot.paramMap.get('type');
@@ -94,6 +97,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
     this.batchForm.patchValue({ reportType: this.initialType() });
     void this.loadCategories();
     void this.print.printFormState().then((s) => this.printForm.set(s));
+    void this.print.printPath().then((p) => this.printPath.set(p));
   }
 
   ngOnDestroy(): void {
@@ -205,6 +209,24 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
    * 關掉之後程式完全不去碰驅動設定，代價只是每次列印要自己在對話框選紙——
    * 這是現場遇到「按了列印鈕整個卡死」時**不必等我們出新版**的止血鍵。
    */
+  /**
+   * 列印方式開關（決策 11）。
+   *
+   * 切到「對話框」＝由程式自己叫 comdlg32 的舊版列印對話框，並自帶一份 DEVMODE 進去，
+   * 繞開「讀每使用者預設 → 轉 PrintTicket」那條在部分 v4 驅動上會壞掉的路。
+   * 2026-08-15 現場已實證：同一台 PA2000，走那條老路的 Adobe Reader 印得出來。
+   */
+  protected async togglePrintPath(): Promise<void> {
+    const cur = this.printPath();
+    if (!cur || this.printPathBusy()) return;
+    this.printPathBusy.set(true);
+    try {
+      this.printPath.set(await this.print.setPrintPath(!cur.viaDialog));
+    } finally {
+      this.printPathBusy.set(false);
+    }
+  }
+
   protected async togglePrintForm(): Promise<void> {
     const cur = this.printForm();
     if (!cur || this.printFormBusy()) return;

@@ -43,7 +43,11 @@ export type FormResult =
   | 'skipped-disabled'
   // 上一次的 helper 還沒結束。逾時後我們不再 kill 它（見 print-form.ts 的 run），
   // 所以要有一格表示「不疊第二個驅動呼叫上去」。
-  | 'skipped-helper-busy';
+  | 'skipped-helper-busy'
+  // 決策 11 的送印路徑開著。存在的理由只有一個：讓診斷紀錄講得出話。
+  // 兩條路徑**必須互斥**——新路徑會自己帶一份 DEVMODE 進對話框，如果同時還讓 apply 去寫
+  // 每使用者預設，就會變成兩套機制互相干擾，而那正是決策 11 要消滅的東西。
+  | 'skipped-dialog-path';
 
 /** DEVMODE 裡被我們動過的那幾格 + 印表機名稱，用於還原。 */
 export interface RestoreSnapshot {

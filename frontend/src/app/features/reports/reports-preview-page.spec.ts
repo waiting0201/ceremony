@@ -19,11 +19,20 @@ import { ReportsPreviewPage } from './reports-preview-page';
 describe('ReportsPreviewPage（列印排障列）', () => {
   const formState: PrintFormState = { enabled: true, blockedAll: false, blockedPrinters: 0 };
 
-  /** 只放本頁會用到的兩支；其餘 bridge 方法本頁不碰。 */
+  /**
+   * 只放本頁會用到的幾支；其餘 bridge 方法本頁不碰。
+   *
+   * ⚠️ 這個 stub 刻意**不**補齊整個 bridge——它同時是「呼叫端對缺方法夠不夠韌」的哨兵。
+   * 2026-08-17 加 `getPrintPath` 時就是它先叫的：`ceremony()?.getPrintPath()` 在方法不存在時
+   * 是**同步** TypeError，`.catch()` 掛不上去，於是整個 ngOnInit 炸掉、排障列整條不見。
+   * 呼叫端已改為 `?.getPrintPath?.()`。
+   */
   const stubBridge = (): void => {
     window.ceremony = {
       getPrintFormState: () => Promise.resolve(formState),
       setPrintFormEnabled: () => Promise.resolve(formState),
+      getPrintPath: () => Promise.resolve({ viaDialog: false }),
+      setPrintPath: (viaDialog: boolean) => Promise.resolve({ viaDialog }),
     } as unknown as CeremonyBridge;
   };
 
@@ -63,7 +72,14 @@ describe('ReportsPreviewPage（列印排障列）', () => {
 
     const bar = fixture.nativeElement.querySelector('.trouble-bar');
     expect(bar).not.toBeNull();
-    expect(labels(fixture, '.trouble-bar')).toEqual(['印表機設定', '自動選紙：開', '診斷紀錄']);
+    // 決策 11 起多一顆「列印方式」：它與其他三顆一樣是**故障當下才要按的鍵**，
+    // 所以同樣不得依賴「先產生一份預覽」這個會被故障本身破壞的前提。
+    expect(labels(fixture, '.trouble-bar')).toEqual([
+      '印表機設定',
+      '自動選紙：開',
+      '列印方式：檢視器',
+      '診斷紀錄',
+    ]);
   });
 
   it('桌面版：排障鈕不重複出現在預覽工具列裡', async () => {

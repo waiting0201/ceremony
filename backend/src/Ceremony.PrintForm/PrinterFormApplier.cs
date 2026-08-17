@@ -151,7 +151,12 @@ internal static class PrinterFormApplier
     /// 驅動回報的紙張清單。<see cref="PaperSize.Width"/>/<see cref="PaperSize.Height"/> 的單位是
     /// 1/100 吋（量化步階 0.254mm，這正是 <see cref="PrinterFormMatcher.ToleranceMm"/> 的下界依據）。
     /// </summary>
-    private static List<PrinterFormMatcher.DriverForm> ReadDriverForms(PrinterSettings settings)
+    /// <remarks>
+    /// 決策 11 的 <see cref="DialogPrinter"/> 共用這一支：它同樣要比對表單，
+    /// 只是比中之後改的是**自己手上那份 DEVMODE**，不寫每使用者預設（沒有 <c>SetPrinter</c>）。
+    /// 兩條路徑共用同一個讀取邏輯，才不會出現「預選看到的表單清單」與「對話框看到的」不一致。
+    /// </remarks>
+    internal static List<PrinterFormMatcher.DriverForm> ReadDriverForms(PrinterSettings settings)
     {
         var list = new List<PrinterFormMatcher.DriverForm>();
         foreach (PaperSize p in settings.PaperSizes)

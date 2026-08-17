@@ -25,6 +25,7 @@ import { promises as fs, existsSync } from 'fs';
 import path from 'path';
 import { logPrintEvent } from './print-log';
 import { readConfig, writeConfig } from './config';
+import { mergeConfig } from './config-merge';
 import {
   FormApplyResult,
   RestoreSnapshot,
@@ -63,6 +64,10 @@ let inFlight = 0;
  * 2026-08-10 起還有第二個開關，而且**使用者自己按得到**：報表預覽頁的「自動選紙」
  * （`printFormPreselect: false` 寫進 config.json），不必進環境變數。
  */
+export function helperExePath(): string | null {
+  return helperPath();
+}
+
 function helperPath(): string | null {
   if (process.env['CEREMONY_PRINTFORM_EXE']) return process.env['CEREMONY_PRINTFORM_EXE'];
   // dev 沒有這支 exe（macOS 上 System.Drawing.Common 連跑都跑不起來），刻意不做 dotnet run fallback。
@@ -89,6 +94,12 @@ function memoPath(): string {
 export async function applyReportForm(reportType: string): Promise<FormApplyResult> {
   try {
     if (process.platform !== 'win32') return skippedNotWindows();
+
+    // 互斥不變式（決策 11）：新送印路徑會自己帶一份 DEVMODE 進對話框，
+    // 這時**絕不能**還有人去寫每使用者預設——那會變成兩套機制互相干擾。
+    // 放在最前面（連 preselectEnabled 都不看）是刻意的：這不是使用者偏好，是結構性互斥。
+    if (await dialogPathEnabled()) return { result: 'skipped-dialog-path' };
+
     if (!(await preselectEnabled())) return { result: 'skipped-disabled' };
 
     const exe = helperPath();
@@ -193,6 +204,23 @@ export async function setPrintFormEnabled(enabled: boolean): Promise<PrintFormSt
 }
 
 // ───────────────────────── 內部 ─────────────────────────
+
+/** 決策 11 的送印路徑開著沒有。undefined = 關閉（舊路徑仍是預設，直到驗收 A 全綠）。 */
+export async function dialogPathEnabled(): Promise<boolean> {
+  return (await readConfig())?.printViaDialog === true;
+}
+
+/** 報表預覽頁的「列印方式」開關。per-machine，寫入必須走 mergeConfig（見 config.ts 的註解）。 */
+export async function setDialogPathEnabled(enabled: boolean): Promise<boolean> {
+  const cfg = await readConfig();
+  if (cfg) await writeConfig(mergeConfig(cfg, { printViaDialog: enabled }));
+  void logPrintEvent({
+    event: 'print-path-toggled',
+    printViaDialog: enabled,
+    ...(cfg ? {} : { error: 'no config; not persisted' }),
+  });
+  return dialogPathEnabled();
+}
 
 async function preselectEnabled(): Promise<boolean> {
   // 沒有 config（首次啟動）或沒有這個欄位（既有安裝）一律視為開啟——這是預設行為，

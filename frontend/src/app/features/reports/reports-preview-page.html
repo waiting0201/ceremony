@@ -53,6 +53,26 @@
           }
         </button>
       }
+      @if (printPath(); as pp) {
+        <!--
+          列印方式（決策 11）：現場實證 Adobe Reader 印得出來而 Chromium 不行，
+          差別在「自帶一份設定進舊版對話框」vs「讓新版對話框去讀每使用者預設」。
+          切到「對話框」就是走前者。per-machine，不是 per-click。
+        -->
+        <button
+          type="button"
+          class="btn btn-sm"
+          [disabled]="printPathBusy()"
+          [title]="
+            pp.viaDialog
+              ? '列印時由程式自己叫出 Windows 的列印視窗（適用於會出現「印表機設定問題 0x80010105」的印表機）。'
+              : '目前使用 PDF 檢視器的列印鈕。若按下去出現印表機設定錯誤，請切換到「對話框」。'
+          "
+          (click)="togglePrintPath()"
+        >
+          列印方式：{{ pp.viaDialog ? '對話框' : '檢視器' }}
+        </button>
+      }
       <span class="spacer"></span>
       <!-- 印歪 / 印不出來時，請使用者把這個資料夾裡的 print-*.log 傳回來 -->
       <button type="button" class="btn btn-sm" (click)="openPrintLog()">診斷紀錄</button>

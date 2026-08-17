@@ -129,6 +129,21 @@ export class PrintService {
     );
   }
 
+  /**
+   * 列印方式（決策 11）。非 Electron 或讀取失敗回 null，UI 就不顯示這一格
+   * ——與 printFormState 同一套作法。
+   */
+  async printPath(): Promise<{ viaDialog: boolean } | null> {
+    // ⚠️ 用 `?.()` 而不是 `?.getPrintPath()`：bridge 上**缺方法**是同步 TypeError，
+    // `.catch()` 根本來不及掛上去 → 整個 ngOnInit 炸掉、整頁白掉。
+    // 這一格只是排障開關，任何讀不到的情況都該安靜地不顯示，不該拖垮頁面。
+    return (await ceremony()?.getPrintPath?.().catch(() => null)) ?? null;
+  }
+
+  async setPrintPath(viaDialog: boolean): Promise<{ viaDialog: boolean } | null> {
+    return (await ceremony()?.setPrintPath?.(viaDialog).catch(() => null)) ?? null;
+  }
+
   private async openInViewer(type: SingleReportType, apiPath: string): Promise<boolean> {
     return this.report(await this.bridge().openReportInViewer(type, apiPath, this.token()));
   }

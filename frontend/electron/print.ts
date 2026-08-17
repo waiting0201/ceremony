@@ -23,13 +23,57 @@ import path from 'path';
 import crypto from 'crypto';
 import { streamApiToFile } from './api-stream';
 import { logPrintEvent, sweepOldLogs } from './print-log';
-import { applyReportForm, noteViewerOpened, releaseReportForm } from './print-form';
+import {
+  applyReportForm,
+  dialogPathEnabled,
+  noteViewerOpened,
+  printFormState,
+  releaseReportForm,
+} from './print-form';
 import { logFields, viewerTitle } from './print-form-core';
+import { printViaDialog } from './print-dialog';
+import { printDialogMessage } from './print-dialog-core';
+import { viewerPageHtml } from './viewer-page';
 import { returnFocusOnClose } from './window-focus';
 
 export interface PrintResult {
   ok: boolean;
   error?: string;
+}
+
+/**
+ * 開著的決策 11 預覽視窗。key 是 webContents id——preload 那條 IPC **不帶任何參數**，
+ * 要印哪一份由主行程自己記著（暴露面壓到最小，頁面內容影響不了它）。
+ */
+const viewers = new Map<number, { reportType: string; pdfPath: string; win: BrowserWindow }>();
+
+/**
+ * 預覽頁那顆「列印」鈕。回傳時代表**對話框已經在螢幕上**，不是印完了（決策 8）。
+ *
+ * 同一個視窗可以按很多次：取消之後重印、卡紙續印、換一台印表機重印全部走這裡，
+ * 而且是對**同一份既有 temp PDF** 再叫一次 helper，不重跑渲染。
+ */
+export async function printFromViewer(webContentsId: number): Promise<PrintResult> {
+  const v = viewers.get(webContentsId);
+  if (!v) return { ok: false, error: '找不到這個預覽視窗' };
+
+  const r = await printViaDialog({
+    reportType: v.reportType,
+    pdfPath: v.pdfPath,
+    owner: v.win,
+    // 「自動選紙」關掉時，helper 就不去改我們手上那份 DEVMODE 的紙張。
+    // 使用者可見語意完全不變，只是底層從「不寫入每使用者預設」變成「不改我們自己那份」。
+    noForm: !(await printFormState()).enabled,
+    jobName: `寶覺寺法會報名系統 — ${v.reportType}`,
+  });
+
+  const message = printDialogMessage(r.result);
+  return message ? { ok: false, error: message } : { ok: true };
+}
+
+/** 預覽頁那顆「關閉」鈕。 */
+export function closeViewer(webContentsId: number): void {
+  viewers.get(webContentsId)?.win.close();
 }
 
 /**
@@ -106,6 +150,8 @@ async function showViewerWindow(
   parent: BrowserWindow | null,
   log: { via: string; bytes: number; pageSizeHeader?: string | null; signupCount?: string | null },
 ): Promise<PrintResult> {
+  // 決策 11 的路徑自己帶 DEVMODE 進對話框 ⇒ 這裡一定要拿到 skipped-dialog-path（互斥不變式）。
+  const dialogPath = await dialogPathEnabled().catch(() => false);
   const form = await applyReportForm(reportType).catch(() => ({ result: 'helper-error' }) as const);
 
   try {
@@ -115,21 +161,46 @@ async function showViewerWindow(
       title: viewerTitle(form),
       autoHideMenuBar: true,
       ...(parent ? { parent } : {}),
-      webPreferences: { plugins: true, contextIsolation: true, nodeIntegration: false },
+      webPreferences: {
+        plugins: true,
+        contextIsolation: true,
+        nodeIntegration: false,
+        // 新路徑的預覽頁要有我們自己的「列印」鈕 ⇒ 需要一條最小的 IPC 橋。
+        ...(dialogPath ? { preload: path.join(__dirname, 'viewer-preload.js') } : {}),
+      },
     });
+
+    const htmlPath = dialogPath ? `${pdfPath}.html` : null;
 
     // temp 檔與紙張設定的生命週期一模一樣，共用同一個 hook 最不容易失聯。
     win.on('closed', () => {
+      viewers.delete(win.webContents.id);
       void safeUnlink(pdfPath);
+      if (htmlPath) void safeUnlink(htmlPath);
       void releaseReportForm();
     });
     // 關掉預覽後主視窗要回到前面，否則會沉到其他應用程式後面（見 window-focus.ts）。
     returnFocusOnClose(win, parent);
-    await win.loadFile(pdfPath);
+
+    if (htmlPath) {
+      // 舊版列印對話框沒有預覽區，所以預覽必須由我們自己出（＝舊系統的 PrintPreviewDialog）。
+      await fs.writeFile(htmlPath, viewerPageHtml(pdfPath, viewerTitle(form)), 'utf8');
+      viewers.set(win.webContents.id, { reportType, pdfPath, win });
+      await win.loadFile(htmlPath);
+    } else {
+      await win.loadFile(pdfPath);
+    }
+
     noteViewerOpened();
     win.focus();
 
-    void logPrintEvent({ reportType, ...log, ...logFields(form), result: 'opened' });
+    void logPrintEvent({
+      reportType,
+      ...log,
+      ...logFields(form),
+      ...(dialogPath ? { path: 'dialog' } : {}),
+      result: 'opened',
+    });
     return { ok: true };
   } catch (e) {
     void safeUnlink(pdfPath);

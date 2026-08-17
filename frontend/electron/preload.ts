@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('ceremony', {
     ipcRenderer.invoke('ceremony:setPrintFormEnabled', enabled),
   /** 排障：叫出 Windows 的「列印喜好設定」，讓使用者改一次紙覆寫掉壞掉的驅動設定 */
   openPrinterPreferences: () => ipcRenderer.invoke('ceremony:openPrinterPreferences'),
+  /** 列印方式：檢視器（舊）／對話框（決策 11）。per-machine，不是 per-click */
+  getPrintPath: () => ipcRenderer.invoke('ceremony:getPrintPath'),
+  setPrintPath: (viaDialog: boolean) => ipcRenderer.invoke('ceremony:setPrintPath', viaDialog),
   /** 開外部連結（官方下載頁等） */
   openExternal: (url: string) => ipcRenderer.invoke('ceremony:openExternal', url),
   /** 執行 bundle 的 prereq installer（缺檔則開官方下載頁） */

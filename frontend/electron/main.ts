@@ -10,12 +10,20 @@ import { mergeConfig } from './config-merge';
 import { detectPrereqs, PrereqReport } from './prereq';
 import { startSidecar, stopSidecar } from './sidecar';
 import { downloadBackup } from './download';
-import { openPdfInViewer, openReportInViewer, sweepTempDir } from './print';
+import {
+  closeViewer,
+  openPdfInViewer,
+  openReportInViewer,
+  printFromViewer,
+  sweepTempDir,
+} from './print';
 import { logPrintEvent, printLogPath } from './print-log';
 import {
+  dialogPathEnabled,
   printFormState,
   recoverPendingFormRestore,
   releaseReportForm,
+  setDialogPathEnabled,
   setPrintFormEnabled,
 } from './print-form';
 import { printerPrefsArgs } from './print-form-core';
@@ -256,6 +264,19 @@ ipcMain.handle('ceremony:openPrinterPreferences', async () => {
     return { ok: false, error: (e as Error).message };
   }
 });
+
+// ───────── 決策 11 預覽視窗的兩條最小 IPC（**刻意不帶參數**，見 viewer-preload.ts） ─────────
+
+ipcMain.handle('ceremony:viewerPrint', async (e) => printFromViewer(e.sender.id));
+
+ipcMain.on('ceremony:viewerClose', (e) => closeViewer(e.sender.id));
+
+/** 報表預覽頁的「列印方式」開關（檢視器／對話框）。per-machine，不是 per-click。 */
+ipcMain.handle('ceremony:getPrintPath', async () => ({ viaDialog: await dialogPathEnabled() }));
+
+ipcMain.handle('ceremony:setPrintPath', async (_e, viaDialog: unknown) => ({
+  viaDialog: await setDialogPathEnabled(viaDialog === true),
+}));
 
 ipcMain.handle('ceremony:openExternal', async (_e, url: string) => {
   await shell.openExternal(url);

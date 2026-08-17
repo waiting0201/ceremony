@@ -23,6 +23,17 @@ export interface CeremonyConfig {
    * 寺方按不到，等於每次都要遠端協助。見 blueprint 決策 9d。
    */
   printFormPreselect?: boolean;
+  /**
+   * 走決策 11 的送印路徑（自己叫舊版列印對話框）而不是 Chromium 檢視器。undefined = 關閉。
+   *
+   * **per-machine，不是 per-click**：絕不做成「這次要用哪條路」的按鈕——那會讓客服永遠答不出
+   * 「這張紙是哪條路印的」。終局是完全取代舊路徑（Phase 3 連同這個欄位一起刪掉），
+   * 現在留著是因為**驗收 A 的對照組本身就需要同一台機器能跑兩條路徑**。
+   *
+   * ⚠️ 一定要走 `mergeConfig` 寫入：v2.4.8 的教訓是出廠種子整包 assign 會把種子沒提到的
+   * 本機欄位每次開機清掉（`printFormPreselect` 就中過一次）。止血／驗收用的開關必須活得比故障久。
+   */
+  printViaDialog?: boolean;
 }
 
 export function configDir(): string {

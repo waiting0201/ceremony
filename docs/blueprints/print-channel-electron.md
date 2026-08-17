@@ -593,7 +593,28 @@ IPC `ceremony:listPrinters` / `getPrintSettings` / `savePrintSetting` / `printPd
   靜默代換＝印在別種報表的紙上而沒有任何訊號。找不到就是 `not-found` + 標題警告。
 - **後端 append-mode 合併 / 換 PDF library**：見決策 5 的限制說明，等真的撞到再說。
 
-## 決策 11：把列印工作拿回來（＝舊系統的形狀）—— Phase 0 進行中
+## 決策 11：把列印工作拿回來（＝舊系統的形狀）—— Phase 1 已實作
+
+> **Phase 1 實作完成 2026-08-17**（預設仍走舊路徑，等驗收 A 全綠才翻）。
+>
+> | 層 | 檔案 |
+> |---|---|
+> | Domain 純函式 | `PrintScalePolicy`（Fit／StretchPhysical）、`PrintPageRange`、`PrintDialogResults` |
+> | helper | `PrintDialogNative`（`comdlg32!PrintDlgW` ＋ GDI）、`PdfiumNative`、`DialogPrinter`、`print` 子命令 |
+> | Electron | `print-dialog-core.ts`（純）、`print-dialog.ts`（spawn／NDJSON）、`viewer-page.ts`（wrapper 頁）、`viewer-preload.ts` |
+> | UI | 報表預覽頁排障列第 4 顆「列印方式：檢視器／對話框」 |
+>
+> **開關**：`config.json` 的 `printViaDialog`（per-machine，走 `mergeConfig`）。
+> 開著時 `applyReportForm()` 一律回 `skipped-dialog-path`（互斥不變式，寫在程式碼裡）。
+>
+> **實作時修正的兩件事**：
+> 1. 「publish 要改資料夾發布」**不必**——`PublishSingleFile` 只打包 managed 組件，
+>    native 的 `pdfium.dll` 本來就會留在 exe 旁邊，正是 `DllImport("pdfium")` 要的。
+>    改了反而會引入每次啟動的自解壓成本。
+> 2. 「再列印一次」（決策 4 的續印）**自動落在 Phase 1**：預覽頁那顆列印鈕本身就是它，
+>    對同一份既有 temp PDF 再叫一次 helper，不重跑渲染。原本排在 Phase 2。
+
+## 決策 11 的原始評估（Phase 0）
 
 > 狀態：**2026-08-15 由「只評估」轉為執行**，目前在 **Phase 0（阻斷性驗證）**。
 > 完整計畫見規劃檔；探針程式碼在 `backend/src/Ceremony.PrintProbe/`（一次性，不隨產品出貨）。

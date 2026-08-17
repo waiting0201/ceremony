@@ -27,8 +27,11 @@ dotnet publish "$PROJ" \
 # 移除第三方原生庫的 debug symbols（如 libSkiaSharp.pdb ~80MB），不該進 installer。
 find "$OUT" -name '*.pdb' -delete 2>/dev/null || true
 
-# 列印前預選驅動自訂表單的小工具（Windows-only，~2MB）。獨立輸出資料夾供 extraResources 對應。
+# 列印 helper（Windows-only，~9MB：exe ~2MB ＋ pdfium.dll ~7MB）。獨立輸出資料夾供 extraResources 對應。
 # 只需 Microsoft.NETCore.App 10（已含在既有的 ASP.NET Core Runtime prereq 裡），不新增 prereq。
+# ⚠️ PublishSingleFile 只打包 managed 組件，native 的 pdfium.dll 會留在 exe 旁邊——這正是我們要的
+#    （DllImport("pdfium") 從 app 目錄解析），所以刻意不加 IncludeNativeLibrariesForSelfExtract：
+#    那會在每次列印的首次啟動做一次自解壓到 temp，多幾百 ms 又可能被防毒擋。
 echo "Publishing print-form helper (win-x64) -> $PRINTFORM_OUT"
 dotnet publish "$PRINTFORM_PROJ" \
   -c Release \

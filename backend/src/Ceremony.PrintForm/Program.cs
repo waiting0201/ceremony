@@ -68,10 +68,90 @@ static JsonObject Run(string[] args, Stopwatch sw)
             return ToJson(PrinterFormApplier.Restore(
                 new PrinterFormApplier.Snapshot(kind, fields, width, length), printer));
 
+        case "print":
+            if (args.Length < 2) return Fail("print requires <pdfPath>");
+            return RunPrint(args);
+
         default:
             return Fail($"unknown command: {args[0]}");
     }
 }
+
+/// <summary>
+/// 決策 11：自己帶一份 DEVMODE 進舊版列印對話框，然後自己把 PDF 畫到紙上。
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>這個子命令的 stdout 是 NDJSON（多行），與 apply／restore 的單行不同。</b>
+/// 第一行 <c>{"event":"dialog-shown"}</c> 在 <c>PrintDlg</c> **之前** flush——因為那支是 modal 的，
+/// 呼叫端必須靠它「對話框已經在螢幕上」就 resolve UI，**絕不能等到印完**。
+/// 那是 blueprint 決策 8 的教訓（<c>webContents.print</c> 的 callback 有時不回來，
+/// UI 永久卡在「列印中」，只能換頁重建元件）在這條新路徑上的守法。
+/// 最後一行永遠帶 <c>result</c>，呼叫端取最後一行即可。
+/// </para>
+/// <para><b>exit code 仍然永遠 0</b>——不因子命令而異，理由見檔頭。</para>
+/// </remarks>
+static JsonObject RunPrint(string[] args)
+{
+    var opt = new DialogPrinter.Options(
+        PdfPath: args[1],
+        Owner: ParseOwner(OptionValue(args, "--owner")),
+        ReportType: OptionValue(args, "--report"),
+        NoForm: args.Contains("--no-form"),
+        Source: ParseSource(OptionValue(args, "--devmode-source")),
+        Scale: OptionValue(args, "--scale") == "stretch"
+            ? PrintScalePolicy.ScaleMode.StretchPhysical
+            : PrintScalePolicy.ScaleMode.Fit,
+        JobName: OptionValue(args, "--job-name"));
+
+    var result = DialogPrinter.Run(opt, line =>
+    {
+        var obj = new JsonObject { ["event"] = line.Event };
+        Fill(obj, line.Fields);
+        Console.Out.WriteLine(obj.ToJsonString());
+        Console.Out.Flush();   // ⚠️ 沒有這一行，第一行會卡在緩衝區直到行程結束＝失去全部意義
+    });
+
+    var json = new JsonObject();
+    Fill(json, result);
+    return json;
+}
+
+static void Fill(JsonObject obj, IReadOnlyDictionary<string, object?> fields)
+{
+    foreach (var (k, v) in fields)
+    {
+        obj[k] = v switch
+        {
+            null => null,
+            string s => JsonValue.Create(s),
+            int i => JsonValue.Create(i),
+            short sh => JsonValue.Create(sh),
+            long l => JsonValue.Create(l),
+            bool b => JsonValue.Create(b),
+            ushort us => JsonValue.Create((int)us),
+            _ => JsonValue.Create(v.ToString()),
+        };
+    }
+}
+
+/// <summary>
+/// owner 視窗的 HWND（十進位字串）。給不出來就傳 0，對話框仍會開，只是不綁 owner。
+/// </summary>
+/// <remarks>
+/// 綁 owner 有兩個作用：對話框壓在預覽視窗上面，以及 modal 期間把 owner
+/// <c>EnableWindow(FALSE)</c>——後者正好讓「對話框開著時預覽窗被關掉、temp 檔被刪」
+/// 這個競態不可能發生。
+/// </remarks>
+static IntPtr ParseOwner(string? raw) =>
+    long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var h) ? new IntPtr(h) : IntPtr.Zero;
+
+static DialogPrinter.DevModeSource ParseSource(string? raw) => raw switch
+{
+    "user" => DialogPrinter.DevModeSource.User,
+    "none" => DialogPrinter.DevModeSource.None,
+    _ => DialogPrinter.DevModeSource.Printer,
+};
 
 static JsonObject Fail(string message) => new() { ["result"] = "error", ["error"] = message };
 

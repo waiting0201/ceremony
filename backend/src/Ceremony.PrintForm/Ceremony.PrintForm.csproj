@@ -24,6 +24,12 @@
 
   <ItemGroup>
     <PackageReference Include="System.Drawing.Common" Version="10.0.10" />
+    <!-- 決策 11：把 PDF 畫到印表機 DC 上。只取 native pdfium.dll，綁定自己寫（PdfiumNative.cs）——
+         managed wrapper（Docnet.Core / PDFtoImage）一律只暴露「算成點陣圖」，走不到 PDFium 在
+         Windows 上的印表機 DC 裝置驅動，而那正是「向量變點陣」這項入場費唯一能砍價的地方。
+         授權：PDFium 本體 BSD-3-Clause、本套件打包 Apache-2.0，皆可商業再散布
+         （聲明見 docs/design/infrastructure.md）。x64 約 6.9MB。 -->
+    <PackageReference Include="bblanchon.PDFium.Win32" Version="153.0.7999" />
   </ItemGroup>
 
   <ItemGroup>
