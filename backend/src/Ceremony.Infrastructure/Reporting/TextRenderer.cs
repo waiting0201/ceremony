@@ -22,6 +22,9 @@ namespace Ceremony.Infrastructure.Reporting;
 /// (1) 往者/陽上「不管幾位，字級都跟一位一樣」→ 改用 <see cref="VerticalText.MatrixLayout"/>（同薦牌
 ///     2026-07-17），字級固定 0.8cm、下排起點動態；
 /// (2) 往者最左欄離左側預印字 0.5cm → 絕對錨點 <see cref="DeadLeftX"/>，堂號左字同錨點對齊。
+/// 2026-08-17 客訴（只改 Two 變體的橫向，覆蓋 07-27 第 (2) 點對「恰 2 亡」的適用）：2 位往者整組以堂號
+/// 中軸置中 → <see cref="DeadTwoColumnsX"/>；Base 變體本來就在同一中軸上、不動。
+/// 同輪順帶補上堂號 ≥2 字格的重心下沉（薦牌 2026-08-08 已修、文牒漏掉）→ <see cref="HallTopOf"/>。
 /// </remarks>
 public sealed class TextRenderer
 {
@@ -57,12 +60,46 @@ public sealed class TextRenderer
     internal const double DeadColPitch = 0.91251;                    // RDLC 欄距（= 欄寬）
     internal const double DeadMidX = DeadLeftX + DeadColPitch;       // 12.620（RDLC 12.41251）
     internal const double DeadRightX = DeadLeftX + DeadColPitch * 2; // 13.532（RDLC 13.32502）
-    internal const double DeadTwoRightX = DeadLeftX + 1.16299;       // 12.870（RDLC 13.01299 − 11.85）
 
     // 堂號「同樣對齊」：左字（Second）左緣對齊 DeadLeftX（RDLC 亦為 11.50，與往者區塊原點同一條線），
     // 右字（First）維持 RDLC 相對距 13.53753 − 11.5 = 2.03753cm。
+    internal const double HallFontCm = 0.6;
     internal const double HallSecondX = DeadLeftX;                   // 11.707
     internal const double HallFirstX = DeadLeftX + 2.03753;          // 13.744
+
+    // 堂號墨跡中軸 13.0255。堂號是**橫排**欄位、左對齊於 0.7cm 欄寬內，SplitHallName 只會給每格
+    // 1 字或 2 字（2 字在 0.7cm 欄內換行成上下兩列）→ 墨跡寬恆為 HallFontCm、中軸與字數無關。
+    internal const double HallCenterX = (HallSecondX + HallFirstX + HallFontCm) / 2.0;
+
+    // Two 變體兩高欄的相對距（RDLC 13.01299 − 11.85）。橫向位置見 DeadTwoColumnsX。
+    internal const double DeadTwoColOffset = 1.16299;
+
+    /// <summary>堂號單字格的 Top（RDLC 2.1 + <see cref="DeadShiftY"/>）。</summary>
+    private const double HallNameTop = 2.1 + DeadShiftY;                  // 2.6
+
+    /// <summary>堂號 ≥2 字格的 Top：比單字格高 0.2cm（見 <see cref="HallTopOf"/>）。</summary>
+    private const double HallNameTopMultiChar = HallNameTop - 0.2;        // 2.4
+
+    /// <summary>
+    /// 依該格字數決定堂號 Top。逐格獨立判斷：`SplitHallName` 2 字→1+1、4 字→2+2、3 字或 5 字以上
+    /// →整串進 First（左格空），所以 3 字堂號也會走 ≥2 字這條。
+    /// </summary>
+    /// <remarks>
+    /// 2026-08-17：把薦牌 2026-08-08 那輪的補償搬到文牒（兩張報表的堂號格**完全同型**：0.7×1.3825cm、
+    /// 0.6cm 字、橫排 + vMiddle）。根因同：0.6cm 字塞 0.7cm 欄寬，第 2 個字被 QuestPDF 換行往下長，
+    /// 但 <see cref="DrawText"/> 的 vMiddle 只用**單字高**算位移（`top + (height − fontCm)/2`），
+    /// 不知道實際渲染成兩列 → 整塊視覺重心下沉。這裡以 Top 補回，不動 vMiddle 公式（改公式會連帶
+    /// 影響編號欄）。這同時是**對齊 RDLC 1:1**：RDLC 的 VerticalAlign=Middle 是把整個換行後的文字塊
+    /// 置中，我們原本比 RDLC 低。
+    /// ⚠️ 補償量取薦牌那個**客戶實體套印認可過的 0.2cm**，不是幾何全補的 0.3cm
+    /// （(n−1)×0.6/2；格高 1.3825、字 0.6，2 列的幾何中心差正是 0.3）——兩張報表格子同型，
+    /// 客戶在薦牌上眼睛看過的值直接沿用比自己算一個新數字安全，也讓兩報表行為一致。
+    /// 同樣沿用薦牌的已知不足：3 字以上（整串進 First）也只補 0.2cm。
+    /// 必須用 <see cref="VerticalText.ElementCount"/> 而非 <c>.Length</c>——增補平面造字（`𡍼` 等）
+    /// 在 <c>.Length</c> 算兩格會誤判成多字（見 gotchas「一個字不等於一個 char」）。
+    /// </remarks>
+    internal static double HallTopOf(string? segment)
+        => VerticalText.ElementCount(segment) >= 2 ? HallNameTopMultiChar : HallNameTop;
 
     // 開發用列印位置檢視工具的樣板照片（EmbeddedResource）；只在 debugOverlay:true 時載入使用，
     // 不進生產列印路徑。詳見 docs/blueprints/printing-reports.md「開發用列印位置檢視工具」。
@@ -101,8 +138,9 @@ public sealed class TextRenderer
                     // HallName (Top 2.1, VAlign=Middle, 0.6cm)。2026-07-21 客訴：堂號在往者正上方，
                     // 跟著往者一起下移 DeadShiftY 維持上下對齊；2026-07-27 客訴：左右字改用 HallSecondX /
                     // HallFirstX 錨在往者最左欄同一條線上（見常數註解）。
-                    DrawText(layers, 2.1 + DeadShiftY, HallSecondX, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameSecond, vMiddle: true);
-                    DrawText(layers, 2.1 + DeadShiftY, HallFirstX, 0.7, 1.3825, 0.6 * PointsPerCm, data.HallNameFirst, vMiddle: true);
+                    // 2026-08-17：該格 ≥2 字時上移 0.2cm（見 HallTopOf）。兩格各自判斷。
+                    DrawText(layers, HallTopOf(data.HallNameSecond), HallSecondX, 0.7, 1.3825, HallFontCm * PointsPerCm, data.HallNameSecond, vMiddle: true);
+                    DrawText(layers, HallTopOf(data.HallNameFirst), HallFirstX, 0.7, 1.3825, HallFontCm * PointsPerCm, data.HallNameFirst, vMiddle: true);
 
                     // LivingNames 6 位（0.8cm）— tmpText.rdlc；主欄 lv[0] Left 21.87382、次欄 20.96131 /
                     // 20.0488，上排 Top 15.2748、整欄高 6.72806cm。2026-07-21 客訴：整體下移 LivingShiftY／
@@ -183,8 +221,10 @@ public sealed class TextRenderer
             var (twoFontCm, _) = VerticalText.MatrixLayout(
                 NameBaseFontCm, DeadFullHeight, (d[0], null), (d[1], null));
             var twoPt = twoFontCm * PointsPerCm;
-            DrawText(layers, 3.65889 + DeadShiftY, DeadTwoRightX, 0.91251, DeadFullHeight, twoPt, d[0], vertical: true);
-            DrawText(layers, 3.62361 + DeadShiftY, DeadLeftX, 0.91251, DeadFullHeight, twoPt, d[1], vertical: true);
+            // 橫向必須在字級算完之後才回推（見 DeadTwoColumnsX 與 docs/gotchas.md「置中不可用固定位移量」）。
+            var (twoLeftX, twoRightX) = DeadTwoColumnsX(twoFontCm);
+            DrawText(layers, 3.65889 + DeadShiftY, twoRightX, 0.91251, DeadFullHeight, twoPt, d[0], vertical: true);
+            DrawText(layers, 3.62361 + DeadShiftY, twoLeftX, 0.91251, DeadFullHeight, twoPt, d[1], vertical: true);
             return;
         }
 
@@ -202,6 +242,25 @@ public sealed class TextRenderer
         DrawText(layers, bottomY, DeadRightX, 0.91251, DeadFullHeight, fontPt, d[3], vertical: true); // Four
         DrawText(layers, bottomY, DeadLeftX, 0.91251, DeadFullHeight, fontPt, d[4], vertical: true);  // Five
         DrawText(layers, bottomY, DeadMidX, 0.91251, DeadFullHeight, fontPt, d[5], vertical: true);   // Six（補：下排中央，主欄正下方）
+    }
+
+    /// <summary>
+    /// 恰 2 亡（<see cref="TextTemplate.Two"/>）兩高欄的 Left —— 整組以堂號墨跡中軸
+    /// <see cref="HallCenterX"/> 置中（組寬 = <see cref="DeadTwoColOffset"/> + 一個字寬，直書字寬≈字級）。
+    /// 2026-08-17 客訴「文牒往生者 2 位時名字要往右一點，落在兩邊堂號的置中位置」：Two 變體原本把最左欄
+    /// 硬錨在 <see cref="DeadLeftX"/>（2026-07-27 的 0.5cm 間距錨點），兩欄相對距又只有 1.16299（比 Base
+    /// 三欄的 2×0.91251 窄），整組墨跡中心落在 12.6885、比堂號中軸偏左 0.337cm。Base 變體本來就在中軸上
+    /// （1 位 13.020、3~6 位 13.0195，與 13.0255 差 0.006cm），本修正是把 Two 拉回同一條線、不是新規則。
+    /// ⚠️ 副作用（刻意）：最左欄離左側預印字自 0.5cm 變成 0.837cm。0.5cm 是「不要壓到預印字」的**下界**，
+    /// 往右移是遠離它，**不是**退回 2026-07-21 那個被推翻的 DeadShiftX；<see cref="DeadLeftX"/> 錨點本身
+    /// 未動（Base 三欄與堂號左字仍靠它）。
+    /// 依**實際**字級回推而非寫死常數：docs/gotchas.md「套印置中不可用固定位移量，必須中軸 − 組寬/2，
+    /// 且排在字級算完之後」（直書字寬≈字級，MatrixLayout 一縮字組寬就變）。
+    /// </summary>
+    internal static (double LeftX, double RightX) DeadTwoColumnsX(double fontCm)
+    {
+        var leftX = HallCenterX - (DeadTwoColOffset + fontCm) / 2.0;
+        return (leftX, leftX + DeadTwoColOffset);
     }
 
     private static void DrawText(LayersDescriptor layers, double top, double left, double width, double height, double fontPt, string? text, bool bold = false, bool vMiddle = false, bool vertical = false)

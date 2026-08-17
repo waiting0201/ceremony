@@ -1099,7 +1099,7 @@ public sealed class RendererSmokeTests
         DumpIfRequested(overlay, "text_debug_overlay.pdf");
 
         // 2026-07-27 客訴複驗用：滿版 6 位（字級是否仍 0.8cm、下排是否被 MatrixLayout 推到不重疊）
-        // 與 2 位變體（最左欄是否同樣離預印字 0.5cm）各疊一份。
+        // 與 2 位變體各疊一份；2026-08-17 起 2 位那份改看「兩欄是否對稱落在堂號中軸上」。
         DumpIfRequested(new TextRenderer().Render(data with
         {
             DeadNames = N("亡甲", "亡乙", "亡丙", "亡丁", "亡戊", "亡己"),
@@ -1425,11 +1425,89 @@ public sealed class RendererSmokeTests
         // 欄與欄的相對距離維持 RDLC 原值（Base 欄距 0.91251；Two 變體兩高欄相距 1.16299）
         (TextRenderer.DeadMidX - TextRenderer.DeadLeftX).Should().BeApproximately(12.41251 - 11.5, 1e-6);
         (TextRenderer.DeadRightX - TextRenderer.DeadLeftX).Should().BeApproximately(13.32502 - 11.5, 1e-6);
-        (TextRenderer.DeadTwoRightX - TextRenderer.DeadLeftX).Should().BeApproximately(13.01299 - 11.85, 1e-6);
+        // ⚠️ 2026-08-17 起 Two 變體的最左欄**不再**錨在 DeadLeftX（改以堂號中軸置中，間距變 0.837cm
+        // ——往右移是遠離預印字，見 Text_TwoDeadNames_AreCenteredBetweenHallNames）；兩欄相對距仍是 RDLC 原值。
+        var (twoLeftX, twoRightX) = TextRenderer.DeadTwoColumnsX(TextRenderer.NameBaseFontCm);
+        (twoRightX - twoLeftX).Should().BeApproximately(13.01299 - 11.85, 1e-6);
 
         // 最右欄右緣（0.8cm 字寬）不可壓到右側預印字（「等切念」欄 x 13.436~13.971 在 y 22cm 以下，
         // 姓名帶內無預印字；仍以 14.5cm 當硬界限，避免未來調整時無聲越界）
         (TextRenderer.DeadRightX + TextRenderer.NameBaseFontCm).Should().BeLessThan(14.5);
+    }
+
+    // 2026-08-17 客訴：「文牒往生者 2 位時，名字要往右一點，可以在兩邊堂號的置中位置」。
+    // 根因：Two 變體把最左欄硬錨在 DeadLeftX（07-27 的 0.5cm 間距錨點），而兩欄相對距只有 1.16299
+    //（比 Base 三欄的 2×0.91251 窄）→ 整組墨跡中心 12.6885，比堂號中軸 13.0255 偏左 0.337cm。
+    // Base 變體（1 位＝主欄 DeadMidX；3~6 位＝三欄）本來就在中軸上，本輪是把 Two 拉回同一條線。
+    [Fact]
+    public void Text_TwoDeadNames_AreCenteredBetweenHallNames()
+    {
+        const double baseFont = TextRenderer.NameBaseFontCm;
+        const double hallCenter = TextRenderer.HallCenterX;
+
+        // (11.707 + 13.74453 + 0.6) / 2
+        hallCenter.Should().BeApproximately(13.025765, 1e-6, "堂號兩格墨跡（左對齊於 0.7cm 欄內、寬恆 0.6cm）的中軸");
+
+        // 依**實際**字級回推，不是固定位移量（docs/gotchas.md）——縮字時中心不可跑掉
+        foreach (var fontCm in new[] { baseFont, 0.7, 0.6 })
+        {
+            var (l, r) = TextRenderer.DeadTwoColumnsX(fontCm);
+            ((l + r + fontCm) / 2.0).Should()
+                .BeApproximately(hallCenter, 1e-6, $"2 位往者整組（字級 {fontCm}cm）要置中於堂號中軸");
+        }
+
+        var (leftX, rightX) = TextRenderer.DeadTwoColumnsX(baseFont);
+        leftX.Should().BeApproximately(12.04427, 1e-6, "原 11.707，右移 0.337cm");
+        rightX.Should().BeApproximately(13.20726, 1e-6, "原 12.870");
+
+        // Base 變體同樣落在這條中軸上（1 位＝主欄；3~6 位＝最左~最右三欄）。本輪修正的論據，
+        // 鎖住可防日後只調其中一邊讓兩者分家。
+        ((TextRenderer.DeadMidX * 2 + baseFont) / 2.0).Should()
+            .BeApproximately(hallCenter, 0.01, "1 位往者（主欄）本來就在堂號中軸上");
+        ((TextRenderer.DeadLeftX + TextRenderer.DeadRightX + baseFont) / 2.0).Should()
+            .BeApproximately(hallCenter, 0.01, "3~6 位往者三欄本來就在堂號中軸上");
+
+        // 往右移＝遠離左側預印字；0.5cm 是下界不是等式（Two 變體實際 0.837cm）
+        leftX.Should().BeGreaterThan(TextRenderer.PrePrintLeftTextRightX + TextRenderer.DeadPrePrintGapX);
+        // 右緣沿用 Base 的硬界限，且不得超過 Base 最右欄
+        (rightX + baseFont).Should().BeLessThan(14.5);
+        (rightX + baseFont).Should().BeLessThan(TextRenderer.DeadRightX + baseFont);
+    }
+
+    // 2026-08-17：把薦牌 2026-08-08 的堂號補償搬到文牒（兩張報表的堂號格完全同型：0.7×1.3825cm、
+    // 0.6cm 字、橫排 + vMiddle）。0.6cm 字塞 0.7cm 欄寬 → 第 2 字換行往下長，但 vMiddle 只用單字高
+    // 算位移 → 重心下沉；也讓我們比 RDLC 的 VerticalAlign=Middle（整塊置中）低。
+    // 補償量沿用薦牌那個客戶實體套印認可過的 0.2cm，不是幾何全補的 0.3cm——刻意，見 HallTopOf 註解。
+    [Fact]
+    public void Text_HallName_MultiCharCell_ShiftsUp()
+    {
+        TextRenderer.HallTopOf("堂").Should().BeApproximately(2.6, 1e-9, "單字格維持原位（RDLC 2.1 + DeadShiftY）");
+        TextRenderer.HallTopOf("江蘇").Should().BeApproximately(2.4, 1e-9, "2 字格上移 0.2cm");
+        TextRenderer.HallTopOf("慈光堂").Should().BeApproximately(2.4, 1e-9, "3 字（整串進右格）同樣上移");
+        TextRenderer.HallTopOf(null).Should().BeApproximately(2.6, 1e-9, "空格子走單字分支（反正不畫）");
+        TextRenderer.HallTopOf("").Should().BeApproximately(2.6, 1e-9);
+        // 增補平面造字：.Length=2 但只是一個字 → 不得誤判成 2 字（gotchas「一個字不等於一個 char」）
+        TextRenderer.HallTopOf("\U00020000").Should().BeApproximately(2.6, 1e-9, "門檻以字素計");
+
+        // 與薦牌同一個補償量（兩張報表的堂號格同型，行為必須一致）
+        (TextRenderer.HallTopOf("堂") - TextRenderer.HallTopOf("江蘇")).Should().BeApproximately(
+            TabletRenderer.HallTopOf("堂") - TabletRenderer.HallTopOf("慈光"), 1e-9,
+            "文牒與薦牌的堂號補償量必須同步");
+
+        // 渲染鎖：4 字堂號（每格 2 個 0.6cm 全形字塞 0.7cm 欄寬）必須真的印出來。
+        // gotchas 第 1 條「QuestPDF 窄欄靜默丟字」的高風險組合；既有文牒測試只用單字「甲」「堂」，
+        // 完全沒覆蓋到——截圖那筆客戶資料正是 4 字（江蘇阜寧）。若被丟字，PDF 會跟無堂號版一樣大。
+        static TextData Build(string? first, string? second) => new(
+            Number: "郵1973", HallNameFirst: first, HallNameSecond: second,
+            DeadNames: N("許氏歷代祖先", "許洪亮"), LivingNames: N("許永士", "許吳秋暇"),
+            Address: null, Template: TextTemplate.Two);
+
+        var fourChar = new TextRenderer().Render(Build("江蘇", "阜寧"));
+        var empty = new TextRenderer().Render(Build(null, null));
+        ShouldBePdf(fourChar);
+        fourChar.Length.Should().BeGreaterThan(empty.Length, "4 字堂號必須真的渲染（非被 QuestPDF 靜默丟字）");
+        DumpIfRequested(fourChar, "text_hallname_4chars.pdf");
+        DumpIfRequested(new TextRenderer().Render(Build("江蘇", "阜寧"), debugOverlay: true), "text_hallname_4chars_overlay.pdf");
     }
 
     [Fact]
