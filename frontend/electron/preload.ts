@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('ceremony', {
   /** 列印方式：檢視器（舊）／對話框（決策 11）。per-machine，不是 per-click */
   getPrintPath: () => ipcRenderer.invoke('ceremony:getPrintPath'),
   setPrintPath: (viaDialog: boolean) => ipcRenderer.invoke('ceremony:setPrintPath', viaDialog),
+  /** 排障：中止卡住的列印對話框（決策 11 路徑；預覽視窗被 modal disable 時按不到，所以放主視窗） */
+  abortPrintDialog: () => ipcRenderer.invoke('ceremony:abortPrintDialog'),
   /** 開外部連結（官方下載頁等） */
   openExternal: (url: string) => ipcRenderer.invoke('ceremony:openExternal', url),
   /** 執行 bundle 的 prereq installer（缺檔則開官方下載頁） */

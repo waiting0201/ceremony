@@ -82,6 +82,59 @@ describe('ReportsPreviewPage（列印排障列）', () => {
     ]);
   });
 
+  it('走「對話框」路徑時多一顆止血鍵；按下去會叫 bridge', async () => {
+    // 2026-08-18 客訴：對話框卡住關不掉、預覽視窗被 modal disable，現場只能關掉整個程式。
+    // 這顆鍵是那條出路的替代品，所以它**只**在對話框路徑出現（檢視器路徑沒有我們的行程可砍）。
+    let aborted = 0;
+    window.ceremony = {
+      getPrintFormState: () => Promise.resolve(formState),
+      setPrintFormEnabled: () => Promise.resolve(formState),
+      getPrintPath: () => Promise.resolve({ viaDialog: true }),
+      setPrintPath: (viaDialog: boolean) => Promise.resolve({ viaDialog }),
+      abortPrintDialog: () => {
+        aborted += 1;
+        return Promise.resolve({ aborted: true });
+      },
+    } as unknown as CeremonyBridge;
+
+    const fixture = create();
+    await settle(fixture);
+
+    expect(labels(fixture, '.trouble-bar')).toEqual([
+      '印表機設定',
+      '自動選紙：開',
+      '列印方式：對話框',
+      '中止列印視窗',
+      '診斷紀錄',
+    ]);
+
+    const btn = [...fixture.nativeElement.querySelectorAll('.trouble-bar button')].find(
+      (b) => (b as HTMLElement).textContent!.replace(/\s+/g, '') === '中止列印視窗',
+    ) as HTMLButtonElement;
+    btn.click();
+    await settle(fixture);
+    expect(aborted).toBe(1);
+  });
+
+  it('bridge 沒有 abortPrintDialog（舊版桌面殼）也不會炸掉整頁', async () => {
+    // 與 getPrintPath 同型的哨兵：缺方法是**同步** TypeError，.catch() 掛不上去。
+    stubBridge();
+    window.ceremony = {
+      ...window.ceremony!,
+      getPrintPath: () => Promise.resolve({ viaDialog: true }),
+    } as unknown as CeremonyBridge;
+
+    const fixture = create();
+    await settle(fixture);
+
+    const btn = [...fixture.nativeElement.querySelectorAll('.trouble-bar button')].find(
+      (b) => (b as HTMLElement).textContent!.replace(/\s+/g, '') === '中止列印視窗',
+    ) as HTMLButtonElement;
+    expect(() => btn.click()).not.toThrow();
+    await settle(fixture);
+    expect(fixture.nativeElement.querySelector('.trouble-bar')).not.toBeNull();
+  });
+
   it('桌面版：排障鈕不重複出現在預覽工具列裡', async () => {
     stubBridge();
     const fixture = create();

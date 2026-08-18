@@ -46,6 +46,14 @@ internal static class SelfTest
         lines.Add($"OS       : {Environment.OSVersion.VersionString}");
         lines.Add($"64-bit   : process={Environment.Is64BitProcess} os={Environment.Is64BitOperatingSystem}");
 
+        // ⓪ apartment。2026-08-18 客訴的根因：console app 主執行緒預設 MTA，而 comdlg32 的
+        //    對話框與驅動的設定元件是 COM／要求 STA ⇒ 對話框開得出來、按下確定就再也不回來
+        //    （對話框關不掉、owner 一直被 disable、換印表機一樣）。見 StaRunner。
+        //    ⚠️ 這一格鎖的是「print 子命令真的跑在 STA 上」，不是主執行緒——主執行緒是 MTA 沒關係。
+        lines.Add($"apartment: main={Thread.CurrentThread.GetApartmentState()}");
+        Check("print 走 STA 執行緒",
+            StaRunner.Run(() => Thread.CurrentThread.GetApartmentState()) == ApartmentState.STA);
+
         // ① struct 版面。算錯會回 CDERR_STRUCTSIZE 或直接踩壞記憶體——macOS 上驗不到的東西。
         int size = Marshal.SizeOf<PRINTDLG>();
         int expected = Environment.Is64BitProcess ? 120 : 66;

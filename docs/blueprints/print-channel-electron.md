@@ -607,6 +607,29 @@ IPC `ceremony:listPrinters` / `getPrintSettings` / `savePrintSetting` / `printPd
 > **開關**：`config.json` 的 `printViaDialog`（per-machine，走 `mergeConfig`）。
 > 開著時 `applyReportForm()` 一律回 `skipped-dialog-path`（互斥不變式，寫在程式碼裡）。
 >
+> **2026-08-18 根因：`print` 子命令必須跑在 STA 執行緒（否則按下「列印」就再也不回來）**
+>
+> 現場續報補上了決定性的兩句：「**對話框也會卡住關不掉**」「**其他台印表機測試也是同樣反應**」。
+> 三個症狀合起來就是診斷——對話框顯示得出來（進入點與 struct 版面都對）、
+> 換印表機一樣（與驅動無關）、卡住關不掉（卡的是我們自己那條執行緒，
+> 對話框沒被銷毀、owner 一直是 `EnableWindow(FALSE)`，所以現場只能關掉整個程式）。
+>
+> `comdlg32` 的對話框與驅動的設定元件是 **COM、要求 STA**（WinForms 的 `PrintDialog` 因此規定
+> `[STAThread]`，舊系統走的正是那條）；而 top-level statements 的 console app 主執行緒**預設 MTA**。
+> 建立視窗不需要 STA ⇒ 對話框照樣出現；按下確定之後 comdlg32 去問驅動（v4 的
+> DEVMODE⇄PrintTicket 整條都是 COM），跨 apartment 呼叫要靠訊息幫浦轉手，MTA 沒有 ⇒ 停住。
+>
+> 處置：`StaRunner`（`print` 子命令丟到 `ApartmentState.STA` 的執行緒跑完再回收）。
+> `apply` / `restore` **不動**——它們走 `DocumentProperties` / `SetPrinter`，現場已有大量成功紀錄。
+> selftest 補一格 apartment 回歸鎖：先前那格 `PD_RETURNDEFAULT` 不畫 UI、沒有人按確定，
+> **只證明「進得去」，不證明「回得來」**。
+>
+> 同輪加了一顆使用者按得到的止血鍵「**中止列印視窗**」（主視窗排障列，只在對話框路徑顯示）。
+> 這是決策 9d「逾時絕不 kill」的**例外而非推翻**，兩個前提都成立才准 kill：
+> (1) 是使用者主動按的，現場的替代方案是關掉整個程式；
+> (2) 這條路徑不寫任何共用系統狀態（決策 11 不變式），9d 真正擔心的「砍在半路留下壞掉的共用狀態」
+> 在這裡不存在。放主視窗是因為預覽視窗正是被 modal disable 的那一個，按不到。
+
 > **2026-08-18 追加：送印結果必須事後回報給使用者（現場客訴的直接產物）**
 >
 > 現場回報「PA2000、自動選紙開關都試過、列印方式選對話框、按了列印**印表機沒有反應**」。

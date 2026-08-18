@@ -144,6 +144,19 @@ export class PrintService {
     return (await ceremony()?.setPrintPath?.(viaDialog).catch(() => null)) ?? null;
   }
 
+  /**
+   * 中止卡住的列印對話框（決策 11 的止血鍵）。
+   *
+   * 回 false ＝ 本來就沒有對話框開著（也包含非桌面版與 bridge 缺方法）。
+   * 與 printPath() 同一套 `?.()` 寫法：舊版桌面殼上缺這支方法是同步 TypeError。
+   */
+  async abortPrintDialog(): Promise<boolean> {
+    const r = await ceremony()
+      ?.abortPrintDialog?.()
+      .catch(() => null);
+    return r?.aborted === true;
+  }
+
   private async openInViewer(type: SingleReportType, apiPath: string): Promise<boolean> {
     return this.report(await this.bridge().openReportInViewer(type, apiPath, this.token()));
   }

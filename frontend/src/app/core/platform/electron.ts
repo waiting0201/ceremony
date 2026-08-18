@@ -113,6 +113,13 @@ export interface CeremonyBridge {
    */
   getPrintPath(): Promise<{ viaDialog: boolean }>;
   setPrintPath(viaDialog: boolean): Promise<{ viaDialog: boolean }>;
+  /**
+   * 排障：中止卡住的列印對話框（決策 11 路徑）。
+   *
+   * `aborted:false` ＝ 本來就沒有對話框開著。掛在主視窗是因為列印對話框是 modal 且
+   * owner 是預覽視窗——卡住時預覽視窗按不動（2026-08-18 客訴：現場只能關掉整個程式）。
+   */
+  abortPrintDialog(): Promise<{ aborted: boolean }>;
   openExternal(url: string): Promise<{ ok: boolean }>;
   launchInstaller(key: string): Promise<{ ok: boolean; launched?: boolean; error?: string }>;
 }

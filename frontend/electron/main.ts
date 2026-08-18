@@ -27,6 +27,7 @@ import {
   setPrintFormEnabled,
 } from './print-form';
 import { printerPrefsArgs } from './print-form-core';
+import { abortPrintDialog } from './print-dialog';
 import { returnFocusOnClose } from './window-focus';
 
 let mainWindow: BrowserWindow | null = null;
@@ -277,6 +278,14 @@ ipcMain.handle('ceremony:getPrintPath', async () => ({ viaDialog: await dialogPa
 ipcMain.handle('ceremony:setPrintPath', async (_e, viaDialog: unknown) => ({
   viaDialog: await setDialogPathEnabled(viaDialog === true),
 }));
+
+/**
+ * 止血鍵：把卡住的列印對話框（連同 helper）結束掉。
+ *
+ * 掛在**主視窗**的排障列——列印對話框是 modal 且 owner 是預覽視窗，
+ * 卡住時預覽視窗本身按不動（2026-08-18 客訴：現場只能關掉整個程式）。
+ */
+ipcMain.handle('ceremony:abortPrintDialog', async () => ({ aborted: abortPrintDialog() }));
 
 ipcMain.handle('ceremony:openExternal', async (_e, url: string) => {
   await shell.openExternal(url);

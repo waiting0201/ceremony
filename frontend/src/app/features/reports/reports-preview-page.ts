@@ -76,6 +76,7 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
   /** 列印方式（決策 11）；null = 非桌面版或讀不到，該格就不顯示。 */
   protected readonly printPath = signal<{ viaDialog: boolean } | null>(null);
   protected readonly printPathBusy = signal(false);
+  protected readonly aborting = signal(false);
 
   protected readonly initialType = computed<SingleReportType>(() => {
     const t = this.route.snapshot.paramMap.get('type');
@@ -224,6 +225,22 @@ export class ReportsPreviewPage implements OnInit, OnDestroy {
       this.printPath.set(await this.print.setPrintPath(!cur.viaDialog));
     } finally {
       this.printPathBusy.set(false);
+    }
+  }
+
+  /**
+   * 止血鍵（2026-08-18 客訴）：中止卡住的列印對話框。
+   *
+   * 刻意**不**顯示成功訊息、也不擋錯誤——使用者按它的時候畫面上已經有一個卡住的視窗，
+   * 這裡再跳一個對話框只是雪上加霜。結果看得到（那個視窗會消失），紀錄裡也有一行。
+   */
+  protected async abortPrintDialog(): Promise<void> {
+    if (this.aborting()) return;
+    this.aborting.set(true);
+    try {
+      await this.print.abortPrintDialog();
+    } finally {
+      this.aborting.set(false);
     }
   }
 

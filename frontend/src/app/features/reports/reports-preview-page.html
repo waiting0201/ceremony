@@ -73,6 +73,22 @@
           列印方式：{{ pp.viaDialog ? '對話框' : '檢視器' }}
         </button>
       }
+      @if (printPath()?.viaDialog) {
+        <!--
+          止血鍵（2026-08-18 客訴）：列印對話框是 modal、owner 綁預覽視窗，helper 一旦卡住，
+          預覽視窗就一直按不動，現場唯一的出路是關掉整個程式。這顆鍵讓那個出路只砍 helper。
+          只在「對話框」路徑顯示——檢視器路徑沒有我們自己的行程可砍。
+        -->
+        <button
+          type="button"
+          class="btn btn-sm"
+          [disabled]="aborting()"
+          title="列印視窗按了沒反應、關不掉時按這裡。只會結束列印視窗，不會關掉整個程式，也不會更動印表機設定。"
+          (click)="abortPrintDialog()"
+        >
+          中止列印視窗
+        </button>
+      }
       <span class="spacer"></span>
       <!-- 印歪 / 印不出來時，請使用者把這個資料夾裡的 print-*.log 傳回來 -->
       <button type="button" class="btn btn-sm" (click)="openPrintLog()">診斷紀錄</button>

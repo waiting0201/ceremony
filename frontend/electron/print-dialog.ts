@@ -27,6 +27,17 @@ import {
 let dialogOpen = false;
 
 /**
+ * 現在跑著的 helper 行程。只為了那顆止血鍵（`abortPrintDialog`）而存在。
+ *
+ * ⚠️ 決策 9d 說「逾時**絕不** kill」，這裡不是推翻它而是它的例外，兩點理由都要成立才准 kill：
+ * 1. **是使用者主動按的**，不是我們替他決定的逾時——現場的替代方案是關掉整個程式（2026-08-18 客訴），
+ *    砍一個 helper 顯然比砍整個 app 溫和
+ * 2. **這條路徑不寫任何共用系統狀態**（決策 11 的不變式：零 SetPrinter、零還原 journal），
+ *    所以「砍在半路留下壞掉的共用狀態」這個 9d 真正在擔心的後果，在這裡不存在
+ */
+let current: import('child_process').ChildProcess | null = null;
+
+/**
  * 逾時只寫一行紀錄，**絕不 kill**。
  *
  * 決策 9d 的教訓：在 Win32／COM 呼叫進行到一半 TerminateProcess，對方留在什麼狀態不由我們
@@ -95,6 +106,7 @@ export async function printViaDialog(opt: DialogPrintOptions): Promise<{ result:
     };
 
     const child = spawn(exe, args, { windowsHide: true });
+    current = child;
 
     let buffer = '';
     child.stdout.setEncoding('utf8');
@@ -121,6 +133,7 @@ export async function printViaDialog(opt: DialogPrintOptions): Promise<{ result:
     child.on('error', (e) => {
       clearTimeout(timer);
       dialogOpen = false;
+      current = null;
       acc.result = 'helper-error';
       acc.error = e.message;
       void logPrintEvent({ reportType: opt.reportType, ...printDialogLogFields(acc) });
@@ -130,6 +143,7 @@ export async function printViaDialog(opt: DialogPrintOptions): Promise<{ result:
     child.on('close', () => {
       clearTimeout(timer);
       dialogOpen = false;
+      current = null;
 
       // 最後一行的 result 才是真正的結果；沒讀到就是 helper 沒把話講完。
       if (!acc.result || acc.result === 'error') acc.result ??= 'error';
@@ -163,4 +177,25 @@ function readHandle(win: BrowserWindow | null): bigint | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * 使用者按下的止血鍵：把還開著的列印對話框連同 helper 一起結束掉。
+ *
+ * 為什麼需要（2026-08-18 客訴）：對話框是 modal 且 owner 綁著預覽視窗，helper 一旦卡住，
+ * 預覽視窗就一直是 `EnableWindow(FALSE)`，現場**唯一**的出路是關掉整個程式
+ * （然後連預覽都來不及正常收尾）。這顆鍵讓那個出路變成「只砍 helper」。
+ *
+ * 放在主視窗的排障列而不是預覽視窗：後者正是被 disable 的那一個，按不到。
+ *
+ * @returns 有沒有東西可砍（false ＝ 本來就沒有對話框開著）
+ */
+export function abortPrintDialog(): boolean {
+  const child = current;
+  if (!child) return false;
+
+  void logPrintEvent({ event: 'print-dialog-aborted', path: 'dialog' });
+  // SIGKILL 在 Windows 上一律走 TerminateProcess；這裡是刻意的（見 `current` 的註解）。
+  child.kill('SIGKILL');
+  return true;
 }

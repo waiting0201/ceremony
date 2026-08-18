@@ -70,7 +70,8 @@ static JsonObject Run(string[] args, Stopwatch sw)
 
         case "print":
             if (args.Length < 2) return Fail("print requires <pdfPath>");
-            return RunPrint(args);
+            // ⚠️ 一定要在 STA 執行緒上跑，理由見 StaRunner。
+            return StaRunner.Run(() => RunPrint(args));
 
         // 非互動自我檢查（CI 的 windows-latest 用）。見 SelfTest.cs。
         // exit code 仍然是 0——CI 改看這行 JSON 的 result。
