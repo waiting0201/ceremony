@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/printing-reports-positions.md
   - ../blueprints/print-channel-electron.md
 keywords: [複驗, 驗收, 實體套印, 實機, pending, verification, 樣張, overlay, 順延]
-last_updated: 2026-08-17 (建檔。起因：v2.5.0 發版時發現「待複驗」項目已從 v2.4.5 一路順延**六個版本**，因為它們只存在於 status.md 各版 Recently Done 條目的內文裡——沒有單一清單、沒人知道總共欠幾項。本檔把它們集中，並附上在 HEAD 重產的樣張路徑，讓一次實體套印就能全部掃完。)
+last_updated: 2026-08-18 (新增 B10：v2.5.0 關掉預覽視窗會跳主行程錯誤框（closed handler 讀已銷毀的 webContents），修正後需實機確認錯誤框消失且清理鏈有跑到。先前 2026-08-17 (建檔。起因：v2.5.0 發版時發現「待複驗」項目已從 v2.4.5 一路順延**六個版本**，因為它們只存在於 status.md 各版 Recently Done 條目的內文裡——沒有單一清單、沒人知道總共欠幾項。本檔把它們集中，並附上在 HEAD 重產的樣張路徑，讓一次實體套印就能全部掃完。))
 ---
 
 ## 為什麼有這份檔
@@ -74,6 +74,7 @@ CEREMONY_PDF_DUMP=$(pwd)/$D dotnet test backend/tests/Ceremony.Infrastructure.Te
 | B7 | 決策 9d：黑名單 + 逾時不 kill | **v2.4.6** | 在出過事的印表機（KYOCERA PA2000）上列印：**不應再整個 app 卡死**。仍卡死 ⇒ 指向殘留的每使用者預設 DEVMODE 或純驅動問題 |
 | B8 | 決策 9c：PrintTicket 預檢 | **v2.4.5** | 同上那台；轉不過應 fail-closed 不寫入 |
 | B9 | **決策 11 Phase 1 六報表對照組** | v2.5.0 | 打開 `printViaDialog`（per-machine），**六種報表各印一張**與舊路徑逐張比對。⚠️ **這是把預設翻成「開」的前置條件**——沒驗完不要翻 |
+| B10 | 關掉預覽視窗**不再跳主行程錯誤框** | v2.5.1 | 開任一報表預覽 → 直接關掉 → 不應出現「A JavaScript error occurred in the main process」；連開連關三次後再列印一次，紙張仍要正確（驗 `releaseReportForm()` 有跑到） |
 
 > B7／B8 卡在同一個外部條件：需要客戶端**先重開機**（見 status.md In Progress 的阻斷性下一步），且要那台 KYOCERA PA2000。
 
@@ -84,3 +85,5 @@ CEREMONY_PDF_DUMP=$(pwd)/$D dotnet test backend/tests/Ceremony.Infrastructure.Te
 3. Windows 實機另一場次做 B1、B2、B3、B5、B6
 4. B7、B8 等客戶端重開機後、在那台印表機上做
 5. B9 最後做（量最大，且結果決定 `printViaDialog` 要不要翻預設）
+
+> B10 是 v2.5.0 客訴的修正驗證，**任何一次開預覽都順手驗得到**，不必單獨排場次。

@@ -171,10 +171,13 @@ async function showViewerWindow(
     });
 
     const htmlPath = dialogPath ? `${pdfPath}.html` : null;
+    // `closed` 當下 win / win.webContents 都已銷毀，碰到就是 `Object has been destroyed`
+    // （未捕捉 ⇒ 主行程跳錯誤對話框，temp 檔與紙張設定也一起漏掉還原）。id 先抄下來。
+    const wcId = win.webContents.id;
 
     // temp 檔與紙張設定的生命週期一模一樣，共用同一個 hook 最不容易失聯。
     win.on('closed', () => {
-      viewers.delete(win.webContents.id);
+      viewers.delete(wcId);
       void safeUnlink(pdfPath);
       if (htmlPath) void safeUnlink(htmlPath);
       void releaseReportForm();
@@ -185,7 +188,7 @@ async function showViewerWindow(
     if (htmlPath) {
       // 舊版列印對話框沒有預覽區，所以預覽必須由我們自己出（＝舊系統的 PrintPreviewDialog）。
       await fs.writeFile(htmlPath, viewerPageHtml(pdfPath, viewerTitle(form)), 'utf8');
-      viewers.set(win.webContents.id, { reportType, pdfPath, win });
+      viewers.set(wcId, { reportType, pdfPath, win });
       await win.loadFile(htmlPath);
     } else {
       await win.loadFile(pdfPath);
