@@ -42,6 +42,16 @@ export interface DialogPrintOptions {
   /** 使用者把「自動選紙」關掉時傳 true（＝ helper 不去改我們手上那份 DEVMODE 的紙張）。 */
   noForm: boolean;
   jobName?: string | null;
+  /**
+   * helper 行程退出時回呼一次，帶最終結果。
+   *
+   * ⚠️ **這不是 resolve 的時機**（那永遠是 `dialog-shown`，見下）。它純粹是「事後告知」：
+   * 2026-08-18 現場回報「按了列印，印表機沒有反應」時我們才發現，對話框之後的四種結局
+   * （printed / driver-rejected / render-failed / error）在畫面上完全無法區分，
+   * 全都只進診斷紀錄 ⇒ 現場講得出來的只有「沒有反應」。
+   * 回呼裡**只准顯示訊息**，不得讓任何按鈕回到 disabled。
+   */
+  onFinal?: (outcome: PrintDialogOutcome) => void;
 }
 
 /**
@@ -124,6 +134,14 @@ export async function printViaDialog(opt: DialogPrintOptions): Promise<{ result:
       // 最後一行的 result 才是真正的結果；沒讀到就是 helper 沒把話講完。
       if (!acc.result || acc.result === 'error') acc.result ??= 'error';
       void logPrintEvent({ reportType: opt.reportType, ...printDialogLogFields(acc) });
+
+      // 事後告知（見 onFinal 的註解）。放在 settle 之前或之後都可以——
+      // 對話框早就 resolve 過了，這裡的 settle 只對「對話框根本沒開起來」那條路有意義。
+      try {
+        opt.onFinal?.(acc);
+      } catch {
+        // 呼叫端的顯示邏輯出事不得影響列印通道
+      }
 
       // 行程在對話框出現之前就退出（no-default-printer / render-failed）⇒ 這才輪到 UI 收到失敗。
       settle(acc.result);

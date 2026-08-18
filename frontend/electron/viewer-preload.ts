@@ -15,4 +15,14 @@ contextBridge.exposeInMainWorld('ceremonyViewer', {
   print: (): Promise<{ ok: boolean; error?: string }> => ipcRenderer.invoke('ceremony:viewerPrint'),
   /** 關掉這個預覽視窗。 */
   close: (): void => ipcRenderer.send('ceremony:viewerClose'),
+  /**
+   * 送印**結束後**的一行結果（成功或失敗）。
+   *
+   * 為什麼要多這一條：`print()` 回來時對話框才剛出現，之後的成敗原本只進診斷紀錄，
+   * 畫面上四種結局長得一模一樣（見 print-dialog-core 的 printDialogFinalMessage）。
+   * ⚠️ 只傳出 `{ok, text}` 兩個欄位——頁面拿不到路徑、印表機名稱或任何 handle。
+   */
+  onResult: (cb: (r: { ok: boolean; text: string }) => void): void => {
+    ipcRenderer.on('ceremony:viewerPrintResult', (_e, r: { ok: boolean; text: string }) => cb(r));
+  },
 });

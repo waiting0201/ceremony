@@ -289,12 +289,18 @@ internal static class DialogPrinter
                 lpszDocName = opt.JobName ?? "寶覺寺法會報名系統",
             };
 
-            if (StartDoc(hdc, ref di) <= 0)
+            // StartDoc 成功時回傳的**就是 spooler 的 job id**——記下來，現場才有辦法把
+            // 「我們送出去了」與 Windows 列印佇列裡的那一筆對起來。沒有它時，
+            // 「按了列印，印表機沒有反應」在紀錄上與「我們根本沒送」長得一樣（2026-08-18 客訴）。
+            int jobId = StartDoc(hdc, ref di);
+            if (jobId <= 0)
             {
                 fields["result"] = PrintDialogResults.DriverRejected;
                 fields["win32"] = Marshal.GetLastWin32Error();
                 return fields;
             }
+
+            fields["jobId"] = jobId;
 
             foreach (var pageNo in pages)
             {

@@ -64,6 +64,7 @@ export function viewerPageHtml(pdfPath: string, title: string): string {
   .primary:hover { background: #a25a42; }
   .primary:disabled { background: #ccc; border-color: #ccc; cursor: default; }
   .msg { color: #b00; font-size: 14px; }
+  .msg.ok { color: #4a7a4a; }
   iframe { flex: 1; width: 100%; border: 0; background: #525659; }
 </style>
 </head>
@@ -80,6 +81,7 @@ export function viewerPageHtml(pdfPath: string, title: string): string {
   var msg = document.getElementById('msg');
   btn.addEventListener('click', function () {
     msg.textContent = '';
+    msg.className = 'msg';   // 上一次的成功訊息（綠字）不能留到這一次
     btn.disabled = true;
     // 回來的時機是「對話框已經在螢幕上」，不是「印完了」——所以馬上就能再按下一次。
     window.ceremonyViewer.print().then(function (r) {
@@ -92,6 +94,12 @@ export function viewerPageHtml(pdfPath: string, title: string): string {
   });
   document.getElementById('close').addEventListener('click', function () {
     window.ceremonyViewer.close();
+  });
+  // 送印結束後的結果（成功也講）。**不動 btn.disabled**——列印鈕在對話框出現時就放開了，
+  // 這裡只是把「我們送到哪一步」寫在畫面上，讓現場不必再回報「沒有反應」。
+  window.ceremonyViewer.onResult(function (r) {
+    msg.textContent = r.text;
+    msg.className = r.ok ? 'msg ok' : 'msg';
   });
 </script>
 </body>

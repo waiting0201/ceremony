@@ -4,6 +4,7 @@ import {
   parsePrintLine,
   printDialogArgs,
   printDialogLogFields,
+  printDialogFinalMessage,
   printDialogMessage,
   type PrintDialogOutcome,
 } from '../../../../electron/print-dialog-core';
@@ -151,6 +152,48 @@ describe('print-dialog-core', () => {
     it('驅動類的失敗要指路到 Adobe Reader（現場已證實那條可行）', () => {
       expect(printDialogMessage('driver-rejected')).toContain('Adobe');
       expect(printDialogMessage('dialog-failed')).toContain('Adobe');
+    });
+  });
+
+  describe('printDialogFinalMessage（送印結束後的事後告知）', () => {
+    it('成功講的是「送出到佇列」而不是「已列印」——我們只保證到 spooler', () => {
+      const r = printDialogFinalMessage({ result: 'printed', pages: 3 });
+      expect(r?.ok).toBe(true);
+      expect(r?.text).toContain('3 頁');
+      expect(r?.text).toContain('佇列');
+      expect(r?.text).not.toContain('已列印');
+    });
+
+    it('有 job id 就寫進成功訊息——現場能直接對 Windows 佇列裡的那一筆', () => {
+      const r = printDialogFinalMessage({ result: 'printed', pages: 1, jobId: 42 });
+      expect(r?.text).toContain('42');
+      expect(r?.text).toContain('列印佇列');
+    });
+
+    it('沒有頁數也講得出來', () => {
+      expect(printDialogFinalMessage({ result: 'printed' })?.text).toContain('已送出到印表機佇列');
+    });
+
+    it('使用者取消 ⇒ 什麼都不顯示', () => {
+      expect(printDialogFinalMessage({ result: 'cancelled' })).toBeNull();
+    });
+
+    it('失敗一定附代碼，現場截圖就能定位', () => {
+      const r = printDialogFinalMessage({ result: 'driver-rejected', win32: 1784 });
+      expect(r?.ok).toBe(false);
+      expect(r?.text).toContain('driver-rejected');
+      expect(r?.text).toContain('win32=1784');
+    });
+
+    it('沒有 win32 就不硬湊一個代碼進去', () => {
+      expect(printDialogFinalMessage({ result: 'render-failed' })?.text).not.toContain('win32');
+    });
+
+    it('四種失敗結局各有各的文字（＝現場不會再只有「沒有反應」）', () => {
+      const texts = (['driver-rejected', 'render-failed', 'dialog-failed', 'error'] as const).map(
+        (result) => printDialogFinalMessage({ result })!.text,
+      );
+      expect(new Set(texts).size).toBe(4);
     });
   });
 });

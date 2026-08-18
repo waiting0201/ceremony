@@ -11,7 +11,7 @@ related_docs:
   - ../blueprints/printing-reports-positions.md
   - ../blueprints/print-channel-electron.md
 keywords: [複驗, 驗收, 實體套印, 實機, pending, verification, 樣張, overlay, 順延]
-last_updated: 2026-08-18 (新增 B10：v2.5.0 關掉預覽視窗會跳主行程錯誤框（closed handler 讀已銷毀的 webContents），修正後需實機確認錯誤框消失且清理鏈有跑到。先前 2026-08-17 (建檔。起因：v2.5.0 發版時發現「待複驗」項目已從 v2.4.5 一路順延**六個版本**，因為它們只存在於 status.md 各版 Recently Done 條目的內文裡——沒有單一清單、沒人知道總共欠幾項。本檔把它們集中，並附上在 HEAD 重產的樣張路徑，讓一次實體套印就能全部掃完。))
+last_updated: 2026-08-18 (新增 B11：決策 11 送印結果事後回報〈PA2000「按了列印沒有反應」客訴的產物——對話框之後的四種結局原本畫面上完全無法區分〉。同日先前 (新增 B10：v2.5.0 關掉預覽視窗會跳主行程錯誤框（closed handler 讀已銷毀的 webContents），修正後需實機確認錯誤框消失且清理鏈有跑到。先前 2026-08-17 (建檔。起因：v2.5.0 發版時發現「待複驗」項目已從 v2.4.5 一路順延**六個版本**，因為它們只存在於 status.md 各版 Recently Done 條目的內文裡——沒有單一清單、沒人知道總共欠幾項。本檔把它們集中，並附上在 HEAD 重產的樣張路徑，讓一次實體套印就能全部掃完。)))
 ---
 
 ## 為什麼有這份檔
@@ -75,6 +75,7 @@ CEREMONY_PDF_DUMP=$(pwd)/$D dotnet test backend/tests/Ceremony.Infrastructure.Te
 | B8 | 決策 9c：PrintTicket 預檢 | **v2.4.5** | 同上那台；轉不過應 fail-closed 不寫入 |
 | B9 | **決策 11 Phase 1 六報表對照組** | v2.5.0 | 打開 `printViaDialog`（per-machine），**六種報表各印一張**與舊路徑逐張比對。⚠️ **這是把預設翻成「開」的前置條件**——沒驗完不要翻 |
 | B10 | 關掉預覽視窗**不再跳主行程錯誤框** | v2.5.1 | 開任一報表預覽 → 直接關掉 → 不應出現「A JavaScript error occurred in the main process」；連開連關三次後再列印一次，紙張仍要正確（驗 `releaseReportForm()` 有跑到） |
+| B11 | **決策 11 送印結果事後回報** | v2.5.1 | 走對話框路徑印一次：對話框關掉後，預覽頁列印鈕旁應出現一行訊息——成功是綠字「已送出 N 頁到印表機佇列（工作編號 X）」、失敗是紅字附代碼。**PA2000「沒有反應」那次要重測，把這行訊息連同 `%APPDATA%\Ceremony\logs\print-*.log` 一起回報** |
 
 > B7／B8 卡在同一個外部條件：需要客戶端**先重開機**（見 status.md In Progress 的阻斷性下一步），且要那台 KYOCERA PA2000。
 
@@ -87,3 +88,5 @@ CEREMONY_PDF_DUMP=$(pwd)/$D dotnet test backend/tests/Ceremony.Infrastructure.Te
 5. B9 最後做（量最大，且結果決定 `printViaDialog` 要不要翻預設）
 
 > B10 是 v2.5.0 客訴的修正驗證，**任何一次開預覽都順手驗得到**，不必單獨排場次。
+>
+> B11 併進 B9（決策 11 對照組）那一場做——它本身就是為了讓 B9 那場出事時**看得到是哪一種失敗**。

@@ -54,6 +54,13 @@ export interface PrintDialogOutcome {
   pageCount?: number;
   copies?: number;
   range?: string;
+  /**
+   * spooler 的 job id（`StartDoc` 的回傳值）。
+   *
+   * 有它 ⇒ 這份工作**確實進了 Windows 列印佇列**，之後沒吐紙就不是本程式的範圍；
+   * 沒有它 ⇒ 連 spooler 都沒收到。這一刀是 2026-08-18「印表機沒有反應」客訴的第一個分岔點。
+   */
+  jobId?: number;
   dpi?: string;
   printablePx?: string;
   physicalPx?: string;
@@ -122,7 +129,8 @@ export function parsePrintLine(line: string): Partial<PrintDialogOutcome> | null
     'printablePx', 'physicalPx', 'offsetPx', 'destRect', 'error'] as const) {
     if (typeof o[k] === 'string') out[k] = o[k] as string;
   }
-  for (const k of ['formKind', 'pages', 'pageCount', 'copies', 'technology', 'win32', 'ms'] as const) {
+  for (const k of ['formKind', 'pages', 'pageCount', 'copies', 'technology', 'win32', 'ms',
+    'jobId'] as const) {
     if (typeof o[k] === 'number') out[k] = o[k] as number;
   }
 
@@ -139,7 +147,7 @@ export function printDialogLogFields(o: PrintDialogOutcome): Record<string, unkn
   const f: Record<string, unknown> = { path: 'dialog', printResult: o.result };
   for (const k of ['formResult', 'formTarget', 'formKind', 'devmodeSource', 'pages', 'pageCount',
     'copies', 'range', 'dpi', 'printablePx', 'physicalPx', 'offsetPx', 'destRect',
-    'technology', 'win32', 'error', 'ms'] as const) {
+    'technology', 'win32', 'error', 'ms', 'jobId'] as const) {
     if (o[k] !== undefined) f[k] = o[k];
   }
   return f;
@@ -172,4 +180,36 @@ export function printDialogMessage(result: PrintResult): string | null {
     default:
       return '列印失敗，請稍後再試';
   }
+}
+
+/**
+ * 送印結束後（helper 行程退出）要給使用者看的那一行。`null` ＝ 什麼都不要顯示。
+ *
+ * **為什麼需要它**（2026-08-18 現場回報「按了列印，印表機沒有反應」）：
+ * 這條路徑在 `dialog-shown` 就 resolve UI（決策 8 的守法），所以**對話框之後的一切結果
+ * 原本只進診斷紀錄**——printed / driver-rejected / render-failed / error 在畫面上長得一模一樣，
+ * 都是「什麼都沒發生」。現場只能回報「沒有反應」，而那四種的下一步完全不同。
+ *
+ * 這裡刻意把成功也講出來，而且措辭是「**已送出到印表機佇列**」不是「已列印」：
+ * 我們能保證的只到 spooler 為止。這一刀正是現場最需要的——
+ * 「我們沒送出去」與「送出去了但印表機沒吐紙」是兩條完全不同的排障路線。
+ *
+ * ⚠️ 顯示它**不得**讓 UI 進入等待狀態（列印鈕在 `dialog-shown` 就已經放開了）。
+ * 這是事後告知，不是把 UI 綁回 spooler——後者正是決策 8 禁止的事。
+ */
+export function printDialogFinalMessage(o: PrintDialogOutcome): { ok: boolean; text: string } | null {
+  if (o.result === 'cancelled') return null;
+
+  if (o.result === 'printed') {
+    const pages = typeof o.pages === 'number' && o.pages > 0 ? ` ${o.pages} 頁` : '';
+    const job = typeof o.jobId === 'number' ? `（工作編號 ${o.jobId}）` : '';
+    return {
+      ok: true,
+      text: `已送出${pages}到印表機佇列${job}。若印表機沒有動作，請開 Windows 的列印佇列看這筆工作的狀態`,
+    };
+  }
+
+  // 失敗一律附上代碼：現場截一張圖就足以定位，不必再問一輪。
+  const code = [o.result, o.win32 ? `win32=${o.win32}` : null].filter(Boolean).join(' ');
+  return { ok: false, text: `${printDialogMessage(o.result) ?? '列印失敗'}（${code}）` };
 }

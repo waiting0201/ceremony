@@ -607,6 +607,27 @@ IPC `ceremony:listPrinters` / `getPrintSettings` / `savePrintSetting` / `printPd
 > **開關**：`config.json` 的 `printViaDialog`（per-machine，走 `mergeConfig`）。
 > 開著時 `applyReportForm()` 一律回 `skipped-dialog-path`（互斥不變式，寫在程式碼裡）。
 >
+> **2026-08-18 追加：送印結果必須事後回報給使用者（現場客訴的直接產物）**
+>
+> 現場回報「PA2000、自動選紙開關都試過、列印方式選對話框、按了列印**印表機沒有反應**」。
+> 查下去發現：這條路徑在 `dialog-shown` 就 resolve UI（決策 8 的守法），
+> 所以**對話框之後的四種結局在畫面上完全沒有差別**——`printed`、`driver-rejected`、
+> `render-failed`、`error` 全都只寫進診斷紀錄，使用者看到的一律是「什麼都沒發生」。
+> 現場講得出來的因此只有「沒有反應」，而那四種的下一步完全不同。
+>
+> 處置（不違反決策 8——**只顯示訊息，不把 UI 綁回 spooler**）：
+> 1. `printViaDialog` 新增 `onFinal` 回呼（helper 行程退出時觸發一次）
+> 2. 主行程把 `printDialogFinalMessage()` 的結果 `send` 給預覽視窗，
+>    wrapper 頁顯示在列印鈕旁（失敗紅字附 result 代碼與 win32，現場截圖即可定位）
+> 3. **成功也要講**，而且措辭是「已送出 N 頁到印表機佇列（工作編號 X）」不是「已列印」——
+>    我們能保證的只到 spooler 為止。這一刀是排障的第一個分岔點：
+>    「我們沒送出去」與「送出去了但印表機沒吐紙」是兩條完全不同的路線
+> 4. helper 把 `StartDoc` 的回傳值（＝**spooler job id**）寫進紀錄與訊息，
+>    現場可以直接對到 Windows 列印佇列裡的那一筆
+>
+> **可轉移教訓**：把「回應時機」與「結果」解耦是對的（決策 8），但解耦之後**結果仍然要送達**——
+> 否則等於把一整類失敗做成靜默。非同步化的每一條路都要問「最後那個結果誰去告訴使用者」。
+
 > **實作時修正的兩件事**：
 > 1. 「publish 要改資料夾發布」**不必**——`PublishSingleFile` 只打包 managed 組件，
 >    native 的 `pdfium.dll` 本來就會留在 exe 旁邊，正是 `DllImport("pdfium")` 要的。

@@ -32,7 +32,7 @@ import {
 } from './print-form';
 import { logFields, viewerTitle } from './print-form-core';
 import { printViaDialog } from './print-dialog';
-import { printDialogMessage } from './print-dialog-core';
+import { printDialogFinalMessage, printDialogMessage } from './print-dialog-core';
 import { viewerPageHtml } from './viewer-page';
 import { returnFocusOnClose } from './window-focus';
 
@@ -65,6 +65,13 @@ export async function printFromViewer(webContentsId: number): Promise<PrintResul
     // 使用者可見語意完全不變，只是底層從「不寫入每使用者預設」變成「不改我們自己那份」。
     noForm: !(await printFormState()).enabled,
     jobName: `寶覺寺法會報名系統 — ${v.reportType}`,
+    // 送印結束後把結果推回預覽頁（見 printDialogFinalMessage）。這是純顯示，
+    // **不碰按鈕狀態**——UI 早在對話框出現時就放行了（決策 8）。
+    onFinal: (outcome) => {
+      const msg = printDialogFinalMessage(outcome);
+      // 使用者可能在 spooler 還在忙的時候就把預覽關掉了：那不是錯誤，安靜跳過。
+      if (msg && !v.win.isDestroyed()) v.win.webContents.send('ceremony:viewerPrintResult', msg);
+    },
   });
 
   const message = printDialogMessage(r.result);
