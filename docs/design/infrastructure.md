@@ -9,7 +9,7 @@ related_docs:
   - database-design.md
   - security.md
 keywords: [infrastructure, deployment, ci/cd, electron, ASP.NET Core, MSSQL, monitoring, prereq, sidecar, framework-dependent]
-last_updated: 2026-08-11 (**出廠種子對 config.json 的覆寫改為 per-key merge**〔現場：使用者關掉的「自動選紙」每次重開又變回開——種子只有連線五欄，舊寫法整包 assign 只撿回 `jwtKey`，於是 `printFormPreselect` / `apiPort` 這些本機欄位每次開機被清掉。規則收進 `electron/config-merge.ts` 的 `mergeConfig`，`/setup` 存檔同一條；另補一行 `app-start` 診斷紀錄，否則現場紀錄看不出「重開過」這件事〕。同日先前 (**列印排障 ②③④⑤ 的入口位置更正為「`/reports/preview` 頁面上方的列印排障列」**〔原寫「工具列」，而那條 toolbar 要先產出 PDF 才出現——故障時按不到。判準升級為：復位鍵的可見性不得依賴任何會被故障本身破壞的前提〕。先前 2026-08-10 (**排障 ④ 也變成按鈕、並寫死「復位步驟不可以放進安裝程式」**〔起因：客戶回報**找不到那些檔案**——「請到 `%APPDATA%\Ceremony` 刪某個檔」在現場等於做不到〕：④ 改為 `/reports/preview` 工具列的「**印表機設定**」鈕〔`rundll32 printui.dll,PrintUIEntry /e /n "<預設印表機>"`，叫出 Windows 自己的列印喜好設定，改一次紙按確定就覆寫掉壞掉的 DEVMODE——**寫入的是 Windows 不是我們**〕；新增一段 ⚠ 說明**為什麼不放進安裝程式**〔`perMachine` 的 NSIS 跑在提權帳號下 `$APPDATA` 可能指到別的 profile、一台多使用者只清得到一個、真正該復位的東西不是檔案、而 `print-form-restore.json` **刪掉比留著糟**（那是還原使用者原本紙張的唯一憑證）〕。同日先前 (**列印排障新增「現場自己按得到的止血鍵」與失敗印表機黑名單**〔決策 9d，客訴 KYOCERA PA2000 **按下檢視器列印鈕後整個程式卡死**、選不了別台印表機也關不掉預覽，只能重啟〕：排障表新增 ③〔`/reports/preview` 工具列的「自動選紙：開/關」，寺方自己按，原本只有環境變數那條 IT 才做得到〕與 ⑤〔按回「開」＝清 `print-form-printers.json` 黑名單〕；`formResult` 對照表新增 `skipped-printer-blocked` / `skipped-over-budget` / `skipped-disabled` / `skipped-helper-busy` 四格；資料流那行的 helper 參數改為 `--budget-ms 3000 [--blocked …]` 並註明**逾時不再 kill**。判準轉變：預檢〔9c〕擋的是「寫壞」，但這次的失敗模式是**接觸本身**，所以規則升級為「出過一次事就永遠不碰那台驅動」。先前 2026-08-08 (**列印排障步驟 ① 的分流判準修正**：「記事本也噴 ⇒ 與本程式無關」是錯的——每使用者預設 DEVMODE 共用且持久化，我們寫壞了記事本一樣噴；改為「先跑 ③ 止血 ＋ ④ 復位再測，仍噴才判給驅動」。起因是 KYOCERA PA2000 在 v2.4.2 之後仍回報 `0x80010105`，根因見 ../gotchas.md 同名條。先前 2026-08-06 (列印排障段新增 **`formResult` 對照表**〔七種結果各自代表什麼、現場該做什麼；重點是**只有 `exact` 會去動使用者的驅動設定**，其餘全是「什麼都沒做」〕；自訂紙張 runbook 補一條 ⚠ **尺寸錯的表單不再被自動選用**〔名稱對但超過 ±0.5mm → `mismatch` → 不寫每使用者預設 DEVMODE，改由標題提示手動選紙；推翻 2026-08-04 的「仍選它」，理由見 blueprints/print-channel-electron.md 決策 9b。**實務影響：舊系統留下的資料卡／薦牌／文牒三張表單沒重建之前，那三種報表就是每次手動選紙**〕。先前 2026-08-05 (新增「**列印排障：紙張預選出問題時**」段——2026-08-05 客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』」的產物：四步 runbook〔用**記事本**開印表機內容做三十秒分流〔記事本也噴＝純 Windows／驅動問題〕→ 取診斷紀錄的 `formResult`/`formError` → `CEREMONY_PRINTFORM_EXE` 指到不存在路徑當**現場止血開關**〔列印本身不受影響，只回到手動選紙〕→ 到「列印喜好設定」覆寫壞掉的 DEVMODE〕。止血開關的行為自此**受文件保證**，`electron/print-form.ts` 的 `helperPath()` 有對應註解。根因見 gotchas.md 與 blueprints/print-channel-electron.md 決策 9a。先前 2026-08-04 (列印通道資料流插入 `Ceremony.PrintForm.exe apply <type>`〔開視窗前依報表名把驅動的每使用者預設紙張選成對應自訂表單，best-effort 3s 逾時，失敗不影響列印〕；打包樹與 CI 步驟補 `resources/printform/`；**自訂紙張 runbook 語意升級**——表單名稱從「建議」變成契約〔程式依名稱比對，名稱不符＝完全不會被選到〕，表格加 reportType 欄，補 ±0.5mm 容差與「尺寸不符仍選它但標題與診斷紀錄帶 ⚠」。見 blueprints/print-channel-electron.md 決策 9。先前 2026-08-02 (**「列印通道」段改寫**：送印交回 Windows 原生列印對話框，程式只開 PDF 檢視器視窗；print-settings.json 與所有送印參數移除；自訂紙張 runbook 改標為「不做等於白改」〔Chromium 檢視器是 fit-to-printable-area 等比縮放，不像舊系統非等比拉滿，選錯紙就位置全跑掉〕。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結))))))))))
+last_updated: 2026-08-19 (**新增〈換新電腦／換新印表機時會怎樣〉**〔客戶提問「未來買新電腦或新印表機會出現同樣問題嗎」：把 2026-08 這輪故障拆成三類——①程式 bug 已修、與機器無關〈STA 卡死、關預覽跳錯誤框〉②驅動側的 `0x80010105` 可能隨新驅動重演，繞路〈列印方式：對話框〉已經做好**但預設是關**，所以**真正會重演的是預設值**而不是 bug ③導入步驟〈六張自訂表單要在新機器／新驅動重建、新印表機的不可列印邊界不同要重驗套印位置〉。**同時更正一段文件腐化**：「尺寸不符時程式仍會選它」是 2026-08-06 之前的行為，與同節決策 9b 矛盾〕。先前 2026-08-11 (**出廠種子對 config.json 的覆寫改為 per-key merge**〔現場：使用者關掉的「自動選紙」每次重開又變回開——種子只有連線五欄，舊寫法整包 assign 只撿回 `jwtKey`，於是 `printFormPreselect` / `apiPort` 這些本機欄位每次開機被清掉。規則收進 `electron/config-merge.ts` 的 `mergeConfig`，`/setup` 存檔同一條；另補一行 `app-start` 診斷紀錄，否則現場紀錄看不出「重開過」這件事〕。同日先前 (**列印排障 ②③④⑤ 的入口位置更正為「`/reports/preview` 頁面上方的列印排障列」**〔原寫「工具列」，而那條 toolbar 要先產出 PDF 才出現——故障時按不到。判準升級為：復位鍵的可見性不得依賴任何會被故障本身破壞的前提〕。先前 2026-08-10 (**排障 ④ 也變成按鈕、並寫死「復位步驟不可以放進安裝程式」**〔起因：客戶回報**找不到那些檔案**——「請到 `%APPDATA%\Ceremony` 刪某個檔」在現場等於做不到〕：④ 改為 `/reports/preview` 工具列的「**印表機設定**」鈕〔`rundll32 printui.dll,PrintUIEntry /e /n "<預設印表機>"`，叫出 Windows 自己的列印喜好設定，改一次紙按確定就覆寫掉壞掉的 DEVMODE——**寫入的是 Windows 不是我們**〕；新增一段 ⚠ 說明**為什麼不放進安裝程式**〔`perMachine` 的 NSIS 跑在提權帳號下 `$APPDATA` 可能指到別的 profile、一台多使用者只清得到一個、真正該復位的東西不是檔案、而 `print-form-restore.json` **刪掉比留著糟**（那是還原使用者原本紙張的唯一憑證）〕。同日先前 (**列印排障新增「現場自己按得到的止血鍵」與失敗印表機黑名單**〔決策 9d，客訴 KYOCERA PA2000 **按下檢視器列印鈕後整個程式卡死**、選不了別台印表機也關不掉預覽，只能重啟〕：排障表新增 ③〔`/reports/preview` 工具列的「自動選紙：開/關」，寺方自己按，原本只有環境變數那條 IT 才做得到〕與 ⑤〔按回「開」＝清 `print-form-printers.json` 黑名單〕；`formResult` 對照表新增 `skipped-printer-blocked` / `skipped-over-budget` / `skipped-disabled` / `skipped-helper-busy` 四格；資料流那行的 helper 參數改為 `--budget-ms 3000 [--blocked …]` 並註明**逾時不再 kill**。判準轉變：預檢〔9c〕擋的是「寫壞」，但這次的失敗模式是**接觸本身**，所以規則升級為「出過一次事就永遠不碰那台驅動」。先前 2026-08-08 (**列印排障步驟 ① 的分流判準修正**：「記事本也噴 ⇒ 與本程式無關」是錯的——每使用者預設 DEVMODE 共用且持久化，我們寫壞了記事本一樣噴；改為「先跑 ③ 止血 ＋ ④ 復位再測，仍噴才判給驅動」。起因是 KYOCERA PA2000 在 v2.4.2 之後仍回報 `0x80010105`，根因見 ../gotchas.md 同名條。先前 2026-08-06 (列印排障段新增 **`formResult` 對照表**〔七種結果各自代表什麼、現場該做什麼；重點是**只有 `exact` 會去動使用者的驅動設定**，其餘全是「什麼都沒做」〕；自訂紙張 runbook 補一條 ⚠ **尺寸錯的表單不再被自動選用**〔名稱對但超過 ±0.5mm → `mismatch` → 不寫每使用者預設 DEVMODE，改由標題提示手動選紙；推翻 2026-08-04 的「仍選它」，理由見 blueprints/print-channel-electron.md 決策 9b。**實務影響：舊系統留下的資料卡／薦牌／文牒三張表單沒重建之前，那三種報表就是每次手動選紙**〕。先前 2026-08-05 (新增「**列印排障：紙張預選出問題時**」段——2026-08-05 客訴「選了印表機卻跳『您的印表機已發生未預期的設定問題 0x80010105』」的產物：四步 runbook〔用**記事本**開印表機內容做三十秒分流〔記事本也噴＝純 Windows／驅動問題〕→ 取診斷紀錄的 `formResult`/`formError` → `CEREMONY_PRINTFORM_EXE` 指到不存在路徑當**現場止血開關**〔列印本身不受影響，只回到手動選紙〕→ 到「列印喜好設定」覆寫壞掉的 DEVMODE〕。止血開關的行為自此**受文件保證**，`electron/print-form.ts` 的 `helperPath()` 有對應註解。根因見 gotchas.md 與 blueprints/print-channel-electron.md 決策 9a。先前 2026-08-04 (列印通道資料流插入 `Ceremony.PrintForm.exe apply <type>`〔開視窗前依報表名把驅動的每使用者預設紙張選成對應自訂表單，best-effort 3s 逾時，失敗不影響列印〕；打包樹與 CI 步驟補 `resources/printform/`；**自訂紙張 runbook 語意升級**——表單名稱從「建議」變成契約〔程式依名稱比對，名稱不符＝完全不會被選到〕，表格加 reportType 欄，補 ±0.5mm 容差與「尺寸不符仍選它但標題與診斷紀錄帶 ⚠」。見 blueprints/print-channel-electron.md 決策 9。先前 2026-08-02 (**「列印通道」段改寫**：送印交回 Windows 原生列印對話框，程式只開 PDF 檢視器視窗；print-settings.json 與所有送印參數移除；自訂紙張 runbook 改標為「不做等於白改」〔Chromium 檢視器是 fit-to-printable-area 等比縮放，不像舊系統非等比拉滿，選錯紙就位置全跑掉〕。見 blueprints/print-channel-electron.md。先前 2026-07-31 (新增「列印通道」段：Electron 主行程送印、print-settings.json 與 config.json 分家的理由、webPreferences.plugins:true 必要條件、現場印表機自訂紙張 6 種尺寸 runbook（含舊 form 尺寸錯誤警告）；CORS WithExposedHeaders 追加 X-Report-Page-Size。先前 2026-07-28 (CORS 補 WithExposedHeaders(Content-Disposition, X-Signup-Count) 修正前端讀不到這兩個 header 的既有 bug；記錄批次列印 in-memory job store 對「單實例 sidecar」的部署依賴。先前 2026-07-01 prereq installer 改固定內建離線安裝檔，記錄 build/prereqs 兩檔來源與直接下載連結)))))))))))
 ---
 
 ## 部署型態（**2026-05-28 改為 Sidecar 架構**）
@@ -387,12 +387,47 @@ Windows：**控制台 → 裝置和印表機 → 選任一印表機 → 上方�
 先前的行為是「仍然選它」，改掉的理由是不值得為一張已知不對的紙去寫全域的每使用者預設 DEVMODE
 （決策 9b）。**實務影響：舊系統留下的那三張表單沒重建之前，那三種報表就是每次手動選紙。**
 
-尺寸比對容差是 **±0.5mm**（寬高各自判定）。**尺寸不符時程式仍會選它**（比停在 A4 好得多），
-但會在檢視器視窗標題掛 ⚠ 警告、並在診斷紀錄寫 `formResult:"mismatch"` 與 `formMismatchMm`
-——看到警告就是「這台的表單該重建了」。驅動裡根本沒有同名表單時是 `not-found`，同樣有警告。
+尺寸比對容差是 **±0.5mm**（寬高各自判定）。尺寸不符時診斷紀錄寫 `formResult:"mismatch"` 與
+`formMismatchMm`，畫面上會提示「未自動選用…請自己選紙」——看到提示就是「這台的表單該重建了」。
+驅動裡根本沒有同名表單時是 `not-found`，同樣有提示。
+（⚠️ 本段原寫「尺寸不符時程式仍會選它」，那是 2026-08-06 之前的行為，與上一段的決策 9b 矛盾，
+2026-08-19 更正。）
 
 ⚠️ **滿版（邊界 0）報表的欄位離紙緣至少 0.5cm**：印表機的實體不可列印邊界會整欄吃掉更靠邊的內容
 （已發生過薦牌客訴，見 [gotchas.md](../gotchas.md)）。這是硬體限制，設定 margin 0 也繞不過。
+
+#### 換新電腦 / 換新印表機時會怎樣（2026-08-19 客戶提問）
+
+問題原文：「如果未來買新電腦或是新印表機，會出現同樣問題嗎？」
+把 2026-08 這一整輪的故障拆開看，答案分成三類：
+
+**① 不會再發生（程式的 bug，已修，與機器無關）**
+
+| 症狀 | 修正 |
+|---|---|
+| 按下列印後印表機沒反應、**對話框卡住關不掉**、換印表機也一樣 | v2.5.1 `StaRunner`（apartment 問題，見 [gotchas.md](../gotchas.md)） |
+| 關掉預覽視窗跳「A JavaScript error occurred in the main process」 | v2.5.1 `closed` handler 不再讀已銷毀的 `webContents` |
+
+**② 可能再遇到，但已經有繞路（換新印表機時風險最高）**
+
+- `0x80010105`「印表機已發生未預期的設定問題」是**驅動側**的問題（v4 驅動的
+  「讀每使用者預設 DEVMODE → 轉 PrintTicket」那條路）。**新印表機＝新驅動，這件事可能重演。**
+- 繞路已經做好了：報表預覽頁的「**列印方式：對話框**」（決策 11，自帶 DEVMODE 走舊版對話框）。
+- ⚠️ **但它目前是 per-machine 且預設「關」**（`config.json` 的 `printViaDialog`）。
+  也就是說**新電腦裝好之後預設會走舊路徑**，除非有人記得去切。
+  這是「新電腦會不會重演」這個問題的**真正答案**：程式的 bug 不會重演，但**預設值會**把新機器
+  送回那條已知會壞的路。翻預設的前置條件見 [pending-verification.md](../workflows/pending-verification.md) B9。
+
+**③ 一定要做的設定（不是 bug，是導入步驟）**
+
+| 情境 | 要做什麼 |
+|---|---|
+| 新電腦 | .NET 10 ASP.NET Core Runtime（安裝程式會引導）、DB 連線（出廠種子或 `/setup`）、**六張自訂表單要重建**（表單存在這台機器的列印伺服器內容裡，不會跟著程式走）、確認列印方式切到「對話框」 |
+| 新印表機 | **六張自訂表單要在新驅動上重建**（名稱是契約，見上表）；**套印位置要重驗一輪**——不同機型的**不可列印邊界不同**，靠邊的欄位可能被整欄吃掉（見 [gotchas.md](../gotchas.md)），這是硬體限制，不是設定得回來的 |
+
+表單沒建／建錯時的行為（v2.5.2 起）：程式**不會**硬套一張已知不對的紙，而是在列印視窗開著的
+當下就把原因寫在預覽頁上（「這台印表機沒有『資料卡』紙張設定，請在列印視窗自己選紙」）。
+**看到那行字＝表單沒建好，不是程式壞了。**
 
 ### 前端（Electron）
 
