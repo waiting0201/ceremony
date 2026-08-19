@@ -134,20 +134,45 @@ internal static class DialogPrinter
         }
 
         IntPtr owned = IntPtr.Zero;
+        IntPtr ownedUser = IntPtr.Zero;
         try
         {
             IntPtr src = opt.Source == DevModeSource.User
-                ? ReadUserDefault(hPrinter, printerName, ref owned)
+                ? ReadUserDefault(hPrinter, printerName, ref ownedUser)
                 : ReadPrinterDefault(hPrinter, ref owned);
 
-            if (src == IntPtr.Zero) return IntPtr.Zero;
+            // <c>PRINTER_INFO_2.pDevMode</c> **允許是 NULL**（文件明說），而且有驅動就是不給。
+            // 原本這裡直接放棄 ⇒ 對話框拿不到我們那份 DEVMODE，於是兩件事同時發生而且都沒有聲音：
+            //   ① 自動選紙靜默失效（使用者開著它，紙卻沒被選）
+            //   ② 對話框**退回自己去讀每使用者預設**——那正是決策 11 整條路要繞開的東西
+            // 所以退而求其次去拿 DocumentProperties 那一份（＝每使用者預設）：
+            // 它仍然是「我們自己手上的一份 copy」，改它不寫回系統，決策 11 的不變式不受影響。
+            if (src == IntPtr.Zero && opt.Source == DevModeSource.Printer)
+            {
+                src = ReadUserDefault(hPrinter, printerName, ref ownedUser);
+                if (src != IntPtr.Zero) fields["devmodeSource"] = "printer→user";
+            }
+
+            if (src == IntPtr.Zero)
+            {
+                fields["devmodeResult"] = "none";
+                return IntPtr.Zero;
+            }
 
             int total = Marshal.ReadInt16(src, NativeMethods.OffsetSize)
                         + Marshal.ReadInt16(src, NativeMethods.OffsetDriverExtra);
-            if (total <= 0) return IntPtr.Zero;
+            if (total <= 0)
+            {
+                fields["devmodeResult"] = "bad-size";
+                return IntPtr.Zero;
+            }
 
             var hMem = GlobalAlloc(GMEM_MOVEABLE, (UIntPtr)(uint)total);
-            if (hMem == IntPtr.Zero) return IntPtr.Zero;
+            if (hMem == IntPtr.Zero)
+            {
+                fields["devmodeResult"] = "alloc-failed";
+                return IntPtr.Zero;
+            }
 
             var dst = GlobalLock(hMem);
             try
@@ -168,6 +193,7 @@ internal static class DialogPrinter
         finally
         {
             if (owned != IntPtr.Zero) Marshal.FreeHGlobal(owned);
+            if (ownedUser != IntPtr.Zero) Marshal.FreeHGlobal(ownedUser);
             NativeMethods.ClosePrinter(hPrinter);
         }
     }

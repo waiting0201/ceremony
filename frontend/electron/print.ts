@@ -32,7 +32,11 @@ import {
 } from './print-form';
 import { logFields, viewerTitle } from './print-form-core';
 import { printViaDialog } from './print-dialog';
-import { printDialogFinalMessage, printDialogMessage } from './print-dialog-core';
+import {
+  printDialogFinalMessage,
+  printDialogMessage,
+  printFormNoticeForDialog,
+} from './print-dialog-core';
 import { viewerPageHtml } from './viewer-page';
 import { returnFocusOnClose } from './window-focus';
 
@@ -71,6 +75,13 @@ export async function printFromViewer(webContentsId: number): Promise<PrintResul
       const msg = printDialogFinalMessage(outcome);
       // 使用者可能在 spooler 還在忙的時候就把預覽關掉了：那不是錯誤，安靜跳過。
       if (msg && !v.win.isDestroyed()) v.win.webContents.send('ceremony:viewerPrintResult', msg);
+    },
+    // 自動選紙沒選到時，要在**對話框還開著**的時候講——那是使用者唯一能自己補救的時機。
+    onShown: (outcome) => {
+      const notice = printFormNoticeForDialog(outcome);
+      if (notice && !v.win.isDestroyed()) {
+        v.win.webContents.send('ceremony:viewerPrintResult', { ok: false, text: notice });
+      }
     },
   });
 

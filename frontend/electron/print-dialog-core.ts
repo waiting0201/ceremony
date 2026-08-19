@@ -203,13 +203,47 @@ export function printDialogFinalMessage(o: PrintDialogOutcome): { ok: boolean; t
   if (o.result === 'printed') {
     const pages = typeof o.pages === 'number' && o.pages > 0 ? ` ${o.pages} 頁` : '';
     const job = typeof o.jobId === 'number' ? `（工作編號 ${o.jobId}）` : '';
+    // 印出去了但紙沒自動選到，仍然要講——否則使用者要等紙印歪了才知道。
+    const notice = printFormNoticeForDialog(o);
+    const tail = notice ? `　⚠ ${notice}` : '';
     return {
       ok: true,
-      text: `已送出${pages}到印表機佇列${job}。若印表機沒有動作，請開 Windows 的列印佇列看這筆工作的狀態`,
+      text: `已送出${pages}到印表機佇列${job}。若印表機沒有動作，請開 Windows 的列印佇列看這筆工作的狀態${tail}`,
     };
   }
 
   // 失敗一律附上代碼：現場截一張圖就足以定位，不必再問一輪。
   const code = [o.result, o.win32 ? `win32=${o.win32}` : null].filter(Boolean).join(' ');
   return { ok: false, text: `${printDialogMessage(o.result) ?? '列印失敗'}（${code}）` };
+}
+
+/**
+ * 自動選紙在**這條路徑**上的結果提示；`null` ＝ 不必說話。
+ *
+ * **為什麼需要**（2026-08-18 現場問「選對話框時也會自動選紙嗎？開著卻沒作用」）：
+ * 會，但機制不同——舊路徑是開預覽視窗**之前**去寫每使用者預設 DEVMODE，
+ * 新路徑是按下列印**當下**改我們自己帶進對話框的那份 copy（決策 11 的不變式：不碰共用狀態）。
+ * 問題出在**回饋**：舊路徑選不到紙會把警語寫進預覽視窗標題（`viewerTitle`），
+ * 新路徑的 `formResult` 卻只進診斷紀錄 ⇒ 使用者只看到「紙沒被選好」，完全不知道為什麼、
+ * 也不知道該自己去對話框裡選。
+ *
+ * 文案沿用 `viewerTitle` 的原則：**不出現「DEVMODE」「PrintTicket」「驅動」這種字眼**，
+ * 只講「現在該怎麼辦」。
+ */
+export function printFormNoticeForDialog(o: PrintDialogOutcome): string | null {
+  // 沒有 formResult ＝ 這次根本沒要求選紙（使用者關掉自動選紙，或沒帶 reportType）。
+  if (!o.formResult || o.formResult === 'exact') return null;
+
+  const form = o.formTarget ? `「${o.formTarget}」` : '對應的';
+  if (o.formResult === 'not-found') {
+    return `這台印表機沒有${form}紙張設定，請在列印視窗自己選紙`;
+  }
+  if (o.formResult === 'mismatch') {
+    return `紙張${form}的尺寸與報表不符、未自動選用（請依 IT 手冊重建），請在列印視窗自己選紙`;
+  }
+  if (o.formResult === 'skipped-virtual') {
+    // PDF／XPS 之類的虛擬印表機本來就沒有實體紙匣，不是故障 ⇒ 不用嚇使用者。
+    return null;
+  }
+  return `這台印表機無法自動選紙，請在列印視窗自己選${form}紙張`;
 }

@@ -6,6 +6,7 @@ import {
   printDialogLogFields,
   printDialogFinalMessage,
   printDialogMessage,
+  printFormNoticeForDialog,
   type PrintDialogOutcome,
 } from '../../../../electron/print-dialog-core';
 
@@ -194,6 +195,54 @@ describe('print-dialog-core', () => {
         (result) => printDialogFinalMessage({ result })!.text,
       );
       expect(new Set(texts).size).toBe(4);
+    });
+  });
+
+  describe('printFormNoticeForDialog（自動選紙在對話框路徑的回饋）', () => {
+    it('沒有 formResult ＝ 這次沒要求選紙 ⇒ 不說話', () => {
+      expect(printFormNoticeForDialog({ result: 'printed' })).toBeNull();
+    });
+
+    it('選到了就閉嘴', () => {
+      expect(printFormNoticeForDialog({ result: 'printed', formResult: 'exact' })).toBeNull();
+    });
+
+    it('印表機沒有那張表單 ⇒ 講表單名 + 叫使用者自己選', () => {
+      const t = printFormNoticeForDialog({
+        result: 'printed',
+        formResult: 'not-found',
+        formTarget: '資料卡',
+      });
+      expect(t).toContain('資料卡');
+      expect(t).toContain('自己選紙');
+    });
+
+    it('虛擬印表機（PDF/XPS）不是故障 ⇒ 不嚇使用者', () => {
+      expect(
+        printFormNoticeForDialog({ result: 'printed', formResult: 'skipped-virtual' }),
+      ).toBeNull();
+    });
+
+    it('文案不出現任何技術名詞（現場只需要知道現在該怎麼辦）', () => {
+      for (const formResult of ['not-found', 'mismatch', 'driver-rejected', 'error']) {
+        const t = printFormNoticeForDialog({ result: 'printed', formResult, formTarget: '薦牌' })!;
+        for (const jargon of ['DEVMODE', 'PrintTicket', '驅動程式', 'DllImport']) {
+          expect(t).not.toContain(jargon);
+        }
+      }
+    });
+
+    it('印出去了但紙沒選到 ⇒ 成功訊息要把這件事帶上（否則要等紙印歪才知道）', () => {
+      const r = printDialogFinalMessage({
+        result: 'printed',
+        pages: 1,
+        jobId: 7,
+        formResult: 'not-found',
+        formTarget: '資料卡',
+      });
+      expect(r?.ok).toBe(true);
+      expect(r?.text).toContain('已送出');
+      expect(r?.text).toContain('資料卡');
     });
   });
 });

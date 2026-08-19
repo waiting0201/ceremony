@@ -63,6 +63,13 @@ export interface DialogPrintOptions {
    * 回呼裡**只准顯示訊息**，不得讓任何按鈕回到 disabled。
    */
   onFinal?: (outcome: PrintDialogOutcome) => void;
+  /**
+   * 對話框出現的那一刻回呼一次（helper 的第一行 NDJSON）。
+   *
+   * 存在的唯一理由是**自動選紙的結果要在對話框還開著的時候講**——那是使用者唯一能補救
+   * （自己去對話框選紙）的時機。等到 `onFinal` 才說，紙已經印出去了。
+   */
+  onShown?: (outcome: PrintDialogOutcome) => void;
 }
 
 /**
@@ -121,7 +128,14 @@ export async function printViaDialog(opt: DialogPrintOptions): Promise<{ result:
         Object.assign(acc, parsed);
 
         // ⚠️ 這就是決策 8 的守法：對話框一出現就放行 UI，不等 spooler。
-        if (parsed.shown) settle('printed');
+        if (parsed.shown) {
+          settle('printed');
+          try {
+            opt.onShown?.(acc);
+          } catch {
+            // 呼叫端的顯示邏輯出事不得影響列印通道
+          }
+        }
       }
     });
 
