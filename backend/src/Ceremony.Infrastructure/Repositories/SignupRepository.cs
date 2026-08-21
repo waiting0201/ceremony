@@ -437,6 +437,119 @@ public sealed class SignupRepository(IDbConnectionFactory factory) : ISignupRepo
         }
     }
 
+    /// <summary>
+    /// 移動編號並讓中間區段自動遞補（右鍵「移動插入至…」）。骨架與 <see cref="InsertWithShiftAsync"/> 相同，
+    /// 差別：不新增資料列、不寫 SignupLog，且移動前先在鎖內驗證目標編號落在該群組現有範圍內。
+    /// </summary>
+    public async Task MoveNumberAsync(Guid signupId, int targetNumber, CancellationToken ct = default)
+    {
+        await using var conn = await factory.CreateOpenAsync(ct);
+        using var tx = await ((Microsoft.Data.SqlClient.SqlConnection)conn).BeginTransactionAsync(ct);
+
+        try
+        {
+            // 1. 先取該筆的群組 —— applock 的 resource 名要用到 year/cat/type，故必須先讀。
+            //    ⚠️ 這一句**刻意不加 UPDLOCK/HOLDLOCK**：本表在 (Year,Cat,Type) 上沒有索引，
+            //    所有配號路徑（InsertWithLogAsync / InsertWithShiftAsync / 預繳）都是「先掃群組、再動自己的列」
+            //    這個順序取鎖。先鎖住單列再去掃描等於反序，與並行的配號交易互等 → 死結
+            //    （實測：整套測試併行跑時，預繳載入會偶發 500）。現號改在下面同一次群組掃描裡拿。
+            var row = await conn.QuerySingleOrDefaultAsync<MoveNumberRow>(new CommandDefinition("""
+                SELECT Year, CeremonyCategoryID AS CeremonyCategoryId, SignupType, Number
+                FROM dbo.Signups
+                WHERE SignupID = @SignupId
+                """,
+                new { SignupId = signupId },
+                transaction: tx, cancellationToken: ct));
+
+            if (row is null)
+                throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名資料");
+            if (row.Number is null)
+                throw new DomainException("VALIDATION_INVALID", "此筆報名沒有編號，無法移動");
+
+            // 2. 群組互斥鎖：與 InsertWithShiftAsync / 預繳載入共用 "signup-number:" 命名空間。
+            var lockRc = await conn.ExecuteScalarAsync<int>(new CommandDefinition("""
+                DECLARE @rc int;
+                EXEC @rc = sp_getapplock @Resource = @Resource, @LockMode = 'Exclusive',
+                     @LockOwner = 'Transaction', @LockTimeout = 30000;
+                SELECT @rc;
+                """,
+                new { Resource = $"signup-number:{row.Year}:{row.CeremonyCategoryId}:{row.SignupType}" },
+                transaction: tx, cancellationToken: ct));
+            if (lockRc < 0)
+                throw new DomainException("SIGNUP_BUSY", "另一筆報名編號作業進行中，請稍後再試");
+
+            // 3. 一次掃描同時拿到「群組現有 MIN..MAX」與「該筆在鎖內的現號」——與其他配號路徑一樣
+            //    以群組掃描作為第一個取鎖對象（見上）。目標編號必須落在 MIN..MAX 內
+            //    （2026-08-21 使用者定案：超出就擋下、不 clamp——照字面搬會留下一段空號，與需求相反）。
+            var range = await conn.QuerySingleAsync<NumberRangeRow>(new CommandDefinition("""
+                SELECT
+                  MIN(Number) AS MinNumber,
+                  MAX(Number) AS MaxNumber,
+                  MAX(CASE WHEN SignupID = @SignupId THEN Number END) AS CurrentNumber
+                FROM dbo.Signups WITH (UPDLOCK, HOLDLOCK)
+                WHERE Year = @Year AND CeremonyCategoryID = @Cat AND SignupType = @Type AND Number IS NOT NULL
+                """,
+                new { row.Year, Cat = row.CeremonyCategoryId, Type = row.SignupType, SignupId = signupId },
+                transaction: tx, cancellationToken: ct));
+
+            if (range.CurrentNumber is not { } currentNumber)
+                throw new DomainException("SIGNUP_NOT_FOUND", "找不到報名資料");
+            if (range.MinNumber is not { } min || range.MaxNumber is not { } max)
+                throw new DomainException("VALIDATION_NUMBER_RANGE", "此群組沒有可移動的編號");
+            if (targetNumber < min || targetNumber > max)
+                throw new DomainException("VALIDATION_NUMBER_RANGE", $"目標編號超出範圍（目前 {min}–{max}）");
+
+            if (targetNumber != currentNumber)
+            {
+                // 4. 中間區段讓位（set-based 一句；(Year,Cat,Type,Number) 無 unique index 故無中間衝突）。
+                //    上移 [target, from-1] +1、下移 (from, target] -1。DB 允許重號，故明確排除自己。
+                var shiftSql = targetNumber < currentNumber
+                    ? """
+                      UPDATE dbo.Signups WITH (UPDLOCK, HOLDLOCK)
+                      SET Number = Number + 1
+                      WHERE Year = @Year AND CeremonyCategoryID = @Cat AND SignupType = @Type
+                        AND Number >= @Target AND Number < @Current AND SignupID <> @SignupId
+                      """
+                    : """
+                      UPDATE dbo.Signups WITH (UPDLOCK, HOLDLOCK)
+                      SET Number = Number - 1
+                      WHERE Year = @Year AND CeremonyCategoryID = @Cat AND SignupType = @Type
+                        AND Number > @Current AND Number <= @Target AND SignupID <> @SignupId
+                      """;
+                await conn.ExecuteAsync(new CommandDefinition(
+                    shiftSql,
+                    new
+                    {
+                        row.Year,
+                        Cat = row.CeremonyCategoryId,
+                        Type = row.SignupType,
+                        Target = targetNumber,
+                        Current = currentNumber,
+                        SignupId = signupId,
+                    },
+                    transaction: tx, cancellationToken: ct));
+
+                // 5. 該筆佔據目標編號。刻意不 append SignupLog（同順移列的取捨）。
+                await conn.ExecuteAsync(new CommandDefinition("""
+                    UPDATE dbo.Signups SET Number = @Target WHERE SignupID = @SignupId
+                    """,
+                    new { Target = targetNumber, SignupId = signupId },
+                    transaction: tx, cancellationToken: ct));
+            }
+
+            await tx.CommitAsync(ct);
+        }
+        catch
+        {
+            await tx.RollbackAsync(ct);
+            throw;
+        }
+    }
+
+    private sealed record MoveNumberRow(int Year, Guid CeremonyCategoryId, int SignupType, int? Number);
+
+    private sealed record NumberRangeRow(int? MinNumber, int? MaxNumber, int? CurrentNumber);
+
     /// <summary>在既有交易內插入 Signup + 對應 SignupLog（共用於 InsertWithLogAsync / InsertWithShiftAsync）。</summary>
     private static async Task InsertSignupWithLogRowsAsync(
         System.Data.Common.DbConnection conn,

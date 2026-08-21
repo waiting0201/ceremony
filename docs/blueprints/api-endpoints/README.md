@@ -9,7 +9,7 @@ related_docs:
   - ../../design/api-design.md
   - ../legacy-coverage/README.md
 keywords: [api, endpoint, blueprint, index, 舊系統對照]
-last_updated: 2026-08-06 (補建 get-reports-tablet.md——這支長期只在索引掛「—」沒有 forward 藍圖，趁 `debugGrid` 現場對位校正版一起補齊；索引該列同步指向新藍圖並註記待現場刻度回報。先前 2026-05-27.4)
+last_updated: 2026-08-21 (新增 post-signups-move-number.md（右鍵「移動插入至…」＝移位並讓中間遞補，區別於既有的 insert-shift＝新增一筆）；順手補上索引表長期漏列的 `POST /signups/insert-shift`，並把腐化的「35 個 endpoint」更正為實際路由數 43，同時把仍缺的幾列（signups/duplicates、zipcodes、tablet/sample、health）寫進進度句待下次稽核補齊。先前 2026-08-06 (補建 get-reports-tablet.md——這支長期只在索引掛「—」沒有 forward 藍圖，趁 `debugGrid` 現場對位校正版一起補齊；索引該列同步指向新藍圖並註記待現場刻度回報。先前 2026-05-27.4))
 ---
 
 > 本目錄是規則 A（forward）的落地處：**每個 API endpoint 必須有一份 blueprint**，列出舊系統對照、業務規則、資料存取與驗收標準。
@@ -31,7 +31,7 @@ last_updated: 2026-08-06 (補建 get-reports-tablet.md——這支長期只在�
 
 ## 索引（依舊 Form 分組）
 
-> 進度：**35 個 endpoint shipped**（含全部 5 個單筆列印變體 + batch 同步版 + batch job 版 4 支 + batch plan（大量列印分段） + backup + backup download + logout）。列印 PoC 已確認 **QuestPDF 路徑**（RDLC 在 .NET 10 不可行）；批次列印用 **PdfSharp 6.2.4** 合併；列印 5 變體已產出真實 PDF（worship batch 1..200 → 2634 頁），variant-specific 座標 / worship2.png 背景 / PhotoAddress PNG 仍待印表機實機驗收後精修。Auth 完整含 logout（JWT 黑名單）。
+> 進度：**43 個 endpoint shipped**（＝ Controllers 實際路由數；先前寫 35 已腐化。2026-08-21 順手補上本表漏列的 `POST /signups/insert-shift`，並新增 `POST /signups/:id/move-number`。本表仍缺 `GET /signups/duplicates`、`GET /zipcodes`(+`/cities`)、`GET /reports/tablet/sample`(dev-only)、`GET /health` 幾列，待下次稽核補齊）（含全部 5 個單筆列印變體 + batch 同步版 + batch job 版 4 支 + batch plan（大量列印分段） + backup + backup download + logout）。列印 PoC 已確認 **QuestPDF 路徑**（RDLC 在 .NET 10 不可行）；批次列印用 **PdfSharp 6.2.4** 合併；列印 5 變體已產出真實 PDF（worship batch 1..200 → 2634 頁），variant-specific 座標 / worship2.png 背景 / PhotoAddress PNG 仍待印表機實機驗收後精修。Auth 完整含 logout（JWT 黑名單）。
 
 ### Auth & Admin（LoginForm + MainForm + AdminsForm）
 
@@ -64,6 +64,8 @@ last_updated: 2026-08-06 (補建 get-reports-tablet.md——這支長期只在�
 | `POST /api/v1/signups` | [post-signups.md](post-signups.md) | `NewSignupForm.cs:151-362` | [new-signup-form.md](../legacy-coverage/new-signup-form.md) rows 6,14-18,25 ✅ | **shipped** |
 | `GET /api/v1/signups/:id` | [get-signup-by-id.md](get-signup-by-id.md) | `EditSignupForm.cs:70-73, 562-626` | [edit-signup-form.md](../legacy-coverage/edit-signup-form.md) row 2 ✅ | **shipped** |
 | `PUT /api/v1/signups/:id` | [put-signup.md](put-signup.md) | `EditSignupForm.cs:186-368` | [edit-signup-form.md](../legacy-coverage/edit-signup-form.md) rows 9-13 ✅ | **shipped** |
+| `POST /api/v1/signups/insert-shift` | [post-signups-insert-shift.md](post-signups-insert-shift.md) | (N/A — 舊系統無「插入並順移」；新版增強) | – (新需求；不影響舊 Form coverage) | **shipped** |
+| `POST /api/v1/signups/:id/move-number` | [post-signups-move-number.md](post-signups-move-number.md) | (N/A — 舊系統無「移位並讓中間遞補」；新版增強) | – (新需求；不影響舊 Form coverage) | **shipped** |
 | `DELETE /api/v1/signups/:id` | [delete-signup.md](delete-signup.md) | `SignupForm.cs:405-426` | [signup-form.md](../legacy-coverage/signup-form.md) row 14 ✅ | **shipped** |
 | `GET /api/v1/signups/:id/logs` | [get-signup-logs.md](get-signup-logs.md) | `SignupLogForm.cs:26-45` | [signup-log-form.md](../legacy-coverage/signup-log-form.md) rows 1-2 ✅ | **shipped** |
 | `POST /api/v1/signups/export` | [post-signups-export.md](post-signups-export.md) | `SignupForm.cs:655-728` | [signup-form.md](../legacy-coverage/signup-form.md) row 17 ✅ | **shipped** |

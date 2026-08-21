@@ -832,6 +832,17 @@ export class SignupListPage implements OnInit {
         onClick: (ctx) => this.actionInsertBefore(ctx.triggerRow),
       },
       {
+        id: 'move-number',
+        label: '移動插入至…',
+        icon: 'move-vertical',
+        enabledWhen: (ctx) =>
+          (ctx.selectedRows.length === 1 && ctx.selectedRows[0].number != null) || {
+            enabled: false,
+            reason: '請先選擇 1 筆有編號的資料',
+          },
+        onClick: (ctx) => this.actionMoveNumber(ctx.selectedRows[0]),
+      },
+      {
         id: 'edit',
         label: '修改資料',
         icon: 'pencil',
@@ -906,6 +917,48 @@ export class SignupListPage implements OnInit {
     });
   }
 
+  /**
+   * 「移動插入至…」：把既有的一筆移到同群組內的指定編號，中間區段自動 ±1 讓位。
+   *
+   * 與「在此前插入」的分工——那支是**新增一筆**（總筆數 +1、其後全部 +1），
+   * 本支是**移位**（總筆數不變、只有起訖之間遞補，不留空號）。現場回報用插入做移位
+   * 得「先插新的再刪舊的」，中間必留一個空號，故補這條路徑。
+   *
+   * 範圍檢查刻意**不在前端做**：列表顯示的是搜尋結果、不等於整個群組的編號範圍，
+   * 前端自己判斷會誤擋；一律由後端在 applock 內判定並回帶「目前 N–M」的訊息。
+   */
+  private async actionMoveNumber(item: SignupListItem): Promise<void> {
+    const current = item.number;
+    if (current == null) return;
+
+    const target = await this.confirmDialog.askNumber({
+      title: '移動插入至…',
+      message:
+        `將 ${item.year} ${item.ceremonyTitle ?? ''} ${item.numberTitle ?? ''}-${current} ${item.name ?? ''}\n` +
+        '移到指定編號，中間的編號會自動遞補（總筆數不變、不留空號）。',
+      confirmLabel: '移動',
+      numberInput: {
+        label: '目標編號',
+        initial: current,
+        min: 1,
+        hint: '只在同一年度／法會／報名類型內移動。',
+      },
+    });
+    if (target == null || target === current) return;
+
+    this.errorMessage.set(null);
+    try {
+      const moved = await this.api.moveNumber(item.id, target);
+      await this.search();
+      // 訊息刻意放在重查之後：search() 開頭會把 successMessage 清成 null，先設會被自己蓋掉。
+      this.successMessage.set(
+        `已移動至 ${moved.numberTitle ?? ''}-${moved.number}，中間編號已自動遞補`,
+      );
+    } catch (err) {
+      this.errorMessage.set(toMessage(err));
+    }
+  }
+
   private actionEdit(item: SignupListItem): void {
     this.editOverlay.set({ signupId: item.id, fromSignupId: null });
   }
@@ -978,8 +1031,10 @@ export class SignupListPage implements OnInit {
     this.errorMessage.set(null);
     try {
       for (const item of items) await this.api.remove(item.id);
-      this.successMessage.set(`已刪除 ${items.length} 筆報名資料`);
       await this.search();
+      // 訊息刻意放在重查之後：search() 開頭會把 successMessage 清成 null，先設會被自己蓋掉
+      // （2026-08-21 修：這句「已刪除…」自寫下來就從未真的顯示過）。同 actionMoveNumber。
+      this.successMessage.set(`已刪除 ${items.length} 筆報名資料`);
     } catch (err) {
       this.errorMessage.set(toMessage(err));
     }

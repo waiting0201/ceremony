@@ -39,6 +39,22 @@ public interface ISignupRepository
     Task InsertWithShiftAsync(SignupWriteModel signup, SignupLogWriteModel log, int number, CancellationToken ct = default);
 
     /// <summary>
+    /// 把 <paramref name="signupId"/> 這筆移動到同群組 (Year, CeremonyCategoryID, SignupType) 內的
+    /// <paramref name="targetNumber"/>，中間區段自動讓位：上移時 <c>[target, from-1]</c> 全部 +1、
+    /// 下移時 <c>(from, target]</c> 全部 -1。總筆數不變、不留空號。全程單一交易。
+    /// </summary>
+    /// <remarks>
+    /// 與 <see cref="InsertWithShiftAsync"/> 共用 <c>sp_getapplock</c> resource
+    /// <c>signup-number:{year}:{cat}:{type}</c>（亦與預繳載入共用），UPDATE 加 UPDLOCK/HOLDLOCK 範圍鎖。
+    /// **不寫任何 SignupLog**（移動那筆與被讓位的列都不寫，2026-08-21 使用者定案）：
+    /// SignupLogs.Number 是歷史快照，且避免一次移動在大群組灌進上百筆 log。
+    /// 目標編號超出該群組現有 MIN..MAX → <c>DomainException("VALIDATION_NUMBER_RANGE")</c>（不 clamp）。
+    /// 找不到該筆 → <c>SIGNUP_NOT_FOUND</c>；該筆無編號 → <c>VALIDATION_INVALID</c>；
+    /// applock 逾時（30s）→ <c>SIGNUP_BUSY</c>。target == 現號為 no-op（不報錯）。
+    /// </remarks>
+    Task MoveNumberAsync(Guid signupId, int targetNumber, CancellationToken ct = default);
+
+    /// <summary>
     /// 編輯 Signup（全欄位覆寫，使用 signup.SignupId 為主鍵）+ 同交易插入 SignupLog。
     /// </summary>
     /// <remarks>

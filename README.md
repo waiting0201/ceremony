@@ -56,7 +56,7 @@ npm start
 ```bash
 # 後端
 cd backend
-dotnet test --nologo                            # 全部測試（148 unit + 60 integration，integration 需 DB）
+dotnet test --nologo                            # 全部測試（342 unit + 145 infra + 75 integration，後兩者需 DB）
 dotnet test tests/Ceremony.Application.Tests    # 只跑單元測試（不需 DB）
 dotnet build                                     # build 全部
 
@@ -81,7 +81,7 @@ OpenAPI doc（Development 才開）：http://127.0.0.1:5050/openapi/v1.json
 ## 其他
 
 - **打包成 Windows 安裝檔（Electron + .NET sidecar）**：見 [docs/design/infrastructure.md](docs/design/infrastructure.md)「部署型態」與 [.github/workflows/release.yml](.github/workflows/release.yml)（推 `v*` tag 自動打包）。
-- **API 一覽（29 endpoints）**：[docs/blueprints/api-endpoints/README.md](docs/blueprints/api-endpoints/README.md)
+- **API 一覽（43 endpoints）**：[docs/blueprints/api-endpoints/README.md](docs/blueprints/api-endpoints/README.md)
 - **Secret / 安全規則**：絕不入 repo；dev 走 `dotnet user-secrets`、prod 走 ENV vars。完整規則見 [docs/design/infrastructure.md](docs/design/infrastructure.md)。
 - **開發流程**：動 code 必動 doc、API 走雙向稽核，見 [CLAUDE.md](CLAUDE.md)。
 - **當前進度 / 待辦**：[docs/status.md](docs/status.md)

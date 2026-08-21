@@ -74,6 +74,16 @@ export class SignupApi {
     return firstValueFrom(this.http.post<SignupListItem>(`${this.base}/insert-shift`, body));
   }
 
+  /**
+   * 把該筆移動到同群組內的 targetNumber，中間區段自動 ±1 讓位（總筆數不變、不留空號）。
+   * 對應列表右鍵「移動插入至…」。目標編號超出該群組現有範圍時後端回 400 並帶出目前範圍。
+   */
+  moveNumber(id: string, targetNumber: number): Promise<SignupListItem> {
+    return firstValueFrom(
+      this.http.post<SignupListItem>(`${this.base}/${id}/move-number`, { targetNumber }),
+    );
+  }
+
   update(id: string, body: CreateSignupRequest): Promise<SignupListItem> {
     return firstValueFrom(this.http.put<SignupListItem>(`${this.base}/${id}`, body));
   }

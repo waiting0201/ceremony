@@ -1,9 +1,14 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
+  computed,
+  ElementRef,
   HostListener,
   input,
+  linkedSignal,
   output,
+  viewChild,
   ViewEncapsulation,
 } from '@angular/core';
 import type { ConfirmDialogConfig } from './confirm-dialog.types';
@@ -27,6 +32,23 @@ import type { ConfirmDialogConfig } from './confirm-dialog.types';
         </div>
         <div class="confirm-body">
           <p>{{ config().message }}</p>
+          @if (config().numberInput; as num) {
+            <label class="confirm-number">
+              <span class="confirm-number-label">{{ num.label }}</span>
+              <input
+                #numberBox
+                type="number"
+                inputmode="numeric"
+                [min]="num.min ?? 1"
+                [value]="value() ?? ''"
+                (input)="onNumberInput($event)"
+                (keydown.enter)="onEnter()"
+              />
+            </label>
+            @if (num.hint) {
+              <p class="confirm-number-hint">{{ num.hint }}</p>
+            }
+          }
         </div>
         <div class="confirm-actions">
           @if (!config().hideCancel) {
@@ -40,7 +62,8 @@ import type { ConfirmDialogConfig } from './confirm-dialog.types';
             [class.btn-danger]="config().danger"
             [class.btn-primary]="!config().danger"
             [class.btn-wide]="config().emphasis"
-            (click)="confirm.emit()"
+            [disabled]="!canConfirm()"
+            (click)="onConfirm()"
           >
             {{ config().confirmLabel ?? '確認' }}
           </button>
@@ -88,6 +111,33 @@ import type { ConfirmDialogConfig } from './confirm-dialog.types';
     .confirm-dialog.is-emphasis .confirm-body {
       font-size: 20px;
     }
+    /* 數字輸入格（config.numberInput）：沿用 body 的字級，只在訊息下方多一列。 */
+    .confirm-number {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      margin-top: var(--space-md);
+      input {
+        width: 8rem;
+        padding: 6px 8px;
+        font-family: inherit;
+        font-size: inherit;
+        color: var(--c-text-primary);
+        background: var(--c-surface);
+        border: 1px solid var(--c-border);
+        border-radius: 4px;
+      }
+      input:focus-visible {
+        outline: 2px solid var(--c-accent, var(--c-border));
+        outline-offset: 1px;
+      }
+    }
+    .confirm-number-label { white-space: nowrap; }
+    .confirm-number-hint {
+      margin: var(--space-sm) 0 0;
+      font-size: var(--font-size-sm);
+      color: var(--c-text-secondary);
+    }
     .confirm-actions {
       display: flex;
       justify-content: flex-end;
@@ -111,6 +161,41 @@ export class ConfirmDialogComponent {
   readonly config = input.required<ConfirmDialogConfig>();
   readonly confirm = output<void>();
   readonly cancel = output<void>();
+
+  private readonly numberBox = viewChild<ElementRef<HTMLInputElement>>('numberBox');
+
+  /** 數字輸入格的當前值；`ConfirmDialogService.askNumber()` 在 confirm 時直接讀這格。 */
+  readonly value = linkedSignal<number | null>(() => this.config().numberInput?.initial ?? null);
+
+  /** 有輸入格時，值必須是 >= min 的整數才能按確認（擋掉空白 / 0 / 負數 / 小數）。 */
+  protected readonly canConfirm = computed(() => {
+    const num = this.config().numberInput;
+    if (!num) return true;
+    const v = this.value();
+    return v != null && Number.isInteger(v) && v >= (num.min ?? 1);
+  });
+
+  constructor() {
+    // 開起來就把游標放進數字格：這顆對話框唯一要做的事就是輸入一個數字。
+    afterNextRender(() => {
+      const box = this.numberBox()?.nativeElement;
+      box?.focus();
+      box?.select();
+    });
+  }
+
+  protected onNumberInput(event: Event): void {
+    const raw = (event.target as HTMLInputElement).value.trim();
+    this.value.set(raw === '' ? null : Number(raw));
+  }
+
+  protected onEnter(): void {
+    if (this.canConfirm()) this.confirm.emit();
+  }
+
+  protected onConfirm(): void {
+    if (this.canConfirm()) this.confirm.emit();
+  }
 
   @HostListener('document:keydown.escape')
   protected onEscape(): void {

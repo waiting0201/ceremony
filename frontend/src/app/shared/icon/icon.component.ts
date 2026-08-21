@@ -21,6 +21,7 @@ export type IconName =
   | 'history'
   | 'file-plus'
   | 'insert-above'
+  | 'move-vertical'
   | 'more'
   | 'close'
   | 'database'
@@ -76,6 +77,10 @@ const ICONS: Record<IconName, string> = {
     <path d="M3 5h18"></path>
     <path d="M12 10v9"></path>
     <path d="m8 15 4 4 4-4"></path>`,
+  'move-vertical': `
+    <path d="M12 3v18"></path>
+    <path d="m8 7 4-4 4 4"></path>
+    <path d="m8 17 4 4 4-4"></path>`,
   more: `
     <circle cx="12" cy="5" r="1.4"></circle>
     <circle cx="12" cy="12" r="1.4"></circle>

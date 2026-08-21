@@ -16,6 +16,7 @@ public sealed class SignupsController(
     CheckSignupDuplicatesHandler checkDuplicates,
     CreateSignupHandler create,
     InsertShiftSignupHandler insertShift,
+    MoveSignupNumberHandler moveNumber,
     UpdateSignupHandler update,
     DeleteSignupHandler delete,
     ExportSignupsHandler export) : ControllerBase
@@ -131,6 +132,20 @@ public sealed class SignupsController(
         var result = await insertShift.HandleAsync(request, caller, ct);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
+
+    /// <summary>把一筆報名移動到同群組內的指定編號，中間區段自動 ±1 讓位（列表右鍵「移動插入至…」）</summary>
+    /// <remarks>
+    /// Legacy: 無對應（舊系統改編號遇已佔用號只會被「編號重複」擋下）。新版增強。
+    /// Blueprint: docs/blueprints/api-endpoints/post-signups-move-number.md
+    /// 與 insert-shift 的差別：不新增資料列、總筆數不變、只讓起訖之間的編號遞補，不留空號。
+    /// </remarks>
+    [HttpPost("{id:guid}/move-number")]
+    [ProducesResponseType(typeof(SignupListItem), StatusCodes.Status200OK)]
+    public async Task<ActionResult<SignupListItem>> MoveNumber(
+        Guid id,
+        [FromBody] MoveSignupNumberRequest request,
+        CancellationToken ct)
+        => await moveNumber.HandleAsync(id, request, ct);
 
     /// <summary>編輯報名（全欄位覆寫 + SignupLog 同步寫入）</summary>
     /// <remarks>

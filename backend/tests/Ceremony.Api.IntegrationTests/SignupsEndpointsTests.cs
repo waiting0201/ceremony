@@ -253,6 +253,118 @@ public sealed class SignupsEndpointsTests(CeremonyApiFactory factory) : IClassFi
         logs.Items[0].Number.Should().Be(a + 1);
     }
 
+    /// <summary>
+    /// 移動插入至…（右鍵移位）：上移 / 下移 / 同號 no-op / 超出範圍擋下 / 他群組不受影響 / 不寫歷程。
+    /// </summary>
+    [Fact]
+    public async Task POST_move_number_reorders_within_group_without_leaving_gaps()
+    {
+        var client = await AuthedAsync();
+
+        var believerName = $"itest_mv_{DateTime.UtcNow:yyMMddHHmmssfff}";
+        var believerResp = await client.PostAsJsonAsync("/api/v1/believers", new
+        {
+            employeeType = 1,
+            name = believerName,
+            mailAddress = "整合測試地址",
+        });
+        believerResp.StatusCode.Should().Be(HttpStatusCode.Created);
+        var believer = await believerResp.Content.ReadFromJsonAsync<Application.Believers.BelieverListItem>();
+
+        const int year = 996;                                                    // 專用年份，避開真實資料與 insert-shift 的 997
+        const int signupType = 1;
+        const int otherSignupType = 3;                                           // 同年同法會的另一群組，用來驗證隔離
+        var ceremonyId = Guid.Parse("18927907-dcad-42b2-8f2a-635c2e0fa98d");     // 春季
+
+        object Body(string name, int type = signupType) => new
+        {
+            year,
+            ceremonyCategoryId = ceremonyId,
+            signupType = type,
+            believerId = believer!.Id,
+            name,
+            mailAddress = "整合測試地址",
+        };
+
+        async Task<SignupListItem> CreateAsync(string name, int type = signupType)
+        {
+            var r = await client.PostAsJsonAsync("/api/v1/signups", Body(name, type));
+            r.StatusCode.Should().Be(HttpStatusCode.Created);
+            return (await r.Content.ReadFromJsonAsync<SignupListItem>())!;
+        }
+
+        async Task<int?> NumberOfAsync(Guid id)
+        {
+            var r = await client.GetAsync($"/api/v1/signups/{id}");
+            r.StatusCode.Should().Be(HttpStatusCode.OK);
+            return (await r.Content.ReadFromJsonAsync<SignupListItem>())!.Number;
+        }
+
+        async Task<HttpResponseMessage> MoveAsync(Guid id, int target)
+            => await client.PostAsJsonAsync($"/api/v1/signups/{id}/move-number", new { targetNumber = target });
+
+        // 1. 自動配 5 筆連號 a..a+4（不假設起始值，實測捕捉）
+        var s1 = await CreateAsync("移動測試一");
+        var s2 = await CreateAsync("移動測試二");
+        var s3 = await CreateAsync("移動測試三");
+        var s4 = await CreateAsync("移動測試四");
+        var s5 = await CreateAsync("移動測試五");
+        var a = s1.Number!.Value;
+        s5.Number.Should().Be(a + 4);
+
+        // 另一報名類型的一筆（同年同法會）——移動不該碰到它
+        var other = await CreateAsync("他類型不動", otherSignupType);
+        var otherNumber = other.Number!.Value;
+
+        // 2. 上移：把 a+4 移到 a+1 → 該筆佔 a+1，原 a+1..a+3 各 +1
+        var upResp = await MoveAsync(s5.Id, a + 1);
+        upResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await upResp.Content.ReadFromJsonAsync<SignupListItem>())!.Number.Should().Be(a + 1);
+
+        (await NumberOfAsync(s1.Id)).Should().Be(a, because: "在目標之前，不動");
+        (await NumberOfAsync(s2.Id)).Should().Be(a + 2);
+        (await NumberOfAsync(s3.Id)).Should().Be(a + 3);
+        (await NumberOfAsync(s4.Id)).Should().Be(a + 4);
+        (await NumberOfAsync(s5.Id)).Should().Be(a + 1);
+
+        // 3. 下移：把它移回 a+4 → 原 a+2..a+4 各 -1 補上前面的空號，回到初始狀態
+        (await MoveAsync(s5.Id, a + 4)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await NumberOfAsync(s1.Id)).Should().Be(a);
+        (await NumberOfAsync(s2.Id)).Should().Be(a + 1);
+        (await NumberOfAsync(s3.Id)).Should().Be(a + 2);
+        (await NumberOfAsync(s4.Id)).Should().Be(a + 3);
+        (await NumberOfAsync(s5.Id)).Should().Be(a + 4);
+
+        // 4. 同號 = no-op（不報錯、不動任何列）
+        (await MoveAsync(s5.Id, a + 4)).StatusCode.Should().Be(HttpStatusCode.OK);
+        (await NumberOfAsync(s4.Id)).Should().Be(a + 3);
+        (await NumberOfAsync(s5.Id)).Should().Be(a + 4);
+
+        // 5. 他群組完全不受影響
+        (await NumberOfAsync(other.Id)).Should().Be(otherNumber, because: "SignupType 不同 = 不同編號序列");
+
+        // 6. 超出該群組現有範圍 → 400 VALIDATION_NUMBER_RANGE，且資料完全未動
+        var groupResp = await client.GetAsync($"/api/v1/signups?year={year}&ceremonyCategoryId={ceremonyId}&signupType={signupType}");
+        groupResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var group = (await groupResp.Content.ReadFromJsonAsync<SignupListResponse>())!;
+        var groupMax = group.Items.Max(i => i.Number!.Value);
+
+        var overResp = await MoveAsync(s5.Id, groupMax + 1);
+        overResp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await overResp.Content.ReadAsStringAsync()).Should().Contain("VALIDATION_NUMBER_RANGE");
+        (await NumberOfAsync(s5.Id)).Should().Be(a + 4, because: "擋下時整筆交易 rollback");
+
+        // 7. 目標 ≤ 0 → 400；未知 id → 404
+        (await MoveAsync(s5.Id, 0)).StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        (await MoveAsync(Guid.NewGuid(), a + 1)).StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+        // 8. 移動不寫 SignupLog：被移動那筆仍只有「新增當下」那一筆歷程
+        var logsResp = await client.GetAsync($"/api/v1/signups/{s5.Id}/logs");
+        logsResp.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await logsResp.Content.ReadFromJsonAsync<SignupLogListResponse>())!.Total
+            .Should().Be(1, because: "移動與讓位都刻意不 append 歷程");
+    }
+
     [Fact]
     public async Task Full_signup_lifecycle_create_read_and_logs()
     {

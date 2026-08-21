@@ -11,7 +11,7 @@ related_docs:
   - infrastructure.md
   - security.md
 keywords: [backend, 後端, 服務, 架構, 分層, ASP.NET Core, EF Core, Clean Architecture, vertical slice]
-last_updated: 2026-07-31 (新增報表紙張尺寸 SSoT：Ceremony.Domain.Reports.ReportPageSizes + ReportPageSizeConsistencyTests 鎖住它與各 renderer const 一致，經 X-Report-Page-Size header 供列印通道使用。先前 2026-06-29 (解除 DB 凍結，導入 DbUp migration；ORM 維持 Dapper))
+last_updated: 2026-08-21 (交易邊界新增「報名編號的群組互斥鎖（`signup-number:` applock）」段：把配號/順移/移位/預繳載入四個持有者集中列表，並寫下兩件容易再踩的事——`(Year,Cat,Type,Number)` **刻意不加 unique index**（整段讓位才能一句 set-based UPDATE 做完）、`MoveNumberAsync` 的單列預讀**不可上鎖**〔第一版加了 UPDLOCK/HOLDLOCK 造成與配號交易反序取鎖、預繳載入偶發 500〕、範圍驗證要在鎖內。起因是新增 `POST /signups/{id}/move-number`（右鍵「移動插入至…」）。先前 2026-07-31 (新增報表紙張尺寸 SSoT：Ceremony.Domain.Reports.ReportPageSizes + ReportPageSizeConsistencyTests 鎖住它與各 renderer const 一致，經 X-Report-Page-Size header 供列印通道使用。先前 2026-06-29 (解除 DB 凍結，導入 DbUp migration；ORM 維持 Dapper)))
 ---
 
 ## 已落地骨架（2026-05-27）
@@ -186,6 +186,32 @@ SQL Server
 - **CreateSignupCommand** 透過 `TransactionBehavior` 包覆，三個實體新增在同一 transaction，任一失敗整個 rollback
 - LoadPrepayCommand：原本就單次 SaveChanges → 保留 atomic
 - 跨服務交易（例：寄送 email）採 outbox pattern（目前無此需求）
+
+### 報名編號的群組互斥鎖（`signup-number:` applock）
+
+同一 `(Year, CeremonyCategoryID, SignupType)` 的**配號 / 順移 / 移位 / 預繳載入**共用一把
+`sp_getapplock @Resource='signup-number:{year}:{cat}:{type}'`（`Exclusive` / `Transaction` / 30s，
+逾時 → `SIGNUP_BUSY`），並在範圍 UPDATE 上加 `UPDLOCK/HOLDLOCK`。目前三個持有者：
+
+| 用途 | 進入點 | 對編號做什麼 |
+|---|---|---|
+| 在此前插入 | `SignupRepository.InsertWithShiftAsync` | `Number >= N` 全部 +1，再插入新筆於 N |
+| 移動插入至… | `SignupRepository.MoveNumberAsync` | 起訖之間 ±1 讓位，該筆佔目標號（**不新增列**） |
+| 預繳載入 | `PrepayRepository.InsertPrepayBatchAsync` | 固定編號保號 + 非固定填補空號 |
+
+`(Year, Cat, Type, Number)` **無 unique index**，所以整段順移/讓位可以用一句 set-based UPDATE 完成、
+不必怕中間狀態撞號——這是刻意依賴既有 schema（schema 凍結）的設計，別在這組欄位上加唯一索引。
+
+**取鎖順序是硬性約定**：`(Year, CeremonyCategoryID, SignupType)` 上沒有索引，所以那句
+`SELECT MAX(Number) ... WITH (UPDLOCK, HOLDLOCK) WHERE Year/Cat/Type` 實際是掃描、會在掃過的列上留 U 鎖。
+上表三個持有者一律「**先掃群組、再動自己的列**」——**新增路徑必須沿用同一順序**。
+
+`MoveNumberAsync` 第一版就踩了：它為了知道要鎖哪一把 applock 而先讀該列，且順手加了 `UPDLOCK/HOLDLOCK`
+⇒ 「先鎖單列、再掃描」與其他交易反序 ⇒ 互等死結，症狀是整套測試併行跑時**預繳載入偶發 500**
+（6 次全套 2 次失敗，基準線 5 次全綠）。定案寫法：**單列讀不上鎖**（只為取得 year/cat/type 組出 applock 名），
+取得 applock 後用**同一次群組掃描**一併取回 `MIN/MAX` 與該筆現號
+（`MAX(CASE WHEN SignupID=@id THEN Number END)`）。範圍驗證放在鎖內而非 handler，
+否則併發下驗完到搬完之間範圍可能已經變了。
 
 ## 批次列印背景工作（in-memory job，**2026-07-28**）
 

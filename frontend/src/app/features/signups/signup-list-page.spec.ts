@@ -5,6 +5,9 @@ import type { WritableSignal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import type { SignupListItem } from '../../core/api/signups/signup.models';
 import { resolveItems, type ContextMenuItem } from '../../shared/context-menu/context-menu.types';
+import { ApiError } from '../../core/http/api-error';
+import { SignupApi } from '../../core/api/signups/signup.api';
+import { ConfirmDialogService } from '../../shared/confirm-dialog/confirm-dialog.service';
 import { SignupListPage } from './signup-list-page';
 
 /**
@@ -404,5 +407,180 @@ describe('SignupListPage（右鍵：資料卡依報名類型互斥停用）', ()
         expect(entry(rows, id).enabled).toBe(true);
       }
     }
+  });
+});
+
+
+/**
+ * 右鍵「移動插入至…」（2026-08-21）：把既有一筆移到同群組內的指定編號，中間區段自動遞補。
+ * 與「在此前插入」的分工是這組測試的重點——那支新增一筆、本支只移位（總筆數不變、不留空號）。
+ */
+describe('SignupListPage（右鍵：移動插入至…）', () => {
+  type MenuCtx = { selectedRows: SignupListItem[]; triggerRow: SignupListItem };
+  type Probe = {
+    results: WritableSignal<SignupListItem[]>;
+    buildMenuItems(): ContextMenuItem<MenuCtx>[];
+    successMessage: () => string | null;
+    errorMessage: () => string | null;
+  };
+
+  const row = (id: string, number: number | null): SignupListItem => ({
+    id, year: 113, ceremonyCategoryId: 'c1', ceremonyTitle: '春季', signupType: 1,
+    numberTitle: 'No', number, fee: null, employee: null, employeeType: 1,
+    believerId: `b-${id}`, name: id, hallName: null, phone: null, isFixedNumber: false,
+    livingNames: [], deadNames: [],
+    mailCity: null, mailZone: null, mailZipcode: null, mailAddress: null,
+    textCity: null, textZone: null, textZipcode: null, textAddress: null,
+    prepayYear: null, prepayCeremonyCategoryId: null, prepayCeremonyTitle: null,
+    remark: null, adminName: null, createDate: null,
+  });
+
+  const five = row('s5', 5);
+  const noNumber = row('t1', null);
+
+  const entry = (selectedRows: SignupListItem[]) => {
+    const ctx: MenuCtx = { selectedRows, triggerRow: selectedRows[0] ?? five };
+    const found = resolveItems(p.buildMenuItems(), ctx).find((e) => e.item.id === 'move-number');
+    if (!found) throw new Error('menu item move-number 不存在');
+    return { found, ctx };
+  };
+
+  /** 觸發選單項的 onClick（＝右鍵按下去），回傳它的 promise 以便 await。 */
+  const clickMove = (selectedRows: SignupListItem[]): Promise<void> => {
+    const { found, ctx } = entry(selectedRows);
+    return found.item.onClick(ctx) as unknown as Promise<void>;
+  };
+
+  let p: Probe;
+  let askNumber: ReturnType<typeof vi.fn>;
+  let moveNumber: ReturnType<typeof vi.fn>;
+  let search: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    askNumber = vi.fn().mockResolvedValue(null);
+    moveNumber = vi.fn().mockResolvedValue(row('s5', 2));
+    search = vi.fn().mockResolvedValue({ items: [], total: 0 });
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: ConfirmDialogService, useValue: { ask: vi.fn(), askNumber } },
+        { provide: SignupApi, useValue: { search, moveNumber } },
+      ],
+    });
+    p = TestBed.createComponent(SignupListPage).componentInstance as unknown as Probe;
+    p.results.set([five, noNumber]);
+  });
+
+  it('恰好選 1 筆有編號 → 啟用', () => {
+    expect(entry([five]).found.enabled).toBe(true);
+  });
+
+  it('未選 / 選多筆 / 選到無編號的列 → 停用，理由一致', () => {
+    for (const rows of [[], [five, row('s6', 6)], [noNumber]]) {
+      expect(entry(rows).found.enabled).toBe(false);
+      expect(entry(rows).found.disabledReason).toBe('請先選擇 1 筆有編號的資料');
+    }
+  });
+
+  it('對話框預填目前編號，並只在同群組內移動', async () => {
+    await clickMove([five]);
+    expect(askNumber).toHaveBeenCalledTimes(1);
+    const config = askNumber.mock.calls[0][0];
+    expect(config.numberInput.initial).toBe(5);
+    expect(config.numberInput.min).toBe(1);
+    expect(config.message).toContain('No-5');
+  });
+
+  it('取消對話框 → 不打 API', async () => {
+    askNumber.mockResolvedValue(null);
+    await clickMove([five]);
+    expect(moveNumber).not.toHaveBeenCalled();
+  });
+
+  it('輸入與目前相同的編號 → 不打 API（no-op 不必往返後端）', async () => {
+    askNumber.mockResolvedValue(5);
+    await clickMove([five]);
+    expect(moveNumber).not.toHaveBeenCalled();
+  });
+
+  it('輸入目標編號 → 呼叫 moveNumber 並重查列表', async () => {
+    askNumber.mockResolvedValue(2);
+    await clickMove([five]);
+    expect(moveNumber).toHaveBeenCalledWith('s5', 2);
+    expect(search).toHaveBeenCalledTimes(1);
+    expect(p.successMessage()).toContain('No-2');
+  });
+
+  it('後端擋下（超出範圍）→ 顯示後端訊息、不重查', async () => {
+    askNumber.mockResolvedValue(99);
+    moveNumber.mockRejectedValue(
+      new ApiError(400, 'VALIDATION_NUMBER_RANGE', '目標編號超出範圍（目前 1–10）'),
+    );
+    await clickMove([five]);
+    expect(p.errorMessage()).toContain('目標編號超出範圍');
+    expect(search).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * 回歸鎖（2026-08-21 修）：`search()` 開頭會把 `successMessage` 清成 null，
+ * 所以任何「成功訊息 + 重查列表」的動作都必須**先重查、後設訊息**。
+ * 刪除那句「已刪除 N 筆報名資料」原本寫在 `await this.search()` 之前，等於從未顯示過。
+ */
+describe('SignupListPage（成功訊息不能被自己的重查蓋掉）', () => {
+  type MenuCtx = { selectedRows: SignupListItem[]; triggerRow: SignupListItem };
+  type Probe = {
+    results: WritableSignal<SignupListItem[]>;
+    buildMenuItems(): ContextMenuItem<MenuCtx>[];
+    successMessage: () => string | null;
+  };
+
+  const row = (id: string): SignupListItem => ({
+    id, year: 113, ceremonyCategoryId: 'c1', ceremonyTitle: '春季', signupType: 1,
+    numberTitle: 'No', number: 3, fee: null, employee: null, employeeType: 1,
+    believerId: `b-${id}`, name: id, hallName: null, phone: null, isFixedNumber: false,
+    livingNames: [], deadNames: [],
+    mailCity: null, mailZone: null, mailZipcode: null, mailAddress: null,
+    textCity: null, textZone: null, textZipcode: null, textAddress: null,
+    prepayYear: null, prepayCeremonyCategoryId: null, prepayCeremonyTitle: null,
+    remark: null, adminName: null, createDate: null,
+  });
+
+  const target = row('d1');
+
+  let p: Probe;
+  let ask: ReturnType<typeof vi.fn>;
+  let remove: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    ask = vi.fn().mockResolvedValue(true);
+    remove = vi.fn().mockResolvedValue(undefined);
+
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        provideRouter([]),
+        { provide: ConfirmDialogService, useValue: { ask, askNumber: vi.fn() } },
+        {
+          provide: SignupApi,
+          useValue: { search: vi.fn().mockResolvedValue({ items: [], total: 0 }), remove },
+        },
+      ],
+    });
+    p = TestBed.createComponent(SignupListPage).componentInstance as unknown as Probe;
+    p.results.set([target]);
+  });
+
+  it('刪除成功後「已刪除 N 筆」真的留在畫面上（不被 search() 清掉）', async () => {
+    const ctx: MenuCtx = { selectedRows: [target], triggerRow: target };
+    const item = p.buildMenuItems().find((i) => i.id === 'delete')!;
+    await (item.onClick(ctx) as unknown as Promise<void>);
+
+    expect(remove).toHaveBeenCalledWith('d1');
+    expect(p.successMessage()).toBe('已刪除 1 筆報名資料');
   });
 });

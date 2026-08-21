@@ -77,3 +77,9 @@ public sealed record SignupDuplicateItem(
     string? Name);
 
 public sealed record SignupDuplicateListResponse(IReadOnlyList<SignupDuplicateItem> Items, int Total);
+
+/// <summary>
+/// 「移動插入至…」的 request body：把某筆報名移動到同群組內的指定編號，中間區段自動 ±1 讓位。
+/// </summary>
+/// <remarks>新版增強，legacy 無。詳見 docs/blueprints/api-endpoints/post-signups-move-number.md。</remarks>
+public sealed record MoveSignupNumberRequest(int? TargetNumber);
